@@ -1,0 +1,30 @@
+# Python-Interne Cache-Ordner und temporäre Dateien
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtuelle Umgebungen (falls du eine nutzt)
+.venv/
+venv/
+ENV/
+env/
+
+# Windows Systemdateien
+Thumbs.db
+desktop.ini
+
+# IDE-spezifische Daten von Antigravity
+.agents/data/
+
+# Datenbanken (SQLite) und Anwendungsdaten
+*.db
+*.sqlite
+Data/Starfield_LOH.db
+
+# Protokolle und Logs
+*.log
+Logs/
+
+# Backups
+Backups/

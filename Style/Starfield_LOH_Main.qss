@@ -1,0 +1,49 @@
+/* Hauptfenster Hintergrund */
+QMainWindow, QStackedWidget#content_area {
+    background-color: rgb(13, 13, 13);
+    color: #eeeeee;
+}
+
+/* Sidebar Bereich */
+QFrame#sidebar {
+    background-color: rgb(33, 33, 33);
+    border-right: 1px solid #444444;
+}
+
+/* Unsere Custom Menü-Buttons */
+QPushButton#menu_button {
+    background-color: transparent;
+    color: #bbbbbb;
+    border: none;
+    font-size: 16px;
+    font-family: "Segoe UI", Arial;
+
+    /* --- ZENTRALE DEFINITION DER ABSTÄNDE --- */
+    /* Abstand vom linken Rand zum Icon */
+    qproperty-padding_left: 16;
+    
+    /* Abstand vom Icon zum Text */
+    qproperty-spacing_text: 16; 
+}
+
+QPushButton#menu_button:hover {
+    background-color: #444444;
+    color: white;
+}
+
+QPushButton#menu_button QLabel {
+    background: transparent;
+}
+
+QLabel {
+    color: #888888;
+}
+
+/* Aktiver Menü-Button */
+QPushButton#menu_button[active="true"] {
+    background-color: #304C7A; /* Starfield Blau */
+}
+
+QPushButton#menu_button[active="true"] QLabel {
+    color: #ECECEC;
+}

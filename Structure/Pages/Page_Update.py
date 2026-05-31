@@ -1,0 +1,138 @@
+import os
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QTextEdit, QLabel
+from PySide6.QtCore import Qt, Signal
+
+from Structure.Workers import TaskWorker
+from Structure.Starfield_Check_New import run_local_check
+from Structure.Starfield_Check_Deleted import run_deleted_check
+from Structure.Bethesda_Fetch import run_fetch
+from Structure.Starfield_LOH_Reset import reset_database
+from Structure.Nexus_Fetch import run_nexus_fetch
+
+
+class Page_Update(QWidget):
+    data_updated = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.layout.setSpacing(15)
+
+        title = QLabel("Update & Debug-Funktionen")
+        title.setStyleSheet("font-size: 24px; font-weight: bold;")
+        self.layout.addWidget(title)
+
+        # Button für den Check
+        self.btn_local_check = QPushButton("Starfield Check (Local Backup & Read) starten")
+        self.btn_local_check.setMinimumHeight(40)
+        self.btn_local_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_local_check.clicked.connect(self.start_local_check)
+        self.layout.addWidget(self.btn_local_check)
+
+        # Button für gelöschte Mods Check
+        self.btn_deleted_check = QPushButton("Starfield Check Deleted (Prüfen auf gelöschte Mods) starten")
+        self.btn_deleted_check.setMinimumHeight(40)
+        self.btn_deleted_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_deleted_check.clicked.connect(self.start_deleted_check)
+        self.layout.addWidget(self.btn_deleted_check)
+
+        # Button für den Fetch (Creations)
+        self.btn_fetch = QPushButton("Nach Updates für Creations suchen (Online Fetch)")
+        self.btn_fetch.setMinimumHeight(40)
+        self.btn_fetch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fetch.clicked.connect(self.start_fetch)
+        self.layout.addWidget(self.btn_fetch)
+
+        # Button für den Fetch (Nexus)
+        self.btn_nexus_fetch = QPushButton("Nexus Mods Daten & Bilder aktualisieren (Online Nexus Fetch)")
+        self.btn_nexus_fetch.setMinimumHeight(40)
+        self.btn_nexus_fetch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_nexus_fetch.clicked.connect(self.start_nexus_fetch)
+        self.layout.addWidget(self.btn_nexus_fetch)
+
+        # Button für den Reset
+        self.btn_db_reset = QPushButton("Datenbank zurücksetzen (Bewegungsdaten löschen)")
+        self.btn_db_reset.setMinimumHeight(40)
+        self.btn_db_reset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_db_reset.clicked.connect(self.start_db_reset)
+        self.layout.addWidget(self.btn_db_reset)
+
+        # Log-Fenster
+        log_label = QLabel("Protokoll-Ausgabe:")
+        self.layout.addWidget(log_label)
+
+        self.log_output = QTextEdit()
+        self.log_output.setReadOnly(True)
+        self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; padding: 10px;")
+        self.layout.addWidget(self.log_output)
+
+    def start_local_check(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_local_check, start_message="Thread gestartet: Lokaler Starfield Check...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
+    def start_deleted_check(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_deleted_check, start_message="Thread gestartet: Starfield Check Deleted...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
+    def start_fetch(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_fetch, start_message="Thread gestartet: Bethesda Fetch...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
+    def start_nexus_fetch(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_nexus_fetch, start_message="Thread gestartet: Nexus Mods Fetch...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
+    def start_db_reset(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(reset_database, start_message="Thread gestartet: Datenbank-Reset...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
+    def set_buttons_enabled(self, enabled):
+        self.btn_local_check.setEnabled(enabled)
+        self.btn_deleted_check.setEnabled(enabled)
+        self.btn_fetch.setEnabled(enabled)
+        self.btn_nexus_fetch.setEnabled(enabled)
+        self.btn_db_reset.setEnabled(enabled)
+
+    def append_log(self, text):
+        self.log_output.append(text)
+        # Auto-scroll zum Ende
+        scrollbar = self.log_output.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+    def process_finished(self, success):
+        self.set_buttons_enabled(True)
+        if success:
+            self.log_output.append("\n--> Prozess erfolgreich abgeschlossen.")
+            self.data_updated.emit()
+        else:
+            self.log_output.append("\n--> Prozess mit Fehlern beendet.")
+

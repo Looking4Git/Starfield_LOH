@@ -1,0 +1,380 @@
+/* =========================================================
+   Generelle Tabellen (Master-View)
+   ========================================================= */
+QTableView, QTreeView {
+    background-color: #ECECEC; /* Heller Hintergrund nach Vorgabe [cite: 1, 2] */
+    color: #1e1e1e;
+    gridline-color: #d0d0d0;
+    border: 1px solid #1a1a1a; /* Zurück auf 1px dicke, aber dunkel */
+    outline: none; /* Entfernt den Fokus-Rahmen um Text  */
+}
+
+/* Direkte Formatierung der Tabellenzellen bei Auswahl */
+QTableView::item:selected, QListView::item:selected, QTreeView::item:selected {
+    background-color: #304C7A; /* Starfield Blau  */
+    color: #ffffff;            /* Weißer Text bei Selektion  */
+}
+
+/* Optional: Korrektur für den Fokus-Zustand, damit Blau erhalten bleibt */
+QTableView::item:selected:active, QListView::item:selected:active, QTreeView::item:selected:active {
+    background-color: #304C7A;
+}
+
+QTableView::item:selected:!active, QListView::item:selected:!active, QTreeView::item:selected:!active {
+    background-color: #304C7A;
+    color: #ffffff;
+}
+
+/* Header im Dark Mode Design */
+QHeaderView::section {
+    background-color: #2b2b2b;
+    color: #ECECEC; /* Starfield Weiß */
+    padding: 6px;
+    border: 1px solid #1a1a1a;
+    font-weight: bold;
+}
+
+/* Markierung bei Spaltensortierung */
+QHeaderView::up-arrow {
+    image: url(Graphics/Icon_Arrow_Up.svg);
+    width: 14px; height: 14px;
+    padding-right: 5px;
+}
+
+QHeaderView::down-arrow {
+    image: url(Graphics/Icon_Arrow_Down.svg);
+    width: 14px; height: 14px;
+    padding-right: 5px;
+}
+
+QHeaderView::section:horizontal:pressed {
+    color: #D7A64B; /* Starfield Gelb beim Klicken */
+}
+
+
+/* =========================================================
+   Scrollbars (Dark Mode Style)
+   ========================================================= */
+/* Vertikale Scrollbar */
+QScrollBar:vertical {
+    border: none;
+    background: #2b2b2b;
+    width: 16px;
+    margin: 16px 0px 16px 0px;
+}
+
+QTableView QScrollBar:vertical, QTreeView QScrollBar:vertical {
+    background: #2b2b2b; /* Fester Hintergrund für Tabellen, da deren Scrollbars bei Nichtbedarf ohnehin komplett verschwinden */
+}
+
+QScrollBar::handle:vertical {
+    background: #304C7A;
+    min-height: 20px;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #5b7a9e;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: #2b2b2b;
+    border: none;
+}
+
+QScrollBar::sub-line:vertical {
+    background: #2b2b2b; /* Square dark container perfectly covers corners */
+    border: none;
+    height: 16px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:vertical {
+    background: #304C7A; /* Rounded inner button */
+    border-radius: 4px;
+    margin: 2px;
+    image: none; /* Verhindert das Standard-Pfeilsymbol */
+}
+
+QScrollBar::up-arrow:vertical:hover {
+    background: #5b7a9e;
+}
+
+QScrollBar::add-line:vertical {
+    background: #2b2b2b; /* Square dark container */
+    border: none;
+    height: 16px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::down-arrow:vertical {
+    background: #304C7A;
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::down-arrow:vertical:hover {
+    background: #5b7a9e;
+}
+
+/* Horizontale Scrollbar */
+QScrollBar:horizontal {
+    border: none;
+    background: #2b2b2b;
+    height: 16px;
+    min-height: 16px;
+    max-height: 16px;
+    margin: 0px 16px 0px 16px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #304C7A;
+    min-width: 20px;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #5b7a9e;
+}
+
+QScrollBar::sub-line:horizontal {
+    background: #2b2b2b; /* Square dark container */
+    border: none;
+    width: 16px;
+    subcontrol-position: left;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::left-arrow:horizontal {
+    background: #304C7A;
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::left-arrow:horizontal:hover {
+    background: #5b7a9e;
+}
+
+QScrollBar::add-line:horizontal {
+    background: #2b2b2b; /* Square dark container */
+    border: none;
+    width: 16px;
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::right-arrow:horizontal {
+    background: #304C7A;
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::right-arrow:horizontal:hover {
+    background: #5b7a9e;
+}
+
+QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
+    background: #2b2b2b;
+    border: none;
+}
+
+/* =========================================================
+   Detail-View Container
+   ========================================================= */
+#detail_view,
+#scroll_area_detail,
+#scroll_area_detail > QWidget {
+    background-color: transparent;
+}
+
+#detail_view QLabel {
+    color: #e0e0e0; 
+}
+
+/* =========================================================
+   Überschriften und Trennlinien im Detail-View (NEU)
+   ========================================================= */
+#detail_view QLabel#lbl_filter,
+#detail_view QLabel#lbl_details {
+    color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
+    font-size: 16px;
+    font-weight: bold;
+}
+
+QFrame#detail_separator {
+    background-color: #304C7A;
+    height: 4px;
+    border: none;
+}
+
+#lbl_components_label, #lbl_creation_categories_label {
+    margin: 6px 0px 0px 0px;
+    padding: 0px;
+    border: none;
+}
+
+/* =========================================================
+   Eingabefelder im Detail-View
+   ========================================================= */
+#detail_view QLineEdit, 
+#detail_view QComboBox,
+#detail_view QTextEdit,
+#detail_view QListView {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #888888;
+    padding: 4px 8px;
+    border-radius: 2px;
+}
+
+#detail_view QTreeView {
+    border: none;
+}
+
+#detail_view QLineEdit:read-only {
+    background-color: #D7A64B; 
+    color: #000000;
+}
+
+/* =========================================================
+   Komboboxen im Detail-View
+   ========================================================= */
+QComboBox {
+    border: 1px solid #888888;
+    border-radius: 2px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 32px;
+    background-color: #304C7A;
+    border: none;
+}
+
+QComboBox::down-arrow {
+    image: url(Graphics/Icon_Arrow_Down.svg);
+    width: 14px;
+    height: 14px;
+    subcontrol-origin: content;
+    subcontrol-position: center;
+}
+
+QComboBox::drop-down:hover {
+    background-color: #5b7a9e;
+}
+
+/* =========================================================
+   Assessment Sterne
+   ========================================================= */
+#detail_view QLabel#lbl_assessment_stars {
+    color: #D7A64B;
+    font-size: 16px;
+}
+
+/* =========================================================
+   Buttons in Pages
+   ========================================================= */
+QPushButton {
+    background-color: #304C7A;
+    color: #ECECEC;
+    border: none;
+    padding: 4px 12px 4px 4px; /* 4px oben/unten/links, um exakt die Höhe der Dropdowns (welche padding: 4px haben) zu treffen */
+    border-radius: 2px;
+}
+
+QPushButton:hover {
+    background-color: #5b7a9e;
+}
+
+/* =========================================================
+   Unsichtbarer Rollbalken (wenn nicht benötigt, aber reserviert)
+   ========================================================= */
+QScrollBar:vertical[needed="false"] {
+    background-color: transparent;
+    background: transparent;
+}
+QScrollBar::sub-line:vertical[needed="false"],
+QScrollBar::add-line:vertical[needed="false"] {
+    background-color: transparent;
+    background: transparent;
+    border: none;
+}
+QScrollBar::up-arrow:vertical[needed="false"],
+QScrollBar::down-arrow:vertical[needed="false"] {
+    background-color: transparent;
+    background: transparent;
+}
+QScrollBar::add-page:vertical[needed="false"],
+QScrollBar::sub-page:vertical[needed="false"] {
+    background-color: transparent;
+    background: transparent;
+}
+QScrollBar::handle:vertical[needed="false"] {
+    background-color: transparent;
+    background: transparent;
+}
+
+/* =========================================================
+   Dialoge und MessageBoxen (Dark Mode)
+   ========================================================= */
+QDialog, QMessageBox {
+    background-color: rgb(13, 13, 13);
+    color: #ECECEC;
+}
+
+QDialog QLabel, QMessageBox QLabel {
+    color: #ECECEC;
+    font-size: 13px;
+}
+
+/* Sicherstellen, dass Buttons in QMessageBoxen dem Design entsprechen */
+QDialog QPushButton, QMessageBox QPushButton {
+    background-color: #304C7A;
+    color: #ECECEC;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 2px;
+    font-size: 13px;
+    min-width: 75px;
+}
+
+QDialog QPushButton:hover, QMessageBox QPushButton:hover {
+    background-color: #5b7a9e;
+}
+
+/* =========================================================
+   Tabellen Checkbox-Indikatoren (High Contrast & Custom Checkmark)
+   ========================================================= */
+QTableView::indicator, QTreeView::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #5b7a9e;
+    background-color: #ffffff;
+    border-radius: 2px;
+}
+
+/* Wenn markiert, blenden wir unser schönes Starfield-Blaues SVG ein */
+QTableView::indicator:checked, QTreeView::indicator:checked {
+    image: url(Graphics/Icon_Check.svg);
+    background-color: #ffffff;
+}
+
+/* Wenn unmarkiert, stellen wir sicher, dass es ein leerer weißer Kasten bleibt */
+QTableView::indicator:unchecked, QTreeView::indicator:unchecked {
+    image: none;
+    background-color: #ffffff;
+}
+
+/* Selektions-Status: Etwas kräftigerer Rahmen bei ausgewählter Zeile */
+QTableView::indicator:selected, QTreeView::indicator:selected {
+    border: 1px solid #ffffff;
+}

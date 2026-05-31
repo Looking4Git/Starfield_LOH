@@ -1,0 +1,113 @@
+CREATE TABLE sqlite_sequence(name,seq)
+CREATE TABLE "Platforms" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Categories_LOH" (
+	"ID"	INTEGER NOT NULL,
+	"Position"	INTEGER NOT NULL UNIQUE,
+	"Name"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Mods_Components" (
+	"Mod_ID" INTEGER NOT NULL,
+	"Component_ID" INTEGER NOT NULL,
+	PRIMARY KEY("Mod_ID", "Component_ID"),
+	FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Mods_Category_Creations" (
+	"ID_Mod" INTEGER NOT NULL,
+	"ID_Category_Creations" INTEGER NOT NULL,
+	PRIMARY KEY("ID_Mod", "ID_Category_Creations"),
+	FOREIGN KEY("ID_Category_Creations") REFERENCES "Categories_Creations"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Assessments" (
+	"ID"	INTEGER NOT NULL,
+	"Description"	TEXT NOT NULL,
+	"Number_of_Stars"	INTEGER,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Categories_Creations" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	"ID_Category_LOH"	INTEGER,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("ID_Category_LOH") REFERENCES "Categories_LOH"("ID")
+)
+CREATE TABLE "Mods_Requirements" (
+	"ID_Mod"	INTEGER NOT NULL,
+	"ID_Mod_Requirement"	INTEGER NOT NULL,
+	PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
+	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "LoadOrder" (
+	"ID_Profile"	INTEGER NOT NULL,
+	"ID_Component"	INTEGER NOT NULL,
+	"Position"	INTEGER NOT NULL UNIQUE,
+	"Is_Active"	INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY("ID_Component","ID_Profile"),
+	FOREIGN KEY("ID_Component") REFERENCES "Components"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Mods_State" (
+	"ID"	INTEGER NOT NULL,
+	"State"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Profiles" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT,
+	"Description"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Components" (
+	"ID"	INTEGER NOT NULL,
+	"File"	TEXT NOT NULL,
+	"Is_Masterfile"	INTEGER DEFAULT 0,
+	"Is_Blueprint"	INTEGER DEFAULT 0,
+	"Pointer_REFR"	INTEGER DEFAULT 0,
+	"Pointer_ACHR"	INTEGER DEFAULT 0,
+	"Pointer_PKIN"	INTEGER DEFAULT 0,
+	"Filedate_Last_Check"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "System_Components" (
+	"ID"	INTEGER NOT NULL,
+	"File"	TEXT NOT NULL UNIQUE,
+	"Friendly_Name"	TEXT,
+	"Author"	TEXT,
+	"Description"	TEXT,
+	"Pointer_REFR"	INTEGER DEFAULT 0,
+	"Pointer_ACHR"	INTEGER DEFAULT 0,
+	"Pointer_PKIN"	INTEGER DEFAULT 0,
+	"Filedate_Last_Check"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Mods" (
+	"ID"	INTEGER NOT NULL,
+	"Platform"	INTEGER NOT NULL,
+	"URL"	TEXT,
+	"ID_ContentCatalog"	TEXT,
+	"Name_ContentCatalog"	TEXT,
+	"Name_Online"	TEXT,
+	"Author"	TEXT,
+	"Description"	TEXT,
+	"Image"	BLOB,
+	"Category_LOH"	INTEGER,
+	"Assessment"	INTEGER DEFAULT 4,
+	"Note"	TEXT,
+	"Date_installed"	TEXT,
+	"Version_installed"	TEXT,
+	"Date_available"	TEXT,
+	"Version_available"	TEXT,
+	"Version_Descriptiopn"	TEXT,
+	"State"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Assessment") REFERENCES "Assessments"("ID"),
+	FOREIGN KEY("Category_LOH") REFERENCES "Categories_LOH"("ID"),
+	FOREIGN KEY("Platform") REFERENCES "Platforms"("ID"),
+	FOREIGN KEY("State") REFERENCES "Mods_State"("ID")
+)

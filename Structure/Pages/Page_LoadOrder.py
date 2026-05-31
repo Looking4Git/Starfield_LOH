@@ -10,17 +10,17 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Database import (get_profiles, get_load_order, update_load_order_active,
                                  get_lookup_data, get_creation_categories_for_ui,
                                  create_profile, copy_profile, delete_profile,
-                                 update_mod_category_and_note)
+                                 update_mod_category_and_note, update_profile_description)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.ProfileDialog import ProfileDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
-
 class Page_LoadOrder(QWidget):
     data_updated = Signal()
 
     def __init__(self):
         super().__init__()
         self._loading_data = False
+        self.current_profile_id = None
         self.setup_ui()
         self.load_lookups()
 
@@ -92,6 +92,8 @@ class Page_LoadOrder(QWidget):
         
         self.tree_profile = ui.findChild(QTreeView, "tree_profile")
         self.inp_profile_desc = ui.findChild(QTextEdit, "inp_profile_desc")
+        if self.inp_profile_desc:
+            self.inp_profile_desc.setReadOnly(False)
         
         self.profile_model = QStandardItemModel()
         self.tree_profile.setModel(self.profile_model)
@@ -167,8 +169,12 @@ class Page_LoadOrder(QWidget):
         if hasattr(self, 'btn_delete_profile') and self.btn_delete_profile:
             self.btn_delete_profile.setEnabled(has_sel)
             
+        # Erst Beschreibung des zuvor ausgewählten Profils sichern
+        self.save_profile_description()
+            
         if not indexes:
             self.inp_profile_desc.clear()
+            self.current_profile_id = None
             self.load_data()
             return
             
@@ -178,6 +184,7 @@ class Page_LoadOrder(QWidget):
             profile_data = item.data(Qt.ItemDataRole.UserRole + 2)
             if profile_data:
                 self.inp_profile_desc.setPlainText(profile_data.get("Description") or "")
+                self.current_profile_id = profile_data.get("ID")
         
         self.load_data()
 
@@ -219,6 +226,7 @@ class Page_LoadOrder(QWidget):
             self.tree_profile.setCurrentIndex(self.profile_model.index(0, 0))
         else:
             self.inp_profile_desc.clear()
+            self.current_profile_id = None
             self.load_data()
         self.tree_profile.blockSignals(False)
 
@@ -324,6 +332,7 @@ class Page_LoadOrder(QWidget):
         if reply:
             if delete_profile(profile_id):
                 self.show_message_box("Erfolg", f"Profil '{name}' wurde erfolgreich gelöscht.", QMessageBox.Icon.Information)
+                self.current_profile_id = None
                 self.load_lookups()
             else:
                 self.show_message_box("Fehler", "Konnte das Profil nicht aus der Datenbank löschen.", QMessageBox.Icon.Critical)
@@ -521,6 +530,38 @@ class Page_LoadOrder(QWidget):
     def discard_detail_data(self):
         """Verwirft ungespeicherte Änderungen und stellt die Originaldaten wieder her."""
         self.on_row_selected(None, None)
+
+    def save_profile_description(self):
+        """Speichert die Profilbeschreibung ab, falls sich diese geändert hat."""
+        if not hasattr(self, 'current_profile_id') or self.current_profile_id is None:
+            return
+            
+        # Suche das Item in dem profile_model für die aktuelle ID
+        target_item = None
+        for r in range(self.profile_model.rowCount()):
+            item = self.profile_model.item(r, 0)
+            if item and item.data(Qt.ItemDataRole.UserRole) == self.current_profile_id:
+                target_item = item
+                break
+                
+        if not target_item:
+            return
+            
+        profile_data = target_item.data(Qt.ItemDataRole.UserRole + 2)
+        old_desc = (profile_data.get("Description") or "") if profile_data else ""
+        new_desc = self.inp_profile_desc.toPlainText()
+        
+        if old_desc != new_desc:
+            if update_profile_description(self.current_profile_id, new_desc):
+                logging.info(f"Profil-Beschreibung für Profil ID {self.current_profile_id} erfolgreich aktualisiert.")
+                if profile_data:
+                    profile_data["Description"] = new_desc
+                    target_item.setData(profile_data, Qt.ItemDataRole.UserRole + 2)
+
+    def hideEvent(self, event):
+        """Speichert die Profilbeschreibung, wenn das Widget ausgeblendet wird."""
+        self.save_profile_description()
+        super().hideEvent(event)
 
     def save_detail_data(self, reload_table=True):
         mod_id = self.current_mod_id

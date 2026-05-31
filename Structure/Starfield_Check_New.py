@@ -649,10 +649,14 @@ def run_local_check(log_signal):
                     dry_run_components.add(filename.lower())
                     
                     # Neuen unbekannten Mod in DB einfügen (State = 1 für 'installiert')
+                    note_val = None
+                    if filename.lower().endswith('.esp'):
+                        note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .eps Plugin!"
+
                     cursor.execute("""
-                        INSERT INTO Mods (Platform, Name_ContentCatalog, State)
-                        VALUES (3, ?, 1)
-                    """, (filename,))
+                        INSERT INTO Mods (Platform, Name_ContentCatalog, State, Note)
+                        VALUES (3, ?, 1, ?)
+                    """, (filename, note_val))
                     mod_id = cursor.lastrowid
                     
                     # Komponente in DB einfügen

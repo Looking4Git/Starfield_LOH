@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from Structure.Workers import TaskWorker
 from Structure.Starfield_Check_New import run_local_check
 from Structure.Starfield_Check_Deleted import run_deleted_check
+from Structure.LOH_Check_LoadOrder import run_load_order_check
 from Structure.Bethesda_Fetch import run_fetch
 from Structure.Starfield_LOH_Reset import reset_database
 from Structure.Nexus_Fetch import run_nexus_fetch
@@ -39,6 +40,13 @@ class Page_Update(QWidget):
         self.btn_deleted_check.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_deleted_check.clicked.connect(self.start_deleted_check)
         self.layout.addWidget(self.btn_deleted_check)
+
+        # Button für den LoadOrder-Check
+        self.btn_load_order_check = QPushButton("Load Order abgleichen & bereinigen (Profile checken) starten")
+        self.btn_load_order_check.setMinimumHeight(40)
+        self.btn_load_order_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_load_order_check.clicked.connect(self.start_load_order_check)
+        self.layout.addWidget(self.btn_load_order_check)
 
         # Button für den Fetch (Creations)
         self.btn_fetch = QPushButton("Nach Updates für Creations suchen (Online Fetch)")
@@ -88,6 +96,15 @@ class Page_Update(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
+    def start_load_order_check(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_load_order_check, start_message="Thread gestartet: Load Order Check & Re-Sequence...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
     def start_fetch(self):
         self.set_buttons_enabled(False)
         self.log_output.clear()
@@ -118,6 +135,7 @@ class Page_Update(QWidget):
     def set_buttons_enabled(self, enabled):
         self.btn_local_check.setEnabled(enabled)
         self.btn_deleted_check.setEnabled(enabled)
+        self.btn_load_order_check.setEnabled(enabled)
         self.btn_fetch.setEnabled(enabled)
         self.btn_nexus_fetch.setEnabled(enabled)
         self.btn_db_reset.setEnabled(enabled)

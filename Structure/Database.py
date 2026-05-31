@@ -292,7 +292,7 @@ def get_creation_categories_for_ui(mod_id: int) -> list[dict]:
 
 def get_profiles() -> list[dict]:
     """Holt alle angelegten Profile aus der Tabelle Profiles."""
-    query = "SELECT ID, Name, Description FROM Profiles ORDER BY Name"
+    query = "SELECT ID, Name, Description FROM Profiles ORDER BY ID"
     conn = None
     try:
         conn = get_db_connection()
@@ -446,7 +446,11 @@ def ensure_component_registered(filename: str) -> int:
             return row[0]
             
         # 1. Neuen Mod anlegen (State = 1, Platform = 3)
-        cursor.execute("INSERT INTO Mods (Platform, Name_ContentCatalog, State) VALUES (3, ?, 1)", (filename,))
+        note_val = None
+        if filename.lower().endswith('.esp'):
+            note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .eps Plugin!"
+            
+        cursor.execute("INSERT INTO Mods (Platform, Name_ContentCatalog, State, Note) VALUES (3, ?, 1, ?)", (filename, note_val))
         mod_id = cursor.lastrowid
         
         # 2. Komponente anlegen
@@ -484,6 +488,23 @@ def update_mod_category_and_note(mod_id: int, category_id: int, note: str) -> bo
         return True
     except sqlite3.Error as e:
         logging.error(f"Fehler beim Update von Kategorie/Notiz für Mod ID {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_profile_description(profile_id: int, description: str) -> bool:
+    """Aktualisiert die Beschreibung eines Profils in der Profiles Tabelle."""
+    query = "UPDATE Profiles SET Description = ? WHERE ID = ?"
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (description, profile_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei update_profile_description für Profil ID {profile_id}: {e}")
         return False
     finally:
         if conn:

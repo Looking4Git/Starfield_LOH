@@ -72,9 +72,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>-349</y>
+        <y>-266</y>
         <width>588</width>
-        <height>1053</height>
+        <height>1112</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="detail_layout">
@@ -256,11 +256,17 @@
                <property name="minimumSize">
                 <size>
                  <width>120</width>
-                 <height>0</height>
+                 <height>32</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>120</width>
+                 <height>32</height>
                 </size>
                </property>
                <property name="text">
-                <string>   Öffnen</string>
+                <string>Öffnen</string>
                </property>
                <property name="icon">
                 <iconset>
@@ -631,12 +637,18 @@
             <widget class="QPushButton" name="btn_discard_detail">
              <property name="minimumSize">
               <size>
-               <width>120</width>
-               <height>0</height>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
               </size>
              </property>
              <property name="text">
-              <string>   Verwerfen</string>
+              <string>Verwerfen</string>
              </property>
              <property name="icon">
               <iconset>
@@ -654,12 +666,18 @@
             <widget class="QPushButton" name="btn_save_detail">
              <property name="minimumSize">
               <size>
-               <width>120</width>
-               <height>0</height>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
               </size>
              </property>
              <property name="text">
-              <string>   Speichern</string>
+              <string>Speichern</string>
              </property>
              <property name="icon">
               <iconset>

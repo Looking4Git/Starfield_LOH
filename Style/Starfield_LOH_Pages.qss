@@ -287,12 +287,19 @@ QPushButton {
     background-color: #304C7A;
     color: #ECECEC;
     border: none;
-    padding: 4px 12px 4px 4px; /* 4px oben/unten/links, um exakt die Höhe der Dropdowns (welche padding: 4px haben) zu treffen */
+    padding: 4px 8px 4px 8px; /* Symmetrisches Padding */
     border-radius: 2px;
+    text-align: left; /* Linksbündig ausrichten, damit alle Icons unabhängig von der Textlänge auf gleicher Höhe liegen */
 }
 
 QPushButton:hover {
     background-color: #5b7a9e;
+}
+
+/* Spezifische Styles für Pfeiltasten zur perfekten Zentrierung und korrekten Höhe */
+QPushButton#btn_pos_up, QPushButton#btn_pos_down {
+    padding: 0px;
+    text-align: center;
 }
 
 /* =========================================================

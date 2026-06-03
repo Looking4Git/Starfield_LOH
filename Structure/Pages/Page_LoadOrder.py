@@ -1,21 +1,94 @@
 import os
+import json
 import logging
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QFrame, QScrollArea,
                                QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView,
-                               QPushButton, QMessageBox, QFormLayout)
-from PySide6.QtGui import QStandardItemModel, QStandardItem
+                               QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle)
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import (get_profiles, get_load_order, update_load_order_active,
                                  get_lookup_data, get_creation_categories_for_ui,
                                  create_profile, copy_profile, delete_profile,
-                                 update_mod_category_and_note, update_profile_description)
+                                 update_mod_category_and_note, update_profile_description,
+                                 update_load_order_positions)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.ProfileDialog import ProfileDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
+
+class DropIndicatorStyle(QProxyStyle):
+    def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PrimitiveElement.PE_IndicatorItemViewItemDrop and not option.rect.isNull():
+            painter.save()
+            # Verwende Starfield-Gelb (#D7A64B) für maximale Sichtbarkeit
+            color = QColor("#D7A64B")
+            pen = QPen(color)
+            pen.setWidth(3)
+            painter.setPen(pen)
+            
+            # Zeichne eine deutliche Linie über die gesamte Breite des Viewports
+            y = option.rect.center().y()
+            width = widget.viewport().width() if widget else option.rect.width()
+            painter.drawLine(0, y, width, y)
+            
+            # Zeichne einen kleinen Indikator-Kreis am Anfang der Linie für einen super premium Look
+            painter.setBrush(color)
+            painter.drawEllipse(2, y - 4, 8, 8)
+            
+            painter.restore()
+        else:
+            super().drawPrimitive(element, option, painter, widget)
+
+class DragDropStandardItemModel(QStandardItemModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.dragged_mod_id = None
+
+    def flags(self, index):
+        default_flags = super().flags(index)
+        if index.isValid():
+            # Remove ItemIsDropEnabled to prevent dropping ON top of existing items/rows
+            # and ensure ItemIsDragEnabled is set
+            return (default_flags & ~Qt.ItemFlag.ItemIsDropEnabled) | Qt.ItemFlag.ItemIsDragEnabled
+        return default_flags
+
+    def mimeData(self, indexes):
+        self.dragged_mod_id = None
+        if indexes:
+            item = self.item(indexes[0].row(), 0)
+            if item:
+                data = item.data(Qt.ItemDataRole.UserRole)
+                if data:
+                    try:
+                        import json
+                        row_data = json.loads(data) if isinstance(data, str) else data
+                        self.dragged_mod_id = row_data.get("Mod_ID")
+                    except Exception:
+                        pass
+        return super().mimeData(indexes)
+
+    def dropMimeData(self, data, action, row, column, parent):
+        # Erzwinge Spalte 0 beim Drop, um das Verschieben von Spalteninhalten zu verhindern
+        return super().dropMimeData(data, action, row, 0, parent)
+
 class Page_LoadOrder(QWidget):
     data_updated = Signal()
+
+    def get_row_data(self, item):
+        if not item:
+            return None
+        data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(data, str):
+            try:
+                return json.loads(data)
+            except Exception:
+                pass
+        return data
+
+    def set_row_data(self, item, data):
+        if item:
+            item.setData(json.dumps(data) if data else None, Qt.ItemDataRole.UserRole)
 
     def __init__(self):
         super().__init__()
@@ -104,16 +177,21 @@ class Page_LoadOrder(QWidget):
         self.lbl_details = ui.findChild(QLabel, "lbl_details")
         self.detail_separator = ui.findChild(QFrame, "detail_separator")
         
+        from Structure.Pages.UI_Utils import make_button_premium
+        
         # Profil-Buttons referenzieren und verknüpfen
         self.btn_import_profile = ui.findChild(QPushButton, "btn_import_profile")
         self.btn_copy_profile = ui.findChild(QPushButton, "btn_copy_profile")
         self.btn_delete_profile = ui.findChild(QPushButton, "btn_delete_profile")
         
         if self.btn_import_profile:
+            make_button_premium(self.btn_import_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Einlesen")
             self.btn_import_profile.clicked.connect(self.on_import_profile)
         if self.btn_copy_profile:
+            make_button_premium(self.btn_copy_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Add.svg"), "Kopieren")
             self.btn_copy_profile.clicked.connect(self.on_copy_profile)
         if self.btn_delete_profile:
+            make_button_premium(self.btn_delete_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Löschen")
             self.btn_delete_profile.clicked.connect(self.on_delete_profile)
         
         # Details-Felder referenzieren
@@ -124,15 +202,30 @@ class Page_LoadOrder(QWidget):
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.tree_categories_creations = ui.findChild(QTreeView, "tree_categories_creations")
         
+        # Position-Eingabefeld und Tasten aus der UI referenzieren und einrichten
+        self.inp_position = ui.findChild(QLineEdit, "inp_position")
+        if self.inp_position:
+            self.inp_position.setValidator(QIntValidator(1, 99999, self))
+            
+        self.btn_pos_up = ui.findChild(QPushButton, "btn_pos_up")
+        if self.btn_pos_up:
+            self.btn_pos_up.clicked.connect(self.on_pos_up_clicked)
+            
+        self.btn_pos_down = ui.findChild(QPushButton, "btn_pos_down")
+        if self.btn_pos_down:
+            self.btn_pos_down.clicked.connect(self.on_pos_down_clicked)
+        
         if self.tree_categories_creations:
             self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
         if self.btn_save:
+            make_button_premium(self.btn_save, os.path.join(APP_ROOT, "Graphics", "Icon_Save.svg"), "Speichern")
             self.btn_save.clicked.connect(lambda: self.save_detail_data())
             
         self.btn_discard = ui.findChild(QPushButton, "btn_discard_detail")
         if self.btn_discard:
+            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
             self.btn_discard.clicked.connect(self.discard_detail_data)
             
         # Zuweisung einer ID zur Zeilen-Identifikation
@@ -144,15 +237,42 @@ class Page_LoadOrder(QWidget):
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.verticalHeader().setVisible(False)
         
-        self.proxy_model = QSortFilterProxyModel()
         self.SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-        self.proxy_model.setSortRole(self.SORT_ROLE)  
-        self.table_view.setModel(self.proxy_model)
+        
+        # Standard-Modellerstellung mit Drag & Drop Support
+        self.model = DragDropStandardItemModel()
+        self.table_view.setModel(self.model)
         self.table_view.selectionModel().selectionChanged.connect(self.on_row_selected)
-
-        # Standard-Modellerstellung
-        self.model = QStandardItemModel()
+        
         self.model.itemChanged.connect(self.on_item_changed)
+        self.model.rowsRemoved.connect(self.on_rows_reordered)
+
+        # Drag & Drop Einstellungen für die Tabelle
+        self.table_view.setDragEnabled(True)
+        self.table_view.setAcceptDrops(True)
+        self.table_view.setAutoScroll(True)
+        self.table_view.setAutoScrollMargin(40) # Ermöglicht automatisches Scrollen, wenn man mit dem Drag nahe an den Rand kommt
+        self.table_view.setDragDropMode(QTableView.DragDropMode.InternalMove)
+        self.table_view.setDragDropOverwriteMode(False)
+        self.table_view.setDropIndicatorShown(True)
+        self.table_view.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        
+        # Custom-Style für eine extrem deutliche Drag & Drop Linie
+        self.table_view.setStyle(DropIndicatorStyle(self.table_view.style()))
+
+        # Palette anpassen, damit die Markierungsfarbe auch bei Fokusverlust/ProxyStyle immer Starfield-Blau bleibt
+        palette = self.table_view.palette()
+        palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Highlight, QColor("#304C7A"))
+        palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+        self.table_view.setPalette(palette)
+
+        # Kopfzeilen-Sortierung komplett deaktivieren
+        header = self.table_view.horizontalHeader()
+        header.setSortIndicatorShown(False)
+        header.setSectionsClickable(False)
+        self.table_view.setSortingEnabled(False)
 
     def update_scrollbar_visibility(self, min_val, max_val):
         vsb = self.scroll_area_detail.verticalScrollBar()
@@ -347,57 +467,59 @@ class Page_LoadOrder(QWidget):
             profile_id = item.data(Qt.ItemDataRole.UserRole) if item else None
         
         self._loading_data = True
-        self.model.clear()
         
-        # UI-Felder im Detailbereich vor dem Neuladen leeren
-        self.clear_detail_form()
-        
-        if profile_id is None:
-            # Header trotzdem setzen, damit die Tabelle hübsch aussieht
-            self.model.setHorizontalHeaderLabels([
-                "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie"
-            ])
-            self.proxy_model.setSourceModel(self.model)
-            self._loading_data = False
-            return
+        # Signale VOR dem Löschen blockieren, um unendliche rowsRemoved-Rekursionsschleifen zu verhindern!
+        self.model.blockSignals(True)
+        try:
+            self.model.clear()
+            
+            # UI-Felder im Detailbereich vor dem Neuladen leeren
+            self.clear_detail_form()
+            
+            if profile_id is None:
+                # Header trotzdem setzen, damit die Tabelle hübsch aussieht
+                self.model.setHorizontalHeaderLabels([
+                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie"
+                ])
+                return
 
-        load_order_data = get_load_order(profile_id)
-        
-        for row_data in load_order_data:
-            item_pos = QStandardItem(str(row_data["Position"]))
-            item_pos.setData(row_data["Position"], self.SORT_ROLE)
-            item_pos.setData(row_data, Qt.ItemDataRole.UserRole)
-            item_pos.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            load_order_data = get_load_order(profile_id)
             
-            item_active = QStandardItem()
-            item_active.setCheckable(True)
-            item_active.setCheckState(Qt.CheckState.Checked if row_data["Is_Active"] == 1 else Qt.CheckState.Unchecked)
-            item_active.setData(row_data["Is_Active"], self.SORT_ROLE)
-            
-            # Verwende Name_Online, falls nicht vorhanden Name_ContentCatalog
-            name = row_data["Name_Online"] or row_data["Name_ContentCatalog"] or ""
-            item_name = QStandardItem(name)
-            item_name.setData(name, self.SORT_ROLE)
-            
-            item_master = QStandardItem(row_data["Component_File"] or "")
-            item_master.setData(row_data["Component_File"] or "", self.SORT_ROLE)
-            
-            item_cat = QStandardItem(row_data["Category_Name"] or "")
-            item_cat.setData(row_data["Category_Name"] or "", self.SORT_ROLE)
-            
-            self.model.appendRow([
-                item_pos, item_active, item_name, item_master, item_cat
-            ])
+            for row_data in load_order_data:
+                item_pos = QStandardItem(str(row_data["Position"]))
+                item_pos.setData(row_data["Position"], self.SORT_ROLE)
+                self.set_row_data(item_pos, row_data)
+                item_pos.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+                item_active = QStandardItem()
+                item_active.setCheckable(True)
+                item_active.setCheckState(Qt.CheckState.Checked if row_data["Is_Active"] == 1 else Qt.CheckState.Unchecked)
+                item_active.setData(row_data["Is_Active"], self.SORT_ROLE)
+                
+                # Verwende Name_Online, falls nicht vorhanden Name_ContentCatalog
+                name = row_data["Name_Online"] or row_data["Name_ContentCatalog"] or ""
+                item_name = QStandardItem(name)
+                item_name.setData(name, self.SORT_ROLE)
+                
+                item_master = QStandardItem(row_data["Component_File"] or "")
+                item_master.setData(row_data["Component_File"] or "", self.SORT_ROLE)
+                
+                item_cat = QStandardItem(row_data["Category_Name"] or "")
+                item_cat.setData(row_data["Category_Name"] or "", self.SORT_ROLE)
+                
+                self.model.appendRow([
+                    item_pos, item_active, item_name, item_master, item_cat
+                ])
+        finally:
+            self.model.blockSignals(False)
 
         # Header nach dem Befüllen der Zeilen setzen
         self.model.setHorizontalHeaderLabels([
             "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie"
         ])
         
-        self.proxy_model.setSourceModel(self.model)
-        
         header = self.table_view.horizontalHeader()
-        header.setSortIndicatorShown(True)
+        header.setSortIndicatorShown(False)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         
         # Checkbox Spalte etwas schmaler machen
@@ -410,8 +532,6 @@ class Page_LoadOrder(QWidget):
         from PySide6.QtWidgets import QHeaderView
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         
-        self.table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-
         if self.model.rowCount() > 0:
             self.table_view.selectRow(0)
             
@@ -424,6 +544,8 @@ class Page_LoadOrder(QWidget):
         self.cmb_category.setCurrentIndex(-1)
         self.inp_name_online.clear()
         self.inp_note.clear()
+        if hasattr(self, 'inp_position'):
+            self.inp_position.clear()
         
         if hasattr(self, 'tree_categories_creations') and self.tree_categories_creations:
             cat_model = QStandardItemModel()
@@ -436,7 +558,7 @@ class Page_LoadOrder(QWidget):
 
     def on_row_selected(self, selected, deselected):
         from Structure.Paths import get_setting
-        if get_setting("Auto_Save", 0) == 1 and self.current_mod_id:
+        if not self._loading_data and get_setting("Auto_Save", 0) == 1 and self.current_mod_id:
             self.save_detail_data(reload_table=False)
 
         indexes = self.table_view.selectionModel().selectedRows()
@@ -444,16 +566,15 @@ class Page_LoadOrder(QWidget):
             self.clear_detail_form()
             return
             
-        proxy_index = indexes[0]
-        source_index = self.proxy_model.mapToSource(proxy_index)
-        row = source_index.row()
+        row_index = indexes[0]
+        row = row_index.row()
         
         pos_item = self.model.item(row, 0)
         if not pos_item:
             self.clear_detail_form()
             return
             
-        row_data = pos_item.data(Qt.ItemDataRole.UserRole)
+        row_data = self.get_row_data(pos_item)
         if not row_data or not row_data.get("Mod_ID"):
             self.clear_detail_form()
             return
@@ -461,6 +582,8 @@ class Page_LoadOrder(QWidget):
         self.current_mod_id = str(row_data["Mod_ID"])
         self.current_mod_data = row_data
         self.inp_name_online.setText(row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or "")
+        if hasattr(self, 'inp_position'):
+            self.inp_position.setText(str(row_data.get("Position") or ""))
         
         # Kategorie ComboBox auf den Wert setzen
         self.set_combo_by_data(self.cmb_category, row_data.get("Category_ID"))
@@ -527,9 +650,74 @@ class Page_LoadOrder(QWidget):
             # Statuswert aktualisieren für die logische Sortierung/Filterung
             item.setData(is_active, self.SORT_ROLE)
 
+    def on_rows_reordered(self, *args, **kwargs):
+        """Wird aufgerufen, wenn Zeilen per Drag'n'Drop verschoben wurden."""
+        profile_id = self.current_profile_id
+        if profile_id is None:
+            return
+
+        # Scrollposition und aktuelle Selektion sichern
+        v_scrollbar = self.table_view.verticalScrollBar()
+        scroll_pos = v_scrollbar.value()
+        
+        # Verwende die beim Drag-Start im Model gesicherte Mod-ID als Ground Truth,
+        # da self.current_mod_id während des internen Löschens/Verschiebens bereits überschrieben wird.
+        selected_mod_id = getattr(self.model, "dragged_mod_id", None)
+        if not selected_mod_id:
+            selected_mod_id = self.current_mod_id
+
+        self.model.blockSignals(True)
+        try:
+            positions_to_update = []
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, 0)
+                if item_pos:
+                    new_pos = r + 1
+                    
+                    # Visuelle Zahl in Spalte 0 aktualisieren
+                    item_pos.setText(str(new_pos))
+                    item_pos.setData(new_pos, self.SORT_ROLE)
+                    
+                    row_data = self.get_row_data(item_pos)
+                    if row_data:
+                        comp_id = row_data.get("Component_ID")
+                        if comp_id is not None:
+                            positions_to_update.append((comp_id, new_pos))
+                        row_data["Position"] = new_pos
+                        self.set_row_data(item_pos, row_data)
+            
+            # DB mit neuen Positionen in einer einzigen Transaktion updaten
+            if positions_to_update:
+                update_load_order_positions(profile_id, positions_to_update)
+                
+        finally:
+            self.model.blockSignals(False)
+            
+        # UI komplett sauber neu aus der DB laden, um jegliche Glitches/Verschiebungs-Fragmente zu entfernen
+        self.load_data()
+        
+        # Selektion wiederherstellen
+        if selected_mod_id is not None:
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, 0)
+                if item_pos:
+                    row_data = self.get_row_data(item_pos)
+                    if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
+                        self.table_view.selectRow(r)
+                        break
+                        
+        # Scrollposition wiederherstellen
+        v_scrollbar.setValue(scroll_pos)
+        
+        self.data_updated.emit()
+
     def discard_detail_data(self):
         """Verwirft ungespeicherte Änderungen und stellt die Originaldaten wieder her."""
-        self.on_row_selected(None, None)
+        self._loading_data = True
+        try:
+            self.on_row_selected(None, None)
+        finally:
+            self._loading_data = False
 
     def save_profile_description(self):
         """Speichert die Profilbeschreibung ab, falls sich diese geändert hat."""
@@ -567,79 +755,168 @@ class Page_LoadOrder(QWidget):
         mod_id = self.current_mod_id
         if not mod_id:
             logging.warning("Speichern abgebrochen: Keine Mod-ID vorhanden.")
-            return
+            return False
 
         category_id = self.cmb_category.currentData()
         note = self.inp_note.toPlainText().strip()
 
-        # Check if anything actually changed
+        # Check if anything actually changed in details
+        has_changes = False
         if self.current_mod_data:
             has_changes = (
                 self.current_mod_data.get("Category_ID") != category_id or
                 (self.current_mod_data.get("Note") or "").strip() != note
             )
-            if not has_changes:
-                return True # No database write needed!
 
-        success = update_mod_category_and_note(int(mod_id), category_id, note)
+        # Check if position changed
+        pos_changed = False
+        new_pos = None
+        if self.current_mod_data and self.inp_position.text().strip().isdigit():
+            new_pos = int(self.inp_position.text().strip())
+            if new_pos != self.current_mod_data.get("Position"):
+                pos_changed = True
+
+        if not has_changes and not pos_changed:
+            return True # No database write needed!
+
+        success = True
+        if has_changes:
+            success = update_mod_category_and_note(int(mod_id), category_id, note)
+            if success:
+                logging.info(f"Kategorie und Notiz für Mod ID {mod_id} erfolgreich aktualisiert.")
+                self.data_updated.emit()
+                
+                # Update cached data in the model
+                target_row = -1
+                for r in range(self.model.rowCount()):
+                    item_col0 = self.model.item(r, 0)
+                    if item_col0:
+                        data = self.get_row_data(item_col0)
+                        if data and str(data.get("Mod_ID")) == str(mod_id):
+                            target_row = r
+                            break
+                            
+                if target_row >= 0:
+                    item = self.model.item(target_row, 0)
+                    original_data = self.get_row_data(item)
+                    if original_data:
+                        original_data["Category_ID"] = category_id
+                        original_data["Note"] = note
+                        
+                        # Update category name in table column 4
+                        cat_name = ""
+                        for i in range(self.cmb_category.count()):
+                            if self.cmb_category.itemData(i) == category_id:
+                                cat_name = self.cmb_category.itemText(i)
+                                break
+                        self.model.item(target_row, 4).setText(cat_name)
+                        
+                        self.set_row_data(item, original_data)
+                        
+                        # If this is the currently selected row, update self.current_mod_data
+                        selected_indexes = self.table_view.selectionModel().selectedRows()
+                        if selected_indexes:
+                            row_index = selected_indexes[0]
+                            if row_index.row() == target_row:
+                                self.current_mod_data = original_data
+
+        if pos_changed and success:
+            component_id = self.current_mod_data.get("Component_ID")
+            old_pos = self.current_mod_data.get("Position")
+            if component_id is not None and old_pos is not None and new_pos is not None:
+                self.change_mod_position(component_id, old_pos, new_pos)
+                return True
+
+        if success and reload_table:
+            # Scrollposition und Selektion sichern
+            v_scrollbar = self.table_view.verticalScrollBar()
+            scroll_pos = v_scrollbar.value()
+            
+            selected_indexes = self.table_view.selectionModel().selectedRows()
+            if selected_indexes:
+                selected_row = selected_indexes[0].row()
+            else:
+                selected_row = -1
+            
+            self.load_data()
+            
+            if selected_row >= 0:
+                self.table_view.selectRow(selected_row)
+                # Scrollposition wiederherstellen
+                v_scrollbar.setValue(scroll_pos)
+            return True
+        elif not success:
+            logging.error(f"Fehler beim Speichern der Mod ID {mod_id} in der Datenbank.")
+            return False
+
+    def change_mod_position(self, component_id, old_pos, new_pos):
+        profile_id = self.current_profile_id
+        if profile_id is None:
+            return
+            
+        load_order = get_load_order(profile_id)
+        if not load_order:
+            return
+            
+        new_pos = max(1, min(new_pos, len(load_order)))
+        if old_pos == new_pos:
+            return
+            
+        move_idx = -1
+        for i, entry in enumerate(load_order):
+            if entry.get("Component_ID") == component_id:
+                move_idx = i
+                break
+                
+        if move_idx == -1:
+            return
+            
+        entry_to_move = load_order.pop(move_idx)
+        load_order.insert(new_pos - 1, entry_to_move)
         
-        if success:
-            logging.info(f"Kategorie und Notiz für Mod ID {mod_id} erfolgreich aktualisiert.")
+        positions_to_update = []
+        for idx, entry in enumerate(load_order):
+            comp_id = entry.get("Component_ID")
+            if comp_id is not None:
+                positions_to_update.append((comp_id, idx + 1))
+                
+        if positions_to_update:
+            # Scrollposition sichern
+            v_scrollbar = self.table_view.verticalScrollBar()
+            scroll_pos = v_scrollbar.value()
+            
+            # Mod-ID vor dem Laden sichern, da load_data() das Detail-Formular leert
+            saved_mod_id = self.current_mod_id
+            
+            update_load_order_positions(profile_id, positions_to_update)
             self.data_updated.emit()
             
-            # Update cached data in the model
-            target_row = -1
-            for r in range(self.model.rowCount()):
-                item_col0 = self.model.item(r, 0)
-                if item_col0:
-                    data = item_col0.data(Qt.ItemDataRole.UserRole)
-                    if data and str(data.get("Mod_ID")) == str(mod_id):
-                        target_row = r
-                        break
-                        
-            if target_row >= 0:
-                item = self.model.item(target_row, 0)
-                original_data = item.data(Qt.ItemDataRole.UserRole)
-                if original_data:
-                    original_data["Category_ID"] = category_id
-                    original_data["Note"] = note
-                    
-                    # Update category name in table column 4
-                    cat_name = ""
-                    for i in range(self.cmb_category.count()):
-                        if self.cmb_category.itemData(i) == category_id:
-                            cat_name = self.cmb_category.itemText(i)
-                            break
-                    self.model.item(target_row, 4).setText(cat_name)
-                    
-                    item.setData(original_data, Qt.ItemDataRole.UserRole)
-                    
-                    # If this is the currently selected row, update self.current_mod_data
-                    selected_indexes = self.table_view.selectionModel().selectedRows()
-                    if selected_indexes:
-                        proxy_index = selected_indexes[0]
-                        source_index = self.proxy_model.mapToSource(proxy_index)
-                        if source_index.row() == target_row:
-                            self.current_mod_data = original_data
+            self.load_data()
             
-            if reload_table:
-                # Scrollposition und Selektion sichern
-                v_scrollbar = self.table_view.verticalScrollBar()
-                scroll_pos = v_scrollbar.value()
-                
-                selected_indexes = self.table_view.selectionModel().selectedRows()
-                if selected_indexes:
-                    source_index = self.proxy_model.mapToSource(selected_indexes[0])
-                    selected_row = source_index.row()
-                else:
-                    selected_row = -1
-                
-                self.load_data()
-                
-                if selected_row >= 0:
-                    proxy_index = self.proxy_model.mapFromSource(self.model.index(selected_row, 0))
-                    self.table_view.selectRow(proxy_index.row())
-                    # Scrollposition wiederherstellen
-                    v_scrollbar.setValue(scroll_pos)
-        else:
-            logging.error(f"Fehler beim Speichern der Mod ID {mod_id} in der Datenbank.")
+            # Re-select the moved mod
+            if saved_mod_id:
+                for r in range(self.model.rowCount()):
+                    item_pos = self.model.item(r, 0)
+                    if item_pos:
+                        row_data = self.get_row_data(item_pos)
+                        if row_data and str(row_data.get("Mod_ID")) == str(saved_mod_id):
+                            self.table_view.selectRow(r)
+                            break
+                        
+            v_scrollbar.setValue(scroll_pos)
+
+    def on_pos_up_clicked(self):
+        if not self.current_mod_data:
+            return
+        old_pos = self.current_mod_data.get("Position")
+        component_id = self.current_mod_data.get("Component_ID")
+        if old_pos is not None and component_id is not None:
+            self.change_mod_position(component_id, old_pos, old_pos - 1)
+
+    def on_pos_down_clicked(self):
+        if not self.current_mod_data:
+            return
+        old_pos = self.current_mod_data.get("Position")
+        component_id = self.current_mod_data.get("Component_ID")
+        if old_pos is not None and component_id is not None:
+            self.change_mod_position(component_id, old_pos, old_pos + 1)

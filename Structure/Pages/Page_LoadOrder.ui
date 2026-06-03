@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>Page_Mods</class>
  <widget class="QWidget" name="Page_Mods">
@@ -72,9 +72,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>-349</y>
+        <y>0</y>
         <width>588</width>
-        <height>1053</height>
+        <height>707</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="detail_layout">
@@ -122,21 +122,21 @@
          <property name="bottomMargin">
           <number>0</number>
          </property>
-          <item row="0" column="0" colspan="2">
-           <widget class="QLabel" name="lbl_filter">
-            <property name="text">
-             <string>Profil</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="lbl_state_filter_label">
-            <property name="text">
-             <string>Profil:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0" colspan="2">
+         <item row="0" column="0" colspan="2">
+          <widget class="QLabel" name="lbl_filter">
+           <property name="text">
+            <string>Profil</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="lbl_state_filter_label">
+           <property name="text">
+            <string>Profil:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" colspan="2">
           <widget class="QFrame" name="detail_separator">
            <property name="frameShape">
             <enum>QFrame::Shape::HLine</enum>
@@ -153,21 +153,128 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
+         <item row="7" column="0">
           <widget class="QLabel" name="lbl_name_label">
            <property name="text">
             <string>Name:</string>
            </property>
           </widget>
          </item>
-          <item row="6" column="1">
-           <widget class="QLineEdit" name="inp_name_online">
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         <item row="7" column="0">
+         <item row="7" column="1">
+          <widget class="QLineEdit" name="inp_name_online">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="lbl_position_label">
+           <property name="text">
+            <string>Position:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <layout class="QHBoxLayout" name="pos_layout">
+           <property name="spacing">
+            <number>5</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="inp_position">
+             <property name="minimumSize">
+              <size>
+               <width>106</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>106</width>
+               <height>16777215</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_pos_up">
+             <property name="minimumSize">
+              <size>
+               <width>56</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>56</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Einen Schritt nach oben verschieben</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Arrow_Up.svg</normaloff>Graphics/Icon_Arrow_Up.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_pos_down">
+             <property name="minimumSize">
+              <size>
+               <width>56</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>56</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Einen Schritt nach unten verschieben</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Arrow_Down.svg</normaloff>Graphics/Icon_Arrow_Down.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="pos_spacer">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item row="8" column="0">
           <widget class="QLabel" name="lbl_creation_categories_label">
            <property name="text">
             <string>Creation Kat.:</string>
@@ -180,7 +287,7 @@
            </property>
           </widget>
          </item>
-         <item row="7" column="1">
+         <item row="8" column="1">
           <widget class="QTreeView" name="tree_categories_creations">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -211,14 +318,14 @@
            </property>
           </widget>
          </item>
-         <item row="8" column="0">
+         <item row="9" column="0">
           <widget class="QLabel" name="lbl_category_label">
            <property name="text">
             <string>Kategorie:</string>
            </property>
           </widget>
          </item>
-         <item row="8" column="1">
+         <item row="9" column="1">
           <widget class="QComboBox" name="cmb_category">
            <property name="minimumSize">
             <size>
@@ -228,14 +335,14 @@
            </property>
           </widget>
          </item>
-         <item row="9" column="0">
+         <item row="10" column="0">
           <widget class="QLabel" name="lbl_note_label">
            <property name="text">
             <string>Notiz:</string>
            </property>
           </widget>
          </item>
-         <item row="9" column="1">
+         <item row="10" column="1">
           <widget class="QTextEdit" name="inp_note">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -254,234 +361,267 @@
            </property>
           </widget>
          </item>
-          <item row="10" column="1">
-           <layout class="QHBoxLayout" name="detail_button_layout">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <spacer name="detail_button_spacer">
-              <property name="orientation">
-               <enum>Qt::Orientation::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_discard_detail">
-              <property name="minimumSize">
-               <size>
-                <width>120</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>   Verwerfen</string>
-              </property>
-              <property name="icon">
-               <iconset>
-                <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>24</width>
-                <height>24</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_save_detail">
-              <property name="minimumSize">
-               <size>
-                <width>120</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>   Speichern</string>
-              </property>
-              <property name="icon">
-               <iconset>
-                <normaloff>Graphics/Icon_Save.svg</normaloff>Graphics/Icon_Save.svg</iconset>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>24</width>
-                <height>24</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
+         <item row="11" column="1">
+          <layout class="QHBoxLayout" name="detail_button_layout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <spacer name="detail_button_spacer">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_discard_detail">
+             <property name="minimumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Verwerfen</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_save_detail">
+             <property name="minimumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Speichern</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Save.svg</normaloff>Graphics/Icon_Save.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
          <item row="1" column="1">
- <widget class="QTreeView" name="tree_profile">
-  <property name="minimumSize">
-   <size>
-    <width>220</width>
-    <height>140</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>16777215</width>
-    <height>140</height>
-   </size>
-  </property>
-  <property name="editTriggers">
-   <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-  </property>
-  <property name="indentation">
-   <number>0</number>
-  </property>
-  <property name="rootIsDecorated">
-   <bool>false</bool>
-  </property>
- </widget>
-</item><item row="2" column="0">
- <widget class="QLabel" name="lbl_profile_desc_label">
-  <property name="text">
-   <string>Beschreibung:</string>
-  </property>
- </widget>
-</item><item row="2" column="1">
- <widget class="QTextEdit" name="inp_profile_desc">
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>16777215</width>
-    <height>78</height>
-   </size>
-  </property>
-  <property name="acceptRichText">
-   <bool>false</bool>
-  </property>
-  <property name="readOnly">
-   <bool>true</bool>
-  </property>
- </widget>
-</item><item row="3" column="0" colspan="2">
- <layout class="QHBoxLayout" name="layout_profile_buttons">
-  <property name="spacing">
-   <number>10</number>
-  </property>
-  <property name="leftMargin">
-   <number>0</number>
-  </property>
-  <property name="topMargin">
-   <number>0</number>
-  </property>
-  <property name="rightMargin">
-   <number>0</number>
-  </property>
-  <property name="bottomMargin">
-   <number>10</number>
-  </property>
-   <item>
-    <spacer name="spacer_profile_buttons">
-     <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>40</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-  <item>
-   <widget class="QPushButton" name="btn_import_profile">
-    <property name="minimumSize">
-     <size>
-      <width>110</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>   Einlesen</string>
-    </property>
-    <property name="icon">
-     <iconset>
-      <normaloff>Graphics/Icon_Update.svg</normaloff>Graphics/Icon_Update.svg</iconset>
-    </property>
-    <property name="iconSize">
-     <size>
-      <width>24</width>
-      <height>24</height>
-     </size>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QPushButton" name="btn_copy_profile">
-    <property name="minimumSize">
-     <size>
-      <width>110</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>   Kopieren</string>
-    </property>
-    <property name="icon">
-     <iconset>
-      <normaloff>Graphics/Icon_Add.svg</normaloff>Graphics/Icon_Add.svg</iconset>
-    </property>
-    <property name="iconSize">
-     <size>
-      <width>24</width>
-      <height>24</height>
-     </size>
-    </property>
-   </widget>
-  </item>
-  <item>
-   <widget class="QPushButton" name="btn_delete_profile">
-    <property name="minimumSize">
-     <size>
-      <width>110</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>   Löschen</string>
-    </property>
-    <property name="icon">
-     <iconset>
-      <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
-    </property>
-    <property name="iconSize">
-     <size>
-      <width>24</width>
-      <height>24</height>
-     </size>
-    </property>
-   </widget>
-  </item>
-
- </layout>
-</item></layout>
+          <widget class="QTreeView" name="tree_profile">
+           <property name="minimumSize">
+            <size>
+             <width>220</width>
+             <height>140</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>140</height>
+            </size>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+           </property>
+           <property name="indentation">
+            <number>0</number>
+           </property>
+           <property name="rootIsDecorated">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="lbl_profile_desc_label">
+           <property name="text">
+            <string>Beschreibung:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QTextEdit" name="inp_profile_desc">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>78</height>
+            </size>
+           </property>
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+           <property name="acceptRichText">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" colspan="2">
+          <layout class="QHBoxLayout" name="layout_profile_buttons">
+           <property name="spacing">
+            <number>6</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>10</number>
+           </property>
+           <item>
+            <spacer name="spacer_profile_buttons">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_import_profile">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Einlesen</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Update.svg</normaloff>Graphics/Icon_Update.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_copy_profile">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Kopieren</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Add.svg</normaloff>Graphics/Icon_Add.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_delete_profile">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Löschen</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
        </item>
        <item>
         <spacer name="bottom_stretch">
@@ -502,6 +642,6 @@
    </item>
   </layout>
  </widget>
- <resources />
- <connections />
+ <resources/>
+ <connections/>
 </ui>

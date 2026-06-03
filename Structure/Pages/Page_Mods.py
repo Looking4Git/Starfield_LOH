@@ -78,15 +78,20 @@ class Page_Mods(QWidget):
         self.inp_date_avail = ui.findChild(QLineEdit, "inp_date_avail")
         self.inp_ver_avail = ui.findChild(QLineEdit, "inp_ver_avail")
         
+        from Structure.Pages.UI_Utils import make_button_premium
+        
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
+        make_button_premium(self.btn_save, os.path.join(APP_ROOT, "Graphics", "Icon_Save.svg"), "Speichern")
         self.btn_save.clicked.connect(lambda: self.save_detail_data())
         
         self.btn_discard = ui.findChild(QPushButton, "btn_discard_detail")
         if self.btn_discard:
+            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
             self.btn_discard.clicked.connect(self.discard_detail_data)
         
         self.btn_open_url = ui.findChild(QPushButton, "btn_open_url")
         if self.btn_open_url:
+            make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Web.svg"), "Öffnen")
             self.btn_open_url.clicked.connect(self.open_mod_url)
         
         self.list_components = ui.findChild(QTreeView, "list_components")

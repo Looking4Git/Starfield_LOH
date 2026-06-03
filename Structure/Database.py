@@ -313,6 +313,7 @@ def get_load_order(profile_id: int) -> list[dict]:
             lo.Position,
             lo.Is_Active,
             m.ID AS Mod_ID,
+            c.ID AS Component_ID,
             m.Name_Online,
             m.Name_ContentCatalog,
             c.File AS Component_File,
@@ -505,6 +506,37 @@ def update_profile_description(profile_id: int, description: str) -> bool:
         return True
     except sqlite3.Error as e:
         logging.error(f"Fehler bei update_profile_description für Profil ID {profile_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_load_order_positions(profile_id: int, positions: list[tuple[int, int]]) -> bool:
+    """
+    Aktualisiert die Positionen mehrerer Komponenten in einem Profil.
+    positions: Liste von Tuples (component_id, neue_position)
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Zuerst alle Positionen temporär auf negative Werte setzen, um UNIQUE-Fehler zu vermeiden
+        temp_query = "UPDATE LoadOrder SET Position = ? WHERE ID_Profile = ? AND ID_Component = ?"
+        for component_id, pos in positions:
+            cursor.execute(temp_query, (-pos, profile_id, component_id))
+            
+        # 2. Dann die negativen Werte auf die endgültigen positiven Werte setzen
+        final_query = "UPDATE LoadOrder SET Position = -Position WHERE ID_Profile = ? AND Position < 0"
+        cursor.execute(final_query, (profile_id,))
+        
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        if conn:
+            conn.rollback()
+        # Sicherer Log-Aufruf ohne rekursiven Fehler
+        logging.error(f"Fehler bei update_load_order_positions: {e}")
         return False
     finally:
         if conn:

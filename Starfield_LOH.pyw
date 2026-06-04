@@ -14,6 +14,7 @@ from Structure.Paths import SETTINGS_FILE
 
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
+    "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
     "ui": {"sidebar_collapsed": False},
     "paths": {"starfield_data": r"E:\Steam\steamapps\common\Starfield\Data"},
     "settings": {
@@ -22,7 +23,9 @@ DEFAULT_SETTINGS = {
         "Limit_Medium_Master": 1024,
         "Limit_Small_Master": 4096,
         "Projection_PointerHandles_Core": 1200000,
-        "Limit_PointerHandles": 2097152
+        "Projection_PointerHandles_Mods": 23,
+        "Limit_PointerHandles": 2097152,
+        "Limit_Warning_Percentage": 90
     }
 }
 
@@ -258,8 +261,25 @@ class StarfieldLOH(QMainWindow):
         return DEFAULT_SETTINGS.copy()
 
     def save_settings(self):
+        loaded = {}
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+            except Exception:
+                pass
+        
+        # Main window only updates its own settings ("window" and "ui")
+        if "window" not in loaded:
+            loaded["window"] = {}
+        loaded["window"] = {**loaded["window"], **self.settings.get("window", {})}
+        
+        if "ui" not in loaded:
+            loaded["ui"] = {}
+        loaded["ui"] = {**loaded["ui"], **self.settings.get("ui", {})}
+                
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.settings, f, indent=2)
+            json.dump(loaded, f, indent=2)
 
     def toggle_sidebar(self):
         width = self.sidebar.width()

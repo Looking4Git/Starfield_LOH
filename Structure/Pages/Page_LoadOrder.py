@@ -1,10 +1,10 @@
 import os
 import json
 import logging
-from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QFrame, QScrollArea,
+from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QFrame, QScrollArea,
                                QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView,
-                               QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle)
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette
+                               QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy)
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette, QPainter, QBrush
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal
 from PySide6.QtUiTools import QUiLoader
 
@@ -18,6 +18,63 @@ from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Requirement import RequirementDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
+
+class LimitBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(14)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.limit = 100
+        self.core_val = 0
+        self.mod_val = 0
+        self.color_core = QColor("#E06236")     # Starfield Orange
+        self.color_mod = QColor("#D7A64B")      # Starfield Gelb
+        self.color_critical = QColor("#C72138") # Starfield Rot
+        self.color_bg = QColor("#FFFFFF")       # Starfield Weiß (leere Bar)
+
+    def set_values(self, core, mod, limit):
+        self.core_val = core
+        self.mod_val = mod
+        self.limit = max(1, limit)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        w = self.width()
+        h = self.height()
+        
+        # Hintergrund zeichnen
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(self.color_bg))
+        painter.drawRect(0, 0, w, h)
+        
+        total_val = self.core_val + self.mod_val
+        from Structure.Paths import get_setting
+        warning_pct = get_setting("Limit_Warning_Percentage", 90) / 100.0
+        is_critical = (total_val / self.limit) >= warning_pct
+        mod_color = self.color_critical if is_critical else self.color_mod
+        
+        # Proportionale Breiten
+        core_w = int((self.core_val / self.limit) * w)
+        mod_w = int((self.mod_val / self.limit) * w)
+        
+        # Verhindern, dass über die Gesamtbreite gezeichnet wird
+        if core_w + mod_w > w:
+            if core_w > w:
+                core_w = w
+                mod_w = 0
+            else:
+                mod_w = w - core_w
+                
+        if core_w > 0:
+            painter.setBrush(QBrush(self.color_core))
+            painter.drawRect(0, 0, core_w, h)
+            
+        if mod_w > 0:
+            painter.setBrush(QBrush(mod_color))
+            painter.drawRect(core_w, 0, mod_w, h)
 
 class DropIndicatorStyle(QProxyStyle):
     def drawPrimitive(self, element, option, painter, widget=None):
@@ -143,6 +200,7 @@ class Page_LoadOrder(QWidget):
         ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Page_LoadOrder.ui")
         
         loader = QUiLoader()
+        loader.registerCustomWidget(LimitBar)
         ui_file = QFile(ui_file_path)
         if not ui_file.open(QFile.OpenModeFlag.ReadOnly):
             logging.error(f"Konnte UI-Datei nicht öffnen: {ui_file_path}")
@@ -303,12 +361,109 @@ class Page_LoadOrder(QWidget):
         header.setSectionsClickable(False)
         self.table_view.setSortingEnabled(False)
 
+        # Limit-Prüfbalken und Beschriftungen aus der UI referenzieren
+        self.lbl_masterfiles_section = ui.findChild(QLabel, "lbl_masterfiles_section")
+        self.bar_full = ui.findChild(LimitBar, "bar_full")
+        self.lbl_full_val = ui.findChild(QLabel, "lbl_full_val")
+        
+        self.bar_medium = ui.findChild(LimitBar, "bar_medium")
+        self.lbl_medium_val = ui.findChild(QLabel, "lbl_medium_val")
+        
+        self.bar_small = ui.findChild(LimitBar, "bar_small")
+        self.lbl_small_val = ui.findChild(QLabel, "lbl_small_val")
+        
+        self.lbl_pointers_section = ui.findChild(QLabel, "lbl_pointers_section")
+        self.bar_pointers = ui.findChild(LimitBar, "bar_pointers")
+        self.lbl_pointers_val = ui.findChild(QLabel, "lbl_pointers_val")
+
     def update_scrollbar_visibility(self, min_val, max_val):
         vsb = self.scroll_area_detail.verticalScrollBar()
         needed = min_val < max_val
         vsb.setProperty("needed", needed)
         vsb.style().unpolish(vsb)
         vsb.style().polish(vsb)
+
+    def update_limit_bars(self):
+        from Structure.Paths import get_setting
+        from Structure.Database import get_db_connection
+        
+        limit_full = get_setting("Limit_Full_Master", 254)
+        limit_medium = get_setting("Limit_Medium_Master", 1024)
+        limit_small = get_setting("Limit_Small_Master", 4096)
+        
+        pointer_core = get_setting("Projection_PointerHandles_Core", 1200000)
+        pointer_mods_factor = get_setting("Projection_PointerHandles_Mods", 23)
+        pointer_limit = get_setting("Limit_PointerHandles", 2097152)
+        
+        core_full = 0
+        core_medium = 0
+        core_small = 0
+        
+        mod_full = 0
+        mod_medium = 0
+        mod_small = 0
+        mod_pointers_sum = 0
+        
+        if self.current_profile_id is not None:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Zähle offizielle Systemkomponenten (Core)
+                cursor.execute("SELECT COUNT(*) FROM System_Components")
+                core_full = cursor.fetchone()[0]
+                
+                # Zähle aktive Mod-Masterfiles und summiere Pointer
+                query = """
+                    SELECT c.Is_Masterfile, c.Pointer_REFR, c.Pointer_ACHR, c.Pointer_PKIN
+                    FROM LoadOrder lo
+                    JOIN Components c ON lo.ID_Component = c.ID
+                    WHERE lo.ID_Profile = ? AND lo.Is_Active = 1
+                """
+                cursor.execute(query, (self.current_profile_id,))
+                rows = cursor.fetchall()
+                conn.close()
+                
+                for row in rows:
+                    is_mf = row["Is_Masterfile"]
+                    if is_mf == 1:
+                        mod_full += 1
+                    elif is_mf == 2:
+                        mod_medium += 1
+                    elif is_mf == 3:
+                        mod_small += 1
+                        
+                    refr = row["Pointer_REFR"] or 0
+                    achr = row["Pointer_ACHR"] or 0
+                    pkin = row["Pointer_PKIN"] or 0
+                    mod_pointers_sum += (refr + achr + pkin)
+            except Exception as e:
+                logging.error(f"Fehler bei update_limit_bars: {e}")
+
+        mod_pointers_calculated = int(mod_pointers_sum * pointer_mods_factor / 100)
+        total_pointers = pointer_core + mod_pointers_calculated
+        
+        self.bar_full.set_values(core_full, mod_full, limit_full)
+        self.lbl_full_val.setText(f"Full: {core_full + mod_full} / {limit_full}")
+        
+        self.bar_medium.set_values(core_medium, mod_medium, limit_medium)
+        self.lbl_medium_val.setText(f"Medium: {core_medium + mod_medium} / {limit_medium}")
+        
+        self.bar_small.set_values(core_small, mod_small, limit_small)
+        self.lbl_small_val.setText(f"Small: {core_small + mod_small} / {limit_small}")
+        
+        self.bar_pointers.set_values(pointer_core, mod_pointers_calculated, pointer_limit)
+        
+        def format_p(val):
+            if val >= 1000000:
+                return f"{val / 1000000:.1f}M".replace('.', ',')
+            elif val >= 1000:
+                return f"{val / 1000:.1f}k".replace('.', ',')
+            return str(val)
+            
+        formatted_total = format_p(total_pointers)
+        formatted_limit = format_p(pointer_limit)
+        self.lbl_pointers_val.setText(f"Dynamisch: {formatted_total} / {formatted_limit}")
 
     def on_profile_selected(self, selected, deselected):
         indexes = self.tree_profile.selectionModel().selectedRows()
@@ -504,6 +659,9 @@ class Page_LoadOrder(QWidget):
             
             # UI-Felder im Detailbereich vor dem Neuladen leeren
             self.clear_detail_form()
+            
+            # Limit-Prüfbalken aktualisieren
+            self.update_limit_bars()
             
             if profile_id is None:
                 # Header trotzdem setzen, damit die Tabelle hübsch aussieht
@@ -745,6 +903,9 @@ class Page_LoadOrder(QWidget):
             
             # Statuswert aktualisieren für die logische Sortierung/Filterung
             item.setData(is_active, self.SORT_ROLE)
+            
+            # Limit-Prüfbalken aktualisieren
+            self.update_limit_bars()
 
     def on_rows_reordered(self, *args, **kwargs):
         """Wird aufgerufen, wenn Zeilen per Drag'n'Drop verschoben wurden."""

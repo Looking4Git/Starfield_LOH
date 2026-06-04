@@ -290,6 +290,118 @@ def get_creation_categories_for_ui(mod_id: int) -> list[dict]:
         if conn:
             conn.close()
 
+def get_mod_requirements_for_ui(mod_id: int) -> list[dict]:
+    """Holt die IDs und Online-Namen aller vorausgesetzten Mods für ein Mod."""
+    query = """
+        SELECT m.ID, m.Name_Online 
+        FROM Mods_Requirements mr
+        JOIN Mods m ON mr.ID_Mod_Requirement = m.ID
+        WHERE mr.ID_Mod = :mod_id
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, {"mod_id": mod_id})
+        return [dict(row) for row in cursor.fetchall() if row["Name_Online"]]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_mod_requirements_for_ui für Mod_ID {mod_id}: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def get_mod_dependencies_for_ui(mod_id: int) -> list[dict]:
+    """Holt die IDs und Online-Namen aller abhängigen Mods für ein Mod."""
+    query = """
+        SELECT m.ID, m.Name_Online 
+        FROM Mods_Requirements mr
+        JOIN Mods m ON mr.ID_Mod = m.ID
+        WHERE mr.ID_Mod_Requirement = :mod_id
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, {"mod_id": mod_id})
+        return [dict(row) for row in cursor.fetchall() if row["Name_Online"]]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_mod_dependencies_for_ui für Mod_ID {mod_id}: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+
+def delete_mod_requirement(mod_id: int, required_mod_name: str) -> bool:
+    """Entfernt die Verknüpfung einer Voraussetzung für ein Mod."""
+    query = """
+        DELETE FROM Mods_Requirements 
+        WHERE ID_Mod = :mod_id 
+          AND ID_Mod_Requirement = (
+              SELECT ID FROM Mods WHERE Name_Online = :req_name LIMIT 1
+          )
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, {"mod_id": mod_id, "req_name": required_mod_name})
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei delete_mod_requirement für Mod_ID {mod_id} und Req {required_mod_name}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def get_installed_mods_with_components() -> list[dict]:
+    """Holt alle installierten Mods (State = 1) mit ihren Masterfiles."""
+    query = """
+        SELECT 
+            m.ID AS Mod_ID,
+            m.Name_Online,
+            (SELECT c.File FROM Components c 
+             JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+             WHERE mc.Mod_ID = m.ID AND c.Is_Masterfile > 0 LIMIT 1) AS Component_File
+        FROM Mods m
+        WHERE m.State = 1
+        ORDER BY m.Name_Online
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_installed_mods_with_components: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def add_mod_requirement(mod_id: int, requirement_mod_id: int) -> bool:
+    """Fügt eine neue Voraussetzung (n:m Verknüpfung) für ein Mod in der DB hinzu."""
+    query = "INSERT OR IGNORE INTO Mods_Requirements (ID_Mod, ID_Mod_Requirement) VALUES (?, ?)"
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (mod_id, requirement_mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei add_mod_requirement: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+
+
 def get_profiles() -> list[dict]:
     """Holt alle angelegten Profile aus der Tabelle Profiles."""
     query = "SELECT ID, Name, Description FROM Profiles ORDER BY ID"

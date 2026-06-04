@@ -12,9 +12,11 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  get_lookup_data, get_creation_categories_for_ui,
                                  create_profile, copy_profile, delete_profile,
                                  update_mod_category_and_note, update_profile_description,
-                                 update_load_order_positions)
+                                 update_load_order_positions, get_mod_requirements_for_ui,
+                                 delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui)
 from Structure.Paths import APP_ROOT
-from Structure.Pages.ProfileDialog import ProfileDialog
+from Structure.Pages.Dialog_Profil import ProfileDialog
+from Structure.Pages.Dialog_Requirement import RequirementDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 
 class DropIndicatorStyle(QProxyStyle):
@@ -201,6 +203,8 @@ class Page_LoadOrder(QWidget):
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.tree_categories_creations = ui.findChild(QTreeView, "tree_categories_creations")
+        self.tree_requirements = ui.findChild(QTreeView, "tree_requirements")
+        self.tree_dependencies = ui.findChild(QTreeView, "tree_dependencies")
         
         # Position-Eingabefeld und Tasten aus der UI referenzieren und einrichten
         self.inp_position = ui.findChild(QLineEdit, "inp_position")
@@ -217,6 +221,10 @@ class Page_LoadOrder(QWidget):
         
         if self.tree_categories_creations:
             self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        if self.tree_requirements:
+            self.tree_requirements.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        if self.tree_dependencies:
+            self.tree_dependencies.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
         if self.btn_save:
@@ -227,6 +235,18 @@ class Page_LoadOrder(QWidget):
         if self.btn_discard:
             make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
             self.btn_discard.clicked.connect(self.discard_detail_data)
+
+        self.btn_add_requirement = ui.findChild(QPushButton, "btn_add_requirement")
+        if self.btn_add_requirement:
+            make_button_premium(self.btn_add_requirement, os.path.join(APP_ROOT, "Graphics", "Icon_Add.svg"), "Hinzufügen")
+            self.btn_add_requirement.setEnabled(False)
+            self.btn_add_requirement.clicked.connect(self.on_add_requirement_clicked)
+            
+        self.btn_remove_requirement = ui.findChild(QPushButton, "btn_remove_requirement")
+        if self.btn_remove_requirement:
+            make_button_premium(self.btn_remove_requirement, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Entfernen")
+            self.btn_remove_requirement.setEnabled(False)
+            self.btn_remove_requirement.clicked.connect(self.on_remove_requirement_clicked)
             
         # Zuweisung einer ID zur Zeilen-Identifikation
         self.current_mod_id = ""
@@ -261,6 +281,15 @@ class Page_LoadOrder(QWidget):
         
         # Custom-Style für eine extrem deutliche Drag & Drop Linie
         self.table_view.setStyle(DropIndicatorStyle(self.table_view.style()))
+        self.table_view.setStyleSheet("""
+            QTableView {
+                background-color: #ECECEC;
+                alternate-background-color: #F2F2F2;
+                color: #1e1e1e;
+                gridline-color: #d0d0d0;
+                border: none;
+            }
+        """)
 
         # Palette anpassen, damit die Markierungsfarbe auch bei Fokusverlust/ProxyStyle immer Starfield-Blau bleibt
         palette = self.table_view.palette()
@@ -555,11 +584,34 @@ class Page_LoadOrder(QWidget):
             cat_header = self.tree_categories_creations.header()
             cat_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
             cat_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            
+        if hasattr(self, 'tree_requirements') and self.tree_requirements:
+            req_model = QStandardItemModel()
+            req_model.setHorizontalHeaderLabels(["Mod"])
+            self.tree_requirements.setModel(req_model)
+            from PySide6.QtWidgets import QHeaderView
+            req_header = self.tree_requirements.header()
+            req_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+
+        if hasattr(self, 'tree_dependencies') and self.tree_dependencies:
+            dep_model = QStandardItemModel()
+            dep_model.setHorizontalHeaderLabels(["Mod"])
+            self.tree_dependencies.setModel(dep_model)
+            from PySide6.QtWidgets import QHeaderView
+            dep_header = self.tree_dependencies.header()
+            dep_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            
+        if hasattr(self, 'btn_add_requirement') and self.btn_add_requirement:
+            self.btn_add_requirement.setEnabled(False)
+        if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
+            self.btn_remove_requirement.setEnabled(False)
 
     def on_row_selected(self, selected, deselected):
         from Structure.Paths import get_setting
         if not self._loading_data and get_setting("Auto_Save", 0) == 1 and self.current_mod_id:
             self.save_detail_data(reload_table=False)
+
+        self.clear_table_highlights()
 
         indexes = self.table_view.selectionModel().selectedRows()
         if not indexes:
@@ -613,6 +665,50 @@ class Page_LoadOrder(QWidget):
             cat_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
             cat_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
             
+        # Voraussetzungen laden und in TreeView anzeigen
+        requirements = []
+        if hasattr(self, 'tree_requirements') and self.tree_requirements:
+            req_model = QStandardItemModel()
+            req_model.setHorizontalHeaderLabels(["Mod"])
+            
+            requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
+            for req in requirements:
+                item_req = QStandardItem(req["Name_Online"])
+                req_model.appendRow([item_req])
+                
+            self.tree_requirements.setModel(req_model)
+            
+            from PySide6.QtWidgets import QHeaderView
+            req_header = self.tree_requirements.header()
+            req_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            
+            self.tree_requirements.selectionModel().selectionChanged.connect(self.on_requirements_selection_changed)
+            
+        # Abhängigkeiten laden und in TreeView anzeigen
+        dependencies = []
+        if hasattr(self, 'tree_dependencies') and self.tree_dependencies:
+            dep_model = QStandardItemModel()
+            dep_model.setHorizontalHeaderLabels(["Mod"])
+            
+            dependencies = get_mod_dependencies_for_ui(int(self.current_mod_id))
+            for dep in dependencies:
+                item_dep = QStandardItem(dep["Name_Online"])
+                dep_model.appendRow([item_dep])
+                
+            self.tree_dependencies.setModel(dep_model)
+            
+            from PySide6.QtWidgets import QHeaderView
+            dep_header = self.tree_dependencies.header()
+            dep_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+
+        # Farbliche Hervorhebung in der LoadOrder-Tabelle aktualisieren
+        self.highlight_requirements_and_dependencies(requirements, dependencies)
+            
+        if hasattr(self, 'btn_add_requirement') and self.btn_add_requirement:
+            self.btn_add_requirement.setEnabled(True)
+        if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
+            self.btn_remove_requirement.setEnabled(False)
+            
     def set_combo_by_data(self, combo: QComboBox, data_value):
         if data_value is None:
             combo.setCurrentIndex(-1)
@@ -665,6 +761,35 @@ class Page_LoadOrder(QWidget):
         selected_mod_id = getattr(self.model, "dragged_mod_id", None)
         if not selected_mod_id:
             selected_mod_id = self.current_mod_id
+
+        # Neue Reihenfolge aus dem Model simulieren/aufbauen, um sie zu validieren
+        proposed_load_order = []
+        for r in range(self.model.rowCount()):
+            item_pos = self.model.item(r, 0)
+            if item_pos:
+                row_data = self.get_row_data(item_pos)
+                if row_data:
+                    proposed_load_order.append(row_data)
+
+        # Validieren vor dem DB-Write
+        if selected_mod_id is not None:
+            success, error_msg = self.validate_proposed_positions(proposed_load_order, int(selected_mod_id))
+            if not success:
+                self.load_data()
+                # Scrollposition und Selektion wiederherstellen
+                if selected_mod_id is not None:
+                    for r in range(self.model.rowCount()):
+                        item_pos = self.model.item(r, 0)
+                        if item_pos:
+                            row_data = self.get_row_data(item_pos)
+                            if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
+                                self.table_view.selectRow(r)
+                                break
+                v_scrollbar.setValue(scroll_pos)
+                
+                # Zeige die Fehlermeldung erst an, wenn die UI bereits zurückgesetzt wurde
+                self.show_message_box("Ungültige Verschiebung", error_msg, QMessageBox.Icon.Warning)
+                return
 
         self.model.blockSignals(True)
         try:
@@ -874,6 +999,35 @@ class Page_LoadOrder(QWidget):
         entry_to_move = load_order.pop(move_idx)
         load_order.insert(new_pos - 1, entry_to_move)
         
+        # Validieren
+        moved_mod_id = entry_to_move.get("Mod_ID")
+        if moved_mod_id is not None:
+            success, error_msg = self.validate_proposed_positions(load_order, int(moved_mod_id))
+            if not success:
+                saved_mod_id = self.current_mod_id
+                
+                # Scrollposition sichern
+                v_scrollbar = self.table_view.verticalScrollBar()
+                scroll_pos = v_scrollbar.value()
+                
+                self.load_data()
+                # Versuchen, die Selektion wiederherzustellen
+                if saved_mod_id:
+                    for r in range(self.model.rowCount()):
+                        item_pos = self.model.item(r, 0)
+                        if item_pos:
+                            row_data = self.get_row_data(item_pos)
+                            if row_data and str(row_data.get("Mod_ID")) == str(saved_mod_id):
+                                self.table_view.selectRow(r)
+                                break
+                
+                # Scrollposition wiederherstellen
+                v_scrollbar.setValue(scroll_pos)
+                
+                # Zeige die Fehlermeldung erst an, wenn die UI bereits zurückgesetzt wurde
+                self.show_message_box("Ungültige Verschiebung", error_msg, QMessageBox.Icon.Warning)
+                return
+        
         positions_to_update = []
         for idx, entry in enumerate(load_order):
             comp_id = entry.get("Component_ID")
@@ -920,3 +1074,159 @@ class Page_LoadOrder(QWidget):
         component_id = self.current_mod_data.get("Component_ID")
         if old_pos is not None and component_id is not None:
             self.change_mod_position(component_id, old_pos, old_pos + 1)
+
+    def on_requirements_selection_changed(self, selected, deselected):
+        if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
+            has_selection = len(self.tree_requirements.selectionModel().selectedRows()) > 0
+            self.btn_remove_requirement.setEnabled(has_selection)
+
+    def on_remove_requirement_clicked(self):
+        if not self.current_mod_id:
+            return
+            
+        indexes = self.tree_requirements.selectionModel().selectedRows()
+        if not indexes:
+            return
+            
+        # Get the selected requirement mod name
+        selected_index = indexes[0]
+        req_name = selected_index.data(Qt.ItemDataRole.DisplayRole)
+        if not req_name:
+            return
+            
+        reply = self.show_message_box(
+            "Voraussetzung entfernen",
+            f"Möchten Sie die Voraussetzung '{req_name}' für dieses Mod wirklich entfernen?",
+            QMessageBox.Icon.Question,
+            yes_no=True
+        )
+        
+        if reply:
+            if delete_mod_requirement(int(self.current_mod_id), req_name):
+                # Refresh requirements treeview
+                req_model = QStandardItemModel()
+                req_model.setHorizontalHeaderLabels(["Mod"])
+                
+                requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
+                for req in requirements:
+                    item_req = QStandardItem(req["Name_Online"])
+                    req_model.appendRow([item_req])
+                    
+                self.tree_requirements.setModel(req_model)
+                self.tree_requirements.selectionModel().selectionChanged.connect(self.on_requirements_selection_changed)
+                
+                if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
+                    self.btn_remove_requirement.setEnabled(False)
+                    
+                # Markierungen in Tabelle aktualisieren
+                self.clear_table_highlights()
+                dependencies = get_mod_dependencies_for_ui(int(self.current_mod_id))
+                self.highlight_requirements_and_dependencies(requirements, dependencies)
+                
+                self.show_message_box("Erfolg", "Die Voraussetzung wurde erfolgreich entfernt.", QMessageBox.Icon.Information)
+            else:
+                self.show_message_box("Fehler", "Die Voraussetzung konnte nicht entfernt werden.", QMessageBox.Icon.Critical)
+
+    def on_add_requirement_clicked(self):
+        if not self.current_mod_id:
+            return
+            
+        dialog = RequirementDialog(self, int(self.current_mod_id))
+        if dialog.exec() == RequirementDialog.DialogCode.Accepted:
+            req_mod_id = dialog.get_selected_mod_id()
+            if req_mod_id is not None:
+                if add_mod_requirement(int(self.current_mod_id), int(req_mod_id)):
+                    # Refresh requirements treeview
+                    req_model = QStandardItemModel()
+                    req_model.setHorizontalHeaderLabels(["Mod"])
+                    
+                    requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
+                    for req in requirements:
+                        item_req = QStandardItem(req["Name_Online"])
+                        req_model.appendRow([item_req])
+                        
+                    self.tree_requirements.setModel(req_model)
+                    self.tree_requirements.selectionModel().selectionChanged.connect(self.on_requirements_selection_changed)
+                    
+                    if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
+                        self.btn_remove_requirement.setEnabled(False)
+                        
+                    # Markierungen in Tabelle aktualisieren
+                    self.clear_table_highlights()
+                    dependencies = get_mod_dependencies_for_ui(int(self.current_mod_id))
+                    self.highlight_requirements_and_dependencies(requirements, dependencies)
+                else:
+                    self.show_message_box("Fehler", "Die Voraussetzung konnte nicht hinzugefügt werden.", QMessageBox.Icon.Critical)
+
+    def clear_table_highlights(self):
+        """Setzt die Hintergrund- und Textfarben aller Tabellenzeilen auf Standard zurück."""
+        for r in range(self.model.rowCount()):
+            for c in range(self.model.columnCount()):
+                item = self.model.item(r, c)
+                if item:
+                    item.setData(None, Qt.ItemDataRole.BackgroundRole)
+                    item.setData(None, Qt.ItemDataRole.ForegroundRole)
+
+    def highlight_requirements_and_dependencies(self, req_list, dep_list):
+        """Markiert die Voraussetzungen rot und Abhängigkeiten gelb in der LoadOrder-Tabelle."""
+        # Sets für O(1) Lookup erstellen
+        req_ids = {int(req["ID"]) for req in req_list if "ID" in req}
+        dep_ids = {int(dep["ID"]) for dep in dep_list if "ID" in dep}
+
+        for r in range(self.model.rowCount()):
+            item_pos = self.model.item(r, 0)
+            if not item_pos:
+                continue
+            row_data = self.get_row_data(item_pos)
+            if not row_data or not row_data.get("Mod_ID"):
+                continue
+
+            current_row_mod_id = int(row_data["Mod_ID"])
+
+            bg_color = None
+            fg_color = None
+
+            if current_row_mod_id in req_ids:
+                bg_color = QColor("#C72138")  # Starfield Rot
+                fg_color = QColor("#ffffff")  # Weißer Text
+            elif current_row_mod_id in dep_ids:
+                bg_color = QColor("#D7A64B")  # Starfield Gelb
+                fg_color = QColor("#000000")  # Schwarzer Text
+
+            if bg_color and fg_color:
+                for c in range(self.model.columnCount()):
+                    item = self.model.item(r, c)
+                    if item:
+                        item.setData(bg_color, Qt.ItemDataRole.BackgroundRole)
+                        item.setData(fg_color, Qt.ItemDataRole.ForegroundRole)
+
+    def validate_proposed_positions(self, proposed_list, moved_mod_id):
+        """
+        Prüft, ob die vorgeschlagene Ladereihenfolge die Voraussetzungen verletzt.
+        Gibt (True, "") zurück, wenn alles ok ist, andernfalls (False, "Fehlermeldung").
+        """
+        mod_positions = {}
+        mod_names = {}
+        
+        for index, entry in enumerate(proposed_list):
+            mod_id = entry.get("Mod_ID")
+            if mod_id is not None:
+                mod_positions[int(mod_id)] = index + 1
+                mod_names[int(mod_id)] = entry.get("Name_Online") or entry.get("Name_ContentCatalog") or "Unbekannt"
+                
+        from Structure.Database import get_mod_requirements_for_ui
+        for mod_id, pos in mod_positions.items():
+            reqs = get_mod_requirements_for_ui(mod_id)
+            for req in reqs:
+                req_id = int(req["ID"])
+                if req_id in mod_positions:
+                    req_pos = mod_positions[req_id]
+                    if req_pos >= pos:
+                        mod_name = mod_names[mod_id]
+                        req_name = mod_names[req_id]
+                        if moved_mod_id == req_id:
+                            return False, f"Der Mod '{req_name}' darf nicht unter den davon abhängigen Mod '{mod_name}' verschoben werden."
+                        else:
+                            return False, f"Der Mod '{mod_name}' darf nicht vor die benötigte Voraussetzung '{req_name}' verschoben werden."
+                            
+        return True, ""

@@ -1,29 +1,3 @@
-CREATE TABLE sqlite_sequence(name,seq)
-CREATE TABLE "Platforms" (
-	"ID"	INTEGER NOT NULL,
-	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-CREATE TABLE "Categories_LOH" (
-	"ID"	INTEGER NOT NULL,
-	"Position"	INTEGER NOT NULL UNIQUE,
-	"Name"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-CREATE TABLE "Mods_Components" (
-	"Mod_ID" INTEGER NOT NULL,
-	"Component_ID" INTEGER NOT NULL,
-	PRIMARY KEY("Mod_ID", "Component_ID"),
-	FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
-	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-)
-CREATE TABLE "Mods_Category_Creations" (
-	"ID_Mod" INTEGER NOT NULL,
-	"ID_Category_Creations" INTEGER NOT NULL,
-	PRIMARY KEY("ID_Mod", "ID_Category_Creations"),
-	FOREIGN KEY("ID_Category_Creations") REFERENCES "Categories_Creations"("ID") ON DELETE CASCADE,
-	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
-)
 CREATE TABLE "Assessments" (
 	"ID"	INTEGER NOT NULL,
 	"Description"	TEXT NOT NULL,
@@ -37,54 +11,82 @@ CREATE TABLE "Categories_Creations" (
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("ID_Category_LOH") REFERENCES "Categories_LOH"("ID")
 )
-CREATE TABLE "Mods_Requirements" (
-	"ID_Mod"	INTEGER NOT NULL,
-	"ID_Mod_Requirement"	INTEGER NOT NULL,
-	PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
-	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
-	FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
-)
-CREATE TABLE "LoadOrder" (
-	"ID_Profile"	INTEGER NOT NULL,
-	"ID_Component"	INTEGER NOT NULL,
+CREATE TABLE "Categories_LOH" (
+	"ID"	INTEGER NOT NULL,
 	"Position"	INTEGER NOT NULL UNIQUE,
-	"Is_Active"	INTEGER NOT NULL DEFAULT 1,
-	PRIMARY KEY("ID_Component","ID_Profile"),
-	FOREIGN KEY("ID_Component") REFERENCES "Components"("ID") ON DELETE CASCADE
-)
-CREATE TABLE "Mods_State" (
-	"ID"	INTEGER NOT NULL,
-	"State"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-CREATE TABLE "Profiles" (
-	"ID"	INTEGER NOT NULL,
-	"Name"	TEXT,
-	"Description"	TEXT,
+	"Name"	INTEGER NOT NULL,
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )
 CREATE TABLE "Components" (
 	"ID"	INTEGER NOT NULL,
 	"File"	TEXT NOT NULL,
 	"Is_Masterfile"	INTEGER DEFAULT 0,
-	"Is_Blueprint"	INTEGER DEFAULT 0,
-	"Pointer_REFR"	INTEGER DEFAULT 0,
-	"Pointer_ACHR"	INTEGER DEFAULT 0,
-	"Pointer_PKIN"	INTEGER DEFAULT 0,
-	"Filedate_Last_Check"	TEXT,
+	"Is_Blueprint"	INTEGER DEFAULT 0, Filedate_Last_Check TEXT,
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )
-CREATE TABLE "System_Components" (
-	"ID"	INTEGER NOT NULL,
-	"File"	TEXT NOT NULL UNIQUE,
-	"Friendly_Name"	TEXT,
-	"Author"	TEXT,
-	"Description"	TEXT,
-	"Pointer_REFR"	INTEGER DEFAULT 0,
-	"Pointer_ACHR"	INTEGER DEFAULT 0,
-	"Pointer_PKIN"	INTEGER DEFAULT 0,
-	"Filedate_Last_Check"	TEXT,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+CREATE TABLE "ESM_Marker" (
+    "Component_ID"          INTEGER NOT NULL,
+    "Pointer_REFR"          INTEGER DEFAULT 0,
+    "Pointer_ACHR"          INTEGER DEFAULT 0,
+    "Pointer_PKIN"          INTEGER DEFAULT 0,
+    "Pointer_STMP"          INTEGER DEFAULT 0,
+    "Pointer_STND"          INTEGER DEFAULT 0,
+    "Pointer_STBH"          INTEGER DEFAULT 0,
+    "Pointer_STDT"          INTEGER DEFAULT 0,
+    "Pointer_RSPJ"          INTEGER DEFAULT 0,
+    "Pointer_WEAP"          INTEGER DEFAULT 0,
+    "Pointer_AMMO"          INTEGER DEFAULT 0,
+    "Pointer_ARMO"          INTEGER DEFAULT 0,
+    "Pointer_APWR"          INTEGER DEFAULT 0,
+    "Pointer_CELL"          INTEGER DEFAULT 0,
+    "Pointer_WRLD"          INTEGER DEFAULT 0,
+    "Pointer_DIAL"          INTEGER DEFAULT 0,
+    "Pointer_QUST"          INTEGER DEFAULT 0,
+    "Pointer_INFO"          INTEGER DEFAULT 0,
+    "Pointer_NPC_"          INTEGER DEFAULT 0,
+    "Pointer_STAT"          INTEGER DEFAULT 0,
+    "Pointer_FURN"          INTEGER DEFAULT 0,
+    "Pointer_TERM"          INTEGER DEFAULT 0,
+    "Pointer_TXST"          INTEGER DEFAULT 0,
+    "Pointer_MATO"          INTEGER DEFAULT 0,
+    "Pointer_LIGH"          INTEGER DEFAULT 0,
+    "Pointer_GMST"          INTEGER DEFAULT 0,
+    "Pointer_SNDR"          INTEGER DEFAULT 0,
+    "Pointer_SOUN"          INTEGER DEFAULT 0,
+    "Pointer_PKEY"          INTEGER DEFAULT 0,
+    "Pointer_COBJ"          INTEGER DEFAULT 0,
+    "Pointer_KYWD"          INTEGER DEFAULT 0,
+    "Pointer_AVIF"          INTEGER DEFAULT 0,
+    "Pointer_PERK"          INTEGER DEFAULT 0,
+    "Pointer_NVNM"          INTEGER DEFAULT 0,
+    "Pointer_NAVM"          INTEGER DEFAULT 0,
+    "Pointer_QUST_Override" INTEGER DEFAULT 0,
+    "Pointer_CELL_Override" INTEGER DEFAULT 0,
+    "Pointer_DIAL_Override" INTEGER DEFAULT 0,
+    "Pointer_INFO_Override" INTEGER DEFAULT 0,
+    "Pointer_NPC__Override" INTEGER DEFAULT 0,
+    "Pointer_STAT_Override" INTEGER DEFAULT 0,
+    "Pointer_COBJ_Override" INTEGER DEFAULT 0,
+    "Pointer_FURN_Override" INTEGER DEFAULT 0,
+    "Pointer_QUST_ANAM"     INTEGER DEFAULT 0,
+    "Pointer_QUST_DNAM"     INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_0"    INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_1"    INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_2"    INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_3"    INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_4"    INTEGER DEFAULT 0,
+    "Pointer_QUST_FLTR_5"    INTEGER DEFAULT 0,
+    PRIMARY KEY("Component_ID"),
+    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "LoadOrder" (
+	"ID_Profile"	INTEGER NOT NULL,
+	"ID_Component"	INTEGER NOT NULL,
+	"Position"	INTEGER NOT NULL,
+	"Is_Active"	INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY("ID_Component","ID_Profile"),
+	UNIQUE("ID_Profile","Position"),
+	FOREIGN KEY("ID_Component") REFERENCES "Components"("ID") ON DELETE CASCADE
 )
 CREATE TABLE "Mods" (
 	"ID"	INTEGER NOT NULL,
@@ -111,3 +113,53 @@ CREATE TABLE "Mods" (
 	FOREIGN KEY("Platform") REFERENCES "Platforms"("ID"),
 	FOREIGN KEY("State") REFERENCES "Mods_State"("ID")
 )
+CREATE TABLE "Mods_Category_Creations" (
+	"ID_Mod" INTEGER NOT NULL,
+	"ID_Category_Creations" INTEGER NOT NULL,
+	PRIMARY KEY("ID_Mod", "ID_Category_Creations"),
+	FOREIGN KEY("ID_Category_Creations") REFERENCES "Categories_Creations"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Mods_Components" (
+	"Mod_ID" INTEGER NOT NULL,
+	"Component_ID" INTEGER NOT NULL,
+	PRIMARY KEY("Mod_ID", "Component_ID"),
+	FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Mods_Requirements" (
+	"ID_Mod"	INTEGER NOT NULL,
+	"ID_Mod_Requirement"	INTEGER NOT NULL,
+	PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
+	FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
+)
+CREATE TABLE "Mods_State" (
+	"ID"	INTEGER NOT NULL,
+	"State"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Platforms" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "Profiles" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT,
+	"Description"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+)
+CREATE TABLE "System_Components" (
+            "ID" INTEGER NOT NULL,
+            "File" TEXT NOT NULL UNIQUE,
+            "Friendly_Name" TEXT,
+            "Author" TEXT,
+            "Description" TEXT,
+            "Pointer_REFR" INTEGER DEFAULT 0,
+            "Pointer_ACHR" INTEGER DEFAULT 0,
+            "Pointer_PKIN" INTEGER DEFAULT 0,
+            "Filedate_Last_Check" TEXT,
+            PRIMARY KEY("ID" AUTOINCREMENT)
+        )
+CREATE TABLE sqlite_sequence(name,seq)

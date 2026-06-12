@@ -54,16 +54,49 @@ def parse_tes4_header(file_path):
         pass
     return author, description
 
-def scan_esm_for_handles(file_path):
+# Listen der Pointer-Spalten für Core- und Mod-Dateien
+CORE_POINTER_COLS = ['Pointer_REFR', 'Pointer_ACHR', 'Pointer_PKIN']
+
+MOD_POINTER_COLS = [
+    'Pointer_REFR', 'Pointer_ACHR', 'Pointer_PKIN', 'Pointer_STMP', 'Pointer_STND',
+    'Pointer_STBH', 'Pointer_STDT', 'Pointer_RSPJ', 'Pointer_WEAP', 'Pointer_AMMO',
+    'Pointer_ARMO', 'Pointer_APWR', 'Pointer_CELL', 'Pointer_WRLD', 'Pointer_DIAL',
+    'Pointer_QUST', 'Pointer_INFO', 'Pointer_NPC_', 'Pointer_STAT', 'Pointer_FURN',
+    'Pointer_TERM', 'Pointer_TXST', 'Pointer_MATO', 'Pointer_LIGH', 'Pointer_GMST',
+    'Pointer_SNDR', 'Pointer_SOUN', 'Pointer_PKEY', 'Pointer_COBJ', 'Pointer_KYWD',
+    'Pointer_AVIF', 'Pointer_PERK', 'Pointer_NAVM',
+    'Pointer_QUST_Override', 'Pointer_CELL_Override', 'Pointer_DIAL_Override',
+    'Pointer_INFO_Override', 'Pointer_NPC__Override', 'Pointer_STAT_Override',
+    'Pointer_COBJ_Override', 'Pointer_FURN_Override',
+    'Pointer_QUST_ANAM', 'Pointer_QUST_DNAM',
+    'Pointer_QUST_FLTR_0', 'Pointer_QUST_FLTR_1', 'Pointer_QUST_FLTR_2',
+    'Pointer_QUST_FLTR_3', 'Pointer_QUST_FLTR_4', 'Pointer_QUST_FLTR_5'
+]
+
+POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität
+
+def _get_sig_from_col(col):
+    name = col.replace("Pointer_", "")
+    if name.endswith("_Override"):
+        name = name[:-9]
+    return name
+
+def scan_esm_for_handles(file_path, is_core=False):
     """
-    Parst eine Bethesda .esm Datei anhand ihrer binären Struktur
-    und zählt REFR, ACHR und PKIN.
+    Parst eine Bethesda .esm Datei anhand ihrer binären Struktur.
+    Wenn is_core=True, werden nur REFR, ACHR und PKIN gezählt.
     """
-    local_counts = {'REFR': 0, 'ACHR': 0, 'PKIN': 0}
+    cols = CORE_POINTER_COLS if is_core else MOD_POINTER_COLS
+    local_counts = {col.replace("Pointer_", ""): 0 for col in cols}
     if not os.path.exists(file_path):
         return local_counts
 
-    targets = {b'REFR', b'ACHR', b'PKIN'}
+    targets = {
+        _get_sig_from_col(col).encode('utf-8') 
+        for col in cols 
+        if len(_get_sig_from_col(col)) == 4 or _get_sig_from_col(col) == "NPC_"
+    }
+    override_targets = {b'QUST', b'CELL', b'DIAL', b'INFO', b'NPC_', b'STAT', b'COBJ', b'FURN'}
     try:
         with open(file_path, 'rb') as f:
             header_sig = f.read(4)
@@ -85,13 +118,98 @@ def scan_esm_for_handles(file_path):
                     continue
 
                 if sig in targets:
-                    sig_str = sig.decode('utf-8')
+                    sig_str = sig.decode('utf-8', errors='ignore')
                     local_counts[sig_str] += 1
 
+                    if not is_core and sig in override_targets:
+                        master_idx = header[15]
+                        if master_idx > 0:
+                            local_counts[f"{sig_str}_Override"] += 1
+                    # Wenn QUST, parsen wir die Subrecords (nur für Mods, d.h. wenn QUST_ANAM existiert)
+                    if sig == b'QUST' and 'QUST_ANAM' in local_counts:
+                        flags, = struct.unpack('<I', header[8:12])
+                        raw_data = f.read(data_size)
+                        if len(raw_data) == data_size:
+                            # Decompress if compressed
+                            if flags & 0x00040000:
+                                try:
+                                    import zlib
+                                    decompressed_data = zlib.decompress(raw_data[4:])
+                                except Exception:
+                                    decompressed_data = b''
+                            else:
+                                decompressed_data = raw_data
+
+                            # Iteriere über Subrecords
+                            offset = 0
+                            has_qtyp = False
+                            qtyp_val = None
+                            
+                            while offset + 6 <= len(decompressed_data):
+                                sub_sig = decompressed_data[offset:offset+4]
+                                sub_size = struct.unpack('<H', decompressed_data[offset+4:offset+6])[0]
+                                offset += 6
+                                if offset + sub_size > len(decompressed_data):
+                                    break
+                                sub_data = decompressed_data[offset:offset+sub_size]
+                                offset += sub_size
+
+                                if sub_sig == b'ANAM':
+                                    local_counts['QUST_ANAM'] += 1
+                                elif sub_sig == b'DNAM':
+                                    local_counts['QUST_DNAM'] += 1
+                                elif sub_sig == b'QTYP':
+                                    if len(sub_data) >= 4:
+                                        has_qtyp = True
+                                        qtyp_val = struct.unpack('<I', sub_data[:4])[0]
+
+                            # Zuweisung des Quest-Typs
+                            quest_type = 0 # Default: Undefined (0) wenn kein QTYP vorhanden ist
+                            if has_qtyp and qtyp_val is not None:
+                                # Mapping der Starfield Quest-Type FormIDs
+                                if qtyp_val == 292346:    # 0x000475FA
+                                    quest_type = 1        # Main Quest
+                                elif qtyp_val == 292349:  # 0x000475FD
+                                    quest_type = 2        # Faction Quest
+                                elif qtyp_val == 292352:  # 0x00047600
+                                    quest_type = 3        # Side Quest
+                                elif qtyp_val == 1977648: # 0x001E2D30
+                                    quest_type = 4        # Radiant Quest
+                                elif qtyp_val == 292344:  # 0x000475F8
+                                    quest_type = 5        # Miscellaneous
+                            
+                            local_counts[f'QUST_FLTR_{quest_type}'] += 1
+                        continue
                 f.seek(data_size, os.SEEK_CUR)
     except Exception:
         pass
     return local_counts
+
+def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
+    """
+    Sucht auf der Festplatte nach zugehörigen BA2-Dateien für eine Masterfile (.esm/.esp)
+    und trägt diese als Komponenten ein und verknüpft sie mit der Mod in der Datenbank.
+    """
+    if not esm_filename.lower().endswith(('.esm', '.esp')):
+        return
+    base_name = esm_filename[:-4]
+    for suffix in [" - textures.ba2", " - main.ba2", " - voices.ba2", " - sounds.ba2"]:
+        ba2_filename = base_name + suffix
+        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_filename)
+        if os.path.exists(ba2_path):
+            cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (ba2_filename.lower(),))
+            row = cursor.fetchone()
+            if not row:
+                cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, 0, 0)", (ba2_filename,))
+                comp_id = cursor.lastrowid
+                log_msg(f"    -> [AUTO DISCOVER BA2] {ba2_filename} gefunden und als Komponente angelegt.")
+            else:
+                comp_id = row[0]
+                
+            cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
+                log_msg(f"    -> [LINK BA2] {ba2_filename} mit Mod ID {mod_id} verknüpft.")
 
 OFFICIAL_DLC_NAMES = {
     "starfield.esm": "Starfield Hauptspiel",
@@ -152,37 +270,46 @@ def scan_and_update_system_components(log_msg):
             mtime_str = datetime.datetime.fromtimestamp(mtime).isoformat()
             
             # Prüfe, ob wir diese System-Komponente schon in der DB haben
-            cursor.execute("SELECT Pointer_REFR, Pointer_ACHR, Pointer_PKIN, Filedate_Last_Check FROM System_Components WHERE LOWER(File) = ?", (esm_lower,))
+            col_list_str = ", ".join(CORE_POINTER_COLS)
+            cursor.execute(f"SELECT {col_list_str}, Filedate_Last_Check FROM System_Components WHERE LOWER(File) = ?", (esm_lower,))
             row = cursor.fetchone()
             
             needs_scan = True
-            refr, achr, pkin = 0, 0, 0
             
             if row:
-                db_refr, db_achr, db_pkin, db_mtime = row
-                if db_mtime == mtime_str:
+                if row['Filedate_Last_Check'] == mtime_str:
                     needs_scan = False
-                    refr, achr, pkin = db_refr, db_achr, db_pkin
-                    log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {refr}, ACHR: {achr}, PKIN: {pkin}")
+                    log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {row['Pointer_REFR']}, ACHR: {row['Pointer_ACHR']}")
             
             if needs_scan:
                 log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
-                counts = scan_esm_for_handles(filepath)
-                refr, achr, pkin = counts['REFR'], counts['ACHR'], counts['PKIN']
+                counts = scan_esm_for_handles(filepath, is_core=True)
+                
+                pointer_values = []
+                for col in CORE_POINTER_COLS:
+                    key = col.replace("Pointer_", "")
+                    pointer_values.append(counts.get(key, 0))
                 
                 if row:
-                    cursor.execute("""
+                    set_clause = ", ".join([f"{col} = ?" for col in CORE_POINTER_COLS])
+                    query = f"""
                         UPDATE System_Components 
-                        SET Friendly_Name = ?, Author = ?, Description = ?, Pointer_REFR = ?, Pointer_ACHR = ?, Pointer_PKIN = ?, Filedate_Last_Check = ?
+                        SET Friendly_Name = ?, Author = ?, Description = ?, {set_clause}, Filedate_Last_Check = ?
                         WHERE LOWER(File) = ?
-                    """, (friendly_name, author, description, refr, achr, pkin, mtime_str, esm_lower))
+                    """
+                    params = [friendly_name, author, description] + pointer_values + [mtime_str, esm_lower]
+                    cursor.execute(query, params)
                 else:
-                    cursor.execute("""
-                        INSERT INTO System_Components (File, Friendly_Name, Author, Description, Pointer_REFR, Pointer_ACHR, Pointer_PKIN, Filedate_Last_Check)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (esm, friendly_name, author, description, refr, achr, pkin, mtime_str))
+                    col_names_str = ", ".join(CORE_POINTER_COLS)
+                    placeholders = ", ".join(["?"] * len(CORE_POINTER_COLS))
+                    query = f"""
+                        INSERT INTO System_Components (File, Friendly_Name, Author, Description, {col_names_str}, Filedate_Last_Check)
+                        VALUES (?, ?, ?, ?, {placeholders}, ?)
+                    """
+                    params = [esm, friendly_name, author, description] + pointer_values + [mtime_str]
+                    cursor.execute(query, params)
                 conn.commit()
-                log_msg(f"    -> NEU EINGELESEN: REFR: {refr}, ACHR: {achr}, PKIN: {pkin} | Metadaten gespeichert.")
+                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Metadaten gespeichert.")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
@@ -203,11 +330,18 @@ def scan_and_update_mod_components(log_msg):
         cursor = conn.cursor()
         
         # Hole alle registrierten Masterfiles
-        cursor.execute("SELECT ID, File, Pointer_REFR, Pointer_ACHR, Pointer_PKIN, Filedate_Last_Check FROM Components WHERE Is_Masterfile > 0 OR LOWER(File) LIKE '%.esm'")
+        cursor.execute("""
+            SELECT c.ID, c.File, c.Filedate_Last_Check, em.Pointer_REFR 
+            FROM Components c 
+            LEFT JOIN ESM_Marker em ON c.ID = em.Component_ID 
+            WHERE c.Is_Masterfile > 0 OR LOWER(c.File) LIKE '%.esm'
+        """)
         components = cursor.fetchall()
         
         for comp in components:
-            comp_id, file_name, db_refr, db_achr, db_pkin, db_mtime = comp
+            comp_id = comp['ID']
+            file_name = comp['File']
+            db_mtime = comp['Filedate_Last_Check']
             filepath = os.path.join(STARFIELD_GAME_DATA_PATH, file_name)
             
             if not os.path.exists(filepath):
@@ -218,25 +352,38 @@ def scan_and_update_mod_components(log_msg):
             mtime_str = datetime.datetime.fromtimestamp(mtime).isoformat()
             
             needs_scan = True
-            refr, achr, pkin = 0, 0, 0
             
             if db_mtime == mtime_str:
                 needs_scan = False
-                refr, achr, pkin = db_refr, db_achr, db_pkin
-                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {refr}, ACHR: {achr}, PKIN: {pkin}")
+                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['Pointer_REFR'] or 0}")
             
             if needs_scan:
                 log_msg(f"  -> [MOD COMPONENT SCAN] '{file_name}' wird binär gescannt...")
-                counts = scan_esm_for_handles(filepath)
-                refr, achr, pkin = counts['REFR'], counts['ACHR'], counts['PKIN']
+                counts = scan_esm_for_handles(filepath, is_core=False)
                 
+                pointer_values = []
+                for col in MOD_POINTER_COLS:
+                    key = col.replace("Pointer_", "")
+                    pointer_values.append(counts.get(key, 0))
+                
+                # 1. Update Filedate_Last_Check in Components
                 cursor.execute("""
                     UPDATE Components 
-                    SET Pointer_REFR = ?, Pointer_ACHR = ?, Pointer_PKIN = ?, Filedate_Last_Check = ?
+                    SET Filedate_Last_Check = ?
                     WHERE ID = ?
-                """, (refr, achr, pkin, mtime_str, comp_id))
+                """, (mtime_str, comp_id))
+                
+                # 2. Insert or Replace in ESM_Marker
+                col_names_str = ", ".join(MOD_POINTER_COLS)
+                placeholders = ", ".join(["?"] * len(MOD_POINTER_COLS))
+                query = f"""
+                    INSERT OR REPLACE INTO ESM_Marker (Component_ID, {col_names_str})
+                    VALUES (?, {placeholders})
+                """
+                params = [comp_id] + pointer_values
+                cursor.execute(query, params)
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {refr}, ACHR: {achr}, PKIN: {pkin}")
+                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']}")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")
@@ -475,6 +622,10 @@ def run_local_check(log_signal):
                 # 2. Suchen des zugeordneten Mods über die Tabelle Mods_Components
                 mod_id = db_comp.get("Mod_ID")
                 
+                # Zugehörige BA2-Dateien auf Festplatte suchen und registrieren
+                if mod_id:
+                    register_associated_ba2_files(mod_id, filename, cursor, log_msg)
+                
                 # Wenn wir diesen Mod im aktuellen Lauf schon aktualisiert/geprüft haben, überspringen!
                 if mod_id in processed_mods_this_run:
                     continue
@@ -536,8 +687,9 @@ def run_local_check(log_signal):
                         
                         # 2. Schleife über alle Files im ContentCatalog
                         for f_name in all_files:
-                            is_m = catalog_mapping.get(f_name.lower(), {}).get("Is_Masterfile", 0)
-                            is_bp = catalog_mapping.get(f_name.lower(), {}).get("Is_Blueprint", 0)
+                            f_lower = f_name.lower()
+                            is_m = catalog_mapping.get(f_lower, {}).get("Is_Masterfile", 0)
+                            is_bp = catalog_mapping.get(f_lower, {}).get("Is_Blueprint", 0)
                             
                             # Prüfen ob die Komponente bereits angelegt ist (in Tabelle Components)
                             cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
@@ -615,11 +767,12 @@ def run_local_check(log_signal):
                     
                     all_files = catalog_data.get("All_Files", [])
                     for f_name in all_files:
-                        is_m = catalog_mapping.get(f_name.lower(), {}).get("Is_Masterfile", 0)
-                        is_bp = catalog_mapping.get(f_name.lower(), {}).get("Is_Blueprint", 0)
+                        f_lower = f_name.lower()
+                        is_m = catalog_mapping.get(f_lower, {}).get("Is_Masterfile", 0)
+                        is_bp = catalog_mapping.get(f_lower, {}).get("Is_Blueprint", 0)
                         
                         # Komponente in DB einfügen
-                        cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
+                        cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_lower,))
                         row = cursor.fetchone()
                         if row:
                             comp_id = row[0]
@@ -676,6 +829,10 @@ def run_local_check(log_signal):
                         
                     # Verknüpfung in Mods_Components
                     cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
+
+            # Zugehörige BA2-Dateien auf Festplatte suchen und registrieren
+            if mod_id:
+                register_associated_ba2_files(mod_id, filename, cursor, log_msg)
 
         # Commit alle Änderungen
         conn.commit()

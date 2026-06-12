@@ -9,50 +9,8 @@ from Structure.Paths import DB_FILE
 _MIGRATIONS_RUN = False
 
 def ensure_schema_updates(conn: sqlite3.Connection):
-    """Prüft und aktualisiert die DB-Struktur bei Bedarf (Self-Healing-Migration)."""
-    global _MIGRATIONS_RUN
-    if _MIGRATIONS_RUN:
-        return
-        
-    try:
-        cursor = conn.cursor()
-        
-        # 1. Tabelle System_Components anlegen
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS "System_Components" (
-                "ID" INTEGER NOT NULL,
-                "File" TEXT NOT NULL UNIQUE,
-                "Friendly_Name" TEXT,
-                "Author" TEXT,
-                "Description" TEXT,
-                "Pointer_REFR" INTEGER DEFAULT 0,
-                "Pointer_ACHR" INTEGER DEFAULT 0,
-                "Pointer_PKIN" INTEGER DEFAULT 0,
-                "Filedate_Last_Check" TEXT,
-                PRIMARY KEY("ID" AUTOINCREMENT)
-            );
-        """)
-        
-        # 2. Neue Spalten in Components prüfen und bei Bedarf hinzufügen
-        cursor.execute("PRAGMA table_info(Components);")
-        columns = [row["name"] for row in cursor.fetchall()]
-        
-        new_cols = {
-            "Pointer_REFR": "INTEGER DEFAULT 0",
-            "Pointer_ACHR": "INTEGER DEFAULT 0",
-            "Pointer_PKIN": "INTEGER DEFAULT 0",
-            "Filedate_Last_Check": "TEXT"
-        }
-        
-        for col_name, col_type in new_cols.items():
-            if col_name not in columns:
-                cursor.execute(f"ALTER TABLE Components ADD COLUMN {col_name} {col_type};")
-                logging.info(f"Datenbank-Migration: Spalte {col_name} zu Tabelle 'Components' hinzugefügt.")
-                
-        conn.commit()
-        _MIGRATIONS_RUN = True
-    except sqlite3.Error as e:
-        logging.error(f"Fehler bei der automatischen Schema-Migration: {e}")
+    """Prüft und aktualisiert die DB-Struktur bei Bedarf (in der Alpha-Phase deaktiviert)."""
+    pass
 
 def get_db_connection() -> sqlite3.Connection:
     """Stellt die Verbindung zur lokalen SQLite-Datenbank her."""
@@ -429,11 +387,21 @@ def get_load_order(profile_id: int) -> list[dict]:
             m.Name_Online,
             m.Name_ContentCatalog,
             c.File AS Component_File,
+            c.Is_Masterfile,
+            em.Pointer_QUST, em.Pointer_DIAL, em.Pointer_INFO,
+            em.Pointer_COBJ, em.Pointer_FURN, em.Pointer_STAT,
+            em.Pointer_QUST_Override, em.Pointer_CELL_Override, em.Pointer_DIAL_Override,
+            em.Pointer_INFO_Override, em.Pointer_NPC__Override, em.Pointer_STAT_Override,
+            em.Pointer_COBJ_Override, em.Pointer_FURN_Override,
+            em.Pointer_QUST_ANAM, em.Pointer_QUST_DNAM,
+            em.Pointer_QUST_FLTR_0, em.Pointer_QUST_FLTR_1, em.Pointer_QUST_FLTR_2,
+            em.Pointer_QUST_FLTR_3, em.Pointer_QUST_FLTR_4, em.Pointer_QUST_FLTR_5,
             cat.Name AS Category_Name,
             m.Note,
             m.Category_LOH AS Category_ID
         FROM LoadOrder lo
         JOIN Components c ON lo.ID_Component = c.ID
+        LEFT JOIN ESM_Marker em ON c.ID = em.Component_ID
         LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
         LEFT JOIN Mods m ON mc.Mod_ID = m.ID
         LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID

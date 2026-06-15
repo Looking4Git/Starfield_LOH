@@ -23,7 +23,10 @@ def _check_sieve(row, allowed_keys, required_keys):
         'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5',
         'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
         'CLFM', 'HDPT', 'MOVT',
-        'NPC_KYWD_Ship', 'NPC_KYWD_Companion', 'NPC_KYWD_Creature', 'NPC_KYWD_Shop'
+        'NPC_KYWD_Ship', 'NPC_KYWD_Companion', 'NPC_KYWD_Creature', 'NPC_KYWD_Shop',
+        'MGEF', 'MGEF_Override', 'EFSH', 'EFSH_Override',
+        'SPEL', 'SPEL_Override', 'ENCH', 'ENCH_Override',
+        'VFXS', 'VFXS_Override', 'ALCH', 'ALCH_Override'
     ]
     for col in cols:
         val = row.get(col) or 0
@@ -139,13 +142,21 @@ def classify_mod(row, cursor=None, log_msg=None):
     npc_kywd_companion = row.get('NPC_KYWD_Companion') or 0
     npc_kywd_creature = row.get('NPC_KYWD_Creature') or 0
     npc_kywd_shop = row.get('NPC_KYWD_Shop') or 0
+    mgef = row.get('MGEF') or 0
+    mgef_override = row.get('MGEF_Override') or 0
+    efsh = row.get('EFSH') or 0
+    efsh_override = row.get('EFSH_Override') or 0
+    spel = row.get('SPEL') or 0
+    spel_override = row.get('SPEL_Override') or 0
+    ench = row.get('ENCH') or 0
+    ench_override = row.get('ENCH_Override') or 0
+    vfxs = row.get('VFXS') or 0
+    vfxs_override = row.get('VFXS_Override') or 0
+    alch = row.get('ALCH') or 0
+    alch_override = row.get('ALCH_Override') or 0
 
-    mod_name = row.get('Name_Online') or row.get('Name_ContentCatalog') or ""
+    mod_name = row.get('Name_Online') or ""
     mod_name_l = mod_name.lower()
-
-    # Namentliche Ausnahmen für bekannte 0-Pointer-Mods
-    if "no chameleon effect" in mod_name_l:
-        return "Remove", "Layer 1 (Eindeutige Identifizierung): Namentliche Ausnahme für 0-Pointer-Mod (No Chameleon Effect)."
 
     # --------------------------------------------------------------------------
     # LAYER 1: Strukturelle Vorfilterung (Eindeutige Identifizierung für Asset- und Regel-Mods)
@@ -159,6 +170,23 @@ def classify_mod(row, cursor=None, log_msg=None):
     # 2. Reine Tweaks (Ausschließlich GMST/MOVT-Records)
     if _check_sieve(row, ["GMST", "MOVT"], ["GMST", "MOVT"]):
         return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (nur GMST/MOVT-Records vorhanden)."
+
+    # 2.5. Remove-Sieve (Ändert/deaktiviert bestehende Spells/Effects/Perks/GMSTs ohne neue hinzuzufügen)
+    if _check_sieve(row, [
+        "SPEL", "SPEL_Override", "MGEF", "MGEF_Override", "EFSH", "EFSH_Override",
+        "ENCH", "ENCH_Override", "VFXS", "VFXS_Override", "ALCH", "ALCH_Override",
+        "PERK", "PERK_Override", "GMST", "GMST_Override"
+    ], ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK"]):
+        # Prüfen, ob alle vorhanden Einträge reine Overrides sind (keine neuen Records)
+        is_pure_override = True
+        for key in ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK", "GMST"]:
+            val = row.get(key) or 0
+            val_override = row.get(f"{key}_Override") or 0
+            if val > 0 and val != val_override:
+                is_pure_override = False
+                break
+        if is_pure_override:
+            return "Remove", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (reines Deaktivieren/Ändern bestehender Effekte/Spells/Perks/GMST)."
         
     # 3. Keine Datenbank-Pointer records vorhanden
     has_pointers = any([
@@ -169,7 +197,10 @@ def classify_mod(row, cursor=None, log_msg=None):
         qust_anam, qust_dnam, qust_qtyp_0, qust_qtyp_1, qust_qtyp_2, qust_qtyp_3, qust_qtyp_4, qust_qtyp_5,
         furn_vmrt, furn_vcmt, furn_vwwd, furn_vctt,
         clfm, hdpt, movt,
-        npc_kywd_ship, npc_kywd_companion, npc_kywd_creature, npc_kywd_shop
+        npc_kywd_ship, npc_kywd_companion, npc_kywd_creature, npc_kywd_shop,
+        mgef, mgef_override, efsh, efsh_override,
+        spel, spel_override, ench, ench_override,
+        vfxs, vfxs_override, alch, alch_override
     ])
     if not has_pointers:
         # Stufe 1: Prüfung auf Komponenten-Dateinamen und Inhaltsscans

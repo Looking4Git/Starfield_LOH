@@ -155,7 +155,7 @@ def classify_mod(row, cursor=None, log_msg=None):
     alch = row.get('ALCH') or 0
     alch_override = row.get('ALCH_Override') or 0
 
-    mod_name = row.get('Name_Online') or ""
+    mod_name = row.get('Name_Online') or row.get('Name_ContentCatalog') or ""
     mod_name_l = mod_name.lower()
 
     # --------------------------------------------------------------------------
@@ -171,7 +171,7 @@ def classify_mod(row, cursor=None, log_msg=None):
     if _check_sieve(row, ["GMST", "MOVT"], ["GMST", "MOVT"]):
         return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (nur GMST/MOVT-Records vorhanden)."
 
-    # 2.5. Remove-Sieve (Ändert/deaktiviert bestehende Spells/Effects/Perks/GMSTs ohne neue hinzuzufügen)
+    # 2.5. Remove-Sieve & Tweak-Filter (Ändert/deaktiviert bestehende Spells/Effects/Perks/GMSTs ohne neue hinzuzufügen)
     if _check_sieve(row, [
         "SPEL", "SPEL_Override", "MGEF", "MGEF_Override", "EFSH", "EFSH_Override",
         "ENCH", "ENCH_Override", "VFXS", "VFXS_Override", "ALCH", "ALCH_Override",
@@ -185,8 +185,22 @@ def classify_mod(row, cursor=None, log_msg=None):
             if val > 0 and val != val_override:
                 is_pure_override = False
                 break
+        
         if is_pure_override:
-            return "Remove", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (reines Deaktivieren/Ändern bestehender Effekte/Spells/Perks/GMST)."
+            # Unterscheidung anhand von Schlüsselwörtern im Namen
+            remove_keywords = ["no ", "no_", "remove", "disable", "delete", "without", "kein", "entfernen", "deaktivieren", "ohne", "hide ", "hidden"]
+            is_remove_mod = any(kw in mod_name_l for kw in remove_keywords)
+            
+            if is_remove_mod:
+                return "Remove", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (reines Deaktivieren/Entfernen bestehender Effekte/Spells/Perks/GMST)."
+            else:
+                # Fallback auf passendere Kategorien, falls es sich nur um eine Anpassung handelt
+                if efsh > 0 or vfxs > 0:
+                    return "Effekte", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Änderung bestehender visueller Effekte/Shader)."
+                elif spel > 0 or perk > 0:
+                    return "Gameplay", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Anpassung bestehender Spells/Perks)."
+                else:
+                    return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Anpassung bestehender Rezepte/Enchantments/GMST)."
         
     # 3. Keine Datenbank-Pointer records vorhanden
     has_pointers = any([

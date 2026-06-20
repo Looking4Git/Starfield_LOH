@@ -36,7 +36,7 @@ def _check_sieve(row, allowed_keys, required_keys):
                 return False
     return any((row.get(k) or 0) > 0 for k in required_keys)
 
-def _exclude_by_author_bgs(row, cursor, cat_ids):
+def _check_author_bgs(row, cursor, cat_ids):
     """
     Regel 1: Prüft auf den Autor BGS. Ist dies der Fall, werden alle anderen 
     Kategorien in der Ausschlussmatrix auf 0 gesetzt.
@@ -77,7 +77,7 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         
     # Liste aller registrierten Ausschlussregeln
     rules = [
-        _exclude_by_author_bgs
+        _check_author_bgs
     ]
     
     notes = []

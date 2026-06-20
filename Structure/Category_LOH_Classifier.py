@@ -239,6 +239,45 @@ def _exclude_non_tweaks(row, cursor, cat_ids):
             return "Kategorie 'Tweaks' ausgeschlossen (keine GMST/MOVT-Referenzen)."
     return None
 
+def _exclude_non_remover(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen oder Zähler für gelöschte, deaktivierte oder entfernte Objekte/Effekte vorliegen.
+    Wenn nicht, wird die Kategorie 'Remove' (28) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    refr_deleted = row.get('REFR_Deleted') or 0
+    refr_disabled = row.get('REFR_Disabled') or 0
+    refr_buried = row.get('REFR_Buried') or 0
+    spel_remove = row.get('SPEL_Remove') or 0
+    mgef_remove = row.get('MGEF_Remove') or 0
+    efsh_remove = row.get('EFSH_Remove') or 0
+    ench_remove = row.get('ENCH_Remove') or 0
+    vfxs_remove = row.get('VFXS_Remove') or 0
+    alch_remove = row.get('ALCH_Remove') or 0
+    perk_remove = row.get('PERK_Remove') or 0
+    
+    has_removals = (
+        refr_deleted > 0 or refr_disabled > 0 or refr_buried > 0 or
+        spel_remove > 0 or mgef_remove > 0 or efsh_remove > 0 or
+        ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0
+    )
+    
+    if not has_removals:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Remove'")
+        r_row = cursor.fetchone()
+        remove_id = r_row[0] if r_row else None
+        
+        if remove_id and remove_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{remove_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Remove' ausgeschlossen (keine Lösch- oder Deaktivierungsindikatoren)."
+    return None
+
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
@@ -260,7 +299,8 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_light,
         _exclude_non_character,
         _exclude_non_gameplay,
-        _exclude_non_tweaks
+        _exclude_non_tweaks,
+        _exclude_non_remover
     ]
     
     notes = []

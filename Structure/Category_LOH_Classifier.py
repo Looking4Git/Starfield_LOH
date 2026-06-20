@@ -320,6 +320,118 @@ def _exclude_non_remover(row, cursor, cat_ids):
             return "Kategorie 'Remove' ausgeschlossen (keine Remover-Kriterien erfüllt)."
     return None
 
+def _exclude_by_assets_or_pointers(row, cursor, cat_ids):
+    """
+    Prüft, ob überhaupt Datenbank-Pointer (Referenzen auf Datensätze) vorhanden sind.
+    Falls nicht (reine Asset-Mod), werden alle Kategorien auf 0 gesetzt, außer den
+    durch Scans in BA2-Archiven identifizierten Asset-Kategorien (Gameplay, Texturen, Sound, Interface).
+    """
+    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    
+    has_pointers = False
+    for col in MOD_POINTER_COLS:
+        # Ignoriere rein statusbasierte Zähler für Löschungen/Overrides
+        if col.endswith('_Deleted') or col.endswith('_Disabled') or col.endswith('_Buried') or col.endswith('_Remove') or col.endswith('_Override'):
+            continue
+        val = row.get(col) or 0
+        if val > 0:
+            has_pointers = True
+            break
+            
+    if has_pointers:
+        # Wenn Pointer vorhanden sind, greift diese Asset-Regel nicht
+        return None
+        
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    # 2. Komponenten-Dateinamen des Mods ermitteln (für BA2-Asset-Prüfung)
+    cursor.execute("""
+        SELECT File 
+        FROM Components c 
+        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+        WHERE mc.Mod_ID = ?
+    """, (mod_id,))
+    components = [r[0] for r in cursor.fetchall()]
+    
+    # 3. BA2-Dateien filtern und scannen
+    has_textures = False
+    has_audio = False
+    has_interface = False
+    has_scripts = False
+    
+    ba2_files = [f for f in components if f.lower().endswith(".ba2")]
+    
+    from Structure.Paths import STARFIELD_GAME_DATA_PATH
+    from Structure.File_BA2_Parser import scan_ba2_archive_for_types
+    
+    for ba2_file in ba2_files:
+        ba2_lower = ba2_file.lower()
+        
+        # Audio-Archive direkt am Namen erkennen (Zeitersparnis)
+        if "voices" in ba2_lower or "sounds" in ba2_lower or "sound.ba2" in ba2_lower:
+            has_audio = True
+            continue
+            
+        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
+        if os.path.exists(ba2_path):
+            ba2_flags = scan_ba2_archive_for_types(ba2_path)
+            if ba2_flags.get("has_textures"):
+                has_textures = True
+            if ba2_flags.get("has_audio"):
+                has_audio = True
+            if ba2_flags.get("has_interface"):
+                has_interface = True
+            if ba2_flags.get("has_scripts"):
+                has_scripts = True
+                
+    # 4. IDs der Asset-Kategorien ermitteln
+    cursor.execute("SELECT ID, Name FROM Categories_LOH WHERE Name IN ('Gameplay', 'Texturen', 'Sound', 'Interface')")
+    cat_rows = cursor.fetchall()
+    cat_mapping = {r[1]: r[0] for r in cat_rows}
+    
+    gameplay_id = cat_mapping.get('Gameplay')
+    textures_id = cat_mapping.get('Texturen')
+    sound_id = cat_mapping.get('Sound')
+    interface_id = cat_mapping.get('Interface')
+    
+    # Bestimme, welche Kategorien erhalten bleiben
+    keep_ids = []
+    reason = "Ausschließliche Asset-Mod ohne Pointer. "
+    
+    if has_scripts and gameplay_id:
+        keep_ids.append(gameplay_id)
+        reason += "Scripte in BA2 gefunden -> Gameplay-Kategorie."
+    elif has_textures and textures_id:
+        keep_ids.append(textures_id)
+        reason += "Texturen in BA2 gefunden -> Texturen-Kategorie."
+    elif has_audio and sound_id:
+        keep_ids.append(sound_id)
+        reason += "Audio in BA2 gefunden -> Sound-Kategorie."
+    elif has_interface and interface_id:
+        keep_ids.append(interface_id)
+        reason += "Interface-Dateien in BA2 gefunden -> Interface-Kategorie."
+    else:
+        # Falls keine BA2s geladen/gescannt werden konnten, bleiben alle Asset-Kategorien als Möglichkeit im Rennen,
+        # aber alle anderen Kategorien (die Pointer erfordern) werden ausgeschlossen.
+        for cid in [gameplay_id, textures_id, sound_id, interface_id]:
+            if cid:
+                keep_ids.append(cid)
+        reason += "Keine eindeutigen Assets gescannt, alle Pointer-erfordernden Kategorien ausgeschlossen."
+        
+    # Alle anderen Kategorien in der Ausschlussmatrix ausschließen (auf 0 setzen)
+    exclude_cols = [cat_id for cat_id in cat_ids if cat_id not in keep_ids]
+    if exclude_cols:
+        set_clause = ", ".join([f'"{col}" = 0' for col in exclude_cols])
+        cursor.execute(f"""
+            UPDATE LoadOrder_Classifier_Matrix 
+            SET {set_clause}
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mod_id, component_id))
+        return reason
+        
+    return None
+
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
@@ -342,7 +454,8 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_character,
         _exclude_non_gameplay,
         _exclude_non_tweaks,
-        _exclude_non_remover
+        _exclude_non_remover,
+        _exclude_by_assets_or_pointers
     ]
     
     notes = []

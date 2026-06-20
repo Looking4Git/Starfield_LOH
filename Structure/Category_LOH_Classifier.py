@@ -66,7 +66,7 @@ def _check_author_bgs(row, cursor, cat_ids):
 def _exclude_non_weapon(row, cursor, cat_ids):
     """
     Prüft, ob Referenzen für eine Waffenmod (WEAP oder AMMO) vorliegen.
-    Wenn nicht, wird die Kategorie 'Waffen' in der Ausschlussmatrix auf 0 gesetzt.
+    Wenn nicht, wird die Kategorie 'Waffen' (22) in der Ausschlussmatrix auf 0 gesetzt.
     """
     weap = row.get('WEAP') or 0
     ammo = row.get('AMMO') or 0

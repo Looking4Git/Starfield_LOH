@@ -36,12 +36,44 @@ def _check_sieve(row, allowed_keys, required_keys):
                 return False
     return any((row.get(k) or 0) > 0 for k in required_keys)
 
-def classify_mod(row, cursor=None, log_msg=None):
+def classify_mod(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Klassifiziert eine Mod anhand ihrer Spalten-Zähler und Metadaten über eine 3-Layer-Pipeline.
     Gibt ein Tuple (Vorgeschlagene_Kategorie, Hinweis) zurück.
     """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    if cursor is None:
+        return None, "Keine Datenbank-Verbindung für Ausschlussmatrix."
+        
+    if cat_ids is None:
+        cursor.execute("SELECT ID FROM Categories_LOH ORDER BY Position")
+        cat_ids = [r[0] for r in cursor.fetchall()]
+        
+    # 1. BGS-Klassifizierung direkt über den Autor (Eindeutige Zuweisung)
+    author = (row.get('Author') or "").strip().lower()
+    if "bethesda" in author or author == "python":
+        # Finde BGS ID
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
+        bgs_row = cursor.fetchone()
+        bgs_id = bgs_row[0] if bgs_row else 1
+        
+        # Alle anderen Kategorien in der Matrix auf 0 setzen
+        other_cols = [cat_id for cat_id in cat_ids if cat_id != bgs_id]
+        if other_cols:
+            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET {set_clause}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+        return "BGS", "Layer 1 (Eindeutige Identifizierung): Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
+        
+    return None, "Klassifizierung ausstehend (Ausschlussmatrix-Struktur aufgebaut)."
 
+    # Bisherige Entscheidungslogik auskommentiert:
+    """
     # Komponenten (Dateinamen) des Mods ermitteln (für Asset-Prüfung)
     components = row.get('Components')
     if not components and (row.get('Mod_ID') or row.get('ID')):
@@ -155,12 +187,28 @@ def classify_mod(row, cursor=None, log_msg=None):
     alch = row.get('ALCH') or 0
     alch_override = row.get('ALCH_Override') or 0
 
-    mod_name = row.get('Name_Online') or row.get('Name_ContentCatalog') or ""
+    refr_deleted = row.get('REFR_Deleted') or 0
+    refr_disabled = row.get('REFR_Disabled') or 0
+    refr_buried = row.get('REFR_Buried') or 0
+    spel_remove = row.get('SPEL_Remove') or 0
+    mgef_remove = row.get('MGEF_Remove') or 0
+    efsh_remove = row.get('EFSH_Remove') or 0
+    ench_remove = row.get('ENCH_Remove') or 0
+    vfxs_remove = row.get('VFXS_Remove') or 0
+    alch_remove = row.get('ALCH_Remove') or 0
+    perk_remove = row.get('PERK_Remove') or 0
+
+    mod_name = row.get('Name_Online') or ""
     mod_name_l = mod_name.lower()
 
     # --------------------------------------------------------------------------
     # LAYER 1: Strukturelle Vorfilterung (Eindeutige Identifizierung für Asset- und Regel-Mods)
     # --------------------------------------------------------------------------
+    
+    # 0. Clutter-Remover-Sieb (Echte Performance-Remover, die ausschließlich Welt-Referenzen löschen/deaktivieren/verschieben)
+    if _check_sieve(row, ["REFR", "ACHR", "CELL", "WRLD"], ["REFR", "ACHR"]):
+        if refr_deleted > 50 or refr_disabled > 100 or refr_buried > 100:
+            return "Remove", f"Layer 1 (Clutter-Remover-Sieb): Reiner Weltobjekt-Remover erkannt (Deleted: {refr_deleted}, Disabled: {refr_disabled}, Buried: {refr_buried})."
     
     # 1. BGS-Klassifizierung direkt über den Autor (Eindeutige Zuweisung)
     author = (row.get('Author') or "").strip().lower()
@@ -171,7 +219,7 @@ def classify_mod(row, cursor=None, log_msg=None):
     if _check_sieve(row, ["GMST", "MOVT"], ["GMST", "MOVT"]):
         return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (nur GMST/MOVT-Records vorhanden)."
 
-    # 2.5. Remove-Sieve & Tweak-Filter (Ändert/deaktiviert bestehende Spells/Effects/Perks/GMSTs ohne neue hinzuzufügen)
+    # 2.5. Sieve für Spells/Effects/Perks/GMSTs (Pure Overrides)
     if _check_sieve(row, [
         "SPEL", "SPEL_Override", "MGEF", "MGEF_Override", "EFSH", "EFSH_Override",
         "ENCH", "ENCH_Override", "VFXS", "VFXS_Override", "ALCH", "ALCH_Override",
@@ -185,22 +233,25 @@ def classify_mod(row, cursor=None, log_msg=None):
             if val > 0 and val != val_override:
                 is_pure_override = False
                 break
-        
         if is_pure_override:
-            # Unterscheidung anhand von Schlüsselwörtern im Namen
-            remove_keywords = ["no ", "no_", "remove", "disable", "delete", "without", "kein", "entfernen", "deaktivieren", "ohne", "hide ", "hidden"]
-            is_remove_mod = any(kw in mod_name_l for kw in remove_keywords)
-            
-            if is_remove_mod:
-                return "Remove", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (reines Deaktivieren/Entfernen bestehender Effekte/Spells/Perks/GMST)."
+            # Prüfen, ob tatsächlich Records gelöscht wurden
+            has_deleted_spells = (
+                spel_remove > 0 or mgef_remove > 0 or efsh_remove > 0 or
+                ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0
+            )
+            if has_deleted_spells:
+                remover_details = []
+                if spel_remove > 0: remover_details.append(f"SPEL Deleted: {spel_remove}")
+                if mgef_remove > 0: remover_details.append(f"MGEF Deleted: {mgef_remove}")
+                if efsh_remove > 0: remover_details.append(f"EFSH Deleted: {efsh_remove}")
+                if ench_remove > 0: remover_details.append(f"ENCH Deleted: {ench_remove}")
+                if vfxs_remove > 0: remover_details.append(f"VFXS Deleted: {vfxs_remove}")
+                if alch_remove > 0: remover_details.append(f"ALCH Deleted: {alch_remove}")
+                if perk_remove > 0: remover_details.append(f"PERK Deleted: {perk_remove}")
+                details_str = ", ".join(remover_details)
+                return "Remove", f"Layer 1 (Remove-Sieve): Gelöschte Spell/Effect-Records in reinem Override erkannt ({details_str})."
             else:
-                # Fallback auf passendere Kategorien, falls es sich nur um eine Anpassung handelt
-                if efsh > 0 or vfxs > 0:
-                    return "Effekte", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Änderung bestehender visueller Effekte/Shader)."
-                elif spel > 0 or perk > 0:
-                    return "Gameplay", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Anpassung bestehender Spells/Perks)."
-                else:
-                    return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (Anpassung bestehender Rezepte/Enchantments/GMST)."
+                return "Tweaks", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (reines Deaktivieren/Ändern bestehender Effekte/Spells/Perks/GMST)."
         
     # 3. Keine Datenbank-Pointer records vorhanden
     has_pointers = any([
@@ -290,6 +341,7 @@ def classify_mod(row, cursor=None, log_msg=None):
         return "Gameplay", "Layer 1 (Eindeutige Identifizierung): Sieb-Prüfung erfolgreich (nur Gameplay-Records (PERK/AVIF) vorhanden)."
 
     return None, "Klassifizierung ausstehend."
+    """
 
 
 def run_classifier(log_signal=None):
@@ -314,12 +366,30 @@ def run_classifier(log_signal=None):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Dynamisches Laden der Categories_LOH Zuordnung Name -> ID
-        cursor.execute("SELECT ID, Name FROM Categories_LOH")
-        cat_map = {row["Name"]: row["ID"] for row in cursor.fetchall()}
+        # 1. Dynamisches Laden der Categories_LOH IDs sortiert nach Position
+        log_msg("-> Lade Kategorien aus Categories_LOH sortiert nach Position...")
+        cursor.execute("SELECT ID FROM Categories_LOH ORDER BY Position")
+        cat_ids = [row[0] for row in cursor.fetchall()]
+        
+        # 2. Löschen und Neu-Erstellen der Tabelle LoadOrder_Classifier_Matrix
+        log_msg("-> Erstelle Tabelle LoadOrder_Classifier_Matrix neu...")
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix")
+        
+        columns_sql = ", ".join([f'"{cat_id}" INTEGER DEFAULT 1' for cat_id in cat_ids])
+        create_table_sql = f"""
+            CREATE TABLE LoadOrder_Classifier_Matrix (
+                Mod_ID INTEGER,
+                Component_ID INTEGER,
+                {columns_sql},
+                PRIMARY KEY (Mod_ID, Component_ID),
+                FOREIGN KEY(Mod_ID) REFERENCES Mods(ID) ON DELETE CASCADE,
+                FOREIGN KEY(Component_ID) REFERENCES Components(ID) ON DELETE CASCADE
+            )
+        """
+        cursor.execute(create_table_sql)
         
         # Zurücksetzen aller Klassifizierungen vor dem Durchlauf
-        log_msg("-> Setze alte Klassifizierungen in der Datenbank zurück...")
+        log_msg("-> Setze alte Klassifizierungen in der Datenbank (Mods) zurück...")
         cursor.execute("UPDATE Mods SET Category_LOH_Classifier = NULL")
         
         # Hole alle installierten Mods mit ihren Pointern
@@ -327,6 +397,7 @@ def run_classifier(log_signal=None):
         query = f"""
             SELECT 
                 m.ID AS Mod_ID,
+                c.ID AS Component_ID,
                 m.Name_Online,
                 m.Name_ContentCatalog,
                 m.Author,
@@ -342,38 +413,55 @@ def run_classifier(log_signal=None):
         cursor.execute(query)
         rows = [dict(r) for r in cursor.fetchall()]
         
-        log_msg(f"-> Gefundene installierte Mods zur Analyse: {len(rows)}")
+        log_msg(f"-> Gefundene installierte Mod-Komponenten zur Analyse: {len(rows)}")
         
         success_count = 0
         undetermined_count = 0
         
+        col_names = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
+        placeholders = ", ".join(["?"] * (len(cat_ids) + 2))
+        insert_sql = f'INSERT INTO LoadOrder_Classifier_Matrix (Mod_ID, Component_ID, {col_names}) VALUES ({placeholders})'
+        
         for row in rows:
             mod_id = row['Mod_ID']
+            component_id = row['Component_ID']
             mod_name = row['Name_Online'] or row['Name_ContentCatalog'] or f"Mod ID {mod_id}"
+            masterfile_name = row['Masterfile_Name']
             
-            category_name, note = classify_mod(row, cursor=cursor, log_msg=log_msg)
+            # Initialisieren der Matrix für diesen Mod/Komponente mit standardmäßig 1 (True)
+            cursor.execute(insert_sql, [mod_id, component_id] + [1] * len(cat_ids))
+            log_msg(f"  [INITIALISIERT] '{mod_name}' ({masterfile_name}) -> Matrix-Zeile mit Standardwert 1 (True) angelegt.")
             
-            if category_name is not None:
-                # Dynamische Übersetzung Name -> ID
-                category_id = cat_map.get(category_name)
+            # Führe classify_mod aus (übergibt cat_ids für Effizienz)
+            category_name, note = classify_mod(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
+            
+            # Matrix-Zeile auswerten, um die verbleibenden Kategorien zu prüfen
+            col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
+            cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
+            matrix_row = cursor.fetchone()
+            
+            active_cats = []
+            if matrix_row:
+                for cat_id in cat_ids:
+                    if matrix_row[str(cat_id)] == 1:
+                        active_cats.append(cat_id)
+            
+            if len(active_cats) == 1:
+                # Eindeutig klassifiziert!
+                final_cat_id = active_cats[0]
+                cursor.execute("""
+                    UPDATE Mods 
+                    SET Category_LOH_Classifier = ?
+                    WHERE ID = ?
+                """, (final_cat_id, mod_id))
                 
-                if category_id is not None:
-                    cursor.execute("""
-                        UPDATE Mods 
-                        SET Category_LOH_Classifier = ?
-                        WHERE ID = ?
-                    """, (category_id, mod_id))
-                    success_count += 1
-                    log_msg(f"  [KLASSIFIZIERT] '{mod_name}' -> {category_name} (ID {category_id})")
-                else:
-                    # Name existiert nicht in der DB -> Fehler loggen und NULL setzen
-                    cursor.execute("""
-                        UPDATE Mods 
-                        SET Category_LOH_Classifier = NULL
-                        WHERE ID = ?
-                    """, (mod_id,))
-                    undetermined_count += 1
-                    log_msg(f"  [WARNUNG] Kategorie '{category_name}' für Mod '{mod_name}' ist nicht in der DB (Categories_LOH) registriert! (NULL gesetzt)")
+                # Holen des Namens für das Log
+                cursor.execute("SELECT Name FROM Categories_LOH WHERE ID = ?", (final_cat_id,))
+                cat_name_row = cursor.fetchone()
+                cat_name = cat_name_row[0] if cat_name_row else str(final_cat_id)
+                
+                success_count += 1
+                log_msg(f"  [KLASSIFIZIERT] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} ({note})")
             else:
                 cursor.execute("""
                     UPDATE Mods 
@@ -381,12 +469,12 @@ def run_classifier(log_signal=None):
                     WHERE ID = ?
                 """, (mod_id,))
                 undetermined_count += 1
-                log_msg(f"  [UNBESTIMMT] '{mod_name}' -> Keine Zuweisung möglich ({note})")
+                log_msg(f"  [UNBESTIMMT] '{mod_name}' ({masterfile_name}) -> Beurteilung abgeschlossen (Mögliche Kategorien: {len(active_cats)}, Hinweis: {note})")
                 
         conn.commit()
         log_msg(f"\nDurchlauf abgeschlossen:")
         log_msg(f"- {success_count} Mods erfolgreich klassifiziert.")
-        log_msg(f"- {undetermined_count} Mods unbestimmt (NULL gesetzt).")
+        log_msg(f"- {undetermined_count} Mods unbestimmt (NULL gesetzt, Matrix in DB gespeichert).")
         log_msg("--- Category LOH Classifier Durchlauf erfolgreich beendet ---\n")
         return True
         

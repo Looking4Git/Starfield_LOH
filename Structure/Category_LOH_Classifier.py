@@ -38,8 +38,8 @@ def _check_sieve(row, allowed_keys, required_keys):
 
 def _check_author_bgs(row, cursor, cat_ids):
     """
-    Regel 1: Prüft auf den Autor BGS. Ist dies der Fall, werden alle anderen 
-    Kategorien in der Ausschlussmatrix auf 0 gesetzt.
+    Prüft auf den Autor BGS. Ist dies der Fall, werden alle anderen 
+    Kategorien außer 'BGS' (1) in der Ausschlussmatrix auf 0 gesetzt.
     """
     author = (row.get('Author') or "").strip().lower()
     if "bethesda" in author or author == "python":
@@ -63,6 +63,32 @@ def _check_author_bgs(row, cursor, cat_ids):
         return "Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
     return None
 
+def _exclude_non_weapon(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Waffenmod (WEAP oder AMMO) vorliegen.
+    Wenn nicht, wird die Kategorie 'Waffen' in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    weap = row.get('WEAP') or 0
+    ammo = row.get('AMMO') or 0
+    
+    if weap == 0 and ammo == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        # Finde Waffen ID aus der Datenbank
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Waffen'")
+        w_row = cursor.fetchone()
+        waffen_id = w_row[0] if w_row else None
+        
+        if waffen_id and waffen_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{waffen_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Waffen' ausgeschlossen (keine WEAP/AMMO-Referenzen)."
+    return None
+
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
@@ -77,7 +103,8 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         
     # Liste aller registrierten Ausschlussregeln
     rules = [
-        _check_author_bgs
+        _check_author_bgs,
+        _exclude_non_weapon
     ]
     
     notes = []

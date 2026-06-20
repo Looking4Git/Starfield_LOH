@@ -89,6 +89,156 @@ def _exclude_non_weapon(row, cursor, cat_ids):
             return "Kategorie 'Waffen' ausgeschlossen (keine WEAP/AMMO-Referenzen)."
     return None
 
+def _exclude_non_clothing(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Kleidungsmod (ARMO oder APWR) vorliegen.
+    Wenn nicht, wird die Kategorie 'Kleidung' (21) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    armo = row.get('ARMO') or 0
+    apwr = row.get('APWR') or 0
+    
+    if armo == 0 and apwr == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Kleidung'")
+        c_row = cursor.fetchone()
+        clothing_id = c_row[0] if c_row else None
+        
+        if clothing_id and clothing_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{clothing_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Kleidung' ausgeschlossen (keine ARMO/APWR-Referenzen)."
+    return None
+
+def _exclude_non_sound(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Soundmod (SNDR oder SOUN) vorliegen.
+    Wenn nicht, wird die Kategorie 'Sound' (16) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    sndr = row.get('SNDR') or 0
+    soun = row.get('SOUN') or 0
+    
+    if sndr == 0 and soun == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Sound'")
+        s_row = cursor.fetchone()
+        sound_id = s_row[0] if s_row else None
+        
+        if sound_id and sound_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{sound_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Sound' ausgeschlossen (keine SNDR/SOUN-Referenzen)."
+    return None
+
+def _exclude_non_light(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Lichtmod (LIGH oder STDT) vorliegen.
+    Wenn nicht, wird die Kategorie 'Licht' (14) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    ligh = row.get('LIGH') or 0
+    stdt = row.get('STDT') or 0
+    
+    if ligh == 0 and stdt == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Licht'")
+        l_row = cursor.fetchone()
+        light_id = l_row[0] if l_row else None
+        
+        if light_id and light_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{light_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Licht' ausgeschlossen (keine LIGH/STDT-Referenzen)."
+    return None
+
+def _exclude_non_character(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Charaktermod (CLFM oder HDPT) vorliegen.
+    Wenn nicht, wird die Kategorie 'Charakter' (20) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    clfm = row.get('CLFM') or 0
+    hdpt = row.get('HDPT') or 0
+    
+    if clfm == 0 and hdpt == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Charakter'")
+        c_row = cursor.fetchone()
+        char_id = c_row[0] if c_row else None
+        
+        if char_id and char_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{char_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Charakter' ausgeschlossen (keine CLFM/HDPT-Referenzen)."
+    return None
+
+def _exclude_non_gameplay(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Gameplaymod (PERK oder AVIF) vorliegen.
+    Wenn nicht, wird die Kategorie 'Gameplay' (11) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    perk = row.get('PERK') or 0
+    avif = row.get('AVIF') or 0
+    
+    if perk == 0 and avif == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Gameplay'")
+        g_row = cursor.fetchone()
+        gameplay_id = g_row[0] if g_row else None
+        
+        if gameplay_id and gameplay_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{gameplay_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Gameplay' ausgeschlossen (keine PERK/AVIF-Referenzen)."
+    return None
+
+def _exclude_non_tweaks(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Tweaksmod (GMST oder MOVT) vorliegen.
+    Wenn nicht, wird die Kategorie 'Tweaks' (19) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    gmst = row.get('GMST') or 0
+    movt = row.get('MOVT') or 0
+    
+    if gmst == 0 and movt == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Tweaks'")
+        t_row = cursor.fetchone()
+        tweaks_id = t_row[0] if t_row else None
+        
+        if tweaks_id and tweaks_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{tweaks_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Tweaks' ausgeschlossen (keine GMST/MOVT-Referenzen)."
+    return None
+
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
@@ -104,7 +254,13 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     # Liste aller registrierten Ausschlussregeln
     rules = [
         _check_author_bgs,
-        _exclude_non_weapon
+        _exclude_non_weapon,
+        _exclude_non_clothing,
+        _exclude_non_sound,
+        _exclude_non_light,
+        _exclude_non_character,
+        _exclude_non_gameplay,
+        _exclude_non_tweaks
     ]
     
     notes = []

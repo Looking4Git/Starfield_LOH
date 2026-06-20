@@ -8,17 +8,12 @@ from Structure.Paths import DB_FILE
 
 _MIGRATIONS_RUN = False
 
-def ensure_schema_updates(conn: sqlite3.Connection):
-    """Prüft und aktualisiert die DB-Struktur bei Bedarf (in der Alpha-Phase deaktiviert)."""
-    pass
-
 def get_db_connection() -> sqlite3.Connection:
     """Stellt die Verbindung zur lokalen SQLite-Datenbank her."""
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
-    ensure_schema_updates(conn)
     return conn
 
 def get_mods_by_state(state_id: int) -> list[dict]:
@@ -31,6 +26,7 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             m.Name_Online,
             c.Name AS Category_Name,
             m.Category_LOH AS Category_ID,
+            m.Category_LOH_Classifier AS Category_Classifier_ID,
             m.Date_installed,
             m.Version_installed,
             m.Name_ContentCatalog,
@@ -113,6 +109,7 @@ def update_mod_details(mod_id: int, update_data: dict) -> bool:
             Author = :Author,
             Note = :Note,
             Category_LOH = :Category_LOH,
+            Category_LOH_Classifier = :Category_LOH_Classifier,
             Date_installed = :Date_installed,
             Version_installed = :Version_installed,
             Date_available = :Date_available,
@@ -388,23 +385,39 @@ def get_load_order(profile_id: int) -> list[dict]:
             m.Name_ContentCatalog,
             c.File AS Component_File,
             c.Is_Masterfile,
-            em.Pointer_QUST, em.Pointer_DIAL, em.Pointer_INFO,
-            em.Pointer_COBJ, em.Pointer_FURN, em.Pointer_STAT,
-            em.Pointer_QUST_Override, em.Pointer_CELL_Override, em.Pointer_DIAL_Override,
-            em.Pointer_INFO_Override, em.Pointer_NPC__Override, em.Pointer_STAT_Override,
-            em.Pointer_COBJ_Override, em.Pointer_FURN_Override,
-            em.Pointer_QUST_ANAM, em.Pointer_QUST_DNAM,
-            em.Pointer_QUST_FLTR_0, em.Pointer_QUST_FLTR_1, em.Pointer_QUST_FLTR_2,
-            em.Pointer_QUST_FLTR_3, em.Pointer_QUST_FLTR_4, em.Pointer_QUST_FLTR_5,
+            em.GMST, em.GMST_Override,
+            em.QUST, em.QUST_Override,
+            em.QUST_ANAM, em.QUST_DNAM,
+            em.QUST_QTYP_0, em.QUST_QTYP_1, em.QUST_QTYP_2,
+            em.QUST_QTYP_3, em.QUST_QTYP_4, em.QUST_QTYP_5,
+            em.DIAL, em.DIAL_Override,
+            em.INFO, em.INFO_Override,
+            em.WRLD, em.CELL, em.CELL_Override, em.NVNM, em.NAVM, em.REFR,
+            em.STAT, em.STAT_Override, em.FURN, em.FURN_Override,
+            em.FURN_VMRT, em.FURN_VCMT, em.FURN_VWWD, em.FURN_VCTT,
+            em.TERM,
+            em.NPC_, em.NPC__Override, em.ACHR, em.PKIN,
+            em.PERK, em.PERK_Override, em.AVIF, em.AVIF_Override,
+            em.TXST, em.MATO, em.LIGH, em.LIGH_Override,
+            em.SNDR, em.SNDR_Override, em.SOUN,
+            em.WEAP, em.WEAP_Override, em.AMMO, em.AMMO_Override,
+            em.ARMO, em.ARMO_Override, em.APWR, em.COBJ, em.COBJ_Override,
+            em.SPAC, em.SPAC_Override, em.SHST, em.SHST_Override,
+            em.SMOD, em.SMOD_Override, em.STMP, em.STND, em.STBH, em.STDT,
+            em.VEHI, em.VEHI_Override, em.VMOD, em.VMOD_Override,
+            em.RSPJ, em.KYWD, em.PKEY, em.CLFM, em.HDPT,
             cat.Name AS Category_Name,
+            cat_class.Name AS Category_Classifier_Name,
             m.Note,
-            m.Category_LOH AS Category_ID
+            m.Category_LOH AS Category_ID,
+            m.Category_LOH_Classifier AS Category_Classifier_ID
         FROM LoadOrder lo
         JOIN Components c ON lo.ID_Component = c.ID
-        LEFT JOIN ESM_Marker em ON c.ID = em.Component_ID
+        LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID
         LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
         LEFT JOIN Mods m ON mc.Mod_ID = m.ID
         LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID
+        LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
         WHERE lo.ID_Profile = :profile_id AND m.State = 1
         ORDER BY lo.Position
     """
@@ -569,6 +582,27 @@ def update_mod_category_and_note(mod_id: int, category_id: int, note: str) -> bo
         return True
     except sqlite3.Error as e:
         logging.error(f"Fehler beim Update von Kategorie/Notiz für Mod ID {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_mod_classifier_category(mod_id: int, category_id: int | None) -> bool:
+    """Aktualisiert nur die vorgeschlagene Kategorie (Category_LOH_Classifier) einer Mod."""
+    query = """
+        UPDATE Mods 
+        SET Category_LOH_Classifier = ?
+        WHERE ID = ?
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (category_id, mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Update von Category_LOH_Classifier für Mod ID {mod_id}: {e}")
         return False
     finally:
         if conn:

@@ -8,182 +8,13 @@ import struct
 from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
 from Structure.Database import check_component_exists, get_mod_by_id, get_components_by_mod_id, get_db_connection
 
-def parse_tes4_header(file_path):
-    """
-    Liest den TES4 Header einer .esm Datei und extrahiert
-    CNAM (Author) und SNAM (Description) falls vorhanden.
-    """
-    author = ""
-    description = ""
-    if not os.path.exists(file_path):
-        return author, description
-    try:
-        with open(file_path, 'rb') as f:
-            header_sig = f.read(4)
-            if header_sig != b'TES4':
-                return author, description
-            
-            header_info = f.read(20)
-            if len(header_info) < 20:
-                return author, description
-            
-            data_size, = struct.unpack('<I', header_info[0:4])
-            
-            tes4_data = f.read(data_size)
-            if len(tes4_data) < data_size:
-                return author, description
-            
-            # Sub-Records iterieren
-            offset = 0
-            while offset + 6 <= data_size:
-                sub_sig = tes4_data[offset:offset+4]
-                sub_size, = struct.unpack('<H', tes4_data[offset+4:offset+6])
-                offset += 6
-                
-                if offset + sub_size > data_size:
-                    break
-                    
-                sub_data = tes4_data[offset:offset+sub_size]
-                offset += sub_size
-                
-                if sub_sig == b'CNAM':
-                    author = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
-                elif sub_sig == b'SNAM':
-                    description = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
-    except Exception:
-        pass
-    return author, description
-
-# Listen der Pointer-Spalten für Core- und Mod-Dateien
-CORE_POINTER_COLS = ['Pointer_REFR', 'Pointer_ACHR', 'Pointer_PKIN']
-
-MOD_POINTER_COLS = [
-    'Pointer_REFR', 'Pointer_ACHR', 'Pointer_PKIN', 'Pointer_STMP', 'Pointer_STND',
-    'Pointer_STBH', 'Pointer_STDT', 'Pointer_RSPJ', 'Pointer_WEAP', 'Pointer_AMMO',
-    'Pointer_ARMO', 'Pointer_APWR', 'Pointer_CELL', 'Pointer_WRLD', 'Pointer_DIAL',
-    'Pointer_QUST', 'Pointer_INFO', 'Pointer_NPC_', 'Pointer_STAT', 'Pointer_FURN',
-    'Pointer_TERM', 'Pointer_TXST', 'Pointer_MATO', 'Pointer_LIGH', 'Pointer_GMST',
-    'Pointer_SNDR', 'Pointer_SOUN', 'Pointer_PKEY', 'Pointer_COBJ', 'Pointer_KYWD',
-    'Pointer_AVIF', 'Pointer_PERK', 'Pointer_NAVM',
-    'Pointer_QUST_Override', 'Pointer_CELL_Override', 'Pointer_DIAL_Override',
-    'Pointer_INFO_Override', 'Pointer_NPC__Override', 'Pointer_STAT_Override',
-    'Pointer_COBJ_Override', 'Pointer_FURN_Override',
-    'Pointer_QUST_ANAM', 'Pointer_QUST_DNAM',
-    'Pointer_QUST_FLTR_0', 'Pointer_QUST_FLTR_1', 'Pointer_QUST_FLTR_2',
-    'Pointer_QUST_FLTR_3', 'Pointer_QUST_FLTR_4', 'Pointer_QUST_FLTR_5'
-]
-
-POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität
-
-def _get_sig_from_col(col):
-    name = col.replace("Pointer_", "")
-    if name.endswith("_Override"):
-        name = name[:-9]
-    return name
-
-def scan_esm_for_handles(file_path, is_core=False):
-    """
-    Parst eine Bethesda .esm Datei anhand ihrer binären Struktur.
-    Wenn is_core=True, werden nur REFR, ACHR und PKIN gezählt.
-    """
-    cols = CORE_POINTER_COLS if is_core else MOD_POINTER_COLS
-    local_counts = {col.replace("Pointer_", ""): 0 for col in cols}
-    if not os.path.exists(file_path):
-        return local_counts
-
-    targets = {
-        _get_sig_from_col(col).encode('utf-8') 
-        for col in cols 
-        if len(_get_sig_from_col(col)) == 4 or _get_sig_from_col(col) == "NPC_"
-    }
-    override_targets = {b'QUST', b'CELL', b'DIAL', b'INFO', b'NPC_', b'STAT', b'COBJ', b'FURN'}
-    try:
-        with open(file_path, 'rb') as f:
-            header_sig = f.read(4)
-            if header_sig != b'TES4':
-                return local_counts
-            
-            f.seek(0, os.SEEK_END)
-            file_size = f.tell()
-            f.seek(0)
-
-            while f.tell() < file_size:
-                header = f.read(24)
-                if len(header) < 24:
-                    break
-
-                sig, data_size = struct.unpack('<4sI', header[0:8])
-
-                if sig == b'GRUP':
-                    continue
-
-                if sig in targets:
-                    sig_str = sig.decode('utf-8', errors='ignore')
-                    local_counts[sig_str] += 1
-
-                    if not is_core and sig in override_targets:
-                        master_idx = header[15]
-                        if master_idx > 0:
-                            local_counts[f"{sig_str}_Override"] += 1
-                    # Wenn QUST, parsen wir die Subrecords (nur für Mods, d.h. wenn QUST_ANAM existiert)
-                    if sig == b'QUST' and 'QUST_ANAM' in local_counts:
-                        flags, = struct.unpack('<I', header[8:12])
-                        raw_data = f.read(data_size)
-                        if len(raw_data) == data_size:
-                            # Decompress if compressed
-                            if flags & 0x00040000:
-                                try:
-                                    import zlib
-                                    decompressed_data = zlib.decompress(raw_data[4:])
-                                except Exception:
-                                    decompressed_data = b''
-                            else:
-                                decompressed_data = raw_data
-
-                            # Iteriere über Subrecords
-                            offset = 0
-                            has_qtyp = False
-                            qtyp_val = None
-                            
-                            while offset + 6 <= len(decompressed_data):
-                                sub_sig = decompressed_data[offset:offset+4]
-                                sub_size = struct.unpack('<H', decompressed_data[offset+4:offset+6])[0]
-                                offset += 6
-                                if offset + sub_size > len(decompressed_data):
-                                    break
-                                sub_data = decompressed_data[offset:offset+sub_size]
-                                offset += sub_size
-
-                                if sub_sig == b'ANAM':
-                                    local_counts['QUST_ANAM'] += 1
-                                elif sub_sig == b'DNAM':
-                                    local_counts['QUST_DNAM'] += 1
-                                elif sub_sig == b'QTYP':
-                                    if len(sub_data) >= 4:
-                                        has_qtyp = True
-                                        qtyp_val = struct.unpack('<I', sub_data[:4])[0]
-
-                            # Zuweisung des Quest-Typs
-                            quest_type = 0 # Default: Undefined (0) wenn kein QTYP vorhanden ist
-                            if has_qtyp and qtyp_val is not None:
-                                # Mapping der Starfield Quest-Type FormIDs
-                                if qtyp_val == 292346:    # 0x000475FA
-                                    quest_type = 1        # Main Quest
-                                elif qtyp_val == 292349:  # 0x000475FD
-                                    quest_type = 2        # Faction Quest
-                                elif qtyp_val == 292352:  # 0x00047600
-                                    quest_type = 3        # Side Quest
-                                elif qtyp_val == 1977648: # 0x001E2D30
-                                    quest_type = 4        # Radiant Quest
-                                elif qtyp_val == 292344:  # 0x000475F8
-                                    quest_type = 5        # Miscellaneous
-                            
-                            local_counts[f'QUST_FLTR_{quest_type}'] += 1
-                        continue
-                f.seek(data_size, os.SEEK_CUR)
-    except Exception:
-        pass
-    return local_counts
+from Structure.File_ESM_Parser import (
+    parse_tes4_header,
+    get_num_masters,
+    scan_esm_for_handles,
+    CORE_POINTER_COLS,
+    MOD_POINTER_COLS
+)
 
 def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
     """
@@ -279,7 +110,7 @@ def scan_and_update_system_components(log_msg):
             if row:
                 if row['Filedate_Last_Check'] == mtime_str:
                     needs_scan = False
-                    log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {row['Pointer_REFR']}, ACHR: {row['Pointer_ACHR']}")
+                    log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {row['REFR']}, ACHR: {row['ACHR']}")
             
             if needs_scan:
                 log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
@@ -287,7 +118,7 @@ def scan_and_update_system_components(log_msg):
                 
                 pointer_values = []
                 for col in CORE_POINTER_COLS:
-                    key = col.replace("Pointer_", "")
+                    key = col
                     pointer_values.append(counts.get(key, 0))
                 
                 if row:
@@ -331,9 +162,9 @@ def scan_and_update_mod_components(log_msg):
         
         # Hole alle registrierten Masterfiles
         cursor.execute("""
-            SELECT c.ID, c.File, c.Filedate_Last_Check, em.Pointer_REFR 
+            SELECT c.ID, c.File, c.Filedate_Last_Check, em.REFR 
             FROM Components c 
-            LEFT JOIN ESM_Marker em ON c.ID = em.Component_ID 
+            LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID 
             WHERE c.Is_Masterfile > 0 OR LOWER(c.File) LIKE '%.esm'
         """)
         components = cursor.fetchall()
@@ -355,7 +186,7 @@ def scan_and_update_mod_components(log_msg):
             
             if db_mtime == mtime_str:
                 needs_scan = False
-                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['Pointer_REFR'] or 0}")
+                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
             
             if needs_scan:
                 log_msg(f"  -> [MOD COMPONENT SCAN] '{file_name}' wird binär gescannt...")
@@ -363,7 +194,7 @@ def scan_and_update_mod_components(log_msg):
                 
                 pointer_values = []
                 for col in MOD_POINTER_COLS:
-                    key = col.replace("Pointer_", "")
+                    key = col
                     pointer_values.append(counts.get(key, 0))
                 
                 # 1. Update Filedate_Last_Check in Components
@@ -373,11 +204,11 @@ def scan_and_update_mod_components(log_msg):
                     WHERE ID = ?
                 """, (mtime_str, comp_id))
                 
-                # 2. Insert or Replace in ESM_Marker
+                # 2. Insert or Replace in Components_ESM_References
                 col_names_str = ", ".join(MOD_POINTER_COLS)
                 placeholders = ", ".join(["?"] * len(MOD_POINTER_COLS))
                 query = f"""
-                    INSERT OR REPLACE INTO ESM_Marker (Component_ID, {col_names_str})
+                    INSERT OR REPLACE INTO Components_ESM_References (Component_ID, {col_names_str})
                     VALUES (?, {placeholders})
                 """
                 params = [comp_id] + pointer_values
@@ -488,6 +319,8 @@ def build_catalog_mapping(catalog_path, log_msg):
             for filename in files:
                 filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
                 if filename.lower().endswith('.esm'):
+                    if os.path.exists(filepath) and log_msg:
+                        log_msg(f"    -> Lese Plugin-Header: {filename} ...")
                     master_code, bp_code = check_plugin_flags(filepath)
                 else:
                     master_code, bp_code = 0, 0

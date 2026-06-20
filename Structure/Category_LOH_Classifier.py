@@ -36,25 +36,17 @@ def _check_sieve(row, allowed_keys, required_keys):
                 return False
     return any((row.get(k) or 0) > 0 for k in required_keys)
 
-def classify_mod(row, cursor=None, log_msg=None, cat_ids=None):
+def _exclude_by_author_bgs(row, cursor, cat_ids):
     """
-    Klassifiziert eine Mod anhand ihrer Spalten-Zähler und Metadaten über eine 3-Layer-Pipeline.
-    Gibt ein Tuple (Vorgeschlagene_Kategorie, Hinweis) zurück.
+    Regel 1: Prüft auf den Autor BGS. Ist dies der Fall, werden alle anderen 
+    Kategorien in der Ausschlussmatrix auf 0 gesetzt.
     """
-    mod_id = row.get('Mod_ID') or row.get('ID')
-    component_id = row.get('Component_ID')
-    
-    if cursor is None:
-        return None, "Keine Datenbank-Verbindung für Ausschlussmatrix."
-        
-    if cat_ids is None:
-        cursor.execute("SELECT ID FROM Categories_LOH ORDER BY Position")
-        cat_ids = [r[0] for r in cursor.fetchall()]
-        
-    # 1. BGS-Klassifizierung direkt über den Autor (Eindeutige Zuweisung)
     author = (row.get('Author') or "").strip().lower()
     if "bethesda" in author or author == "python":
-        # Finde BGS ID
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        # Finde BGS ID aus der Datenbank
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
         bgs_row = cursor.fetchone()
         bgs_id = bgs_row[0] if bgs_row else 1
@@ -68,9 +60,36 @@ def classify_mod(row, cursor=None, log_msg=None, cat_ids=None):
                 SET {set_clause}
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-        return "BGS", "Layer 1 (Eindeutige Identifizierung): Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
+        return "Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
+    return None
+
+def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
+    """
+    Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
+    Gibt ein Tuple (Ergebnis_Hinweis oder None, Liste_der_Hinweise) zurück.
+    """
+    if cursor is None:
+        return "Keine Datenbank-Verbindung für Ausschlussmatrix."
         
-    return None, "Klassifizierung ausstehend (Ausschlussmatrix-Struktur aufgebaut)."
+    if cat_ids is None:
+        cursor.execute("SELECT ID FROM Categories_LOH ORDER BY Position")
+        cat_ids = [r[0] for r in cursor.fetchall()]
+        
+    # Liste aller registrierten Ausschlussregeln
+    rules = [
+        _exclude_by_author_bgs
+    ]
+    
+    notes = []
+    for rule in rules:
+        note = rule(row, cursor, cat_ids)
+        if note:
+            notes.append(note)
+            
+    if notes:
+        return ", ".join(notes)
+    return "Ausschlussmatrix angewendet (Klassifizierung ausstehend)."
+
 
     # Bisherige Entscheidungslogik auskommentiert:
     """
@@ -432,8 +451,8 @@ def run_classifier(log_signal=None):
             cursor.execute(insert_sql, [mod_id, component_id] + [1] * len(cat_ids))
             log_msg(f"  [INITIALISIERT] '{mod_name}' ({masterfile_name}) -> Matrix-Zeile mit Standardwert 1 (True) angelegt.")
             
-            # Führe classify_mod aus (übergibt cat_ids für Effizienz)
-            category_name, note = classify_mod(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
+            # Ausschlussregeln anwenden (übergibt cat_ids für Effizienz)
+            note = apply_exclusion_rules(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
             
             # Matrix-Zeile auswerten, um die verbleibenden Kategorien zu prüfen
             col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])

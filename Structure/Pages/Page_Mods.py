@@ -491,6 +491,7 @@ class Page_Mods(QWidget):
             "Author": self.inp_author.text().strip(),
             "Note": self.inp_note.toPlainText().strip() if self.inp_note else "",
             "Category_LOH": self.cmb_category.currentData(),
+            "Category_LOH_Classifier": self.current_mod_data.get("Category_Classifier_ID") if self.current_mod_data else None,
             "Date_installed": db_date_inst,
             "Version_installed": self.inp_ver_inst.text().strip(),
             "Date_available": db_date_avail,
@@ -542,6 +543,7 @@ class Page_Mods(QWidget):
                     original_data["Author"] = update_data["Author"]
                     original_data["Note"] = update_data["Note"]
                     original_data["Category_ID"] = update_data["Category_LOH"]
+                    original_data["Category_Classifier_ID"] = update_data["Category_LOH_Classifier"]
                     original_data["Date_installed"] = update_data["Date_installed"]
                     original_data["Version_installed"] = update_data["Version_installed"]
                     original_data["Date_available"] = update_data["Date_available"]

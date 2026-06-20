@@ -147,12 +147,13 @@ class Page_LoadOrder(QWidget):
 
     def set_row_data(self, item, data):
         if item:
-            item.setData(json.dumps(data) if data else None, Qt.ItemDataRole.UserRole)
+            item.setData(data, Qt.ItemDataRole.UserRole)
 
     def __init__(self):
         super().__init__()
         self._loading_data = False
         self.current_profile_id = None
+        self.highlighted_rows = []
         self.setup_ui()
         self.load_lookups()
 
@@ -415,9 +416,10 @@ class Page_LoadOrder(QWidget):
                 
                 # Zähle aktive Mod-Masterfiles und summiere Pointer
                 query = """
-                    SELECT c.Is_Masterfile, c.Pointer_REFR, c.Pointer_ACHR, c.Pointer_PKIN
+                    SELECT c.Is_Masterfile, em.REFR, em.ACHR, em.PKIN
                     FROM LoadOrder lo
                     JOIN Components c ON lo.ID_Component = c.ID
+                    LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID
                     WHERE lo.ID_Profile = ? AND lo.Is_Active = 1
                 """
                 cursor.execute(query, (self.current_profile_id,))
@@ -433,9 +435,9 @@ class Page_LoadOrder(QWidget):
                     elif is_mf == 3:
                         mod_small += 1
                         
-                    refr = row["Pointer_REFR"] or 0
-                    achr = row["Pointer_ACHR"] or 0
-                    pkin = row["Pointer_PKIN"] or 0
+                    refr = row["REFR"] or 0
+                    achr = row["ACHR"] or 0
+                    pkin = row["PKIN"] or 0
                     mod_pointers_sum += (refr + achr + pkin)
             except Exception as e:
                 logging.error(f"Fehler bei update_limit_bars: {e}")
@@ -666,11 +668,19 @@ class Page_LoadOrder(QWidget):
             if profile_id is None:
                 # Header trotzdem setzen, damit die Tabelle hübsch aussieht
                 self.model.setHorizontalHeaderLabels([
-                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie"
+                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Classifier"
                 ])
                 return
 
             load_order_data = get_load_order(profile_id)
+            
+            # Fallback index weights since gravity cleanup
+            w_qust = 10.0
+            w_dial = 1.0
+            w_info = 0.1
+            w_cobj = 1.0
+            w_furn = 1.0
+            w_stat = 1.0
             
             for row_data in load_order_data:
                 item_pos = QStandardItem(str(row_data["Position"]))
@@ -694,30 +704,74 @@ class Page_LoadOrder(QWidget):
                 item_cat = QStandardItem(row_data["Category_Name"] or "")
                 item_cat.setData(row_data["Category_Name"] or "", self.SORT_ROLE)
                 
+                item_classifier = QStandardItem(row_data.get("Category_Classifier_Name") or "")
+                item_classifier.setData(row_data.get("Category_Classifier_Name") or "", self.SORT_ROLE)
+                
+                # Typ (Masterfile Level)
+                mf_val = row_data.get("Is_Masterfile") or 0
+                mf_str = {1: "Full", 2: "Medium", 3: "Small"}.get(mf_val, "Plugin")
+                item_type = QStandardItem(mf_str)
+                item_type.setData(mf_val, self.SORT_ROLE)
+                item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+                # Story-Index
+                qust = row_data.get("QUST") or 0
+                dial = row_data.get("DIAL") or 0
+                info = row_data.get("INFO") or 0
+                story_idx = qust * w_qust + dial * w_dial + info * w_info
+                item_story = QStandardItem(f"{story_idx:.1f}")
+                item_story.setData(story_idx, self.SORT_ROLE)
+                item_story.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                
+                # Objekt-Index
+                cobj = row_data.get("COBJ") or 0
+                furn = row_data.get("FURN") or 0
+                stat = row_data.get("STAT") or 0
+                object_idx = cobj * w_cobj + furn * w_furn + stat * w_stat
+                item_obj = QStandardItem(f"{object_idx:.1f}")
+                item_obj.setData(object_idx, self.SORT_ROLE)
+                item_obj.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                
+                # Overrides
+                qust_ovr = row_data.get("QUST_Override") or 0
+                cell_ovr = row_data.get("CELL_Override") or 0
+                dial_ovr = row_data.get("DIAL_Override") or 0
+                info_ovr = row_data.get("INFO_Override") or 0
+                npc_ovr = row_data.get("NPC__Override") or 0
+                stat_ovr = row_data.get("STAT_Override") or 0
+                cobj_ovr = row_data.get("COBJ_Override") or 0
+                furn_ovr = row_data.get("FURN_Override") or 0
+                total_overrides = qust_ovr + cell_ovr + dial_ovr + info_ovr + npc_ovr + stat_ovr + cobj_ovr + furn_ovr
+                item_ovr = QStandardItem(str(total_overrides))
+                item_ovr.setData(total_overrides, self.SORT_ROLE)
+                item_ovr.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                
                 self.model.appendRow([
-                    item_pos, item_active, item_name, item_master, item_cat
+                    item_pos, item_active, item_name, item_master, item_cat, item_classifier
                 ])
         finally:
             self.model.blockSignals(False)
-
+ 
         # Header nach dem Befüllen der Zeilen setzen
         self.model.setHorizontalHeaderLabels([
-            "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie"
+            "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Classifier"
         ])
         
         header = self.table_view.horizontalHeader()
         header.setSortIndicatorShown(False)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         
-        # Checkbox Spalte etwas schmaler machen
+        # Spaltenbreiten einrichten
         self.table_view.setColumnWidth(0, 50) # Pos.
         self.table_view.setColumnWidth(1, 60) # Aktiv
         self.table_view.resizeColumnToContents(2) # Name
         self.table_view.resizeColumnToContents(3) # Masterfile
         self.table_view.resizeColumnToContents(4) # Kategorie
+        self.table_view.resizeColumnToContents(5) # Classifier
         
         from PySide6.QtWidgets import QHeaderView
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         
         if self.model.rowCount() > 0:
             self.table_view.selectRow(0)
@@ -1320,19 +1374,26 @@ class Page_LoadOrder(QWidget):
                     self.show_message_box("Fehler", "Die Voraussetzung konnte nicht hinzugefügt werden.", QMessageBox.Icon.Critical)
 
     def clear_table_highlights(self):
-        """Setzt die Hintergrund- und Textfarben aller Tabellenzeilen auf Standard zurück."""
-        for r in range(self.model.rowCount()):
-            for c in range(self.model.columnCount()):
-                item = self.model.item(r, c)
-                if item:
-                    item.setData(None, Qt.ItemDataRole.BackgroundRole)
-                    item.setData(None, Qt.ItemDataRole.ForegroundRole)
+        """Setzt die Hintergrund- und Textfarben der zuvor markierten Tabellenzeilen zurück."""
+        if not self.highlighted_rows:
+            return
+        for r in self.highlighted_rows:
+            if r < self.model.rowCount():
+                for c in range(self.model.columnCount()):
+                    item = self.model.item(r, c)
+                    if item:
+                        item.setData(None, Qt.ItemDataRole.BackgroundRole)
+                        item.setData(None, Qt.ItemDataRole.ForegroundRole)
+        self.highlighted_rows.clear()
 
     def highlight_requirements_and_dependencies(self, req_list, dep_list):
         """Markiert die Voraussetzungen rot und Abhängigkeiten gelb in der LoadOrder-Tabelle."""
         # Sets für O(1) Lookup erstellen
         req_ids = {int(req["ID"]) for req in req_list if "ID" in req}
         dep_ids = {int(dep["ID"]) for dep in dep_list if "ID" in dep}
+
+        if not req_ids and not dep_ids:
+            return
 
         for r in range(self.model.rowCount()):
             item_pos = self.model.item(r, 0)
@@ -1355,6 +1416,7 @@ class Page_LoadOrder(QWidget):
                 fg_color = QColor("#000000")  # Schwarzer Text
 
             if bg_color and fg_color:
+                self.highlighted_rows.append(r)
                 for c in range(self.model.columnCount()):
                     item = self.model.item(r, c)
                     if item:

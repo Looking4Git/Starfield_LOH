@@ -41,7 +41,9 @@ MOD_POINTER_COLS = [
     'SPAC', 'SPAC_Override', 'SHST', 'SHST_Override',
     'SMOD', 'SMOD_Override', 'STMP', 'STND', 'STBH', 'STDT',
     'VEHI', 'VEHI_Override', 'VMOD', 'VMOD_Override',
-    'RSPJ', 'KYWD', 'PKEY'
+    'RSPJ', 'KYWD', 'PKEY',
+    'REFR_Deleted', 'REFR_Disabled', 'REFR_Buried',
+    'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove'
 ]
 
 POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität
@@ -175,6 +177,49 @@ def scan_esm_for_handles(file_path, is_core=False):
                 if sig in targets:
                     sig_str = sig.decode('utf-8', errors='ignore')
                     local_counts[sig_str] += 1
+
+                    if not is_core and (sig == b'REFR' or sig == b'ACHR'):
+                        flags, = struct.unpack('<I', header[8:12])
+                        master_idx = header[15]
+                        if master_idx < num_masters:
+                            if flags & 0x00000020:
+                                local_counts['REFR_Deleted'] += 1
+                            if flags & 0x00000800:
+                                local_counts['REFR_Disabled'] += 1
+                                
+                            raw_data = f.read(data_size)
+                            if len(raw_data) == data_size:
+                                if flags & 0x00040000:
+                                    try:
+                                        decompressed_data = zlib.decompress(raw_data[4:])
+                                    except Exception:
+                                        decompressed_data = b''
+                                else:
+                                    decompressed_data = raw_data
+
+                                offset = 0
+                                while offset + 6 <= len(decompressed_data):
+                                    sub_sig = decompressed_data[offset:offset+4]
+                                    sub_size = struct.unpack('<H', decompressed_data[offset+4:offset+6])[0]
+                                    offset += 6
+                                    if offset + sub_size > len(decompressed_data):
+                                        break
+                                    sub_data = decompressed_data[offset:offset+sub_size]
+                                    offset += sub_size
+
+                                    if sub_sig == b'DATA' and len(sub_data) >= 12:
+                                        _, _, pos_z = struct.unpack('<fff', sub_data[0:12])
+                                        if pos_z < -10000.0:
+                                            local_counts['REFR_Buried'] += 1
+                                        break
+                            continue
+
+                    if not is_core and sig in {b'SPEL', b'MGEF', b'EFSH', b'ENCH', b'VFXS', b'ALCH', b'PERK'}:
+                        flags, = struct.unpack('<I', header[8:12])
+                        master_idx = header[15]
+                        if master_idx < num_masters:
+                            if flags & 0x00000020:
+                                local_counts[f"{sig_str}_Remove"] += 1
 
                     if not is_core and sig in override_targets:
                         master_idx = header[15]

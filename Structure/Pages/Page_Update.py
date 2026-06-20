@@ -5,10 +5,11 @@ from PySide6.QtCore import Qt, Signal
 from Structure.Workers import TaskWorker
 from Structure.Starfield_Check_New import run_local_check
 from Structure.Starfield_Check_Deleted import run_deleted_check
-from Structure.LOH_Check_LoadOrder import run_load_order_check
+from Structure.Starfield_LoadOrder_Check import run_load_order_check
 from Structure.Bethesda_Fetch import run_fetch
 from Structure.Starfield_LOH_Reset import reset_database
 from Structure.Nexus_Fetch import run_nexus_fetch
+from Structure.Category_LOH_Classifier import run_classifier
 
 
 class Page_Update(QWidget):
@@ -61,6 +62,13 @@ class Page_Update(QWidget):
         self.btn_nexus_fetch.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_nexus_fetch.clicked.connect(self.start_nexus_fetch)
         self.layout.addWidget(self.btn_nexus_fetch)
+
+        # Button für den Classifier
+        self.btn_classifier = QPushButton("Kategorie-Klassifizierung (Category LOH Classifier) ausführen")
+        self.btn_classifier.setMinimumHeight(40)
+        self.btn_classifier.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_classifier.clicked.connect(self.start_classifier)
+        self.layout.addWidget(self.btn_classifier)
 
         # Button für den Reset
         self.btn_db_reset = QPushButton("Datenbank zurücksetzen (Bewegungsdaten löschen)")
@@ -123,6 +131,15 @@ class Page_Update(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
+    def start_classifier(self):
+        self.set_buttons_enabled(False)
+        self.log_output.clear()
+        
+        self.worker = TaskWorker(run_classifier, start_message="Thread gestartet: Kategorie-Klassifizierung (Category LOH Classifier)...")
+        self.worker.log_signal.connect(self.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
     def start_db_reset(self):
         self.set_buttons_enabled(False)
         self.log_output.clear()
@@ -138,6 +155,7 @@ class Page_Update(QWidget):
         self.btn_load_order_check.setEnabled(enabled)
         self.btn_fetch.setEnabled(enabled)
         self.btn_nexus_fetch.setEnabled(enabled)
+        self.btn_classifier.setEnabled(enabled)
         self.btn_db_reset.setEnabled(enabled)
 
     def append_log(self, text):

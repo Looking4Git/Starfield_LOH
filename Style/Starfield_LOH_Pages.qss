@@ -3,9 +3,10 @@
    ========================================================= */
 QTableView, QTreeView {
     background-color: #ECECEC; /* Heller Hintergrund nach Vorgabe [cite: 1, 2] */
+    alternate-background-color: #F2F2F2;
     color: #1e1e1e;
     gridline-color: #d0d0d0;
-    border: 1px solid #1a1a1a; /* Zurück auf 1px dicke, aber dunkel */
+    border: none;
     outline: none; /* Entfernt den Fokus-Rahmen um Text  */
 }
 
@@ -215,7 +216,7 @@ QFrame#detail_separator {
     border: none;
 }
 
-#lbl_components_label, #lbl_creation_categories_label {
+#lbl_components_label, #lbl_creation_categories_label, #lbl_requirements_label, #lbl_dependencies_label {
     margin: 6px 0px 0px 0px;
     padding: 0px;
     border: none;
@@ -372,7 +373,8 @@ QTableView::indicator, QTreeView::indicator {
 /* Wenn markiert, blenden wir unser schönes Starfield-Blaues SVG ein */
 QTableView::indicator:checked, QTreeView::indicator:checked {
     image: url(Graphics/Icon_Check.svg);
-    background-color: #ffffff;
+    background-color: #D7A64B;
+    border: 1px solid #5b7a9e;
 }
 
 /* Wenn unmarkiert, stellen wir sicher, dass es ein leerer weißer Kasten bleibt */

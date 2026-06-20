@@ -241,8 +241,12 @@ def _exclude_non_tweaks(row, cursor, cat_ids):
 
 def _exclude_non_remover(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen oder Zähler für gelöschte, deaktivierte oder entfernte Objekte/Effekte vorliegen.
-    Wenn nicht, wird die Kategorie 'Remove' (28) in der Ausschlussmatrix auf 0 gesetzt.
+    Prüft, ob die Kriterien für eine Remover-Mod vorliegen:
+    - Entweder ein Clutter-Remover (nur REFR/ACHR/CELL/WRLD mit Deleted > 50, Disabled > 100 oder Buried > 100)
+    - Oder ein Spell/Effect-Remover (reines Override von SPEL/MGEF/EFSH/ENCH/VFXS/ALCH/PERK/GMST mit gelöschten Records)
+    
+    Wenn diese Kriterien NICHT erfüllt sind, wird die Kategorie 'Remove' (28) ausgeschlossen.
+    Wenn sie erfüllt sind, werden alle anderen Kategorien ausgeschlossen (eindeutiger Remover).
     """
     refr_deleted = row.get('REFR_Deleted') or 0
     refr_disabled = row.get('REFR_Disabled') or 0
@@ -255,27 +259,65 @@ def _exclude_non_remover(row, cursor, cat_ids):
     alch_remove = row.get('ALCH_Remove') or 0
     perk_remove = row.get('PERK_Remove') or 0
     
-    has_removals = (
-        refr_deleted > 0 or refr_disabled > 0 or refr_buried > 0 or
-        spel_remove > 0 or mgef_remove > 0 or efsh_remove > 0 or
-        ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0
-    )
+    # 1. Clutter-Remover-Prüfung
+    is_clutter_remover = False
+    if _check_sieve(row, ["REFR", "ACHR", "CELL", "WRLD"], ["REFR", "ACHR"]):
+        if refr_deleted > 50 or refr_disabled > 100 or refr_buried > 100:
+            is_clutter_remover = True
+            
+    # 2. Spell/Effect-Remover-Prüfung
+    is_spell_remover = False
+    if _check_sieve(row, [
+        "SPEL", "SPEL_Override", "MGEF", "MGEF_Override", "EFSH", "EFSH_Override",
+        "ENCH", "ENCH_Override", "VFXS", "VFXS_Override", "ALCH", "ALCH_Override",
+        "PERK", "PERK_Override", "GMST", "GMST_Override"
+    ], ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK"]):
+        
+        is_pure_override = True
+        for key in ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK", "GMST"]:
+            val = row.get(key) or 0
+            val_override = row.get(f"{key}_Override") or 0
+            if val > 0 and val != val_override:
+                is_pure_override = False
+                break
+                
+        if is_pure_override:
+            has_deleted_spells = (
+                spel_remove > 0 or mgef_remove > 0 or efsh_remove > 0 or
+                ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0
+            )
+            if has_deleted_spells:
+                is_spell_remover = True
+                
+    is_remover = is_clutter_remover or is_spell_remover
     
-    if not has_removals:
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
-        
-        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Remove'")
-        r_row = cursor.fetchone()
-        remove_id = r_row[0] if r_row else None
-        
-        if remove_id and remove_id in cat_ids:
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Remove'")
+    r_row = cursor.fetchone()
+    remove_id = r_row[0] if r_row else 28
+    
+    if is_remover:
+        # Wenn es ein Remover ist, werden alle anderen Kategorien auf 0 gesetzt
+        other_cols = [cat_id for cat_id in cat_ids if cat_id != remove_id]
+        if other_cols:
+            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET {set_clause}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Als Remover-Mod identifiziert (alle anderen Kategorien ausgeschlossen)."
+    else:
+        # Wenn kein Remover, wird die Kategorie 'Remove' auf 0 gesetzt
+        if remove_id in cat_ids:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix 
                 SET "{remove_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Remove' ausgeschlossen (keine Lösch- oder Deaktivierungsindikatoren)."
+            return "Kategorie 'Remove' ausgeschlossen (keine Remover-Kriterien erfüllt)."
     return None
 
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):

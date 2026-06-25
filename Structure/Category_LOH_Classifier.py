@@ -18,8 +18,8 @@ def _check_sieve(row, allowed_keys, required_keys):
         'TERM', 'TXST', 'MATO', 'LIGH', 'GMST',
         'SNDR', 'SOUN', 'PKEY', 'COBJ', 'KYWD',
         'AVIF', 'PERK', 'NAVM',
-        'NVNM', 'SPAC', 'SHST', 'SMOD', 'VEHI', 'VMOD',
-        'QUST_ANAM', 'QUST_DNAM', 'QUST_QTYP_0', 'QUST_QTYP_1',
+        'NVNM', 'SPAC', 'SHST', 'SMOD', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'VEHI', 'VMOD',
+        'QUST_FULL', 'QUST_INDX', 'QUST_QOBJ', 'QUST_QTYP_0', 'QUST_QTYP_1',
         'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5',
         'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
         'CLFM', 'HDPT', 'MOVT',
@@ -51,10 +51,11 @@ def _check_author_bgs(row, cursor, cat_ids):
         bgs_row = cursor.fetchone()
         bgs_id = bgs_row[0] if bgs_row else 1
         
-        # Alle anderen Kategorien in der Matrix auf 0 setzen
+        # Alle anderen Kategorien in der Matrix auf 0 setzen, BGS auf 1
         other_cols = [cat_id for cat_id in cat_ids if cat_id != bgs_id]
         if other_cols:
             set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+            set_clause += f', "{bgs_id}" = 1'
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix 
                 SET {set_clause}
@@ -69,9 +70,15 @@ def _exclude_non_weapon(row, cursor, cat_ids):
     Wenn nicht, wird die Kategorie 'Waffen' (22) in der Ausschlussmatrix auf 0 gesetzt.
     """
     weap = row.get('WEAP') or 0
+    weap_vehicle = row.get('WEAP_KWDA_Vehicle') or 0
+    weap_ship = row.get('WEAP_KWDA_Ship') or 0
+    weap_helper = row.get('WEAP_KWDA_Helper') or 0
     ammo = row.get('AMMO') or 0
     
-    if weap == 0 and ammo == 0:
+    # Berechne echte Handfeuerwaffen (abzüglich Fahrzeug-, Schiffs- und Hilfswaffen)
+    handheld_weap = weap - weap_vehicle - weap_ship - weap_helper
+    
+    if handheld_weap <= 0 and ammo == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -86,7 +93,7 @@ def _exclude_non_weapon(row, cursor, cat_ids):
                 SET "{waffen_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Waffen' ausgeschlossen (keine WEAP/AMMO-Referenzen)."
+            return "Kategorie 'Waffen' ausgeschlossen (keine tragbaren WEAP/AMMO-Referenzen)."
     return None
 
 def _exclude_non_clothing(row, cursor, cat_ids):
@@ -239,6 +246,79 @@ def _exclude_non_tweaks(row, cursor, cat_ids):
             return "Kategorie 'Tweaks' ausgeschlossen (keine GMST/MOVT-Referenzen)."
     return None
 
+def _exclude_non_vehicle(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Fahrzeugmod (VEHI, VMOD oder FURN Fahrzeug-Subreferenzen VWWD/VCTT) vorliegen.
+    Wenn nicht, wird die Kategorie 'Fahrzeuge' (25) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    vehi = row.get('VEHI') or 0
+    vmod = row.get('VMOD') or 0
+    furn_vwwd = row.get('FURN_VWWD') or 0
+    furn_vctt = row.get('FURN_VCTT') or 0
+    
+    if vehi == 0 and vmod == 0 and furn_vwwd == 0 and furn_vctt == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        # Finde Fahrzeuge ID aus der Datenbank
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Fahrzeuge'")
+        f_row = cursor.fetchone()
+        if not f_row:
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Vehicles'")
+            f_row = cursor.fetchone()
+            
+        vehicle_id = f_row[0] if f_row else 25
+        
+        if vehicle_id and vehicle_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{vehicle_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Fahrzeuge' ausgeschlossen (keine VEHI/VMOD/FURN-VWWD/VCTT-Referenzen)."
+    return None
+
+def _exclude_non_ship(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Schiffsmod (SPAC, SHST, SMOD, GBFM (abzüglich Crowd- und Fahrzeug-Regionen), WEAP_KWDA_Ship, STMP, STND oder STBH) vorliegen.
+    Wenn nicht, wird die Kategorie 'Schiffe' (24) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    spac = row.get('SPAC') or 0
+    shst = row.get('SHST') or 0
+    smod = row.get('SMOD') or 0
+    gbfm = row.get('GBFM') or 0
+    gbfm_crowd = row.get('GBFM_EDID_CrowdRegion') or 0
+    gbfm_vehicle = row.get('GBFM_EDID_Vehicle') or 0
+    weap_ship = row.get('WEAP_KWDA_Ship') or 0
+    stmp = row.get('STMP') or 0
+    stnd = row.get('STND') or 0
+    stbh = row.get('STBH') or 0
+    
+    # Echte Schiffskonfigurationen (GBFM abzüglich Crowd- und Fahrzeug-Blaupausen)
+    ship_gbfm = gbfm - gbfm_crowd - gbfm_vehicle
+    
+    if (spac == 0 and shst == 0 and smod == 0 and ship_gbfm <= 0 and weap_ship == 0 
+            and stmp == 0 and stnd == 0 and stbh == 0):
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Schiffe'")
+        s_row = cursor.fetchone()
+        if not s_row:
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Ships'")
+            s_row = cursor.fetchone()
+            
+        ship_id = s_row[0] if s_row else 24
+        
+        if ship_id and ship_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{ship_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Schiffe' ausgeschlossen (keine SPAC/SHST/SMOD/WEAP_KWDA_Ship/STMP/STND/STBH-Referenzen)."
+    return None
+
 def _exclude_non_remover(row, cursor, cat_ids):
     """
     Prüft, ob die Kriterien für eine Remover-Mod vorliegen:
@@ -320,7 +400,7 @@ def _exclude_non_remover(row, cursor, cat_ids):
             return "Kategorie 'Remove' ausgeschlossen (keine Remover-Kriterien erfüllt)."
     return None
 
-def _exclude_by_assets_or_pointers(row, cursor, cat_ids):
+def _detect_no_pointers_by_components(row, cursor, cat_ids):
     """
     Prüft, ob überhaupt Datenbank-Pointer (Referenzen auf Datensätze) vorhanden sind.
     Falls nicht (reine Asset-Mod), werden alle Kategorien auf 0 gesetzt, außer den
@@ -432,6 +512,230 @@ def _exclude_by_assets_or_pointers(row, cursor, cat_ids):
         
     return None
 
+def _check_Overhaul(row, cursor, cat_ids):
+    """
+    Prüft technisch, ob die Mod ein Overhaul ist.
+    Ein Overhaul verändert die Vanilla-Spielbasis durch eine hohe Anzahl an Overrides
+    über mehrere funktionale Hauptbereiche hinweg oder durch eine massive absolute Override-Menge.
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    is_master = row.get('Is_Masterfile') or 0
+    if is_master <= 0:
+        return None
+        
+    # Einteilung in funktionale Hauptbereiche
+    areas = {
+        "World": ["CELL_Override", "STAT_Override", "FURN_Override"],
+        "Actors": ["NPC__Override", "PERK_Override", "AVIF_Override"],
+        "Effects": ["SPEL_Override", "MGEF_Override", "ENCH_Override", "ALCH_Override"],
+        "Items": ["WEAP_Override", "ARMO_Override", "COBJ_Override", "AMMO_Override", "SMOD_Override"],
+        "Systems": ["GMST_Override", "QUST_Override", "DIAL_Override", "INFO_Override"]
+    }
+    
+    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    
+    total_base = 0
+    total_override = 0
+    active_areas = set()
+    
+    # Berechne Overrides pro Bereich und summiere
+    for area_name, cols in areas.items():
+        area_override_count = 0
+        for col in cols:
+            val_override = row.get(col) or 0
+            base_col = col[:-9]
+            val_base = row.get(base_col) or 0
+            
+            total_override += val_override
+            total_base += val_base
+            area_override_count += val_override
+            
+        if area_override_count > 0:
+            active_areas.add(area_name)
+            
+    # Auch andere Overrides, die nicht explizit in den Hauptbereichen liegen, zur Gesamtsumme addieren
+    all_area_cols = [c for lst in areas.values() for c in lst]
+    for col in MOD_POINTER_COLS:
+        if col.endswith('_Override') and col not in all_area_cols:
+            base_col = col[:-9]
+            total_override += (row.get(col) or 0)
+            total_base += (row.get(base_col) or 0)
+            
+    ratio = (total_override / total_base * 100) if total_base > 0 else 0.0
+    
+    # Overhaul-Pfade prüfen:
+    # Pfad A: Massive absolute Anzahl an Overrides
+    is_massive = (total_override >= 1000)
+    
+    # Pfad B: Systemischer Eingriff (mittlere Skalierung mit hoher Konzentration und Bereichsdiversität)
+    is_systemic = (total_override >= 250) and (ratio >= 40.0) and (len(active_areas) >= 2)
+    
+    if not (is_massive or is_systemic):
+        return None
+        
+    # ID für Overhaul aus der Datenbank laden
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Overhaul'")
+    overhaul_row = cursor.fetchone()
+    overhaul_id = overhaul_row[0] if overhaul_row else 3
+    
+    # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Overhaul auf 1
+    other_cols = [cat_id for cat_id in cat_ids if cat_id != overhaul_id]
+    if other_cols:
+        set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+        set_clause += f', "{overhaul_id}" = 1'
+        cursor.execute(f"""
+            UPDATE LoadOrder_Classifier_Matrix 
+            SET {set_clause}
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mod_id, component_id))
+        
+    reason = f"Als Overhaul eingestuft (Overrides: {total_override}, Quote: {ratio:.1f}%, Bereiche: {len(active_areas)})"
+    return reason
+
+
+
+def _check_Bugfix(row, cursor, cat_ids):
+    """
+    Prüft hart, ob die Mod ein globaler Bugfix-Mod ist.
+    Dazu gehört:
+    - Hohe Override-Dichte (>= 95% der veränderbaren Datensätze sind Overrides).
+    - Hohe Diversität (Veränderte Datensätze in >= 4 Kategorien).
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+
+    # Heuristik: Override-Verhältnis und Diversität bestimmen
+    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    
+    total_base_val = 0
+    total_override_val = 0
+    num_override_categories = 0
+    
+    for col in MOD_POINTER_COLS:
+        if col.endswith('_Override'):
+            base_col = col[:-9]
+            if base_col in row:
+                base_val = row.get(base_col) or 0
+                override_val = row.get(col) or 0
+                
+                if base_val > 0:
+                    total_base_val += base_val
+                    total_override_val += override_val
+                    
+                if override_val > 0:
+                    num_override_categories += 1
+
+    if total_base_val < 20:
+        return None
+
+    override_ratio = total_override_val / total_base_val if total_base_val > 0 else 0.0
+
+    if override_ratio >= 0.95 and num_override_categories >= 4:
+        # Finde Bugfix ID aus der Datenbank
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Bugfix'")
+        bugfix_row = cursor.fetchone()
+        bugfix_id = bugfix_row[0] if bugfix_row else 2
+        
+        # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Bugfix auf 1
+        other_cols = [cat_id for cat_id in cat_ids if cat_id != bugfix_id]
+        if other_cols:
+            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+            set_clause += f', "{bugfix_id}" = 1'
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET {set_clause}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            
+        return f"Als Bugfix eingestuft (Ratio: {override_ratio:.2%}, Kategorien: {num_override_categories})."
+        
+    return None
+
+
+def _check_Quest_Real(row, cursor, cat_ids):
+    """
+    Prüft hart, ob die Mod eine echte Quest-Mod ist.
+    Falls ja, wird Quest in der Matrix auf 1 gesetzt und alle anderen Kategorien auf 0.
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+            
+    qust = row.get('QUST') or 0
+    if qust == 0:
+        return None
+        
+    full = row.get('QUST_FULL') or 0
+    qobj = row.get('QUST_QOBJ') or 0
+    if full == 0:
+        # Keine Quest mit Name im Logbuch vorhanden
+        return None
+        
+    dial = row.get('DIAL') or 0
+    # Wenn die Mod nur eine einzige Quest registriert, aber sehr viele Dialoge besitzt,
+    # handelt es sich in der Regel um ein Service-/Funktionsterminal bzw. einen Service-NPC (Mechanik-Mod).
+    if qust == 1 and dial >= 50:
+        return None
+        
+    qtyp_0 = row.get('QUST_QTYP_0') or 0
+    qtyp_1 = row.get('QUST_QTYP_1') or 0
+    qtyp_2 = row.get('QUST_QTYP_2') or 0
+    qtyp_3 = row.get('QUST_QTYP_3') or 0
+    qtyp_4 = row.get('QUST_QTYP_4') or 0
+    qtyp_5 = row.get('QUST_QTYP_5') or 0
+    dial = row.get('DIAL') or 0
+    dial_override = row.get('DIAL_Override') or 0
+    info = row.get('INFO') or 0
+    info_override = row.get('INFO_Override') or 0
+    
+    # Berechne neu hinzugefügte Dialoge (Gesamt minus Overrides)
+    new_dial = max(0, dial - dial_override)
+    new_info = max(0, info - info_override)
+    
+    # Pfad A1: Klassische Story-Quest mit neuen Dialogen (neue Dialoge + mindestens 1 Ziel)
+    is_story_quest_new = qobj > 0 and (
+        # 1. Echte Haupt-, Fraktions- oder Nebenquest (Typ 1, 2, 4) mit Mindestmaß an neuen Dialogen
+        ((qtyp_1 > 0 or qtyp_2 > 0 or qtyp_4 > 0) and new_dial >= 5 and new_info >= 10) or
+        # 2. Sonstige / kleinere / Standard-Quests (Typ 0, 3, 5), aber mit einer substanziellen neuen Dialogdichte
+        ((qtyp_0 > 0 or qtyp_3 > 0 or qtyp_5 > 0) and new_dial >= 15 and new_info >= 30)
+    )
+    
+    # Pfad A2: Überschriebene/Übersetzte Story-Quest (Dialog-Overrides + mindestens 5 Ziele)
+    is_story_quest_override = qobj >= 5 and (
+        # 1. Echte Haupt-, Fraktions- oder Nebenquest (Typ 1, 2, 4) mit Mindestmaß an Dialogen
+        ((qtyp_1 > 0 or qtyp_2 > 0 or qtyp_4 > 0) and dial >= 5 and info >= 10) or
+        # 2. Sonstige / kleinere / Standard-Quests (Typ 0, 3, 5), aber mit einer substanziellen Dialogdichte
+        ((qtyp_0 > 0 or qtyp_3 > 0 or qtyp_5 > 0) and dial >= 15 and info >= 30)
+    )
+    
+    # Pfad B: Abenteuer-/Dungeon-Quest (Stumme Quest mit hoher Anzahl an Zielen, z.B. >= 30)
+    is_silent_adventure = qobj >= 30
+    
+    is_real_quest = is_story_quest_new or is_story_quest_override or is_silent_adventure
+    
+    if not is_real_quest:
+        return None
+        
+    # ID für Quest laden
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Quest'")
+    quest_row = cursor.fetchone()
+    quest_id = quest_row[0] if quest_row else 4
+    
+    # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Quest auf 1
+    other_cols = [cat_id for cat_id in cat_ids if cat_id != quest_id]
+    if other_cols:
+        set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+        set_clause += f', "{quest_id}" = 1'
+        cursor.execute(f"""
+            UPDATE LoadOrder_Classifier_Matrix 
+            SET {set_clause}
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mod_id, component_id))
+        
+    return "Als Quest-Mod eingestuft."
+
+
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     """
     Wendet nacheinander alle registrierten Ausschlussregeln auf die Matrixtabelle an.
@@ -446,7 +750,6 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         
     # Liste aller registrierten Ausschlussregeln
     rules = [
-        _check_author_bgs,
         _exclude_non_weapon,
         _exclude_non_clothing,
         _exclude_non_sound,
@@ -454,8 +757,14 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_character,
         _exclude_non_gameplay,
         _exclude_non_tweaks,
+        _exclude_non_vehicle,
+        _exclude_non_ship,
         _exclude_non_remover,
-        _exclude_by_assets_or_pointers
+        _detect_no_pointers_by_components,
+        _check_Quest_Real,
+        _check_Overhaul,
+        _check_Bugfix,
+        _check_author_bgs
     ]
     
     notes = []

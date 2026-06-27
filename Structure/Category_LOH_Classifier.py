@@ -388,7 +388,7 @@ def _exclude_non_character(row, cursor, cat_ids):
 def _exclude_non_gameplay(row, cursor, cat_ids):
     """
     Prüft, ob Referenzen für eine Gameplaymod (PERK, PERK_Override, AVIF, AVIF_Override,
-    SPEL, SPEL_Override, ALCH oder ALCH_Override) vorliegen.
+    SPEL, SPEL_Override, ALCH, ALCH_Override, MGEF oder MGEF_Override) vorliegen.
     Wenn nicht, wird die Kategorie 'Gameplay' (11) in der Ausschlussmatrix auf 0 gesetzt.
     """
     perk = row.get('PERK') or 0
@@ -399,9 +399,12 @@ def _exclude_non_gameplay(row, cursor, cat_ids):
     spel_o = row.get('SPEL_Override') or 0
     alch = row.get('ALCH') or 0
     alch_o = row.get('ALCH_Override') or 0
+    mgef = row.get('MGEF') or 0
+    mgef_o = row.get('MGEF_Override') or 0
     
     if (perk == 0 and perk_o == 0 and avif == 0 and avif_o == 0 and
-            spel == 0 and spel_o == 0 and alch == 0 and alch_o == 0):
+            spel == 0 and spel_o == 0 and alch == 0 and alch_o == 0 and
+            mgef == 0 and mgef_o == 0):
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -415,8 +418,9 @@ def _exclude_non_gameplay(row, cursor, cat_ids):
                 SET "{gameplay_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gameplay' ausgeschlossen (keine PERK/AVIF/SPEL/ALCH-Referenzen)."
+            return "Kategorie 'Gameplay' ausgeschlossen (keine PERK/AVIF/SPEL/ALCH/MGEF-Referenzen)."
     return None
+
 
 
 def _exclude_non_tweaks(row, cursor, cat_ids):

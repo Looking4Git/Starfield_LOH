@@ -387,24 +387,35 @@ def _exclude_non_character(row, cursor, cat_ids):
 
 def _exclude_non_gameplay(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Gameplaymod (PERK, PERK_Override, AVIF, AVIF_Override,
-    SPEL, SPEL_Override, ALCH, ALCH_Override, MGEF oder MGEF_Override) vorliegen.
+    Prüft, ob Referenzen für eine Gameplaymod (PERK, PERK_Override, PERK_Remove, 
+    AVIF, AVIF_Override, SPEL, SPEL_Override, SPEL_Remove, ALCH, ALCH_Override, 
+    ALCH_Remove, MGEF, MGEF_Override, MGEF_Remove, ENCH, ENCH_Override oder ENCH_Remove) vorliegen.
     Wenn nicht, wird die Kategorie 'Gameplay' (11) in der Ausschlussmatrix auf 0 gesetzt.
     """
     perk = row.get('PERK') or 0
     perk_o = row.get('PERK_Override') or 0
+    perk_r = row.get('PERK_Remove') or 0
     avif = row.get('AVIF') or 0
     avif_o = row.get('AVIF_Override') or 0
     spel = row.get('SPEL') or 0
     spel_o = row.get('SPEL_Override') or 0
+    spel_r = row.get('SPEL_Remove') or 0
     alch = row.get('ALCH') or 0
     alch_o = row.get('ALCH_Override') or 0
+    alch_r = row.get('ALCH_Remove') or 0
     mgef = row.get('MGEF') or 0
     mgef_o = row.get('MGEF_Override') or 0
+    mgef_r = row.get('MGEF_Remove') or 0
+    ench = row.get('ENCH') or 0
+    ench_o = row.get('ENCH_Override') or 0
+    ench_r = row.get('ENCH_Remove') or 0
     
-    if (perk == 0 and perk_o == 0 and avif == 0 and avif_o == 0 and
-            spel == 0 and spel_o == 0 and alch == 0 and alch_o == 0 and
-            mgef == 0 and mgef_o == 0):
+    if (perk == 0 and perk_o == 0 and perk_r == 0 and
+            avif == 0 and avif_o == 0 and
+            spel == 0 and spel_o == 0 and spel_r == 0 and
+            alch == 0 and alch_o == 0 and alch_r == 0 and
+            mgef == 0 and mgef_o == 0 and mgef_r == 0 and
+            ench == 0 and ench_o == 0 and ench_r == 0):
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -418,7 +429,7 @@ def _exclude_non_gameplay(row, cursor, cat_ids):
                 SET "{gameplay_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gameplay' ausgeschlossen (keine PERK/AVIF/SPEL/ALCH/MGEF-Referenzen)."
+            return "Kategorie 'Gameplay' ausgeschlossen (keine Gameplay-bezogenen Referenzen vorhanden)."
     return None
 
 

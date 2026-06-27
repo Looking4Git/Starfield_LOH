@@ -45,8 +45,10 @@ def validate_plugins_for_import() -> tuple[bool, list | None]:
             if not line or line.startswith('#'):
                 continue
                 
-            is_active = 1 if line.startswith('*') else 0
-            filename = line.lstrip('*')
+            # In Starfield sind alle in der Plugins.txt eingetragenen Plugins aktiv (Creations teils ohne '*')
+            is_active = 1
+            filename = line.lstrip('*').strip()
+
             
             if not (filename.lower().endswith('.esm') or filename.lower().endswith('.esp')):
                 continue

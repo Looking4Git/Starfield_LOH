@@ -253,15 +253,18 @@ def run_nexus_fetch(log_signal=None):
                         
                         # 1. Falls eine Beschreibung vorhanden ist:
                         if local_desc:
-                            desc_cleaned = clean_spaces(local_desc)
-                            candidates.append(desc_cleaned)
-                            if '_' in base_filename:
-                                parts = base_filename.split('_')
-                                prefix = parts[0].strip()
-                                if prefix and len(prefix) <= 4:
-                                    candidates.append(f"{prefix} {desc_cleaned}")
-                            if local_author and local_author.lower() != 'default':
-                                candidates.append(f"{local_author} {desc_cleaned}")
+                            # Nimm nur den ersten Teil bis zum ersten Satzzeichen oder Zeilenumbruch
+                            first_sentence = re.split(r'[!\n.?:]', local_desc)[0].strip()
+                            if first_sentence:
+                                desc_cleaned = clean_spaces(first_sentence)
+                                candidates.append(desc_cleaned)
+                                if '_' in base_filename:
+                                    parts = base_filename.split('_')
+                                    prefix = parts[0].strip()
+                                    if prefix and len(prefix) <= 4:
+                                        candidates.append(f"{prefix} {desc_cleaned}")
+                                if local_author and local_author.lower() != 'default':
+                                    candidates.append(f"{local_author} {desc_cleaned}")
                                 
                         # 2. Falls keine Beschreibung da ist, oder als Fallback auf den Dateinamen:
                         if '_' in base_filename:
@@ -270,9 +273,13 @@ def run_nexus_fetch(log_signal=None):
                             main_name = "_".join(parts[1:]).strip()
                             if main_name:
                                 candidates.append(clean_spaces(main_name))
+                                candidates.append(main_name)  # RAW Fallback
                             candidates.append(clean_spaces(base_filename))
+                            candidates.append(base_filename)  # RAW Fallback
                         else:
                             candidates.append(clean_spaces(base_filename))
+                            candidates.append(base_filename)  # RAW Fallback
+
                             
                         seen = set()
                         unique_candidates = [x for x in candidates if not (x.lower() in seen or seen.add(x.lower()))]

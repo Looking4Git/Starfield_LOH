@@ -10,9 +10,10 @@ GRAPHICS_DIR = os.path.join(APP_ROOT, "Graphics")
 STYLE_DIR = os.path.join(APP_ROOT, "Style")
 LOGS_DIR = os.path.join(APP_ROOT, "Logs")
 BACKUPS_DIR = os.path.join(APP_ROOT, "Backups")
+MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
 
 # Sicherstellen, dass die nötigen Arbeitsordner existieren
-for directory in [LOGS_DIR, BACKUPS_DIR]:
+for directory in [LOGS_DIR, BACKUPS_DIR, MOD_IMAGES_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
 

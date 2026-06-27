@@ -4,7 +4,7 @@ import os
 import sqlite3
 import logging
 
-from Structure.Paths import DB_FILE
+from Structure.Paths import DB_FILE, MOD_IMAGES_DIR
 
 _MIGRATIONS_RUN = False
 
@@ -59,7 +59,7 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             conn.close()
 
 def get_mod_image(mod_id: int) -> bytes | None:
-    """Holt das Vorschaubild (BLOB) für eine Mod anhand ihrer ID."""
+    """Holt das Vorschaubild (entweder als BLOB aus der DB oder aus dem Dateisystem) für eine Mod anhand ihrer ID."""
     query = "SELECT Image FROM Mods WHERE ID = ?"
     conn = None
     try:
@@ -68,7 +68,16 @@ def get_mod_image(mod_id: int) -> bytes | None:
         cursor.execute(query, (mod_id,))
         row = cursor.fetchone()
         if row and row[0]:
-            return row[0]
+            img_val = row[0]
+            # Wenn es alte BLOB-Daten sind
+            if isinstance(img_val, (bytes, bytearray)):
+                return img_val
+            # Wenn es der Dateiname im Dateisystem ist
+            if isinstance(img_val, str) and img_val.strip():
+                img_path = os.path.join(MOD_IMAGES_DIR, img_val)
+                if os.path.exists(img_path):
+                    with open(img_path, 'rb') as f:
+                        return f.read()
         return None
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_mod_image (ID {mod_id}): {e}")
@@ -76,6 +85,32 @@ def get_mod_image(mod_id: int) -> bytes | None:
     finally:
         if conn:
             conn.close()
+
+def save_mod_image_file(mod_id: int, image_bytes: bytes) -> str | None:
+    """
+    Speichert die Bilddaten als Datei im Ordner Data/Mod_Images/
+    und gibt den Dateinamen zur Speicherung in der DB zurück.
+    """
+    if not image_bytes:
+        return None
+    
+    # Format-Erkennung anhand der Magic Bytes
+    ext = ".jpg"
+    if image_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+        ext = ".png"
+    elif image_bytes.startswith(b'RIFF') and b'WEBP' in image_bytes[8:16]:
+        ext = ".webp"
+    
+    filename = f"mod_{mod_id}{ext}"
+    filepath = os.path.join(MOD_IMAGES_DIR, filename)
+    
+    try:
+        with open(filepath, 'wb') as f:
+            f.write(image_bytes)
+        return filename
+    except Exception as e:
+        logging.error(f"Fehler beim Speichern des Bildes auf Festplatte (ID {mod_id}): {e}")
+        return None
 
 
 def get_lookup_data(table_name: str, order_by: str = "ID") -> list[dict]:
@@ -387,9 +422,11 @@ def get_load_order(profile_id: int) -> list[dict]:
             c.Is_Masterfile,
             em.GMST, em.GMST_Override,
             em.QUST, em.QUST_Override,
-            em.QUST_ANAM, em.QUST_DNAM,
+            em.QUST_FULL, em.QUST_INDX, em.QUST_QOBJ,
             em.QUST_QTYP_0, em.QUST_QTYP_1, em.QUST_QTYP_2,
             em.QUST_QTYP_3, em.QUST_QTYP_4, em.QUST_QTYP_5,
+            em.Shifter_Quest_Starter, em.Shifter_Quest_Trader,
+            em.Shifter_Quest_Chest, em.Shifter_Quest_Ship,
             em.DIAL, em.DIAL_Override,
             em.INFO, em.INFO_Override,
             em.WRLD, em.CELL, em.CELL_Override, em.NVNM, em.NAVM, em.REFR,
@@ -400,10 +437,10 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.PERK, em.PERK_Override, em.AVIF, em.AVIF_Override,
             em.TXST, em.MATO, em.LIGH, em.LIGH_Override,
             em.SNDR, em.SNDR_Override, em.SOUN,
-            em.WEAP, em.WEAP_Override, em.AMMO, em.AMMO_Override,
+            em.WEAP, em.WEAP_Override, em.WEAP_KWDA_Vehicle, em.WEAP_KWDA_Ship, em.WEAP_KWDA_Helper, em.AMMO, em.AMMO_Override,
             em.ARMO, em.ARMO_Override, em.APWR, em.COBJ, em.COBJ_Override,
             em.SPAC, em.SPAC_Override, em.SHST, em.SHST_Override,
-            em.SMOD, em.SMOD_Override, em.STMP, em.STND, em.STBH, em.STDT,
+            em.SMOD, em.SMOD_Override, em.GBFM, em.GBFM_EDID_CrowdRegion, em.GBFM_EDID_Vehicle, em.STMP, em.STND, em.STBH, em.STDT,
             em.VEHI, em.VEHI_Override, em.VMOD, em.VMOD_Override,
             em.RSPJ, em.KYWD, em.PKEY, em.CLFM, em.HDPT,
             cat.Name AS Category_Name,

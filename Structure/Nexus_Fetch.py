@@ -526,28 +526,40 @@ def run_nexus_fetch(log_signal=None):
                     log(f"    - Version: {version_available}")
                     
                     # F. Bild laden falls noch nicht vorhanden
-                    image_blob = None
+                    image_filename = None
                     cursor.execute("SELECT Image FROM Mods WHERE ID = ?", (mod_id,))
                     img_row = cursor.fetchone()
                     
+                    has_img = False
                     if img_row and img_row["Image"]:
-                        log("    - Vorschaubild existiert bereits in der DB (Download übersprungen).")
+                        img_val = img_row["Image"]
+                        if isinstance(img_val, str) and img_val.strip():
+                            from Structure.Paths import MOD_IMAGES_DIR
+                            if os.path.exists(os.path.join(MOD_IMAGES_DIR, img_val)):
+                                has_img = True
+                        else:
+                            has_img = True  # Legacy byte data
+
+                    if has_img:
+                        log("    - Vorschaubild existiert bereits (Download übersprungen).")
                     elif picture_url:
                         log(f"    - Lade Vorschaubild von {picture_url}...")
                         image_blob = download_image(picture_url)
                         if image_blob:
                             log("      -> Bild erfolgreich geladen.")
+                            from Structure.Database import save_mod_image_file
+                            image_filename = save_mod_image_file(mod_id, image_blob)
                         else:
                             log("      -> Fehler beim Bild-Download.")
                             
                     # G. DB-Update ausführen (inklusive Version_available und Date_available analog zu Bethesda_Fetch)
                     new_platform = 2 # Setze Plattform fest auf Nexus
-                    if image_blob:
+                    if image_filename:
                         cursor.execute("""
                             UPDATE Mods 
                             SET Platform = ?, Name_Online = ?, URL = ?, Author = ?, Description = ?, Image = ?, Version_available = ?, Date_available = ?
                             WHERE ID = ?
-                        """, (new_platform, online_name, mod_page_url, author, description, sqlite3.Binary(image_blob), version_available, date_available, mod_id))
+                        """, (new_platform, online_name, mod_page_url, author, description, image_filename, version_available, date_available, mod_id))
                     else:
                         cursor.execute("""
                             UPDATE Mods 

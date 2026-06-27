@@ -42,12 +42,15 @@ def save_mod_master_data(cursor, mod_id, title, description, author, final_url):
     """, (title, description, author, final_url, mod_id))
 
 def save_mod_image(cursor, mod_id, image_data):
-    """Speichert das Vorschaubild in der Datenbank."""
-    cursor.execute("""
-        UPDATE Mods 
-        SET Image = ?
-        WHERE ID = ?
-    """, (image_data, mod_id))
+    """Speichert das Vorschaubild als Datei und aktualisiert den Dateipfad in der Datenbank."""
+    from Structure.Database import save_mod_image_file
+    filename = save_mod_image_file(mod_id, image_data)
+    if filename:
+        cursor.execute("""
+            UPDATE Mods 
+            SET Image = ?
+            WHERE ID = ?
+        """, (filename, mod_id))
 
 def save_mod_version_data(cursor, mod_id, version, date_str):
     """Speichert die Versions- und Verfügbarkeitsdaten einer Mod."""
@@ -259,8 +262,18 @@ def run_fetch(log_signal=None):
                     if preview_image:
                         cursor.execute("SELECT Image FROM Mods WHERE ID = ?", (mod_id,))
                         img_row = cursor.fetchone()
+                        has_img = False
                         if img_row and img_row[0]:
-                            log_msg("  -> Vorschaubild existiert bereits in der DB (Download übersprungen).")
+                            img_val = img_row[0]
+                            if isinstance(img_val, str) and img_val.strip():
+                                from Structure.Paths import MOD_IMAGES_DIR
+                                if os.path.exists(os.path.join(MOD_IMAGES_DIR, img_val)):
+                                    has_img = True
+                            else:
+                                has_img = True  # Legacy byte data
+                                
+                        if has_img:
+                            log_msg("  -> Vorschaubild existiert bereits (Download übersprungen).")
                         else:
                             s3bucket = preview_image.get("s3bucket")
                             s3key = preview_image.get("s3key")

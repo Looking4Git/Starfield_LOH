@@ -11,36 +11,140 @@ from Structure.Database import check_component_exists, get_mod_by_id, get_compon
 from Structure.File_ESM_Parser import (
     parse_tes4_header,
     get_num_masters,
+    get_masters_list,
     scan_esm_for_handles,
     CORE_POINTER_COLS,
     MOD_POINTER_COLS
 )
 
+def calculate_shifters(counts):
+    """Berechnet die Quest-Shifter-Koeffizienten (0.0 bis 1.0) basierend auf den ESM-Referenzen."""
+    qust = counts.get('QUST', 0)
+    
+    if qust > 0:
+        # 1. Shifter_Quest_Starter (System-/Gameplay-Trigger)
+        cobj = counts.get('COBJ', 0)
+        npc = counts.get('NPC_', 0)
+        dial = counts.get('DIAL', 0)
+        info = counts.get('INFO', 0)
+        refr = counts.get('REFR', 0)
+        cell_override = counts.get('CELL_Override', 0)
+        if cobj == 0 and npc == 0 and refr == 0 and dial == 0 and info == 0 and cell_override == 0:
+            shifter_starter = 1.0
+        else:
+            shifter_starter = 0.0
+            
+        # 2. Shifter_Quest_Trader (Händler Injektor)
+        weap = counts.get('WEAP', 0)
+        armo = counts.get('ARMO', 0)
+        ammo = counts.get('AMMO', 0)
+        kywd_shop = counts.get('NPC_KYWD_Shop', 0)
+        if cobj > 0 or weap > 0 or armo > 0 or ammo > 0 or kywd_shop > 0:
+            shifter_trader = 1.0
+        else:
+            shifter_trader = 0.0
+            
+        # 3. Shifter_Quest_Chest (Kiste / Welt-Injektion)
+        cell = counts.get('CELL', 0)
+        wrld = counts.get('WRLD', 0)
+        if refr > 0 and (cell > 0 or cell_override > 0 or wrld > 0):
+            shifter_chest = 1.0
+        else:
+            shifter_chest = 0.0
+            
+        # 4. Shifter_Quest_Ship (Schiffskomponenten / Terminal)
+        term = counts.get('TERM', 0)
+        smod = counts.get('SMOD', 0)
+        spac = counts.get('SPAC', 0)
+        kywd_ship = counts.get('NPC_KYWD_Ship', 0)
+        if term > 0 or smod > 0 or spac > 0 or kywd_ship > 0:
+            shifter_ship = 1.0
+        else:
+            shifter_ship = 0.0
+    else:
+        shifter_starter = 0.0
+        shifter_trader = 0.0
+        shifter_chest = 0.0
+        shifter_ship = 0.0
+
+    counts['Shifter_Quest_Starter'] = shifter_starter
+    counts['Shifter_Quest_Trader'] = shifter_trader
+    counts['Shifter_Quest_Chest'] = shifter_chest
+    counts['Shifter_Quest_Ship'] = shifter_ship
+
+def get_num_full_masters(filepath, cursor):
+    """Ermittelt die Anzahl der Full Master (Is_Masterfile = 1) in der Master-Liste einer ESM/ESP."""
+    masters = get_masters_list(filepath)
+    num_full = 0
+    for m in masters:
+        m_lower = m.lower()
+        if m_lower in {"starfield.esm", "blueprintships-starfield.esm", "shatteredspace.esm", "constellation.esm", "oldmars.esm"}:
+            num_full += 1
+            continue
+            
+        # Zuerst prüfen, ob die Datei im Spieldatenpfad liegt, und ihre Header-Flags auslesen
+        full_path = os.path.join(STARFIELD_GAME_DATA_PATH, m)
+        if os.path.exists(full_path):
+            is_m, is_bp = check_plugin_flags(full_path)
+            if is_m == 1: # 1 = Full Master
+                num_full += 1
+                continue
+            else:
+                # Wenn es existiert, aber kein Full Master ist (z.B. Medium oder Small Master),
+                # dann überspringen wir das Zählen
+                continue
+
+        # Fallback: In System_Components prüfen
+        cursor.execute("SELECT 1 FROM System_Components WHERE LOWER(File) = ?", (m_lower,))
+        if cursor.fetchone():
+            num_full += 1
+            continue
+            
+        # In Components prüfen
+        cursor.execute("SELECT Is_Masterfile FROM Components WHERE LOWER(File) = ?", (m_lower,))
+        row = cursor.fetchone()
+        if row and row[0] == 1:  # 1 = Full Master
+            num_full += 1
+    return num_full
+
 def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
     """
     Sucht auf der Festplatte nach zugehörigen BA2-Dateien für eine Masterfile (.esm/.esp)
     und trägt diese als Komponenten ein und verknüpft sie mit der Mod in der Datenbank.
+    Unterstützt auch nummerierte Archive (z.B. "Textures01.ba2" bis "Textures17.ba2").
     """
     if not esm_filename.lower().endswith(('.esm', '.esp')):
         return
     base_name = esm_filename[:-4]
-    for suffix in [" - textures.ba2", " - main.ba2", " - voices.ba2", " - sounds.ba2"]:
-        ba2_filename = base_name + suffix
-        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_filename)
-        if os.path.exists(ba2_path):
-            cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (ba2_filename.lower(),))
-            row = cursor.fetchone()
-            if not row:
-                cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, 0, 0)", (ba2_filename,))
-                comp_id = cursor.lastrowid
-                log_msg(f"    -> [AUTO DISCOVER BA2] {ba2_filename} gefunden und als Komponente angelegt.")
-            else:
-                comp_id = row[0]
-                
-            cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
-            if not cursor.fetchone():
-                cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
-                log_msg(f"    -> [LINK BA2] {ba2_filename} mit Mod ID {mod_id} verknüpft.")
+    
+    if not os.path.exists(STARFIELD_GAME_DATA_PATH):
+        return
+        
+    import re
+    # Muster für: base_name + " - (textures|main|voices|sounds)" + optionale Zahlen + ".ba2"
+    pattern = re.compile(
+        r"^" + re.escape(base_name.lower()) + r" - (textures|main|voices|sounds)\d*\.ba2$"
+    )
+    
+    try:
+        files = os.listdir(STARFIELD_GAME_DATA_PATH)
+        for f_name in files:
+            if pattern.match(f_name.lower()):
+                cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
+                row = cursor.fetchone()
+                if not row:
+                    cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, 0, 0)", (f_name,))
+                    comp_id = cursor.lastrowid
+                    log_msg(f"    -> [AUTO DISCOVER BA2] {f_name} gefunden und als Komponente angelegt.")
+                else:
+                    comp_id = row[0]
+                    
+                cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
+                    log_msg(f"    -> [LINK BA2] {f_name} mit Mod ID {mod_id} verknüpft.")
+    except Exception as e:
+        log_msg(f"    -> [WARNUNG] Fehler bei der automatischen BA2-Suche für {esm_filename}: {str(e)}")
 
 OFFICIAL_DLC_NAMES = {
     "starfield.esm": "Starfield Hauptspiel",
@@ -189,8 +293,9 @@ def scan_and_update_mod_components(log_msg):
                 log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
             
             if needs_scan:
-                log_msg(f"  -> [MOD COMPONENT SCAN] '{file_name}' wird binär gescannt...")
-                counts = scan_esm_for_handles(filepath, is_core=False)
+                num_full = get_num_full_masters(filepath, cursor)
+                counts = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full)
+                calculate_shifters(counts)
                 
                 pointer_values = []
                 for col in MOD_POINTER_COLS:
@@ -501,7 +606,13 @@ def run_local_check(log_signal):
                         if db_version != parsed_version:
                             log_msg(f"    -> [UPDATE SKIP] Version in DB ('{db_version}') unterscheidet sich von Catalog ('{parsed_version}'). Keine automatische Versionsaktualisierung.")
                     
-                    existing_comps = get_components_by_mod_id(mod_id) if isinstance(mod_id, int) else list(dry_run_components)
+                    cursor.execute("""
+                        SELECT c.File 
+                        FROM Components c 
+                        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+                        WHERE mc.Mod_ID = ?
+                    """, (mod_id,))
+                    existing_comps = [row_comp[0] for row_comp in cursor.fetchall()] if isinstance(mod_id, int) else list(dry_run_components)
                     existing_comps_lower = [e.lower() for e in existing_comps]
                     
                     if catalog_data:

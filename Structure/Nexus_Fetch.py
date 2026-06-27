@@ -253,9 +253,20 @@ def run_nexus_fetch(log_signal=None):
                         
                         # 1. Falls eine Beschreibung vorhanden ist:
                         if local_desc:
-                            # Nimm nur den ersten Teil bis zum ersten Satzzeichen oder Zeilenumbruch
+                            # A. Volle Beschreibung zuerst versuchen
+                            full_desc_cleaned = clean_spaces(local_desc)
+                            candidates.append(full_desc_cleaned)
+                            if '_' in base_filename:
+                                parts = base_filename.split('_')
+                                prefix = parts[0].strip()
+                                if prefix and len(prefix) <= 4:
+                                    candidates.append(f"{prefix} {full_desc_cleaned}")
+                            if local_author and local_author.lower() != 'default':
+                                candidates.append(f"{local_author} {full_desc_cleaned}")
+
+                            # B. Gekürzte Version als Fallback danach versuchen
                             first_sentence = re.split(r'[!\n.?:]', local_desc)[0].strip()
-                            if first_sentence:
+                            if first_sentence and first_sentence != local_desc:
                                 desc_cleaned = clean_spaces(first_sentence)
                                 candidates.append(desc_cleaned)
                                 if '_' in base_filename:
@@ -279,6 +290,7 @@ def run_nexus_fetch(log_signal=None):
                         else:
                             candidates.append(clean_spaces(base_filename))
                             candidates.append(base_filename)  # RAW Fallback
+
 
                             
                         seen = set()

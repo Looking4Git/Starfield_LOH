@@ -18,7 +18,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **QUST_INDX**: Quest-Indizes (Stages/Ziele).
 *   **QUST_QOBJ**: Quest-Objectives (Teilaufgaben).
 *   **QUST_QTYP_0 bis QUST_QTYP_5**: Zähler für Quest-Kategorien (0: Undefiniert, 1: Main Quest, 2: Faction Quest, 3: Side Quest, 4: Radiant Quest, 5: Misc/Sonstiges).
-*   **Shifter_Quest_Starter / Trader / Chest / Ship**: Berechnete Koeffizienten (0.0 bis 1.0), die beschreiben, wie eine Quest ins Spiel injiziert wird (z. B. über Händler, Truhen oder Terminals).
+*   **Shifter_Quest_Starter / Shifter_Quest_Trader / Shifter_Quest_Chest / Shifter_Quest_Ship**: Berechnete Koeffizienten (0.0 bis 1.0), die beschreiben, wie eine Quest ins Spiel injiziert wird (z. B. über Händler, Truhen oder Terminals).
 *   **DIAL / DIAL_Override**: *Dialogue Branch*. Dialogthemen und -zweige.
 *   **INFO / INFO_Override**: *Dialogue Info*. Einzelne gesprochene Sätze und Reaktionen innerhalb von Dialogen.
 *   **GLOB / GLOB_Override**: *Global Variable*. Globale Variablen zur Systemkonfiguration oder Tweak-Steuerung.
@@ -52,7 +52,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **PERK / PERK_Override**: *Perk*. Fertigkeiten, Skills und passive Eigenschaften.
 *   **AVIF / AVIF_Override**: *Actor Value Information*. Attribute, Fraktionsbeziehungen und Statuswerte (z. B. Gesundheit, Tragekapazität).
 *   **MOVT**: *Movement Type*. Bewegungseigenschaften (Geschwindigkeit, Beschleunigung für Gehen, Laufen, Fliegen).
-*   **NPC_KYWD_Ship / Companion / Creature / Shop**: Kategorisierte Zählung von NPCs basierend auf ihren internen Editor-IDs (z. B. Händler, Begleiter, Monster, Schiffstechniker).
+*   **NPC_KYWD_Ship / NPC_KYWD_Companion / NPC_KYWD_Creature / NPC_KYWD_Shop**: Kategorisierte Zählung von NPCs basierend auf ihren internen Editor-IDs (z. B. Händler, Begleiter, Monster, Schiffstechniker).
 *   **RACE / RACE_Override**: *Race*. Definitionen von spielbaren und nicht-spielbaren Rassen, Kreaturen-Skeletten oder Eigenschaften.
 
 ---

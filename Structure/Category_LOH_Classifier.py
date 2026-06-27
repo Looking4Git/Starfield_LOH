@@ -286,15 +286,17 @@ def _exclude_non_textures(row, cursor, cat_ids):
 
 def _exclude_non_plants(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Pflanzenmod (FLOR, FLOR_Override, TREE oder TREE_Override) vorliegen.
+    Prüft, ob Referenzen für eine Pflanzenmod (FLOR, FLOR_Override, FLOR_Remove, TREE, TREE_Override oder TREE_Remove) vorliegen.
     Wenn nicht, wird die Kategorie 'Pflanzen' (10) in der Ausschlussmatrix auf 0 gesetzt.
     """
     flor = row.get('FLOR') or 0
     flor_o = row.get('FLOR_Override') or 0
+    flor_r = row.get('FLOR_Remove') or 0
     tree = row.get('TREE') or 0
     tree_o = row.get('TREE_Override') or 0
+    tree_r = row.get('TREE_Remove') or 0
     
-    if flor == 0 and flor_o == 0 and tree == 0 and tree_o == 0:
+    if flor == 0 and flor_o == 0 and flor_r == 0 and tree == 0 and tree_o == 0 and tree_r == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -618,6 +620,8 @@ def _exclude_non_remover(row, cursor, cat_ids):
     vfxs_remove = row.get('VFXS_Remove') or 0
     alch_remove = row.get('ALCH_Remove') or 0
     perk_remove = row.get('PERK_Remove') or 0
+    flor_remove = row.get('FLOR_Remove') or 0
+    tree_remove = row.get('TREE_Remove') or 0
     
     # 1. Clutter-Remover-Prüfung
     is_clutter_remover = False
@@ -643,7 +647,8 @@ def _exclude_non_remover(row, cursor, cat_ids):
     allowed_spell_keys = {
         "SPEL", "SPEL_Override", "MGEF", "MGEF_Override", "EFSH", "EFSH_Override",
         "ENCH", "ENCH_Override", "VFXS", "VFXS_Override", "ALCH", "ALCH_Override",
-        "PERK", "PERK_Override", "GMST", "GMST_Override", "KYWD"
+        "PERK", "PERK_Override", "GMST", "GMST_Override", "KYWD",
+        "FLOR", "FLOR_Override", "TREE", "TREE_Override"
     }
     has_other_spell_pointers = False
     for col in MOD_POINTER_COLS:
@@ -653,12 +658,12 @@ def _exclude_non_remover(row, cursor, cat_ids):
             has_other_spell_pointers = True
             break
             
-    required_spell_keys = {"SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK"}
+    required_spell_keys = {"SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK", "FLOR", "TREE"}
     has_required_spell = any((row.get(k) or 0) > 0 for k in required_spell_keys)
     
     if not has_other_spell_pointers and has_required_spell:
         is_pure_override = True
-        for key in ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK", "GMST"]:
+        for key in ["SPEL", "MGEF", "EFSH", "ENCH", "VFXS", "ALCH", "PERK", "GMST", "FLOR", "TREE"]:
             val = row.get(key) or 0
             val_override = row.get(f"{key}_Override") or 0
             if val > 0 and val != val_override:
@@ -668,7 +673,8 @@ def _exclude_non_remover(row, cursor, cat_ids):
         if is_pure_override:
             has_deleted_spells = (
                 spel_remove > 0 or mgef_remove > 0 or efsh_remove > 0 or
-                ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0
+                ench_remove > 0 or vfxs_remove > 0 or alch_remove > 0 or perk_remove > 0 or
+                flor_remove > 0 or tree_remove > 0
             )
             if has_deleted_spells:
                 is_spell_remover = True
@@ -1073,12 +1079,11 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_effects,
         _exclude_non_light,
         _exclude_non_textures,
-        _exclude_non_plants,
         _exclude_non_creature,
-
         _exclude_non_companion,
         _exclude_non_npc,
         _exclude_non_gameplay,
+        _exclude_non_plants,
         _exclude_non_sorting,
         _detect_no_pointers_by_components,
         _check_Quest_Real,

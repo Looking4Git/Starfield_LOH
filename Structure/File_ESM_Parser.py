@@ -53,7 +53,7 @@ MOD_POINTER_COLS = [
     'VEHI', 'VEHI_Override', 'VMOD', 'VMOD_Override',
     'RSPJ', 'KYWD', 'PKEY',
     'REFR_Deleted', 'REFR_Disabled', 'REFR_Buried',
-    'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove',
+    'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove', 'FLOR_Remove', 'TREE_Remove',
     'LVLI', 'LVLI_Override', 'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'FLST', 'FLST_Override',
     'MISC', 'MISC_Override', 'KEYM', 'KEYM_Override', 'BOOK', 'BOOK_Override',
     'MSWP', 'MSWP_Override', 'OMOD', 'OMOD_Override', 'LMSW', 'LMSW_Override', 'MUSC', 'MUSC_Override'

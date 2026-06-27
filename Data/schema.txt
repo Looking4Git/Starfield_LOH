@@ -73,6 +73,11 @@ CREATE TABLE "Components_ESM_References" (
         "TERM"                  INTEGER DEFAULT 0,
         "LCTN"                  INTEGER DEFAULT 0,
         "LCTN_Override"         INTEGER DEFAULT 0,
+        "FLOR"                  INTEGER DEFAULT 0,
+        "FLOR_Override"         INTEGER DEFAULT 0,
+        "TREE"                  INTEGER DEFAULT 0,
+        "TREE_Override"         INTEGER DEFAULT 0,
+
 
         -- Gravity 3: Gameplay & Actors
         "NPC_"                  INTEGER DEFAULT 0,

@@ -28,6 +28,9 @@ MOD_POINTER_COLS = [
     'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
     'TERM',
     'LCTN', 'LCTN_Override',
+    'FLOR', 'FLOR_Override',
+    'TREE', 'TREE_Override',
+
 
     # Gravity 3: Gameplay & Actors
     'NPC_', 'NPC__Override', 'ACHR', 'PKIN',

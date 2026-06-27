@@ -284,6 +284,34 @@ def _exclude_non_textures(row, cursor, cat_ids):
             return "Kategorie 'Texturen' ausgeschlossen (keine TXST/MATO-Referenzen)."
     return None
 
+def _exclude_non_plants(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Pflanzenmod (FLOR, FLOR_Override, TREE oder TREE_Override) vorliegen.
+    Wenn nicht, wird die Kategorie 'Pflanzen' (10) in der Ausschlussmatrix auf 0 gesetzt.
+    """
+    flor = row.get('FLOR') or 0
+    flor_o = row.get('FLOR_Override') or 0
+    tree = row.get('TREE') or 0
+    tree_o = row.get('TREE_Override') or 0
+    
+    if flor == 0 and flor_o == 0 and tree == 0 and tree_o == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Pflanzen'")
+        p_row = cursor.fetchone()
+        plants_id = p_row[0] if p_row else 10
+        
+        if plants_id and plants_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{plants_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Pflanzen' ausgeschlossen (keine FLOR/TREE-Referenzen)."
+    return None
+
+
 def _exclude_non_creature(row, cursor, cat_ids):
     """
     Prüft, ob Referenzen für eine Kreaturenmod (NPC_KYWD_Creature, RACE oder RACE_Override) vorliegen.
@@ -1045,7 +1073,9 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_effects,
         _exclude_non_light,
         _exclude_non_textures,
+        _exclude_non_plants,
         _exclude_non_creature,
+
         _exclude_non_companion,
         _exclude_non_npc,
         _exclude_non_gameplay,

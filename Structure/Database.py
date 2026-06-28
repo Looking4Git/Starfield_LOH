@@ -440,7 +440,7 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.WEAP, em.WEAP_Override, em.WEAP_KWDA_Vehicle, em.WEAP_KWDA_Ship, em.WEAP_KWDA_Helper, em.AMMO, em.AMMO_Override,
             em.ARMO, em.ARMO_Override, em.APWR, em.COBJ, em.COBJ_Override,
             em.SPAC, em.SPAC_Override, em.SHST, em.SHST_Override,
-            em.SMOD, em.SMOD_Override, em.GBFM, em.GBFM_EDID_CrowdRegion, em.GBFM_EDID_Vehicle, em.STMP, em.STND, em.STBH, em.STDT,
+            em.SMOD, em.SMOD_Override, em.GBFM, em.GBFM_EDID_CrowdRegion, em.GBFM_EDID_Vehicle, em.SFBK, em.SFBK_Override, em.STMP, em.STND, em.STBH, em.STDT,
             em.VEHI, em.VEHI_Override, em.VMOD, em.VMOD_Override,
             em.RSPJ, em.KYWD, em.PKEY, em.CLFM, em.HDPT,
             cat.Name AS Category_Name,

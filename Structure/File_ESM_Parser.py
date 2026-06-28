@@ -49,7 +49,7 @@ MOD_POINTER_COLS = [
     'WEAP', 'WEAP_Override', 'WEAP_KWDA_Vehicle', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Helper', 'AMMO', 'AMMO_Override',
     'ARMO', 'ARMO_Override', 'APWR', 'COBJ', 'COBJ_Override',
     'SPAC', 'SPAC_Override', 'SHST', 'SHST_Override',
-    'SMOD', 'SMOD_Override', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'STMP', 'STND', 'STBH', 'STDT',
+    'SMOD', 'SMOD_Override', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'SFBK', 'SFBK_Override', 'STMP', 'STND', 'STBH', 'STDT',
     'VEHI', 'VEHI_Override', 'VMOD', 'VMOD_Override',
     'RSPJ', 'KYWD', 'PKEY',
     'REFR_Deleted', 'REFR_Disabled', 'REFR_Buried',
@@ -210,7 +210,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
     override_targets = {
         b'GMST', b'QUST', b'DIAL', b'INFO', b'CELL', b'STAT', b'FURN', b'NPC_',
         b'PERK', b'AVIF', b'LIGH', b'SNDR', b'WEAP', b'AMMO', b'ARMO', b'COBJ',
-        b'SPAC', b'SHST', b'SMOD', b'VEHI', b'VMOD',
+        b'SPAC', b'SHST', b'SMOD', b'SFBK', b'VEHI', b'VMOD',
         b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'VFXS', b'ALCH',
         b'GLOB', b'LCTN', b'RACE', b'LVLI', b'LVLN', b'LVLP', b'FLST',
         b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC'

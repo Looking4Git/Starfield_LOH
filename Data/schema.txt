@@ -123,6 +123,8 @@ CREATE TABLE "Components_ESM_References" (
         "GBFM"                  INTEGER DEFAULT 0,
         "GBFM_EDID_CrowdRegion" INTEGER DEFAULT 0,
         "GBFM_EDID_Vehicle"     INTEGER DEFAULT 0,
+        "SFBK"                  INTEGER DEFAULT 0,
+        "SFBK_Override"         INTEGER DEFAULT 0,
         "STMP"                  INTEGER DEFAULT 0,
         "STND"                  INTEGER DEFAULT 0,
         "STBH"                  INTEGER DEFAULT 0,

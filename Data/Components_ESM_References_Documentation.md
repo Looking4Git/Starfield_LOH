@@ -96,6 +96,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **GBFM**: *Gameplay Blueprint*. Allgemeine Gameplay-Blaupausen (wird in Starfield für Schiffskomponenten, Landfahrzeug-Zuweisungen und NPC-Spawnzonen/Crowd-Regionen verwendet).
 *   **GBFM_EDID_CrowdRegion**: Zähler für Gameplay-Blaupausen (`GBFM`), die anhand ihrer Editor-ID (`EDID`) eindeutig als städtische NPC-Spawnzonen (Crowd-Regionen) identifiziert wurden. Dient zur Bereinigung der echten Schiffskonfigurationen in der Ausschlussmatrix.
 *   **GBFM_EDID_Vehicle**: Zähler für Gameplay-Blaupausen (`GBFM`), die anhand ihrer Editor-ID (`EDID`) als Landfahrzeug-Designs/Steuerungen identifiziert wurden. Dient ebenfalls zur Bereinigung der echten Schiffskonfigurationen in der Ausschlussmatrix.
+*   **SFBK / SFBK_Override**: *Starfield Planet Block*. Registrierungs- und Platzierungseinträge für prozedurale Planetengenerierung (POIs).
 *   **STMP**: *Ship Template*. Schablonen/Vorlagen für Raumschiffe.
 *   **STND**: *Ship Node*. Anschlusspunkte (Snap-Nodes) für Schiffsteile.
 *   **STBH**: *Ship Behavior*. Verhaltensdefinitionen für Schiffsteile (z. B. begehbare Luken, Türen und Wände in Habs).

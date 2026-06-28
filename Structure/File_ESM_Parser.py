@@ -223,9 +223,13 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
     try:
         with open(file_path, 'rb') as f:
-            header_sig = f.read(4)
-            if header_sig != b'TES4':
+            header_12 = f.read(12)
+            if not header_12.startswith(b'TES4') or len(header_12) < 12:
                 return local_counts
+            
+            file_flags = int.from_bytes(header_12[8:12], byteorder='little')
+            is_medium_master = (file_flags & 0x400) != 0
+            is_small_master = (file_flags & 0x100) != 0
             
             f.seek(0, os.SEEK_END)
             file_size = f.tell()
@@ -286,7 +290,12 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
                     if not is_core and (sig == b'REFR' or sig == b'ACHR'):
                         master_idx = form_id >> 24
-                        if master_idx < num_masters or master_idx in (0xFD, 0xFE):
+                        is_override = (
+                            master_idx < num_masters or 
+                            (master_idx == 0xFD and not is_medium_master) or 
+                            (master_idx == 0xFE and not is_small_master)
+                        )
+                        if is_override:
                             if flags & 0x00000020:
                                 local_counts['REFR_Deleted'] += 1
                             if flags & 0x00000800:
@@ -321,13 +330,23 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
                     if not is_core and sig in {b'SPEL', b'MGEF', b'EFSH', b'ENCH', b'VFXS', b'ALCH', b'PERK'}:
                         master_idx = form_id >> 24
-                        if master_idx < num_masters or master_idx in (0xFD, 0xFE):
+                        is_override = (
+                            master_idx < num_masters or 
+                            (master_idx == 0xFD and not is_medium_master) or 
+                            (master_idx == 0xFE and not is_small_master)
+                        )
+                        if is_override:
                             if flags & 0x00000020:
                                 local_counts[f"{sig_str}_Remove"] += 1
 
                     if not is_core and sig in override_targets:
                         master_idx = form_id >> 24
-                        if master_idx < num_masters or master_idx in (0xFD, 0xFE):
+                        is_override = (
+                            master_idx < num_masters or 
+                            (master_idx == 0xFD and not is_medium_master) or 
+                            (master_idx == 0xFE and not is_small_master)
+                        )
+                        if is_override:
                             local_counts[f"{sig_str}_Override"] += 1
                     # Wenn QUST, parsen wir die Subrecords (nur für Mods, d.h. wenn QUST_FULL existiert)
                     if sig == b'QUST' and 'QUST_FULL' in local_counts:

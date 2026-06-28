@@ -316,8 +316,8 @@ def _exclude_non_plants(row, cursor, cat_ids):
 
 def _exclude_non_poi(row, cursor, cat_ids):
     """
-    Schließt die Kategorie 'POIs' (ID 9) aus, wenn nicht alle POI-bezogenen Merkmale
-    (bereinigtes GBFM UND PKIN UND LCTN/LCTN_Override) gleichzeitig vorliegen.
+    Schließt die Kategorie 'POIs' (ID 9) aus, wenn keine POI-bezogenen Merkmale
+    vorliegen. Eine POI-Mod muss LCTN/LCTN_Override besitzen UND (GBFM+PKIN oder SFBK/SFBK_Override).
     """
     gbfm = row.get('GBFM') or 0
     gbfm_crowd = row.get('GBFM_EDID_CrowdRegion') or 0
@@ -325,12 +325,18 @@ def _exclude_non_poi(row, cursor, cat_ids):
     pkin = row.get('PKIN') or 0
     lctn = row.get('LCTN') or 0
     lctn_o = row.get('LCTN_Override') or 0
+    sfbk = row.get('SFBK') or 0
+    sfbk_o = row.get('SFBK_Override') or 0
     
     # Bereinige GBFM um Crowd-Regionen und Fahrzeug-Blueprints
     poi_gbfm = gbfm - gbfm_crowd - gbfm_vehicle
     
-    # Ausschluss, wenn nicht alle drei Kriterien erfüllt sind (Oder-Ausschluss)
-    if poi_gbfm <= 0 or pkin == 0 or (lctn == 0 and lctn_o == 0):
+    is_poi = False
+    if (lctn > 0 or lctn_o > 0):
+        if (poi_gbfm > 0 and pkin > 0) or sfbk > 0 or sfbk_o > 0:
+            is_poi = True
+            
+    if not is_poi:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -344,7 +350,7 @@ def _exclude_non_poi(row, cursor, cat_ids):
                 SET "{poi_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'POIs' ausgeschlossen (nicht alle Merkmale GBFM/PKIN/LCTN gleichzeitig vorhanden)."
+            return "Kategorie 'POIs' ausgeschlossen (keine passenden LCTN + GBFM/PKIN/SFBK Referenzen vorhanden)."
     return None
 
 

@@ -314,6 +314,34 @@ def _exclude_non_plants(row, cursor, cat_ids):
     return None
 
 
+def _exclude_non_poi(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'POIs' (ID 9) aus, wenn keine POI-bezogenen Merkmale
+    (GBFM, PKIN, LCTN, LCTN_Override) vorliegen.
+    """
+    gbfm = row.get('GBFM') or 0
+    pkin = row.get('PKIN') or 0
+    lctn = row.get('LCTN') or 0
+    lctn_o = row.get('LCTN_Override') or 0
+    
+    if gbfm == 0 and pkin == 0 and lctn == 0 and lctn_o == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'POIs'")
+        poi_row = cursor.fetchone()
+        poi_id = poi_row[0] if poi_row else 9
+        
+        if poi_id and poi_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{poi_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'POIs' ausgeschlossen (keine GBFM/PKIN/LCTN-Referenzen)."
+    return None
+
+
 def _exclude_non_creature(row, cursor, cat_ids):
     """
     Prüft, ob Referenzen für eine Kreaturenmod (NPC_KYWD_Creature, RACE oder RACE_Override) vorliegen.
@@ -1084,6 +1112,7 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_npc,
         _exclude_non_gameplay,
         _exclude_non_plants,
+        _exclude_non_poi,
         _exclude_non_sorting,
         _detect_no_pointers_by_components,
         _check_Quest_Real,

@@ -51,7 +51,7 @@ MOD_POINTER_COLS = [
     'SPAC', 'SPAC_Override', 'SHST', 'SHST_Override',
     'SMOD', 'SMOD_Override', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'SFBK', 'SFBK_Override', 'STMP', 'STND', 'STBH', 'STDT',
     'VEHI', 'VEHI_Override', 'VMOD', 'VMOD_Override',
-    'RSPJ', 'KYWD', 'PKEY',
+    'RSPJ', 'KYWD', 'PKEY', 'PCBN', 'PCCN',
     'REFR_Deleted', 'REFR_Disabled', 'REFR_Buried',
     'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove', 'FLOR_Remove', 'TREE_Remove',
     'LVLI', 'LVLI_Override', 'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'FLST', 'FLST_Override',

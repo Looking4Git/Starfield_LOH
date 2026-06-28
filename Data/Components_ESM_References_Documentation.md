@@ -97,6 +97,8 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **GBFM_EDID_CrowdRegion**: Zähler für Gameplay-Blaupausen (`GBFM`), die anhand ihrer Editor-ID (`EDID`) eindeutig als städtische NPC-Spawnzonen (Crowd-Regionen) identifiziert wurden. Dient zur Bereinigung der echten Schiffskonfigurationen in der Ausschlussmatrix.
 *   **GBFM_EDID_Vehicle**: Zähler für Gameplay-Blaupausen (`GBFM`), die anhand ihrer Editor-ID (`EDID`) als Landfahrzeug-Designs/Steuerungen identifiziert wurden. Dient ebenfalls zur Bereinigung der echten Schiffskonfigurationen in der Ausschlussmatrix.
 *   **SFBK / SFBK_Override**: *Starfield Planet Block*. Registrierungs- und Platzierungseinträge für prozedurale Planetengenerierung (POIs).
+*   **PCBN**: *Planet Content Block Node*. Knotenpunkte des Planet Content Managers (PCM) zur dynamischen Verteilung von POIs in der Galaxis.
+*   **PCCN**: *Planet Content Connection*. Verknüpfungen des Planet Content Managers (PCM) zur Einspeisung von Custom-POIs in das prozedurale Spawnsystem.
 *   **STMP**: *Ship Template*. Schablonen/Vorlagen für Raumschiffe.
 *   **STND**: *Ship Node*. Anschlusspunkte (Snap-Nodes) für Schiffsteile.
 *   **STBH**: *Ship Behavior*. Verhaltensdefinitionen für Schiffsteile (z. B. begehbare Luken, Türen und Wände in Habs).

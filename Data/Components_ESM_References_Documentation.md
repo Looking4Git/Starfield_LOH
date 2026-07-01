@@ -39,6 +39,10 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
     *   **FURN_VCTT** (*Vehicle Controls*): Cockpit-Steuerungen für Fahrzeuge.
 *   **TERM**: *Terminal*. Interaktive Computerterminals.
 *   **LCTN / LCTN_Override**: *Location*. Definitionen von Orten, Städten, Dungeons oder Points of Interest (POI).
+    *   **LCTN_KYWD_City**: Zähler für Standorte, die als Stadt klassifiziert sind (Keyword `0x22611` und `"city"` in der Editor-ID).
+    *   **LCTN_KYWD_Settlement**: Zähler für Standorte, die als normale Siedlung klassifiziert sind (Keyword `0x22611` und kein `"city"` in der Editor-ID).
+    *   **LCTN_KYWD_Playerhome**: Zähler für Standorte, die als Spielerheim klassifiziert sind (Keyword `0x2ef272`).
+    *   **LCTN_KYWD_Dungeon**: Zähler für Standorte, die als Dungeon klassifiziert sind (Keyword `0x254bc`).
 *   **FLOR / FLOR_Override**: *Flora*. Pflanzen-Definitionen, erntebare organische Ressourcen und Gewächshaus-Erzeugnisse.
 *   **TREE / TREE_Override**: *Tree*. Baum-Definitionen, größere Landschafts- und Waldvegetationsobjekte.
 

@@ -347,6 +347,92 @@ def _exclude_non_poi(row, cursor, cat_ids):
     return None
 
 
+def _exclude_non_city(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
+    Eine Stadt-Mod muss LCTN_KYWD_City > 0, LCTN_KYWD_Settlement > 0 ODER GBFM_EDID_CrowdRegion > 0 besitzen.
+    """
+    lctn_city = row.get('LCTN_KYWD_City') or 0
+    lctn_settlement = row.get('LCTN_KYWD_Settlement') or 0
+    crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
+    
+    is_city = (lctn_city > 0 or lctn_settlement > 0 or crowd_region > 0)
+    
+    if not is_city:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")
+        city_row = cursor.fetchone()
+        city_id = city_row[0] if city_row else 6
+        
+        if city_id and city_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{city_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Städte' ausgeschlossen (keine LCTN_KYWD_City/Settlement oder CrowdRegion Referenzen vorhanden)."
+    return None
+
+
+def _exclude_non_building(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'Gebäude' (ID 7) aus, wenn keine Anzeichen für ein Gebäude vorliegen.
+    Ein Gebäude liegt vor, wenn:
+    - Entweder LCTN_KYWD_Dungeon > 0
+    - Oder ein planetarer Generierungsblock (SFBK oder SFBK_Override > 0) vorliegt, aber keine dynamischen POI-Node-Einträge (PCBN und PCCN == 0).
+    """
+    lctn_dungeon = row.get('LCTN_KYWD_Dungeon') or 0
+    sfbk = row.get('SFBK') or 0
+    sfbk_o = row.get('SFBK_Override') or 0
+    pcbn = row.get('PCBN') or 0
+    pccn = row.get('PCCN') or 0
+    
+    is_building = (lctn_dungeon > 0) or ((sfbk > 0 or sfbk_o > 0) and pcbn == 0 and pccn == 0)
+    
+    if not is_building:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Gebäude'")
+        bld_row = cursor.fetchone()
+        bld_id = bld_row[0] if bld_row else 7
+        
+        if bld_id and bld_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{bld_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Gebäude' ausgeschlossen (keine passenden Dungeon oder statischen SFBK Referenzen vorhanden)."
+    return None
+
+
+def _exclude_non_playerhome(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'Spielerheime' (ID 8) aus, wenn LCTN_KYWD_Playerhome == 0.
+    """
+    lctn_playerhome = row.get('LCTN_KYWD_Playerhome') or 0
+    
+    if lctn_playerhome == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Spielerheime'")
+        ph_row = cursor.fetchone()
+        ph_id = ph_row[0] if ph_row else 8
+        
+        if ph_id and ph_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{ph_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Spielerheime' ausgeschlossen (keine LCTN_KYWD_Playerhome Referenzen vorhanden)."
+    return None
+
+
 def _exclude_non_creature(row, cursor, cat_ids):
     """
     Prüft, ob Referenzen für eine Kreaturenmod (NPC_KYWD_Creature, RACE oder RACE_Override) vorliegen.
@@ -1118,6 +1204,9 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_gameplay,
         _exclude_non_plants,
         _exclude_non_poi,
+        _exclude_non_city,
+        _exclude_non_building,
+        _exclude_non_playerhome,
         _exclude_non_sorting,
         _detect_no_pointers_by_components,
         _check_Quest_Real,

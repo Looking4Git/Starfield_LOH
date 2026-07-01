@@ -28,6 +28,7 @@ MOD_POINTER_COLS = [
     'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
     'TERM',
     'LCTN', 'LCTN_Override',
+    'LCTN_KYWD_City', 'LCTN_KYWD_Settlement', 'LCTN_KYWD_Playerhome', 'LCTN_KYWD_Dungeon',
     'FLOR', 'FLOR_Override',
     'TREE', 'TREE_Override',
 
@@ -585,8 +586,51 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
                                 if sub_sig == b'FNAM':
                                     local_counts['LIGH_FNAM'] += 1
-                                    break
                         continue
+
+                    # Wenn LCTN, parsen wir die Subrecords zur Keyword-Kategorisierung
+                    if sig == b'LCTN' and not is_core and 'LCTN_KYWD_City' in local_counts:
+                        raw_data = f.read(data_size)
+                        if len(raw_data) == data_size:
+                            if flags & 0x00040000:
+                                try:
+                                    decompressed_data = zlib.decompress(raw_data[4:])
+                                except Exception:
+                                    decompressed_data = b''
+                            else:
+                                decompressed_data = raw_data
+
+                            offset = 0
+                            edid = ""
+                            kwda_list = []
+                            while offset + 6 <= len(decompressed_data):
+                                sub_sig = decompressed_data[offset:offset+4]
+                                sub_size = struct.unpack('<H', decompressed_data[offset+4:offset+6])[0]
+                                offset += 6
+                                if offset + sub_size > len(decompressed_data):
+                                    break
+                                sub_data = decompressed_data[offset:offset+sub_size]
+                                offset += sub_size
+
+                                if sub_sig == b'EDID':
+                                    edid = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                                elif sub_sig == b'KWDA':
+                                    num_ids = sub_size // 4
+                                    for i in range(num_ids):
+                                        fid = struct.unpack('<I', sub_data[i*4:(i+1)*4])[0]
+                                        kwda_list.append(fid & 0x00FFFFFF)
+
+                            if 0x2ef272 in kwda_list:
+                                local_counts['LCTN_KYWD_Playerhome'] += 1
+                            if 0x254bc in kwda_list:
+                                local_counts['LCTN_KYWD_Dungeon'] += 1
+                            if 0x22611 in kwda_list:
+                                if "city" in edid:
+                                    local_counts['LCTN_KYWD_City'] += 1
+                                else:
+                                    local_counts['LCTN_KYWD_Settlement'] += 1
+                        continue
+
                 f.seek(data_size, os.SEEK_CUR)
     except Exception:
         pass

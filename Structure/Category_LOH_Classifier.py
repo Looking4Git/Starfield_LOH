@@ -394,13 +394,9 @@ def _exclude_non_city(row, cursor, cat_ids):
     nvnm = row.get('NVNM') or 0
     has_navmesh = (navm > 0 or nvnm > 0)
     
-    # 5. Prüfen, ob es sich um eine POI-Mod handelt (viele eigene Locations, aber keine eigene Stadt)
-    lctn = row.get('LCTN') or 0
-    is_poi_mod = (lctn > 5)
-    
     crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
     
-    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects and has_navmesh and not is_poi_mod) or (crowd_region > 0)
+    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects and has_navmesh) or (crowd_region > 0)
     
     if not is_city:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")

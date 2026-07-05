@@ -67,10 +67,9 @@ Eine Mod wird als **Stadt-Mod** eingestuft (und somit *nicht* aus der Kategorie 
 2.  **Zellen-Überschreibung in einer Stadt (mit zusätzlichen Kriterien):**
     Die Mod verändert eine Zelle, die laut Datenbank (System oder Mod) mit einer Location verknüpft ist, welche das Keyword `140817` besitzt.
     
-    Um **reine Item-Platzierungsmods** (die z. B. nur eine Waffe oder eine Slate in der Loge/einem Shop platzieren) und **reine POI-Mods** (die zwar städtische Zellen überschreiben, aber eigentlich eine andere Primäraufgabe haben) auszuschließen, müssen bei einem Zellen-Eingriff zusätzlich folgende Bedingungen erfüllt sein:
+    Um **reine Item-Platzierungsmods** (die z. B. nur eine Waffe oder eine Slate in der Loge/einem Shop platzieren) auszuschließen, müssen bei einem Zellen-Eingriff zusätzlich folgende Bedingungen erfüllt sein:
     *   **Strukturelle Objekte vorhanden:** Die Mod muss mindestens ein statisches Objekt (`STAT` / `STAT_Override`), Möbel (`FURN` / `FURN_Override`), Licht (`LIGH` / `LIGH_Override`) oder PackIns (`PKIN`) definieren (sonst handelt es sich um eine reine Item- oder NPC-Mod).
     *   **Navmesh vorhanden:** Die Mod muss NavMeshes (`NAVM` oder `NVNM` > 0) definieren (echte Städte-Umbauten erfordern zwingend eine Anpassung der Wegfindung für NPCs, während Deko-/Item-Platzierungen kein Navmesh benötigen).
-    *   **Keine reine POI-Mod:** Die Mod darf global nicht mehr als 5 eigene Locations (`LCTN <= 5`) definieren (Mods wie *Project Viper* fügen Hunderte eigene Locations in der Wildnis hinzu, überschreiben aber städtische Zellen nur für Quest-Einstiege oder Item-Platzierungen).
     
     *SQL-Abfrage für den Zell-Eingriff:*
     ```sql

@@ -22,7 +22,7 @@ def reset_database(log_signal=None):
         
         # Bewegungsdaten-Tabellen leeren
         tables_to_clear = [
-            "System_Components",
+            "Components_System",
             "Mods_Components",
             "Mods_Category_Creations",
             "Components",

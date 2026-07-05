@@ -97,8 +97,8 @@ def get_num_full_masters(filepath, cursor):
                 # dann überspringen wir das Zählen
                 continue
 
-        # Fallback: In System_Components prüfen
-        cursor.execute("SELECT 1 FROM System_Components WHERE LOWER(File) = ?", (m_lower,))
+        # Fallback: In Components_System prüfen
+        cursor.execute("SELECT 1 FROM Components_System WHERE LOWER(File) = ?", (m_lower,))
         if cursor.fetchone():
             num_full += 1
             continue
@@ -209,7 +209,7 @@ def scan_and_update_system_components(log_msg):
             
             # Prüfe, ob wir diese System-Komponente schon in der DB haben
             col_list_str = ", ".join(CORE_POINTER_COLS)
-            cursor.execute(f"SELECT ID, {col_list_str}, Filedate_Last_Check FROM System_Components WHERE LOWER(File) = ?", (esm_lower,))
+            cursor.execute(f"SELECT ID, {col_list_str}, Filedate_Last_Check FROM Components_System WHERE LOWER(File) = ?", (esm_lower,))
             row = cursor.fetchone()
             
             needs_scan = True
@@ -235,7 +235,7 @@ def scan_and_update_system_components(log_msg):
                     sys_id = row['ID']
                     set_clause = ", ".join([f"{col} = ?" for col in CORE_POINTER_COLS])
                     query = f"""
-                        UPDATE System_Components 
+                        UPDATE Components_System 
                         SET Friendly_Name = ?, Author = ?, Description = ?, {set_clause}, Filedate_Last_Check = ?
                         WHERE LOWER(File) = ?
                     """
@@ -245,7 +245,7 @@ def scan_and_update_system_components(log_msg):
                     col_names_str = ", ".join(CORE_POINTER_COLS)
                     placeholders = ", ".join(["?"] * len(CORE_POINTER_COLS))
                     query = f"""
-                        INSERT INTO System_Components (File, Friendly_Name, Author, Description, {col_names_str}, Filedate_Last_Check)
+                        INSERT INTO Components_System (File, Friendly_Name, Author, Description, {col_names_str}, Filedate_Last_Check)
                         VALUES (?, ?, ?, ?, {placeholders}, ?)
                     """
                     params = [esm, friendly_name, author, description] + pointer_values + [mtime_str]
@@ -551,7 +551,7 @@ def run_local_check(log_signal):
                 
             filename = line.lstrip('*')
             
-            # Kern-Masterfiles des Grundspiels & offizielle Addons ignorieren (werden in System_Components separat erfasst)
+            # Kern-Masterfiles des Grundspiels & offizielle Addons ignorieren (werden in Components_System separat erfasst)
             if filename.lower() in {"starfield.esm", "blueprintships-starfield.esm", "shatteredspace.esm", "constellation.esm", "oldmars.esm"}:
                 continue
             

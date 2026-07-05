@@ -229,7 +229,7 @@ CREATE TABLE "Profiles" (
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )
 
-CREATE TABLE "System_Components" (
+CREATE TABLE "Components_System" (
             "ID" INTEGER NOT NULL,
             "File" TEXT NOT NULL UNIQUE,
             "Friendly_Name" TEXT,

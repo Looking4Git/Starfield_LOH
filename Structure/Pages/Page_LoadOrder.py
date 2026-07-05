@@ -411,7 +411,7 @@ class Page_LoadOrder(QWidget):
                 cursor = conn.cursor()
                 
                 # Zähle offizielle Systemkomponenten (Core)
-                cursor.execute("SELECT COUNT(*) FROM System_Components")
+                cursor.execute("SELECT COUNT(*) FROM Components_System")
                 core_full = cursor.fetchone()[0]
                 
                 # Zähle aktive Mod-Masterfiles und summiere Pointer

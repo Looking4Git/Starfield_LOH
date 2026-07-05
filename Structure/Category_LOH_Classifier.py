@@ -350,18 +350,44 @@ def _exclude_non_poi(row, cursor, cat_ids):
 def _exclude_non_city(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
-    Eine Stadt-Mod muss LCTN_KYWD_City > 0, LCTN_KYWD_Settlement > 0 ODER GBFM_EDID_CrowdRegion > 0 besitzen.
+    Eine Stadt-Mod liegt vor, wenn:
+    - Sie eigene Stadt-/Siedlungs-Locations definiert (in Components_ESM_LCTN)
+    - Sie Zellen verändert, die zu einer Stadt/Siedlung gehören (in Components_ESM_CELL_LCTN)
+    - Oder Crowd-Regionen (GBFM_EDID_CrowdRegion) definiert sind.
     """
-    lctn_city = row.get('LCTN_KYWD_City') or 0
-    lctn_settlement = row.get('LCTN_KYWD_Settlement') or 0
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    # 1. Prüfen, ob die Mod eigene Stadt-/Siedlungs-Locations definiert
+    cursor.execute("""
+        SELECT 1 FROM Components_ESM_LCTN
+        WHERE Component_ID = ?
+          AND FormID_Keyword = 140817 -- 0x22611 (loctypesettlement)
+          AND (EDID LIKE '%city%' OR EDID LIKE '%settlement%')
+        LIMIT 1
+    """, (component_id,))
+    has_own_city_lctn = cursor.fetchone() is not None
+    
+    # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
+    cursor.execute("""
+        SELECT 1 FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ?
+          AND (
+            (sl.EDID LIKE '%city%' OR sl.EDID LIKE '%settlement%')
+            OR
+            (el.EDID LIKE '%city%' OR el.EDID LIKE '%settlement%')
+          )
+        LIMIT 1
+    """, (component_id,))
+    has_city_cell_override = cursor.fetchone() is not None
+    
     crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
     
-    is_city = (lctn_city > 0 or lctn_settlement > 0 or crowd_region > 0)
+    is_city = has_own_city_lctn or has_city_cell_override or (crowd_region > 0)
     
     if not is_city:
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
-        
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")
         city_row = cursor.fetchone()
         city_id = city_row[0] if city_row else 6
@@ -372,7 +398,7 @@ def _exclude_non_city(row, cursor, cat_ids):
                 SET "{city_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Städte' ausgeschlossen (keine LCTN_KYWD_City/Settlement oder CrowdRegion Referenzen vorhanden)."
+            return "Kategorie 'Städte' ausgeschlossen (keine Stadt-Locations, Stadt-Zellen oder CrowdRegion Referenzen vorhanden)."
     return None
 
 

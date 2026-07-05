@@ -18,7 +18,7 @@ from Structure.File_ESM_Parser_Body_Handles import (
     CORE_POINTER_COLS,
     MOD_POINTER_COLS
 )
-from Structure.File_ESM_Parser_Body_LCTN import extract_esm_locations
+from Structure.File_ESM_Parser_Body_CELL_LCTN import extract_esm_locations_and_cells
 
 def calculate_shifters(counts):
     """Berechnet die Quest-Shifter-Koeffizienten (0.0 bis 1.0) basierend auf den ESM-Referenzen."""
@@ -223,8 +223,8 @@ def scan_and_update_system_components(log_msg):
                 log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
                 counts = scan_esm_for_handles(filepath, is_core=True)
                 
-                # Locations extrahieren
-                locations = extract_esm_locations(filepath)
+                # Locations und Zellen extrahieren
+                locations, cell_locations = extract_esm_locations_and_cells(filepath)
                 
                 pointer_values = []
                 for col in CORE_POINTER_COLS:
@@ -263,8 +263,19 @@ def scan_and_update_system_components(log_msg):
                         VALUES (?, ?, ?, ?)
                     """, insert_locs)
                 
+                # Zell-Location-Referenzen in Components_System_CELL_LCTN speichern
+                cursor.execute("DELETE FROM Components_System_CELL_LCTN WHERE Component_ID = ?", (sys_id,))
+                if cell_locations:
+                    insert_cells = []
+                    for cl in cell_locations:
+                        insert_cells.append((sys_id, cl['cell_form_id'], cl['form_id_lctn']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_System_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN)
+                        VALUES (?, ?, ?)
+                    """, insert_cells)
+                
                 conn.commit()
-                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)} | Metadaten gespeichert.")
+                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)}, Cells: {len(cell_locations)} | Metadaten gespeichert.")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
@@ -317,8 +328,8 @@ def scan_and_update_mod_components(log_msg):
                 counts = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full)
                 calculate_shifters(counts)
                 
-                # Locations extrahieren
-                locations = extract_esm_locations(filepath)
+                # Locations und Zellen extrahieren
+                locations, cell_locations = extract_esm_locations_and_cells(filepath)
                 
                 pointer_values = []
                 for col in MOD_POINTER_COLS:
@@ -353,8 +364,19 @@ def scan_and_update_mod_components(log_msg):
                         VALUES (?, ?, ?, ?)
                     """, insert_locs)
                 
+                # Zell-Location-Referenzen in Components_ESM_CELL_LCTN speichern
+                cursor.execute("DELETE FROM Components_ESM_CELL_LCTN WHERE Component_ID = ?", (comp_id,))
+                if cell_locations:
+                    insert_cells = []
+                    for cl in cell_locations:
+                        insert_cells.append((comp_id, cl['cell_form_id'], cl['form_id_lctn']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN)
+                        VALUES (?, ?, ?)
+                    """, insert_cells)
+                
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}")
+                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")

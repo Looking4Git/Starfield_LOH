@@ -273,4 +273,28 @@ CREATE TABLE "Components_ESM_LCTN" (
 CREATE UNIQUE INDEX "idx_esm_lctn_unique" ON "Components_ESM_LCTN" ("Component_ID", "FormID_Local", "FormID_Keyword");
 CREATE INDEX "idx_esm_lctn_lookup" ON "Components_ESM_LCTN" ("FormID_Local", "FormID_Keyword");
 
+CREATE TABLE "Components_System_CELL_LCTN" (
+	"ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"Cell_FormID"	INTEGER NOT NULL,
+	"FormID_LCTN"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX "idx_sys_cell_lctn_unique" ON "Components_System_CELL_LCTN" ("Component_ID", "Cell_FormID");
+CREATE INDEX "idx_sys_cell_lctn_lookup" ON "Components_System_CELL_LCTN" ("Cell_FormID", "FormID_LCTN");
+
+CREATE TABLE "Components_ESM_CELL_LCTN" (
+	"ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"Cell_FormID"	INTEGER NOT NULL,
+	"FormID_LCTN"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX "idx_esm_cell_lctn_unique" ON "Components_ESM_CELL_LCTN" ("Component_ID", "Cell_FormID");
+CREATE INDEX "idx_esm_cell_lctn_lookup" ON "Components_ESM_CELL_LCTN" ("Cell_FormID", "FormID_LCTN");
+
 CREATE TABLE sqlite_sequence(name,seq)

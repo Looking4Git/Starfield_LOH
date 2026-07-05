@@ -389,14 +389,9 @@ def _exclude_non_city(row, cursor, cat_ids):
     
     has_structural_objects = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or ligh > 0 or ligh_o > 0 or pkin > 0)
     
-    # 4. Prüfen, ob die Mod NavMeshes (NAVM/NVNM) besitzt, um echte Wegführung in Städten zu garantieren
-    navm = row.get('NAVM') or 0
-    nvnm = row.get('NVNM') or 0
-    has_navmesh = (navm > 0 or nvnm > 0)
-    
     crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
     
-    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects and has_navmesh) or (crowd_region > 0)
+    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
     
     if not is_city:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")

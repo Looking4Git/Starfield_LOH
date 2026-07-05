@@ -69,7 +69,6 @@ Eine Mod wird als **Stadt-Mod** eingestuft (und somit *nicht* aus der Kategorie 
     
     Um **reine Item-Platzierungsmods** (die z. B. nur eine Waffe oder eine Slate in der Loge/einem Shop platzieren) auszuschließen, müssen bei einem Zellen-Eingriff zusätzlich folgende Bedingungen erfüllt sein:
     *   **Strukturelle Objekte vorhanden:** Die Mod muss mindestens ein statisches Objekt (`STAT` / `STAT_Override`), Möbel (`FURN` / `FURN_Override`), Licht (`LIGH` / `LIGH_Override`) oder PackIns (`PKIN`) definieren (sonst handelt es sich um eine reine Item- oder NPC-Mod).
-    *   **Navmesh vorhanden:** Die Mod muss NavMeshes (`NAVM` oder `NVNM` > 0) definieren (echte Städte-Umbauten erfordern zwingend eine Anpassung der Wegfindung für NPCs, während Deko-/Item-Platzierungen kein Navmesh benötigen).
     
     *SQL-Abfrage für den Zell-Eingriff:*
     ```sql

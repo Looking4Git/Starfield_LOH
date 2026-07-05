@@ -363,7 +363,6 @@ def _exclude_non_city(row, cursor, cat_ids):
         SELECT 1 FROM Components_ESM_LCTN
         WHERE Component_ID = ?
           AND FormID_Keyword = 140817 -- 0x22611 (loctypesettlement)
-          AND (EDID LIKE '%city%' OR EDID LIKE '%settlement%')
         LIMIT 1
     """, (component_id,))
     has_own_city_lctn = cursor.fetchone() is not None
@@ -374,11 +373,7 @@ def _exclude_non_city(row, cursor, cat_ids):
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
         WHERE cc.Component_ID = ?
-          AND (
-            (sl.EDID LIKE '%city%' OR sl.EDID LIKE '%settlement%')
-            OR
-            (el.EDID LIKE '%city%' OR el.EDID LIKE '%settlement%')
-          )
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
         LIMIT 1
     """, (component_id,))
     has_city_cell_override = cursor.fetchone() is not None

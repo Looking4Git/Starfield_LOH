@@ -378,9 +378,29 @@ def _exclude_non_city(row, cursor, cat_ids):
     """, (component_id,))
     has_city_cell_override = cursor.fetchone() is not None
     
+    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, LIGH, PKIN)
+    stat = row.get('STAT') or 0
+    stat_o = row.get('STAT_Override') or 0
+    furn = row.get('FURN') or 0
+    furn_o = row.get('FURN_Override') or 0
+    ligh = row.get('LIGH') or 0
+    ligh_o = row.get('LIGH_Override') or 0
+    pkin = row.get('PKIN') or 0
+    
+    has_structural_objects = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or ligh > 0 or ligh_o > 0 or pkin > 0)
+    
+    # 4. Prüfen, ob die Mod NavMeshes (NAVM/NVNM) besitzt, um echte Wegführung in Städten zu garantieren
+    navm = row.get('NAVM') or 0
+    nvnm = row.get('NVNM') or 0
+    has_navmesh = (navm > 0 or nvnm > 0)
+    
+    # 5. Prüfen, ob es sich um eine POI-Mod handelt (viele eigene Locations, aber keine eigene Stadt)
+    lctn = row.get('LCTN') or 0
+    is_poi_mod = (lctn > 5)
+    
     crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
     
-    is_city = has_own_city_lctn or has_city_cell_override or (crowd_region > 0)
+    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects and has_navmesh and not is_poi_mod) or (crowd_region > 0)
     
     if not is_city:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")

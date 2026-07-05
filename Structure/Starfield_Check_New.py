@@ -18,6 +18,7 @@ from Structure.File_ESM_Parser_Body_Handles import (
     CORE_POINTER_COLS,
     MOD_POINTER_COLS
 )
+from Structure.File_ESM_Parser_Body_LCTN import extract_esm_locations
 
 def calculate_shifters(counts):
     """Berechnet die Quest-Shifter-Koeffizienten (0.0 bis 1.0) basierend auf den ESM-Referenzen."""
@@ -208,7 +209,7 @@ def scan_and_update_system_components(log_msg):
             
             # Prüfe, ob wir diese System-Komponente schon in der DB haben
             col_list_str = ", ".join(CORE_POINTER_COLS)
-            cursor.execute(f"SELECT {col_list_str}, Filedate_Last_Check FROM System_Components WHERE LOWER(File) = ?", (esm_lower,))
+            cursor.execute(f"SELECT ID, {col_list_str}, Filedate_Last_Check FROM System_Components WHERE LOWER(File) = ?", (esm_lower,))
             row = cursor.fetchone()
             
             needs_scan = True
@@ -222,12 +223,16 @@ def scan_and_update_system_components(log_msg):
                 log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
                 counts = scan_esm_for_handles(filepath, is_core=True)
                 
+                # Locations extrahieren
+                locations = extract_esm_locations(filepath)
+                
                 pointer_values = []
                 for col in CORE_POINTER_COLS:
                     key = col
                     pointer_values.append(counts.get(key, 0))
                 
                 if row:
+                    sys_id = row['ID']
                     set_clause = ", ".join([f"{col} = ?" for col in CORE_POINTER_COLS])
                     query = f"""
                         UPDATE System_Components 
@@ -245,8 +250,21 @@ def scan_and_update_system_components(log_msg):
                     """
                     params = [esm, friendly_name, author, description] + pointer_values + [mtime_str]
                     cursor.execute(query, params)
+                    sys_id = cursor.lastrowid
+                
+                # Locations in Components_ESM_LCTN speichern
+                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ? AND Is_System = 1", (sys_id,))
+                if locations:
+                    insert_locs = []
+                    for loc in locations:
+                        insert_locs.append((sys_id, 1, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, Is_System, FormID_Local, FormID_Keyword, EDID)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, insert_locs)
+                
                 conn.commit()
-                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Metadaten gespeichert.")
+                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)} | Metadaten gespeichert.")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
@@ -299,6 +317,9 @@ def scan_and_update_mod_components(log_msg):
                 counts = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full)
                 calculate_shifters(counts)
                 
+                # Locations extrahieren
+                locations = extract_esm_locations(filepath)
+                
                 pointer_values = []
                 for col in MOD_POINTER_COLS:
                     key = col
@@ -320,8 +341,20 @@ def scan_and_update_mod_components(log_msg):
                 """
                 params = [comp_id] + pointer_values
                 cursor.execute(query, params)
+                
+                # 3. Locations in Components_ESM_LCTN speichern
+                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ? AND Is_System = 0", (comp_id,))
+                if locations:
+                    insert_locs = []
+                    for loc in locations:
+                        insert_locs.append((comp_id, 0, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, Is_System, FormID_Local, FormID_Keyword, EDID)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, insert_locs)
+                
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']}")
+                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")

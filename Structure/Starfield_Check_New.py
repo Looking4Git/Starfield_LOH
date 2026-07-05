@@ -252,15 +252,15 @@ def scan_and_update_system_components(log_msg):
                     cursor.execute(query, params)
                     sys_id = cursor.lastrowid
                 
-                # Locations in Components_ESM_LCTN speichern
-                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ? AND Is_System = 1", (sys_id,))
+                # Locations in Components_System_LCTN speichern
+                cursor.execute("DELETE FROM Components_System_LCTN WHERE Component_ID = ?", (sys_id,))
                 if locations:
                     insert_locs = []
                     for loc in locations:
-                        insert_locs.append((sys_id, 1, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                        insert_locs.append((sys_id, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, Is_System, FormID_Local, FormID_Keyword, EDID)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT OR IGNORE INTO Components_System_LCTN (Component_ID, FormID_Local, FormID_Keyword, EDID)
+                        VALUES (?, ?, ?, ?)
                     """, insert_locs)
                 
                 conn.commit()
@@ -343,14 +343,14 @@ def scan_and_update_mod_components(log_msg):
                 cursor.execute(query, params)
                 
                 # 3. Locations in Components_ESM_LCTN speichern
-                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ? AND Is_System = 0", (comp_id,))
+                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ?", (comp_id,))
                 if locations:
                     insert_locs = []
                     for loc in locations:
-                        insert_locs.append((comp_id, 0, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                        insert_locs.append((comp_id, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, Is_System, FormID_Local, FormID_Keyword, EDID)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, FormID_Local, FormID_Keyword, EDID)
+                        VALUES (?, ?, ?, ?)
                     """, insert_locs)
                 
                 conn.commit()

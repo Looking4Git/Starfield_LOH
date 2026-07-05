@@ -247,17 +247,30 @@ CREATE INDEX "idx_mods_requirements_id_mod" ON "Mods_Requirements" ("ID_Mod");
 CREATE INDEX "idx_mods_requirements_id_mod_requirement" ON "Mods_Requirements" ("ID_Mod_Requirement");
 CREATE INDEX "idx_mods_category_creations_id_mod" ON "Mods_Category_Creations" ("ID_Mod");
 
-CREATE TABLE "Components_ESM_LCTN" (
+CREATE TABLE "Components_System_LCTN" (
 	"ID"	INTEGER NOT NULL,
 	"Component_ID"	INTEGER NOT NULL,
-	"Is_System"	INTEGER DEFAULT 0,
 	"FormID_Local"	INTEGER NOT NULL,
 	"FormID_Keyword"	INTEGER NOT NULL,
 	"EDID"	TEXT,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX "idx_esm_lctn_unique" ON "Components_ESM_LCTN" ("Component_ID", "Is_System", "FormID_Local", "FormID_Keyword");
+CREATE UNIQUE INDEX "idx_sys_lctn_unique" ON "Components_System_LCTN" ("Component_ID", "FormID_Local", "FormID_Keyword");
+CREATE INDEX "idx_sys_lctn_lookup" ON "Components_System_LCTN" ("FormID_Local", "FormID_Keyword");
+
+CREATE TABLE "Components_ESM_LCTN" (
+	"ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"FormID_Local"	INTEGER NOT NULL,
+	"FormID_Keyword"	INTEGER NOT NULL,
+	"EDID"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX "idx_esm_lctn_unique" ON "Components_ESM_LCTN" ("Component_ID", "FormID_Local", "FormID_Keyword");
 CREATE INDEX "idx_esm_lctn_lookup" ON "Components_ESM_LCTN" ("FormID_Local", "FormID_Keyword");
 
 CREATE TABLE sqlite_sequence(name,seq)

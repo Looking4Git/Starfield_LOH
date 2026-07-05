@@ -8,10 +8,12 @@ import struct
 from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
 from Structure.Database import check_component_exists, get_mod_by_id, get_components_by_mod_id, get_db_connection
 
-from Structure.File_ESM_Parser import (
+from Structure.File_ESM_Parser_Base import (
     parse_tes4_header,
     get_num_masters,
-    get_masters_list,
+    get_masters_list
+)
+from Structure.File_ESM_Parser_Body_Handles import (
     scan_esm_for_handles,
     CORE_POINTER_COLS,
     MOD_POINTER_COLS

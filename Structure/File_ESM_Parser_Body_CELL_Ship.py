@@ -37,3 +37,30 @@ def extract_esm_ship_cells(file_path):
                     })
                     
     return ship_cells
+
+def extract_esm_all_cells(file_path):
+    """
+    Parst eine Bethesda .esm/.esp Datei und extrahiert alle Zellen (CELL)
+    mitsamt ihrer optionalen Editor-ID (EDID).
+    
+    Gibt eine Liste von Dictionaries zurück:
+    - [{'cell_form_id': int, 'edid': str}, ...]
+    """
+    cells = []
+    
+    for sig, data_size, flags, form_id, f, is_medium_master, is_small_master in iter_esm_records(file_path):
+        if sig == b'CELL':
+            decompressed_data = decompress_payload(f, data_size, flags)
+            edid = ""
+            if decompressed_data:
+                for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                    if sub_sig == b'EDID':
+                        edid = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
+                        break
+            
+            cells.append({
+                'cell_form_id': form_id & 0x00FFFFFF,
+                'edid': edid
+            })
+            
+    return cells

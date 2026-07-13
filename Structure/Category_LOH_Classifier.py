@@ -11,15 +11,15 @@ def _check_author_bgs(row, cursor, cat_ids):
     Kategorien außer 'BGS' (1) in der Ausschlussmatrix auf 0 gesetzt.
     """
     author = (row.get('Author') or "").strip().lower()
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    # Finde BGS ID aus der Datenbank
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
+    bgs_row = cursor.fetchone()
+    bgs_id = bgs_row[0] if bgs_row else 1
+    
     if "bethesda" in author or author == "python":
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
-        
-        # Finde BGS ID aus der Datenbank
-        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
-        bgs_row = cursor.fetchone()
-        bgs_id = bgs_row[0] if bgs_row else 1
-        
         # Alle anderen Kategorien in der Matrix auf 0 setzen, BGS auf 1
         other_cols = [cat_id for cat_id in cat_ids if cat_id != bgs_id]
         if other_cols:
@@ -31,6 +31,13 @@ def _check_author_bgs(row, cursor, cat_ids):
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
         return "Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
+    else:
+        if bgs_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{bgs_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
     return None
 
 def _exclude_non_skin(row, cursor, cat_ids):
@@ -187,9 +194,11 @@ def _exclude_non_sound(row, cursor, cat_ids):
     soun = row.get('SOUN') or 0
     musc = row.get('MUSC') or 0
     musc_o = row.get('MUSC_Override') or 0
+    mod_id = row.get('Mod_ID') or row.get('ID')
     
-    if sndr == 0 and soun == 0 and musc == 0 and musc_o == 0:
-        mod_id = row.get('Mod_ID') or row.get('ID')
+    has_ba2_sound = _check_has_sound(cursor, mod_id)
+    
+    if sndr == 0 and soun == 0 and musc == 0 and musc_o == 0 and not has_ba2_sound:
         component_id = row.get('Component_ID')
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Sound'")
@@ -202,13 +211,13 @@ def _exclude_non_sound(row, cursor, cat_ids):
                 SET "{sound_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Sound' ausgeschlossen (keine SNDR/SOUN/MUSC-Referenzen)."
+            return "Kategorie 'Sound' ausgeschlossen (keine SNDR/SOUN/MUSC/BA2-Sound-Referenzen)."
     return None
 
 def _exclude_non_effects(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Effekte' aus, wenn keine magischen oder visuellen
-    Effekt-Merkmale (MGEF, EFSH, VFXS und deren Overrides) vorliegen.
+    Effekt-Merkmale (MGEF, EFSH, VFXS, IMAD und deren Overrides) vorliegen.
     """
     mgef = row.get('MGEF') or 0
     mgef_o = row.get('MGEF_Override') or 0
@@ -216,8 +225,11 @@ def _exclude_non_effects(row, cursor, cat_ids):
     efsh_o = row.get('EFSH_Override') or 0
     vfxs = row.get('VFXS') or 0
     vfxs_o = row.get('VFXS_Override') or 0
+    imad = row.get('IMAD') or 0
+    imad_o = row.get('IMAD_Override') or 0
     
-    if mgef == 0 and mgef_o == 0 and efsh == 0 and efsh_o == 0 and vfxs == 0 and vfxs_o == 0:
+    if (mgef == 0 and mgef_o == 0 and efsh == 0 and efsh_o == 0 and 
+        vfxs == 0 and vfxs_o == 0 and imad == 0 and imad_o == 0):
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -231,7 +243,7 @@ def _exclude_non_effects(row, cursor, cat_ids):
                 SET "{effects_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Effekte' ausgeschlossen (keine MGEF/EFSH/VFXS-Referenzen)."
+            return "Kategorie 'Effekte' ausgeschlossen (keine MGEF/EFSH/VFXS/IMAD-Referenzen)."
     return None
 
 def _exclude_non_light(row, cursor, cat_ids):
@@ -266,9 +278,11 @@ def _exclude_non_textures(row, cursor, cat_ids):
     """
     txst = row.get('TXST') or 0
     mato = row.get('MATO') or 0
+    mod_id = row.get('Mod_ID') or row.get('ID')
     
-    if txst == 0 and mato == 0:
-        mod_id = row.get('Mod_ID') or row.get('ID')
+    has_ba2_textures = _check_has_textures(cursor, mod_id)
+    
+    if txst == 0 and mato == 0 and not has_ba2_textures:
         component_id = row.get('Component_ID')
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Texturen'")
@@ -281,7 +295,36 @@ def _exclude_non_textures(row, cursor, cat_ids):
                 SET "{textures_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Texturen' ausgeschlossen (keine TXST/MATO-Referenzen)."
+            return "Kategorie 'Texturen' ausgeschlossen (keine TXST/MATO/BA2-Textur-Referenzen)."
+    return None
+
+def _exclude_non_interface(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'Interface' (ID 17) aus, wenn keine Interface-Kriterien erfüllt sind.
+    Erkennung basiert ausschließlich auf:
+    1. Interface-Dateien (.swf, .gfx, .ttf, .otf) in den zugehörigen BA2-Archiven.
+    2. Dateipfaden (interface/, fonts/, textures/interface/) in den zugehörigen BA2-Archiven.
+    3. Konfigurationsdateien (.json, .ini) im interface/ Ordner der BA2-Archive.
+    4. Dem Dateinamenszusatz '- interface.ba2' oder '- Interface.ba2' (Zeitersparnis).
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    has_interface_assets = _check_is_interface(cursor, mod_id)
+                
+    if not has_interface_assets:
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Interface'")
+        int_row = cursor.fetchone()
+        interface_id = int_row[0] if int_row else 17
+        
+        if interface_id and interface_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{interface_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Interface' ausgeschlossen (keine Interface-Assets in BA2-Archiven gefunden)."
+            
     return None
 
 def _exclude_non_plants(row, cursor, cat_ids):
@@ -347,17 +390,96 @@ def _exclude_non_poi(row, cursor, cat_ids):
     return None
 
 
-def _exclude_non_city(row, cursor, cat_ids):
+def _check_is_interface(cursor, mod_id):
     """
-    Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
-    Eine Stadt-Mod liegt vor, wenn:
-    - Sie eigene Stadt-/Siedlungs-Locations definiert (in Components_ESM_LCTN)
-    - Sie Zellen verändert, die zu einer Stadt/Siedlung gehören (in Components_ESM_CELL_LCTN)
-    - Oder Crowd-Regionen (GBFM_EDID_CrowdRegion) definiert sind.
+    Prüft, ob zugeordnete BA2-Dateien der Mod Interface-Assets enthalten.
     """
-    mod_id = row.get('Mod_ID') or row.get('ID')
-    component_id = row.get('Component_ID')
+    cursor.execute("""
+        SELECT File 
+        FROM Components c 
+        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+        WHERE mc.Mod_ID = ? AND LOWER(c.File) LIKE '%.ba2'
+    """, (mod_id,))
+    ba2_files = [r[0] for r in cursor.fetchall()]
     
+    has_interface_assets = False
+    from Structure.Paths import STARFIELD_GAME_DATA_PATH
+    from Structure.File_BA2_Parser import scan_ba2_archive_for_types
+    
+    for ba2_file in ba2_files:
+        ba2_lower = ba2_file.lower()
+        # Schnelle Prüfung auf Namensebene
+        if "interface" in ba2_lower:
+            has_interface_assets = True
+            break
+            
+        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
+        if os.path.exists(ba2_path):
+            ba2_flags = scan_ba2_archive_for_types(ba2_path)
+            if ba2_flags.get("has_interface"):
+                has_interface_assets = True
+                break
+    return has_interface_assets
+
+
+def _check_has_textures(cursor, mod_id):
+    """
+    Prüft, ob zugeordnete BA2-Dateien der Mod Textur-Assets enthalten.
+    """
+    cursor.execute("""
+        SELECT File 
+        FROM Components c 
+        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+        WHERE mc.Mod_ID = ? AND LOWER(c.File) LIKE '%.ba2'
+    """, (mod_id,))
+    ba2_files = [r[0] for r in cursor.fetchall()]
+    
+    from Structure.Paths import STARFIELD_GAME_DATA_PATH
+    from Structure.File_BA2_Parser import scan_ba2_archive_for_types
+    
+    for ba2_file in ba2_files:
+        ba2_lower = ba2_file.lower()
+        if "textures" in ba2_lower or "texture.ba2" in ba2_lower:
+            return True
+            
+        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
+        if os.path.exists(ba2_path):
+            ba2_flags = scan_ba2_archive_for_types(ba2_path)
+            if ba2_flags.get("has_textures"):
+                return True
+    return False
+
+
+def _check_has_sound(cursor, mod_id):
+    """
+    Prüft, ob zugeordnete BA2-Dateien der Mod Audio-Assets enthalten.
+    """
+    cursor.execute("""
+        SELECT File 
+        FROM Components c 
+        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+        WHERE mc.Mod_ID = ? AND LOWER(c.File) LIKE '%.ba2'
+    """, (mod_id,))
+    ba2_files = [r[0] for r in cursor.fetchall()]
+    
+    from Structure.Paths import STARFIELD_GAME_DATA_PATH
+    from Structure.File_BA2_Parser import scan_ba2_archive_for_types
+    
+    for ba2_file in ba2_files:
+        ba2_lower = ba2_file.lower()
+        if "voices" in ba2_lower or "sounds" in ba2_lower or "sound.ba2" in ba2_lower:
+            return True
+            
+        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
+        if os.path.exists(ba2_path):
+            ba2_flags = scan_ba2_archive_for_types(ba2_path)
+            if ba2_flags.get("has_audio"):
+                return True
+    return False
+
+
+def _check_is_city(row, cursor, component_id):
+    """Prüft, ob die Komponente städtische Merkmale besitzt."""
     # 1. Prüfen, ob die Mod eigene Stadt-/Siedlungs-Locations definiert
     cursor.execute("""
         SELECT 1 FROM Components_ESM_LCTN
@@ -365,7 +487,7 @@ def _exclude_non_city(row, cursor, cat_ids):
           AND FormID_Keyword = 140817 -- 0x22611 (loctypesettlement)
         LIMIT 1
     """, (component_id,))
-    has_own_city_lctn = cursor.fetchone() is not None
+    has_own_city_lctn = cursor.fetchone() is not None or (row.get('LCTN_KYWD_City') or 0) > 0 or (row.get('LCTN_KYWD_Settlement') or 0) > 0
     
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
     cursor.execute("""
@@ -378,20 +500,60 @@ def _exclude_non_city(row, cursor, cat_ids):
     """, (component_id,))
     has_city_cell_override = cursor.fetchone() is not None
     
-    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, LIGH, PKIN)
+    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
     stat = row.get('STAT') or 0
     stat_o = row.get('STAT_Override') or 0
     furn = row.get('FURN') or 0
     furn_o = row.get('FURN_Override') or 0
-    ligh = row.get('LIGH') or 0
-    ligh_o = row.get('LIGH_Override') or 0
     pkin = row.get('PKIN') or 0
-    
-    has_structural_objects = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or ligh > 0 or ligh_o > 0 or pkin > 0)
+    has_structural_objects = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0)
     
     crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
     
-    is_city = has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
+    return has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
+
+
+def _check_is_playerhome(row, cursor, component_id):
+    """Prüft, ob die Komponente Spielerheim-Merkmale besitzt."""
+    # 1. Prüfen, ob die Mod eigene Spielerheim-Locations definiert (in Components_ESM_LCTN oder über LCTN_KYWD_Playerhome)
+    cursor.execute("""
+        SELECT 1 FROM Components_ESM_LCTN
+        WHERE Component_ID = ?
+          AND FormID_Keyword = 3076722 -- 0x2ef272 (loctypeplayerhome)
+        LIMIT 1
+    """, (component_id,))
+    has_own_playerhome_lctn = cursor.fetchone() is not None or (row.get('LCTN_KYWD_Playerhome') or 0) > 0
+
+    # 2. Prüfen, ob die Mod Zellen verändert, die zu einem Spielerheim gehören
+    cursor.execute("""
+        SELECT 1 FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ?
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+        LIMIT 1
+    """, (component_id,))
+    has_playerhome_cell_override = cursor.fetchone() is not None
+
+    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
+    stat = row.get('STAT') or 0
+    stat_o = row.get('STAT_Override') or 0
+    furn = row.get('FURN') or 0
+    furn_o = row.get('FURN_Override') or 0
+    pkin = row.get('PKIN') or 0
+    has_structural_objects = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0)
+    
+    return has_own_playerhome_lctn or (has_playerhome_cell_override and has_structural_objects)
+
+
+def _exclude_non_city(row, cursor, cat_ids):
+    """
+    Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    is_city = _check_is_city(row, cursor, component_id)
     
     if not is_city:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")
@@ -410,23 +572,59 @@ def _exclude_non_city(row, cursor, cat_ids):
 
 def _exclude_non_building(row, cursor, cat_ids):
     """
-    Schließt die Kategorie 'Gebäude' (ID 7) aus, wenn keine Anzeichen für ein Gebäude vorliegen.
+    Schließt die Kategorie 'Gebäude' (ID 7) aus, wenn keine Anzeichen für ein statisches Gebäude oder einen statischen Dungeon vorliegen.
     Ein Gebäude liegt vor, wenn:
-    - Entweder LCTN_KYWD_Dungeon > 0
-    - Oder ein planetarer Generierungsblock (SFBK oder SFBK_Override > 0) vorliegt, aber keine dynamischen POI-Node-Einträge (PCBN und PCCN == 0).
+    - Physische strukturelle Objekte platziert/verändert werden (STAT, STAT_Override, FURN, FURN_Override, PKIN > 0) 
+      in vorhandenen Zellen (CELL_Override > 0, abzüglich Pack-In-Schablonen) oder Planet-Blocks (SFBK/SFBK_Override > 0)
+    - ODER ein statischer Dungeon (LCTN_KYWD_Dungeon > 0) definiert wird
+    - UND die Platzierung statisch und NICHT dynamisch über POI-Nodes erfolgt (PCBN und PCCN == 0)
+    - UND die Anpassung NICHT in einem Stadt- oder Siedlungsbereich liegt
+    - UND die Anpassung KEIN Spielerheim ist.
     """
-    lctn_dungeon = row.get('LCTN_KYWD_Dungeon') or 0
-    sfbk = row.get('SFBK') or 0
-    sfbk_o = row.get('SFBK_Override') or 0
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    # 1. Ausschluss dynamischer POI-Mechaniken
     pcbn = row.get('PCBN') or 0
     pccn = row.get('PCCN') or 0
+    is_dynamic_poi = (pcbn > 0 or pccn > 0)
     
-    is_building = (lctn_dungeon > 0) or ((sfbk > 0 or sfbk_o > 0) and pcbn == 0 and pccn == 0)
+    if is_dynamic_poi:
+        # Dynamische POIs sind niemals statische Gebäude
+        is_building = False
+    else:
+        # 2. Prüfen, ob sich die Anpassung in einer Stadt/Siedlung befindet oder ein Spielerheim ist
+        is_in_city = _check_is_city(row, cursor, component_id)
+        is_playerhome = _check_is_playerhome(row, cursor, component_id)
+        
+        if is_in_city or is_playerhome:
+            is_building = False
+        else:
+            # 3. Vorhandensein von statischen/strukturellen Objekten prüfen
+            stat = row.get('STAT') or 0
+            stat_o = row.get('STAT_Override') or 0
+            furn = row.get('FURN') or 0
+            furn_o = row.get('FURN_Override') or 0
+            pkin = row.get('PKIN') or 0
+            has_structures = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0)
+            
+            # 4. Echte Zellen-Überschreibungen (abzüglich Pack-In-Überschreibungen) oder Planetengenerierungs-Eingriffe prüfen
+            cell_o = row.get('CELL_Override') or 0
+            cell_o_packin = row.get('CELL_Override_PackIn') or 0
+            sfbk = row.get('SFBK') or 0
+            sfbk_o = row.get('SFBK_Override') or 0
+            
+            # Echte Weltzellen-Überschreibungen (Zell-Overrides abzüglich PackIns)
+            real_cell_overrides = max(0, cell_o - cell_o_packin)
+            has_world_cell_intervention = (real_cell_overrides > 0 or sfbk > 0 or sfbk_o > 0)
+            
+            # 5. Dungeon-Keyword prüfen
+            lctn_dungeon = row.get('LCTN_KYWD_Dungeon') or 0
+            
+            # Ein Gebäude liegt vor bei statischen Strukturen mit echtem Welt-Eingriff ODER wenn es als statischer Dungeon deklariert ist
+            is_building = (has_structures and has_world_cell_intervention) or (lctn_dungeon > 0)
     
     if not is_building:
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
-        
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Gebäude'")
         bld_row = cursor.fetchone()
         bld_id = bld_row[0] if bld_row else 7
@@ -437,20 +635,21 @@ def _exclude_non_building(row, cursor, cat_ids):
                 SET "{bld_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gebäude' ausgeschlossen (keine passenden Dungeon oder statischen SFBK Referenzen vorhanden)."
+            return "Kategorie 'Gebäude' ausgeschlossen (keine statische Gebäude- oder Dungeon-Struktur vorhanden, in Stadt/Siedlung oder ist Spielerheim)."
+            
     return None
 
 
 def _exclude_non_playerhome(row, cursor, cat_ids):
     """
-    Schließt die Kategorie 'Spielerheime' (ID 8) aus, wenn LCTN_KYWD_Playerhome == 0.
+    Schließt die Kategorie 'Spielerheime' (ID 8) aus, wenn keine Spielerheim-Merkmale vorliegen.
     """
-    lctn_playerhome = row.get('LCTN_KYWD_Playerhome') or 0
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
     
-    if lctn_playerhome == 0:
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
-        
+    is_playerhome = _check_is_playerhome(row, cursor, component_id)
+    
+    if not is_playerhome:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Spielerheime'")
         ph_row = cursor.fetchone()
         ph_id = ph_row[0] if ph_row else 8
@@ -461,8 +660,9 @@ def _exclude_non_playerhome(row, cursor, cat_ids):
                 SET "{ph_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Spielerheime' ausgeschlossen (keine LCTN_KYWD_Playerhome Referenzen vorhanden)."
+            return "Kategorie 'Spielerheime' ausgeschlossen (keine Spielerheim-Locations oder Spielerheim-Zellen mit strukturellen Objekten vorhanden)."
     return None
+
 
 
 def _exclude_non_creature(row, cursor, cat_ids):
@@ -645,8 +845,17 @@ def _exclude_non_sorting(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Sortierung' aus, wenn keine Overrides für Gegenstände
     (WEAP_Override, ARMO_Override, AMMO_Override, ALCH_Override, COBJ_Override, 
-    MISC_Override, KEYM_Override, BOOK_Override) vorliegen.
+    MISC_Override, KEYM_Override, BOOK_Override) oder INNR (Instance Naming Rules) vorliegen.
+    Zudem wird die Kategorie ausgeschlossen, wenn signifikante andere Record-Typen (Strukturen, Quests, NPCs, Kleidung/Waffen-Erstellung etc.)
+    vorliegen und keine INNRs vorhanden sind.
     """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Sortierung'")
+    s_row = cursor.fetchone()
+    sorting_id = s_row[0] if s_row else 18
+
     weap_o = row.get('WEAP_Override') or 0
     armo_o = row.get('ARMO_Override') or 0
     ammo_o = row.get('AMMO_Override') or 0
@@ -655,15 +864,59 @@ def _exclude_non_sorting(row, cursor, cat_ids):
     misc_o = row.get('MISC_Override') or 0
     keym_o = row.get('KEYM_Override') or 0
     book_o = row.get('BOOK_Override') or 0
+    innr = row.get('INNR') or 0
+    innr_o = row.get('INNR_Override') or 0
     
-    if (weap_o == 0 and armo_o == 0 and ammo_o == 0 and alch_o == 0 and 
-        cobj_o == 0 and misc_o == 0 and keym_o == 0 and book_o == 0):
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
+    # Prüfe auf reine INNR-Mod (keine anderen Pointer außer INNR/INNR_Override)
+    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    has_other_pointers = False
+    for col in MOD_POINTER_COLS:
+        if col.endswith('_Deleted') or col.endswith('_Disabled') or col.endswith('_Buried') or col.endswith('_Remove') or col.endswith('_Override'):
+            continue
+        if col in ('INNR', 'INNR_Override'):
+            continue
+        if (row.get(col) or 0) > 0:
+            has_other_pointers = True
+            break
+
+    if not has_other_pointers and (innr > 0 or innr_o > 0):
+        other_cols = [cat_id for cat_id in cat_ids if cat_id != sorting_id]
+        if other_cols:
+            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
+            set_clause += f', "{sorting_id}" = 1'
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET {set_clause}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+        return "Eindeutige Sortierungs-Mod (ausschließlich INNR-Einträge)."
+
+    # Ausschlusskriterien für Sortierung:
+    # Wenn die Mod keine INNR hat und signifikante andere Record-Typen aufweist, ist es keine Sortierungs-Mod.
+    if innr == 0 and innr_o == 0:
+        exclude_sorting = False
         
-        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Sortierung'")
-        s_row = cursor.fetchone()
-        sorting_id = s_row[0] if s_row else 18
+        # Liste von Record-Typen, die eine Sortierungs-Mod ausschließen (Strukturen, Quests, NPCs, etc.)
+        for col in ['CELL', 'CELL_Override', 'NPC_', 'NPC__Override', 'QUST', 'QUST_Override',
+                    'LCTN', 'LCTN_Override', 'DIAL', 'DIAL_Override', 'WRLD', 'VEHI', 'VEHI_Override',
+                    'SPAC', 'SPAC_Override', 'SMOD', 'SMOD_Override', 'MGEF', 'MGEF_Override',
+                    'SPEL', 'SPEL_Override', 'ENCH', 'ENCH_Override', 'AVIF', 'AVIF_Override',
+                    'PERK', 'PERK_Override', 'WEAP', 'ARMO', 'COBJ', 'AMMO', 'ALCH']:
+            if (row.get(col) or 0) > 0:
+                exclude_sorting = True
+                break
+                
+        if exclude_sorting:
+            if sorting_id and sorting_id in cat_ids:
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix 
+                    SET "{sorting_id}" = 0
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mod_id, component_id))
+                return "Kategorie 'Sortierung' ausgeschlossen (Mod besitzt strukturelle oder andere Inhalts-Datensätze und keine INNR)."
+
+    if (weap_o == 0 and armo_o == 0 and ammo_o == 0 and alch_o == 0 and 
+        cobj_o == 0 and misc_o == 0 and keym_o == 0 and book_o == 0 and innr == 0 and innr_o == 0):
         
         if sorting_id and sorting_id in cat_ids:
             cursor.execute(f"""
@@ -671,22 +924,190 @@ def _exclude_non_sorting(row, cursor, cat_ids):
                 SET "{sorting_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Sortierung' ausgeschlossen (keine Gegenstands-Overrides vorhanden)."
+            return "Kategorie 'Sortierung' ausgeschlossen (keine Gegenstands-Overrides oder INNR vorhanden)."
+    return None
+
+def _get_vehicle_furniture_count(row):
+    """
+    Summiert alle fahrzeugspezifischen Möbel-Referenzen.
+    """
+    vmrt = row.get('FURN_VMRT') or 0
+    vcmt = row.get('FURN_VCMT') or 0
+    vwwd = row.get('FURN_VWWD') or 0
+    vctt = row.get('FURN_VCTT') or 0
+    return vmrt + vcmt + vwwd + vctt
+
+def _exclude_non_furnishing(row, cursor, cat_ids):
+    """
+    Prüft, ob Referenzen für eine Einrichtungsmod vorliegen.
+    Die Mod wird ausgeschlossen, wenn:
+    - Keine passenden Möbel (ohne Fahrzeuge), STAT, MSTT, PKIN oder GBFM vorhanden sind.
+    - ODER wenn Welteingriffe (CELL_Override/REFR/REFR_Override) existieren, aber keinerlei Herstellungsrezepte (COBJ) angeboten werden (deutet auf Orts-/Umgebungsmod hin).
+    """
+    furn = row.get('FURN') or 0
+    furn_o = row.get('FURN_Override') or 0
+    vehicle_furn = _get_vehicle_furniture_count(row)
+    
+    # Berechne echte Möbel (ohne Fahrzeuge)
+    real_furn = (furn + furn_o) - vehicle_furn
+    
+    stat = row.get('STAT') or 0
+    stat_o = row.get('STAT_Override') or 0
+    mstt = row.get('MSTT') or 0
+    mstt_o = row.get('MSTT_Override') or 0
+    pkin = row.get('PKIN') or 0
+    
+    gbfm = row.get('GBFM') or 0
+    gbfm_vehicle = row.get('GBFM_EDID_Vehicle') or 0
+    gbfm_crowd = row.get('GBFM_EDID_CrowdRegion') or 0
+    real_gbfm = gbfm - gbfm_vehicle - gbfm_crowd
+    
+    has_furnishing_assets = (
+        real_furn > 0 or 
+        stat > 0 or stat_o > 0 or 
+        mstt > 0 or mstt_o > 0 or 
+        pkin > 0 or 
+        real_gbfm > 0
+    )
+    
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Einrichtung'")
+    e_row = cursor.fetchone()
+    furnishing_id = e_row[0] if e_row else 31
+    
+    if not has_furnishing_assets:
+        if furnishing_id and furnishing_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{furnishing_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Einrichtung' ausgeschlossen (keine passenden Möbel-, STAT-, MSTT-, PKIN- oder GBFM-Referenzen)."
+            
+    # Ergänzender Ausschluss bei reinen Welteingriffen ohne Rezept
+    cell_o = row.get('CELL_Override') or 0
+    refr = row.get('REFR') or 0
+    refr_o = row.get('REFR_Override') or 0
+    cobj = row.get('COBJ') or 0
+    cobj_o = row.get('COBJ_Override') or 0
+    
+    has_world_placements = (cell_o > 0 or refr > 0 or refr_o > 0)
+    has_recipes = (cobj > 0 or cobj_o > 0)
+    
+    if has_world_placements and not has_recipes:
+        if furnishing_id and furnishing_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{furnishing_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Einrichtung' ausgeschlossen (Welteingriffe vorhanden, aber keine Rezepte zur eigenständigen Herstellung)."
+            
+    return None
+
+def _exclude_non_outpost(row, cursor, cat_ids):
+    """
+    Prüft, ob funktionale Referenzen für Außenposten (Habs, Generatoren, Extraktoren, Deko) vorliegen.
+    Wenn weder schwere noch weiche Außenposten-Rezepte vorliegen, wird Außenposten (ID 30) ausgeschlossen.
+    """
+    cobj_heavy = row.get('COBJ_BNAM_Outpost_Heavy') or 0
+    cobj_soft = row.get('COBJ_BNAM_Outpost_Soft') or 0
+    
+    if cobj_heavy == 0 and cobj_soft == 0:
+        mod_id = row.get('Mod_ID') or row.get('ID')
+        component_id = row.get('Component_ID')
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Außenposten'")
+        a_row = cursor.fetchone()
+        outpost_id = a_row[0] if a_row else 30
+        
+        if outpost_id and outpost_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{outpost_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return "Kategorie 'Außenposten' ausgeschlossen (keine Außenposten-Rezepte)."
+    return None
+
+def _exclude_non_environment(row, cursor, cat_ids):
+    """
+    Prüft, ob visuelle, geografische oder physische Eingriffe in die Spielwelt/Umgebung (WRLD, CELL, REFR, LIGH, FLOR, TREE, WTHR, CLMT, REGN) vorliegen.
+    Wenn nicht, wird die Kategorie 'Umgebung' (ID 5) ausgeschlossen.
+    Dabei werden Zelländerungen in Städten und auf Schiffen vom Gesamt-Zellzähler abgezogen.
+    """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
+    wrld = row.get('WRLD') or 0
+    cell = row.get('CELL') or 0
+    cell_o = row.get('CELL_Override') or 0
+    flor = row.get('FLOR') or 0
+    flor_o = row.get('FLOR_Override') or 0
+    tree = row.get('TREE') or 0
+    tree_o = row.get('TREE_Override') or 0
+    wthr = row.get('WTHR') or 0
+    wthr_o = row.get('WTHR_Override') or 0
+    clmt = row.get('CLMT') or 0
+    clmt_o = row.get('CLMT_Override') or 0
+    regn = row.get('REGN') or 0
+    regn_o = row.get('REGN_Override') or 0
+    
+    # 1. Stadt-Zellen zählen
+    cursor.execute("""
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ?
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+    """, (component_id,))
+    city_cells = cursor.fetchone()[0] or 0
+    
+    # 2. Schiffs-Zellen zählen
+    cursor.execute("""
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ?
+    """, (component_id,))
+    ship_cells = cursor.fetchone()[0] or 0
+    
+    # 3. Verbleibende Wildnis-Zellen berechnen (CELL + CELL_Override minus Stadt- und Schiffs-Zellen)
+    total_cells = cell + cell_o
+    wilderness_cells = max(0, total_cells - city_cells - ship_cells)
+    
+    if (wrld == 0 and wilderness_cells == 0 and
+        flor == 0 and flor_o == 0 and
+        tree == 0 and tree_o == 0 and wthr == 0 and wthr_o == 0 and
+        clmt == 0 and clmt_o == 0 and regn == 0 and regn_o == 0):
+        
+        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Umgebung'")
+        e_row = cursor.fetchone()
+        env_id = e_row[0] if e_row else 5
+        
+        if env_id and env_id in cat_ids:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix 
+                SET "{env_id}" = 0
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mod_id, component_id))
+            return f"Kategorie 'Umgebung' ausgeschlossen (Wildnis-Zellen: {wilderness_cells}, Stadt-Zellen: {city_cells}, Schiffs-Zellen: {ship_cells})."
     return None
 
 def _exclude_non_vehicle(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Fahrzeugmod (VEHI, VEHI_Override, VMOD, VMOD_Override oder FURN Fahrzeug-Subreferenzen VWWD/VCTT) vorliegen.
+    Prüft, ob Referenzen für eine Fahrzeugmod (VEHI, VEHI_Override, VMOD, VMOD_Override oder FURN Fahrzeug-Subreferenzen) vorliegen.
     Wenn nicht, wird die Kategorie 'Fahrzeuge' (25) in der Ausschlussmatrix auf 0 gesetzt.
     """
     vehi = row.get('VEHI') or 0
     vehi_o = row.get('VEHI_Override') or 0
     vmod = row.get('VMOD') or 0
     vmod_o = row.get('VMOD_Override') or 0
-    furn_vwwd = row.get('FURN_VWWD') or 0
-    furn_vctt = row.get('FURN_VCTT') or 0
+    vehicle_furn = _get_vehicle_furniture_count(row)
     
-    if vehi == 0 and vehi_o == 0 and vmod == 0 and vmod_o == 0 and furn_vwwd == 0 and furn_vctt == 0:
+    if vehi == 0 and vehi_o == 0 and vmod == 0 and vmod_o == 0 and vehicle_furn == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -705,7 +1126,7 @@ def _exclude_non_vehicle(row, cursor, cat_ids):
                 SET "{vehicle_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Fahrzeuge' ausgeschlossen (keine VEHI/VMOD/FURN-VWWD/VCTT-Referenzen)."
+            return "Kategorie 'Fahrzeuge' ausgeschlossen (keine VEHI/VMOD/FURN-Fahrzeugreferenzen)."
     return None
 
 def _exclude_non_ship(row, cursor, cat_ids):
@@ -898,7 +1319,7 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
     # 3. BA2-Dateien filtern und scannen
     has_textures = False
     has_audio = False
-    has_interface = False
+    has_interface = _check_is_interface(cursor, mod_id)
     has_scripts = False
     
     ba2_files = [f for f in components if f.lower().endswith(".ba2")]
@@ -921,8 +1342,6 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
                 has_textures = True
             if ba2_flags.get("has_audio"):
                 has_audio = True
-            if ba2_flags.get("has_interface"):
-                has_interface = True
             if ba2_flags.get("has_scripts"):
                 has_scripts = True
                 
@@ -987,8 +1406,15 @@ def _check_Overhaul(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
     
+    # ID für Overhaul aus der Datenbank laden
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Overhaul'")
+    overhaul_row = cursor.fetchone()
+    overhaul_id = overhaul_row[0] if overhaul_row else 3
+    
     is_master = row.get('Is_Masterfile') or 0
     if is_master <= 0:
+        if overhaul_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
     # Einteilung in funktionale Hauptbereiche
@@ -1039,13 +1465,10 @@ def _check_Overhaul(row, cursor, cat_ids):
     is_systemic = (total_override >= 250) and (ratio >= 40.0) and (len(active_areas) >= 2)
     
     if not (is_massive or is_systemic):
+        if overhaul_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
-    # ID für Overhaul aus der Datenbank laden
-    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Overhaul'")
-    overhaul_row = cursor.fetchone()
-    overhaul_id = overhaul_row[0] if overhaul_row else 3
-    
     # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Overhaul auf 1
     other_cols = [cat_id for cat_id in cat_ids if cat_id != overhaul_id]
     if other_cols:
@@ -1072,6 +1495,11 @@ def _check_Bugfix(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
 
+    # Finde Bugfix ID aus der Datenbank
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Bugfix'")
+    bugfix_row = cursor.fetchone()
+    bugfix_id = bugfix_row[0] if bugfix_row else 2
+
     # Heuristik: Override-Verhältnis und Diversität bestimmen
     from Structure.Starfield_Check_New import MOD_POINTER_COLS
     
@@ -1094,16 +1522,13 @@ def _check_Bugfix(row, cursor, cat_ids):
                     num_override_categories += 1
 
     if total_base_val < 20:
+        if bugfix_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
 
     override_ratio = total_override_val / total_base_val if total_base_val > 0 else 0.0
 
     if override_ratio >= 0.95 and num_override_categories >= 4:
-        # Finde Bugfix ID aus der Datenbank
-        cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Bugfix'")
-        bugfix_row = cursor.fetchone()
-        bugfix_id = bugfix_row[0] if bugfix_row else 2
-        
         # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Bugfix auf 1
         other_cols = [cat_id for cat_id in cat_ids if cat_id != bugfix_id]
         if other_cols:
@@ -1117,6 +1542,8 @@ def _check_Bugfix(row, cursor, cat_ids):
             
         return f"Als Bugfix eingestuft (Ratio: {override_ratio:.2%}, Kategorien: {num_override_categories})."
         
+    if bugfix_id in cat_ids:
+        cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
     return None
 
 
@@ -1128,20 +1555,31 @@ def _check_Quest_Real(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
             
+    # ID für Quest laden
+    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Quest'")
+    quest_row = cursor.fetchone()
+    quest_id = quest_row[0] if quest_row else 4
+
     qust = row.get('QUST') or 0
     if qust == 0:
+        if quest_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
     full = row.get('QUST_FULL') or 0
     qobj = row.get('QUST_QOBJ') or 0
     if full == 0:
         # Keine Quest mit Name im Logbuch vorhanden
+        if quest_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
     dial = row.get('DIAL') or 0
     # Wenn die Mod nur eine einzige Quest registriert, aber sehr viele Dialoge besitzt,
     # handelt es sich in der Regel um ein Service-/Funktionsterminal bzw. einen Service-NPC (Mechanik-Mod).
     if qust == 1 and dial >= 50:
+        if quest_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
     qtyp_0 = row.get('QUST_QTYP_0') or 0
@@ -1181,13 +1619,10 @@ def _check_Quest_Real(row, cursor, cat_ids):
     is_real_quest = is_story_quest_new or is_story_quest_override or is_silent_adventure
     
     if not is_real_quest:
+        if quest_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         return None
         
-    # ID für Quest laden
-    cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Quest'")
-    quest_row = cursor.fetchone()
-    quest_id = quest_row[0] if quest_row else 4
-    
     # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Quest auf 1
     other_cols = [cat_id for cat_id in cat_ids if cat_id != quest_id]
     if other_cols:
@@ -1216,8 +1651,12 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         
     # Liste aller registrierten Ausschlussregeln
     rules = [
+        _detect_no_pointers_by_components,
         _exclude_non_remover,
         _exclude_non_skin,
+        _exclude_non_outpost,
+        _exclude_non_environment,
+        _exclude_non_furnishing,
         _exclude_non_item,
         _exclude_non_vehicle,
         _exclude_non_ship,
@@ -1230,6 +1669,7 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_effects,
         _exclude_non_light,
         _exclude_non_textures,
+        _exclude_non_interface,
         _exclude_non_creature,
         _exclude_non_companion,
         _exclude_non_npc,
@@ -1240,7 +1680,6 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_building,
         _exclude_non_playerhome,
         _exclude_non_sorting,
-        _detect_no_pointers_by_components,
         _check_Quest_Real,
         _check_Overhaul,
         _check_Bugfix,
@@ -1252,6 +1691,8 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         note = rule(row, cursor, cat_ids)
         if note:
             notes.append(note)
+            if rule == _detect_no_pointers_by_components:
+                break
             
     if notes:
         return ", ".join(notes)

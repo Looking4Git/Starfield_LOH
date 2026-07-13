@@ -19,7 +19,7 @@ from Structure.File_ESM_Parser_Body_Handles import (
     MOD_POINTER_COLS
 )
 from Structure.File_ESM_Parser_Body_CELL_LCTN import extract_esm_locations_and_cells
-from Structure.File_ESM_Parser_Body_CELL_Ship import extract_esm_ship_cells
+from Structure.File_ESM_Parser_Body_CELL_Ship import extract_esm_ship_cells, extract_esm_all_cells
 
 def calculate_shifters(counts):
     """Berechnet die Quest-Shifter-Koeffizienten (0.0 bis 1.0) basierend auf den ESM-Referenzen."""
@@ -390,18 +390,33 @@ def scan_and_update_mod_components(log_msg):
                 
                 # Schiffs-Zellen in Components_ESM_CELL_Ship speichern
                 cursor.execute("DELETE FROM Components_ESM_CELL_Ship WHERE Component_ID = ?", (comp_id,))
-                ship_cells = extract_esm_ship_cells(filepath)
-                if ship_cells:
+                all_mod_cells = extract_esm_all_cells(filepath)
+                
+                # System-Schiffs-Zellen FormIDs für schnellen Abgleich laden
+                cursor.execute("SELECT Cell_FormID FROM Components_System_CELL_Ship")
+                sys_ship_cells = {r[0] for r in cursor.fetchall()}
+                
+                import re
+                SHIP_CELL_PATTERN = re.compile(r"(?i)ship|station|spaceship")
+                
+                ship_cells_found = []
+                for cell in all_mod_cells:
+                    fid = cell['cell_form_id']
+                    edid = cell['edid']
+                    if (edid and SHIP_CELL_PATTERN.search(edid)) or fid in sys_ship_cells:
+                        ship_cells_found.append(fid)
+                
+                if ship_cells_found:
                     insert_ship_cells = []
-                    for sc in ship_cells:
-                        insert_ship_cells.append((comp_id, sc['cell_form_id']))
+                    for fid in ship_cells_found:
+                        insert_ship_cells.append((comp_id, fid))
                     cursor.executemany("""
                         INSERT OR IGNORE INTO Components_ESM_CELL_Ship (Component_ID, Cell_FormID)
                         VALUES (?, ?)
                     """, insert_ship_cells)
                 
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}, Ship Cells: {len(ship_cells)}")
+                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}, Ship Cells: {len(ship_cells_found)}")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")

@@ -22,6 +22,8 @@ def reset_database(log_signal=None):
         
         # Bewegungsdaten-Tabellen leeren
         tables_to_clear = [
+            "Components_System_CELL_Ship",
+            "Components_ESM_CELL_Ship",
             "Components_System_CELL_LCTN",
             "Components_ESM_CELL_LCTN",
             "Components_System_LCTN",
@@ -39,6 +41,18 @@ def reset_database(log_signal=None):
         for table in tables_to_clear:
             cursor.execute(f"DELETE FROM {table};")
             log(f"-> Tabelle '{table}' geleert.")
+            
+        # Mod-Bilder Verzeichnis leeren
+        from Structure.Paths import MOD_IMAGES_DIR
+        if os.path.exists(MOD_IMAGES_DIR):
+            for filename in os.listdir(MOD_IMAGES_DIR):
+                file_path = os.path.join(MOD_IMAGES_DIR, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as img_e:
+                    log(f"WARNUNG: Datei {filename} konnte nicht gelöscht werden: {img_e}")
+            log("-> Verzeichnis 'Data\\Mod_Images' geleert.")
             
         # sqlite_sequence zurücksetzen (außer für Stammdaten)
         master_tables = ["Assessments", "Categories_LOH", "Platforms", "Mods_State", "Categories_Creations"]

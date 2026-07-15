@@ -57,8 +57,12 @@ def run_load_order_check(log_signal=None):
         cursor.execute("SELECT ID, Name FROM Profiles")
         profiles = cursor.fetchall()
         if not profiles:
-            log_msg("Keine Profile in der Datenbank gefunden.")
-            return True
+            log_msg("Keine Profile in der Datenbank gefunden. Erstelle Standard-Profil...")
+            cursor.execute("INSERT INTO Profiles (Name, Description) VALUES (?, ?)", 
+                           ("Standard", "Automatisch erstelltes Standard-Profil"))
+            conn.commit()
+            cursor.execute("SELECT ID, Name FROM Profiles")
+            profiles = cursor.fetchall()
             
         # 2. Alle aktuell aktiven Komponenten abfragen (die zu installierten Mods gehören: State = 1)
         # (Is_Blueprint = 0 und .esm/.esp Endung)

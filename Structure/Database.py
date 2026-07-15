@@ -6,8 +6,6 @@ import logging
 
 from Structure.Paths import DB_FILE, MOD_IMAGES_DIR
 
-_MIGRATIONS_RUN = False
-
 def get_db_connection() -> sqlite3.Connection:
     """Stellt die Verbindung zur lokalen SQLite-Datenbank her."""
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
@@ -393,14 +391,21 @@ def add_mod_requirement(mod_id: int, requirement_mod_id: int) -> bool:
 
 
 def get_profiles() -> list[dict]:
-    """Holt alle angelegten Profile aus der Tabelle Profiles."""
+    """Holt alle angelegten Profile aus der Tabelle Profiles. Falls keine existieren, wird ein Standard-Profil angelegt."""
     query = "SELECT ID, Name, Description FROM Profiles ORDER BY ID"
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(query)
-        return [dict(row) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        if not rows:
+            cursor.execute("INSERT INTO Profiles (Name, Description) VALUES (?, ?)", 
+                           ("Standard", "Automatisch erstelltes Standard-Profil"))
+            conn.commit()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+        return [dict(row) for row in rows]
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_profiles: {e}")
         return []

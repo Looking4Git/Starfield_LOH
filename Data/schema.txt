@@ -314,5 +314,7 @@ CREATE TABLE "Components_ESM_CELL_Ship" (
 );
 
 CREATE UNIQUE INDEX "idx_esm_cell_ship_unique" ON "Components_ESM_CELL_Ship" ("Component_ID", "Cell_FormID");
+CREATE INDEX "idx_sys_cell_ship_lookup" ON "Components_System_CELL_Ship" ("Cell_FormID");
+CREATE INDEX "idx_esm_cell_ship_lookup" ON "Components_ESM_CELL_Ship" ("Cell_FormID");
 
 CREATE TABLE sqlite_sequence(name,seq)

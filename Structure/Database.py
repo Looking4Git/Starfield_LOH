@@ -391,21 +391,14 @@ def add_mod_requirement(mod_id: int, requirement_mod_id: int) -> bool:
 
 
 def get_profiles() -> list[dict]:
-    """Holt alle angelegten Profile aus der Tabelle Profiles. Falls keine existieren, wird ein Standard-Profil angelegt."""
+    """Holt alle angelegten Profile aus der Tabelle Profiles."""
     query = "SELECT ID, Name, Description FROM Profiles ORDER BY ID"
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(query)
-        rows = cursor.fetchall()
-        if not rows:
-            cursor.execute("INSERT INTO Profiles (Name, Description) VALUES (?, ?)", 
-                           ("Standard", "Automatisch erstelltes Standard-Profil"))
-            conn.commit()
-            cursor.execute(query)
-            rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) for row in cursor.fetchall()]
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_profiles: {e}")
         return []

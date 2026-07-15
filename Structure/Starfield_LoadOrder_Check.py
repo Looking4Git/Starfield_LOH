@@ -3,6 +3,7 @@ import sqlite3
 import logging
 from Structure.Paths import CHECK_LOG_FILE, STARFIELD_PLUGINS_PATH
 from Structure.Database import get_db_connection
+from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 
 def get_check_logger():
     os.makedirs(os.path.dirname(CHECK_LOG_FILE), exist_ok=True)
@@ -60,7 +61,17 @@ def run_load_order_check(log_signal=None):
             log_msg("Keine Profile in der Datenbank gefunden. Erstelle Standard-Profil...")
             cursor.execute("INSERT INTO Profiles (Name, Description) VALUES (?, ?)", 
                            ("Standard", "Automatisch erstelltes Standard-Profil"))
+            p_id = cursor.lastrowid
             conn.commit()
+            
+            # Importieren der Plugins.txt in das neue Standard-Profil mit der gleichen Funktion wie beim "Einlesen"
+            success, result = validate_plugins_for_import()
+            if success and result is not None:
+                import_plugins_to_profile(p_id, result)
+                log_msg("  -> Standard-Profil erfolgreich angelegt und initial befüllt.")
+            else:
+                log_msg("  WARNUNG: Konnte Plugins.txt für das Standard-Profil nicht validieren/importieren.")
+                
             cursor.execute("SELECT ID, Name FROM Profiles")
             profiles = cursor.fetchall()
             

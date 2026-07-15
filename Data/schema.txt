@@ -206,6 +206,7 @@ CREATE TABLE "Mods_Components" (
 CREATE TABLE "Mods_Requirements" (
                     "ID_Mod"	INTEGER NOT NULL,
                     "ID_Mod_Requirement"	INTEGER NOT NULL,
+                    "Header_Detection" INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
                     FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
                     FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE

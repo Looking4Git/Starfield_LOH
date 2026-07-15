@@ -582,6 +582,41 @@ def build_catalog_mapping(catalog_path, log_msg):
     
     return mapping
 
+def assign_header_requirements(log_msg):
+    """
+    Gleicht die in Mods_Requirements_Masterfile_List eingelesenen Masterfiles
+    mit den tatsächlich installierten Komponenten ab und trägt die gefundenen
+    Mod-zu-Mod Abhängigkeiten mit Header_Detection = 1 in Mods_Requirements ein.
+    """
+    log_msg("\n[Requirements] Abgleich der Header-Abhängigkeiten (assign_header_requirements)...")
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Alle automatisch erkannten Abhängigkeiten löschen
+        cursor.execute("DELETE FROM Mods_Requirements WHERE Header_Detection = 1")
+        
+        # 2. JOIN ausführen und neu einfügen (Selbst-Abhängigkeiten ausschließen)
+        cursor.execute("""
+            INSERT OR IGNORE INTO Mods_Requirements (ID_Mod, ID_Mod_Requirement, Header_Detection)
+            SELECT ml.ID_Mod, mc.Mod_ID, 1
+            FROM Mods_Requirements_Masterfile_List ml
+            JOIN Components c ON LOWER(ml.Masterfile) = LOWER(c.File)
+            JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            WHERE ml.ID_Mod != mc.Mod_ID
+        """)
+        inserted = cursor.rowcount
+        conn.commit()
+        log_msg(f"  -> {inserted} automatische Abhängigkeiten erfolgreich in Mods_Requirements zugewiesen.")
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_msg(f"FEHLER beim Zuweisen der Header-Abhängigkeiten: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
 def run_local_check(log_signal):
     def log_msg(msg):
         log_signal.emit(msg)
@@ -905,8 +940,9 @@ def run_local_check(log_signal):
         try:
             scan_and_update_system_components(log_msg)
             scan_and_update_mod_components(log_msg)
+            assign_header_requirements(log_msg)
         except Exception as e:
-            log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung: {str(e)}")
+            log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung oder Requirements-Zuweisung: {str(e)}")
 
         log_msg(f"\nZusammenfassung:")
         log_msg(f"- {processed_count} aktivierte Masterfiles (.esm) in Plugins_Check.txt gelesen.")

@@ -211,6 +211,13 @@ CREATE TABLE "Mods_Requirements" (
                     FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
                 )
 
+CREATE TABLE "Mods_Requirements_Masterfile_List" (
+                    "ID_Mod"     INTEGER NOT NULL,
+                    "Masterfile" TEXT NOT NULL,
+                    PRIMARY KEY("ID_Mod", "Masterfile"),
+                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
+                )
+
 CREATE TABLE "Mods_State" (
 	"ID"	INTEGER NOT NULL,
 	"State"	TEXT NOT NULL,
@@ -246,6 +253,7 @@ CREATE TABLE "Components_System" (
 CREATE INDEX "idx_mods_components_mod_id" ON "Mods_Components" ("Mod_ID");
 CREATE INDEX "idx_mods_requirements_id_mod" ON "Mods_Requirements" ("ID_Mod");
 CREATE INDEX "idx_mods_requirements_id_mod_requirement" ON "Mods_Requirements" ("ID_Mod_Requirement");
+CREATE INDEX "idx_mods_req_masterfile" ON "Mods_Requirements_Masterfile_List" ("Masterfile");
 CREATE INDEX "idx_mods_category_creations_id_mod" ON "Mods_Category_Creations" ("ID_Mod");
 
 CREATE TABLE "Components_System_LCTN" (

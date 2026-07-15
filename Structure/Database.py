@@ -279,9 +279,9 @@ def get_creation_categories_for_ui(mod_id: int) -> list[dict]:
             conn.close()
 
 def get_mod_requirements_for_ui(mod_id: int) -> list[dict]:
-    """Holt die IDs und Online-Namen aller vorausgesetzten Mods für ein Mod."""
+    """Holt die IDs und Online-Namen (mit Fallback auf Content-Catalog-Namen) aller vorausgesetzten Mods für ein Mod."""
     query = """
-        SELECT m.ID, m.Name_Online 
+        SELECT m.ID, COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannter Mod') AS Name_Online 
         FROM Mods_Requirements mr
         JOIN Mods m ON mr.ID_Mod_Requirement = m.ID
         WHERE mr.ID_Mod = :mod_id
@@ -291,7 +291,7 @@ def get_mod_requirements_for_ui(mod_id: int) -> list[dict]:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(query, {"mod_id": mod_id})
-        return [dict(row) for row in cursor.fetchall() if row["Name_Online"]]
+        return [dict(row) for row in cursor.fetchall()]
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_mod_requirements_for_ui für Mod_ID {mod_id}: {e}")
         return []
@@ -300,9 +300,9 @@ def get_mod_requirements_for_ui(mod_id: int) -> list[dict]:
             conn.close()
 
 def get_mod_dependencies_for_ui(mod_id: int) -> list[dict]:
-    """Holt die IDs und Online-Namen aller abhängigen Mods für ein Mod."""
+    """Holt die IDs und Online-Namen (mit Fallback auf Content-Catalog-Namen) aller abhängigen Mods für ein Mod."""
     query = """
-        SELECT m.ID, m.Name_Online 
+        SELECT m.ID, COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannter Mod') AS Name_Online 
         FROM Mods_Requirements mr
         JOIN Mods m ON mr.ID_Mod = m.ID
         WHERE mr.ID_Mod_Requirement = :mod_id
@@ -312,7 +312,7 @@ def get_mod_dependencies_for_ui(mod_id: int) -> list[dict]:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(query, {"mod_id": mod_id})
-        return [dict(row) for row in cursor.fetchall() if row["Name_Online"]]
+        return [dict(row) for row in cursor.fetchall()]
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_mod_dependencies_for_ui für Mod_ID {mod_id}: {e}")
         return []

@@ -317,6 +317,7 @@ def scan_and_update_mod_components(log_msg):
         """)
         components = cursor.fetchall()
         
+        cleared_mods = set()
         for comp in components:
             comp_id = comp['ID']
             file_name = comp['File']
@@ -414,6 +415,27 @@ def scan_and_update_mod_components(log_msg):
                         INSERT OR IGNORE INTO Components_ESM_CELL_Ship (Component_ID, Cell_FormID)
                         VALUES (?, ?)
                     """, insert_ship_cells)
+                
+                # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern
+                cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
+                mod_row = cursor.fetchone()
+                if mod_row:
+                    mod_id = mod_row[0]
+                    if mod_id not in cleared_mods:
+                        cursor.execute("DELETE FROM Mods_Requirements_Masterfile_List WHERE ID_Mod = ?", (mod_id,))
+                        cleared_mods.add(mod_id)
+                    
+                    masters = get_masters_list(filepath)
+                    if masters:
+                        insert_reqs = []
+                        for m in masters:
+                            if m.lower() != file_name.lower():
+                                insert_reqs.append((mod_id, m))
+                        if insert_reqs:
+                            cursor.executemany("""
+                                INSERT OR IGNORE INTO Mods_Requirements_Masterfile_List (ID_Mod, Masterfile)
+                                VALUES (?, ?)
+                            """, insert_reqs)
                 
                 conn.commit()
                 log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}, Ship Cells: {len(ship_cells_found)}")

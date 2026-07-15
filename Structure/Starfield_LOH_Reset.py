@@ -33,6 +33,7 @@ def reset_database(log_signal=None):
             "Mods_Category_Creations",
             "Components",
             "Mods_Requirements",
+            "Mods_Requirements_Masterfile_List",
             "LoadOrder",
             "Mods",
             "Profiles"

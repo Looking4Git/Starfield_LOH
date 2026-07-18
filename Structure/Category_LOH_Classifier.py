@@ -548,25 +548,13 @@ def _has_playerhome_cells(row, cursor, component_id):
 
 def _has_ship_cells(row, cursor, component_id):
     """Prüft, ob die Komponente Schiffs-Zell-Merkmale besitzt."""
-    # 1. Prüfen, ob die Mod Schiffs-Zellen verändert
+    # Prüfen, ob die Mod Schiffs-Zellen verändert
     cursor.execute("""
         SELECT 1 FROM Components_ESM_CELL_Ship
         WHERE Component_ID = ?
         LIMIT 1
     """, (component_id,))
-    has_ship_cells_in_db = cursor.fetchone() is not None
-    
-    # 2. Prüfen, ob die Mod überhaupt strukturelle/dekorative/platzierte Objekte besitzt
-    stat = row.get('STAT') or 0
-    stat_o = row.get('STAT_Override') or 0
-    furn = row.get('FURN') or 0
-    furn_o = row.get('FURN_Override') or 0
-    pkin = row.get('PKIN') or 0
-    refr = row.get('REFR') or 0
-    refr_o = row.get('REFR_Override') or 0
-    has_placements = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0 or refr > 0 or refr_o > 0)
-    
-    return has_ship_cells_in_db and has_placements
+    return cursor.fetchone() is not None
 
 
 def _exclude_non_city(row, cursor, cat_ids):

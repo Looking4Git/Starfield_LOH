@@ -269,10 +269,10 @@ def scan_and_update_system_components(log_msg):
                 if cell_locations:
                     insert_cells = []
                     for cl in cell_locations:
-                        insert_cells.append((sys_id, cl['cell_form_id'], cl['form_id_lctn']))
+                        insert_cells.append((sys_id, cl['cell_form_id'], cl['form_id_lctn'], cl.get('is_pack_in', 0)))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_System_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN)
-                        VALUES (?, ?, ?)
+                        INSERT OR IGNORE INTO Components_System_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
+                        VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
                 # Schiffs-Zellen in Components_System_CELL_Ship speichern
@@ -383,10 +383,10 @@ def scan_and_update_mod_components(log_msg):
                 if cell_locations:
                     insert_cells = []
                     for cl in cell_locations:
-                        insert_cells.append((comp_id, cl['cell_form_id'], cl['form_id_lctn']))
+                        insert_cells.append((comp_id, cl['cell_form_id'], cl['form_id_lctn'], cl.get('is_pack_in', 0)))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN)
-                        VALUES (?, ?, ?)
+                        INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
+                        VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
                 # Schiffs-Zellen in Components_ESM_CELL_Ship speichern

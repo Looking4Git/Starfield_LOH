@@ -57,17 +57,21 @@ def extract_esm_locations_and_cells(file_path):
             decompressed_data = decompress_payload(f, data_size, flags)
             if decompressed_data:
                 xlcn_val = None
+                edid = ""
                 
                 for sub_sig, sub_data in iter_subrecords(decompressed_data):
                     if sub_sig == b'XLCN' and len(sub_data) >= 4:
                         xlcn_fid = struct.unpack('<I', sub_data[0:4])[0]
                         xlcn_val = xlcn_fid & 0x00FFFFFF
-                        break # Wir brauchen nur das erste XLCN
+                    elif sub_sig == b'EDID':
+                        edid = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
                         
                 if xlcn_val is not None:
+                    is_pack_in = 1 if (edid and "packin" in edid.lower()) else 0
                     cell_locations.append({
                         'cell_form_id': form_id & 0x00FFFFFF,
-                        'form_id_lctn': xlcn_val
+                        'form_id_lctn': xlcn_val,
+                        'is_pack_in': is_pack_in
                     })
                     
     return locations, cell_locations

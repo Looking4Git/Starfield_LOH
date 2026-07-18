@@ -345,6 +345,7 @@ CREATE TABLE "Components_System_CELL_LCTN" (
 	"Component_ID"	INTEGER NOT NULL,
 	"Cell_FormID"	INTEGER NOT NULL,
 	"FormID_LCTN"	INTEGER NOT NULL,
+	"Is_PackIn"	INTEGER DEFAULT 0,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
 );
@@ -357,6 +358,7 @@ CREATE TABLE "Components_ESM_CELL_LCTN" (
 	"Component_ID"	INTEGER NOT NULL,
 	"Cell_FormID"	INTEGER NOT NULL,
 	"FormID_LCTN"	INTEGER NOT NULL,
+	"Is_PackIn"	INTEGER DEFAULT 0,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );
@@ -413,6 +415,7 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
@@ -426,12 +429,41 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
           )
           AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Override_City,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
+          )
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_City_PackIn,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
+          )
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_City_PackIn,
 
     -- Siedlungen (LCTN Keyword 140817 + EDID enthält NICHT 'city')
     (
@@ -440,6 +472,7 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
@@ -453,12 +486,41 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
           )
           AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Override_Settlement,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
+          )
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Settlement_PackIn,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
+          )
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Settlement_PackIn,
 
     -- Spielerheime (LCTN Keyword 3076722)
     (
@@ -467,6 +529,7 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
           AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Playerhome,
@@ -477,9 +540,32 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
           AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Override_Playerhome,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Playerhome_PackIn,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Playerhome_PackIn,
 
     -- Dungeons (LCTN Keyword 152764)
     (
@@ -488,6 +574,7 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
           AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Dungeon,
@@ -498,9 +585,32 @@ SELECT
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
         LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
         WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
           AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Override_Dungeon,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Dungeon_PackIn,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 1
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Dungeon_PackIn,
 
     -- Schiffe (aus Components_ESM_CELL_Ship)
     (

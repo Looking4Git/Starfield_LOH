@@ -649,6 +649,76 @@ SELECT
     MAX(0, ref.CELL - ref.CELL_PackIn) AS calc_CELL_real,
     MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn) AS calc_CELL_Override_real,
 
+    MAX(0, ref.CELL - ref.CELL_PackIn - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 0
+          AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    )) AS calc_CELL_Environment,
+
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND cc.Is_PackIn = 0
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) - (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 0
+          AND Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    )) AS calc_CELL_Override_Environment,
+
     -- Alle originalen Zähler-Referenzen
     ref.*
 FROM Components_ESM_References ref

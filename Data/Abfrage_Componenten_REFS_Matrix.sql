@@ -1,1 +1,0 @@
-SELECT * FROM View_Components_References_Matrix;

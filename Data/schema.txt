@@ -365,6 +365,7 @@ CREATE TABLE "Components_System_CELL_Ship" (
 	"ID"	INTEGER NOT NULL,
 	"Component_ID"	INTEGER NOT NULL,
 	"Cell_FormID"	INTEGER NOT NULL,
+	"Is_PackIn"	INTEGER DEFAULT 0,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
 );
@@ -375,6 +376,7 @@ CREATE TABLE "Components_ESM_CELL_Ship" (
 	"ID"	INTEGER NOT NULL,
 	"Component_ID"	INTEGER NOT NULL,
 	"Cell_FormID"	INTEGER NOT NULL,
+	"Is_PackIn"	INTEGER DEFAULT 0,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );
@@ -505,6 +507,7 @@ SELECT
         SELECT COUNT(DISTINCT Cell_FormID) 
         FROM Components_ESM_CELL_Ship 
         WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 0
           AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
     ) AS qry_CELL_Ship,
 
@@ -512,8 +515,25 @@ SELECT
         SELECT COUNT(DISTINCT Cell_FormID) 
         FROM Components_ESM_CELL_Ship 
         WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 0
           AND Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
     ) AS qry_CELL_Override_Ship,
+
+    (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 1
+          AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    ) AS qry_CELL_Ship_PackIn,
+
+    (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Is_PackIn = 1
+          AND Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    ) AS qry_CELL_Override_Ship_PackIn,
 
     -- --- BERECHNETE WERTE (Präfix calc_) ---
     MAX(0, ref.CELL - ref.CELL_PackIn) AS calc_CELL_real,

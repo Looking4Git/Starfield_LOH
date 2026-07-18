@@ -32,8 +32,10 @@ def extract_esm_ship_cells(file_path):
                         break # Wir benötigen nur die EDID der Zelle
                 
                 if edid and SHIP_CELL_PATTERN.search(edid):
+                    is_pack_in = 1 if "packin" in edid.lower() else 0
                     ship_cells.append({
-                        'cell_form_id': form_id & 0x00FFFFFF
+                        'cell_form_id': form_id & 0x00FFFFFF,
+                        'is_pack_in': is_pack_in
                     })
                     
     return ship_cells

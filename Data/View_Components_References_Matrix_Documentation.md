@@ -32,8 +32,11 @@ Diese Spalten werden im VIEW dynamisch über verknüpfte Unterabfragen aus den S
     *   **Bedeutung:** Zählt Zellen, die als Dungeon/feindliche Struktur deklariert sind.
     *   **Ermittlung:** Abgleich der Mod-Zellen gegen das Location-Keyword `152764` (`loctypedungeon`).
 *   **`qry_CELL_Ship` / `qry_CELL_Override_Ship`**:
-    *   **Bedeutung:** Zählt Zellen, die als Schiffskabine / Modul-Innenraum deklariert sind.
-    *   **Ermittlung:** Abgleich gegen die Schiffszellentabelle `Components_ESM_CELL_Ship` (neu vs. System-Schiffszelle).
+    *   **Bedeutung:** Zählt **echte** Schiffszellen / Modul-Innenräume (ohne PackIn-Templates).
+    *   **Ermittlung:** Abgleich gegen die Schiffszellentabelle `Components_ESM_CELL_Ship` (neu vs. System-Schiffszelle) mit dem Filter `Is_PackIn = 0`.
+*   **`qry_CELL_Ship_PackIn` / `qry_CELL_Override_Ship_PackIn`**:
+    *   **Bedeutung:** Zählt Schiffszellen / Modul-Innenräume, die reine PackIn-Templates sind.
+    *   **Ermittlung:** Abgleich gegen die Schiffszellentabelle `Components_ESM_CELL_Ship` (neu vs. System-Schiffszelle) mit dem Filter `Is_PackIn = 1`.
 
 ---
 

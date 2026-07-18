@@ -281,10 +281,10 @@ def scan_and_update_system_components(log_msg):
                 if ship_cells:
                     insert_ship_cells = []
                     for sc in ship_cells:
-                        insert_ship_cells.append((sys_id, sc['cell_form_id']))
+                        insert_ship_cells.append((sys_id, sc['cell_form_id'], sc.get('is_pack_in', 0)))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_System_CELL_Ship (Component_ID, Cell_FormID)
-                        VALUES (?, ?)
+                        INSERT OR IGNORE INTO Components_System_CELL_Ship (Component_ID, Cell_FormID, Is_PackIn)
+                        VALUES (?, ?, ?)
                     """, insert_ship_cells)
                 
                 conn.commit()
@@ -405,15 +405,16 @@ def scan_and_update_mod_components(log_msg):
                     fid = cell['cell_form_id']
                     edid = cell['edid']
                     if (edid and SHIP_CELL_PATTERN.search(edid)) or fid in sys_ship_cells:
-                        ship_cells_found.append(fid)
+                        is_pack_in = 1 if (edid and "packin" in edid.lower()) else 0
+                        ship_cells_found.append((fid, is_pack_in))
                 
                 if ship_cells_found:
                     insert_ship_cells = []
-                    for fid in ship_cells_found:
-                        insert_ship_cells.append((comp_id, fid))
+                    for fid, is_pack_in in ship_cells_found:
+                        insert_ship_cells.append((comp_id, fid, is_pack_in))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_CELL_Ship (Component_ID, Cell_FormID)
-                        VALUES (?, ?)
+                        INSERT OR IGNORE INTO Components_ESM_CELL_Ship (Component_ID, Cell_FormID, Is_PackIn)
+                        VALUES (?, ?, ?)
                     """, insert_ship_cells)
                 
                 # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern

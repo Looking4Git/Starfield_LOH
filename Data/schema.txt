@@ -383,4 +383,145 @@ CREATE UNIQUE INDEX "idx_esm_cell_ship_unique" ON "Components_ESM_CELL_Ship" ("C
 CREATE INDEX "idx_sys_cell_ship_lookup" ON "Components_System_CELL_Ship" ("Cell_FormID");
 CREATE INDEX "idx_esm_cell_ship_lookup" ON "Components_ESM_CELL_Ship" ("Cell_FormID");
 
-CREATE TABLE sqlite_sequence(name,seq)
+CREATE TABLE sqlite_sequence(name,seq);
+
+CREATE VIEW IF NOT EXISTS "View_Components_References_Matrix" AS
+SELECT 
+    m.Name_Online AS Mod_Name,
+    c.File AS Component_File,
+    cat.Name AS Category_LOH,
+    cat_class.Name AS Category_LOH_Classifier,
+    
+    -- Matrix der LOH-Klassen
+    mat."1" AS "BGS", mat."2" AS "Bugfix", mat."3" AS "Overhaul", mat."4" AS "Quest", 
+    mat."5" AS "Umgebung", mat."6" AS "Städte", mat."7" AS "Gebäude", mat."8" AS "Spielerheime", 
+    mat."30" AS "Außenposten", mat."31" AS "Einrichtung", mat."9" AS "POIs", mat."10" AS "Pflanzen", 
+    mat."11" AS "Gameplay", mat."12" AS "NPCs", mat."32" AS "Begleiter", mat."33" AS "Kreaturen", 
+    mat."13" AS "Texturen", mat."14" AS "Licht", mat."15" AS "Effekte", mat."16" AS "Sound", 
+    mat."17" AS "Interface", mat."18" AS "Sortierung", mat."19" AS "Tweaks", mat."20" AS "Charakter", 
+    mat."21" AS "Kleidung", mat."22" AS "Waffen", mat."23" AS "Crafting", mat."24" AS "Schiffe", 
+    mat."25" AS "Fahrzeuge", mat."26" AS "Items", mat."27" AS "Skins", mat."28" AS "Remove",
+    
+    -- --- DYNAMISCH ERMITTELTE ZELLEN (Präfix qry_) ---
+    
+    -- Städte (LCTN Keyword 140817 + EDID enthält 'city')
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
+          )
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_City,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
+          )
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_City,
+
+    -- Siedlungen (LCTN Keyword 140817 + EDID enthält NICHT 'city')
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
+          )
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Settlement,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (
+              (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
+              OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
+          )
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Settlement,
+
+    -- Spielerheime (LCTN Keyword 3076722)
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Playerhome,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Playerhome,
+
+    -- Dungeons (LCTN Keyword 152764)
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Dungeon,
+
+    (
+        SELECT COUNT(DISTINCT cc.Cell_FormID) 
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 152764
+        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 152764
+        WHERE cc.Component_ID = ref.Component_ID
+          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
+          AND cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
+    ) AS qry_CELL_Override_Dungeon,
+
+    -- Schiffe (aus Components_ESM_CELL_Ship)
+    (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    ) AS qry_CELL_Ship,
+
+    (
+        SELECT COUNT(DISTINCT Cell_FormID) 
+        FROM Components_ESM_CELL_Ship 
+        WHERE Component_ID = ref.Component_ID
+          AND Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+    ) AS qry_CELL_Override_Ship,
+
+    -- Alle originalen Zähler-Referenzen
+    ref.*
+FROM Components_ESM_References ref
+JOIN Components c ON ref.Component_ID = c.ID
+LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID
+LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
+LEFT JOIN LoadOrder_Classifier_Matrix mat ON m.ID = mat.Mod_ID AND c.ID = mat.Component_ID
+WHERE c.Is_Blueprint = 0 AND c.Is_Masterfile > 0;

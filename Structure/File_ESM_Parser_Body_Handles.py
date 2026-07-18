@@ -27,7 +27,7 @@ MOD_POINTER_COLS = [
     'GLOB', 'GLOB_Override',
 
     # Gravity 2: World & Structure
-    'WRLD', 'CELL', 'CELL_Override', 'NVNM', 'NAVM', 'REFR',
+    'WRLD', 'CELL', 'CELL_Override', 'CELL_Override_PackIn', 'CELL_PackIn', 'NVNM', 'NAVM', 'REFR',
     'STAT', 'STAT_Override', 'FURN', 'FURN_Override',
     'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
     'TERM',
@@ -60,7 +60,10 @@ MOD_POINTER_COLS = [
     'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove', 'FLOR_Remove', 'TREE_Remove',
     'LVLI', 'LVLI_Override', 'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'FLST', 'FLST_Override',
     'MISC', 'MISC_Override', 'KEYM', 'KEYM_Override', 'BOOK', 'BOOK_Override',
-    'MSWP', 'MSWP_Override', 'OMOD', 'OMOD_Override', 'LMSW', 'LMSW_Override', 'MUSC', 'MUSC_Override'
+    'MSWP', 'MSWP_Override', 'OMOD', 'OMOD_Override', 'LMSW', 'LMSW_Override', 'MUSC', 'MUSC_Override',
+    'INNR', 'INNR_Override', 'MSTT', 'MSTT_Override', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Ship',
+    'WTHR', 'WTHR_Override', 'CLMT', 'CLMT_Override', 'REGN', 'REGN_Override',
+    'IMAD', 'IMAD_Override'
 ]
 
 POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität
@@ -101,7 +104,8 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
         b'SPAC', b'SHST', b'SMOD', b'SFBK', b'VEHI', b'VMOD',
         b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'VFXS', b'ALCH',
         b'GLOB', b'LCTN', b'RACE', b'LVLI', b'LVLN', b'LVLP', b'FLST',
-        b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC'
+        b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC', b'INNR',
+        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD'
     }
     
     if num_full_masters is None:
@@ -182,6 +186,34 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
                 )
                 if is_override:
                     local_counts[f"{sig_str}_Override"] += 1
+                    
+                    # Spezialfall CELL_Override_PackIn: Prüfe, ob die Zelle ein PackIn ist
+                    if sig == b'CELL':
+                        is_packin = False
+                        decompressed_data = decompress_payload(f, data_size, flags)
+                        if decompressed_data:
+                            for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                                if sub_sig == b'EDID':
+                                    edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                                    if "packin" in edid_str:
+                                        is_packin = True
+                                    break
+                        if is_packin:
+                            local_counts['CELL_Override_PackIn'] += 1
+                else:
+                    # Spezialfall CELL_PackIn: Prüfe, ob die neu angelegte Zelle ein PackIn ist
+                    if sig == b'CELL':
+                        is_packin = False
+                        decompressed_data = decompress_payload(f, data_size, flags)
+                        if decompressed_data:
+                            for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                                if sub_sig == b'EDID':
+                                    edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                                    if "packin" in edid_str:
+                                        is_packin = True
+                                    break
+                        if is_packin:
+                            local_counts['CELL_PackIn'] += 1
 
             # 5. Spezialfall: QUST
             if sig == b'QUST' and 'QUST_FULL' in local_counts:
@@ -301,6 +333,27 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
                             local_counts['FURN_VWWD'] += 1
                         elif sub_sig == b'VCTT':
                             local_counts['FURN_VCTT'] += 1
+                continue
+                
+            # 10. Spezialfall: COBJ
+            if sig == b'COBJ' and not is_core:
+                decompressed_data = decompress_payload(f, data_size, flags)
+                if decompressed_data:
+                    for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                        if sub_sig == b'BNAM' and len(sub_data) >= 4:
+                            bnam_val = struct.unpack('<I', sub_data[:4])[0]
+                            masked_bnam = bnam_val & 0x00FFFFFF
+                            # Heavy: Extraktoren, Power, Defenses, Builders
+                            if masked_bnam in {0x00008406, 0x0005A6DE, 0x001E6641, 0x002731A0}:
+                                local_counts['COBJ_BNAM_Outpost_Heavy'] += 1
+                                break
+                            # Soft: Strukturen, Diverses, Roboter, Storage, Crafting
+                            elif masked_bnam in {0x0006D72D, 0x000E6A3E, 0x001D9F5F, 0x0027319A, 0x002A7578, 0x002CFDE6}:
+                                local_counts['COBJ_BNAM_Outpost_Soft'] += 1
+                                break
+                            elif masked_bnam == 0x0029C480:
+                                local_counts['COBJ_BNAM_Ship'] += 1
+                                break
                 continue
 
             # 10. Spezialfall: LIGH

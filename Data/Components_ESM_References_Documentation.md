@@ -28,10 +28,11 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 ## 3. Gravity 2: World & Structure (Weltplatzierungen und Strukturen)
 
 *   **WRLD**: *Worldspace*. Ganze Planetenoberflächen oder große Außenbereiche.
-*   **CELL / CELL_Override**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume).
+*   **CELL / CELL_Override / CELL_Override_PackIn / CELL_PackIn**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume). `CELL_Override_PackIn` erfasst Zell-Überschreibungen, bei denen die Editor-ID auf ein Pack-In oder eine Storage-Schablonenzelle hinweist (z. B. enthaltend "packin"). `CELL_PackIn` erfasst neu angelegte Zellen, die als Pack-In-Storage-Schablonenzellen deklariert sind.
 *   **NVNM / NAVM**: *NavMesh*. Navigationspfade für Begleiter und NPCs. Zeigt an, dass die Wegfindung modifiziert oder neu angelegt wurde.
 *   **REFR**: *Placed Object Reference*. Konkrete Platzierung eines Objekts in einer Zelle (z. B. eine Kiste, ein Tisch, ein NPC).
 *   **STAT / STAT_Override**: *Static*. Unbewegliche 3D-Modelle (Häuser, Felsen, Wände, Deko-Objekte).
+*   **MSTT / MSTT_Override**: *Movable Static*. Bewegliche statische Objekte (z. B. Becher, physikalisch bewegliche Dekorationsgegenstände, Gerüste).
 *   **FURN / FURN_Override**: *Furniture*. Möbel und interaktive Stationsplatzierungen (Stühle, Betten, Werkbänke).
     *   **FURN_VMRT** (*Vehicle Mount*): Plätze für Fahrzeuginsassen (Sitze).
     *   **FURN_VCMT** (*Vehicle Camera*): Kameraperspektiven an Fahrzeugen.
@@ -45,6 +46,9 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
     *   **LCTN_KYWD_Dungeon**: Zähler für Standorte, die als Dungeon klassifiziert sind (Keyword `0x254bc`).
 *   **FLOR / FLOR_Override**: *Flora*. Pflanzen-Definitionen, erntebare organische Ressourcen und Gewächshaus-Erzeugnisse.
 *   **TREE / TREE_Override**: *Tree*. Baum-Definitionen, größere Landschafts- und Waldvegetationsobjekte.
+*   **WTHR / WTHR_Override**: *Weather*. Wetter-Definitionen (Niederschlag, Wolken, Wind, Himmelsfarben).
+*   **CLMT / CLMT_Override**: *Climate*. Klimazyklen (Tag-Nacht-Rhythmen, Wetterverteilungen für Planeten).
+*   **REGN / REGN_Override**: *Region*. Geografische Planeten-Regionen, die Klimazonen und Wetterverteilungen verknüpfen.
 
 ---
 
@@ -80,6 +84,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **ENCH / ENCH_Override**: *Enchantment*. Verzauberungen und Waffen-/Rüstungseffekte.
 *   **VFXS / VFXS_Override**: *Visual Effect*. Partikeleffekte (Rauch, Funken, Explosionen).
 *   **ALCH / ALCH_Override**: *Alchemy*. Chemikalien, Nahrungsmittel, Medizin und Tränke.
+*   **IMAD / IMAD_Override**: *Image Space Modifier*. Post-Processing-Shader, Farbkorrekturen (Farbton, Helligkeit, Sättigung, Depth of Field) für Wetter und Bildschirmeffekte.
 
 ---
 
@@ -94,6 +99,9 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **APWR**: *Armor Addon / Wearable Modifier*. Rüstungsteile und Modifikations-Slots für Kleidung.
 *   **OMOD / OMOD_Override**: *Object Modification*. Modifikationen für Waffen und Rüstungen (wird in Starfield auch zur Anwendung von Skins verwendet).
 *   **COBJ / COBJ_Override**: *Constructible Object*. Handwerksrezepte für Werkbänke und das Außenposten-Bausystem.
+*   **COBJ_BNAM_Outpost_Heavy**: Zähler für rezepthinterlegte Außenposten-Kernkomponenten (Extraktoren `0x00008406`, Stromgeneratoren `0x0005A6DE`, Verteidigungsanlagen `0x001E6641`, Fabrikatoren `0x002731A0`). Weist eindeutig auf eine funktionale Außenposten-System-Mod hin.
+*   **COBJ_BNAM_Outpost_Soft**: Zähler für rezepthinterlegte Außenposten-Struktur- und Dekoelemente (Habs `0x002A7578`, Missionstafeln/Crewstationen `0x0006D72D`, Innenausstattungen `0x000E6A3E`, Roboter `0x001D9F5F`, Container/Lagerplätze `0x0027319A`, Werkbänke `0x002CFDE6`). Kann sowohl in Außenposten- als auch in reichhaltigen Einrichtungsmods vorkommen.
+*   **COBJ_BNAM_Ship**: Rezepte für den Schiffsbau-Editor (Shipbuilder). Erkennung durch Abgleich der Workbench (`BNAM`) gegen das Schiffbau-Keyword `workbenchshipbuildingkeyword` (`0x0029C480`).
 *   **SPAC / SPAC_Override**: *Spaceship*. Raumschiffe und deren Kern-Layouts.
 *   **SHST / SHST_Override**: *Ship Structure*. Bauteile und Triebwerksparameter von Schiffen.
 *   **SMOD / SMOD_Override**: *Ship Module*. Waffen, Schilde, Antriebe und Reaktoren für Raumschiffe.
@@ -119,6 +127,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **MISC / MISC_Override**: *Misc Object*. Sonstige Objekte, Ressourcen, Trays (Tabletts), Schneekugeln und Schrott.
 *   **KEYM / KEYM_Override**: *Key*. Schlüssel und Schlüsselkarten für Schlösser und Türen.
 *   **BOOK / BOOK_Override**: *Book*. Bücher, Notizen, Slates und Datenpads.
+*   **INNR / INNR_Override**: *Instance Naming Rules*. Namensregeln zur dynamischen Namensvergabe von Gegenständen wie Waffen und Rüstungen. Wird primär für Sortierungs-Mods (Item Sorters) verwendet.
 
 ---
 

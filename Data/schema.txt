@@ -60,6 +60,7 @@ CREATE TABLE "Components_ESM_References" (
         "CELL"                  INTEGER DEFAULT 0,
         "CELL_Override"         INTEGER DEFAULT 0,
         "CELL_Override_PackIn"  INTEGER DEFAULT 0,
+        "CELL_PackIn"           INTEGER DEFAULT 0,
         "NVNM"                  INTEGER DEFAULT 0,
         "NAVM"                  INTEGER DEFAULT 0,
         "REFR"                  INTEGER DEFAULT 0,

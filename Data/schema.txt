@@ -420,7 +420,6 @@ SELECT
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
           )
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_City,
 
     (
@@ -448,7 +447,6 @@ SELECT
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) LIKE '%city%')
           )
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_City_PackIn,
 
     (
@@ -477,7 +475,6 @@ SELECT
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
           )
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Settlement,
 
     (
@@ -505,7 +502,6 @@ SELECT
               (sl.FormID_Local IS NOT NULL AND LOWER(sl.EDID) NOT LIKE '%city%')
               OR (el.FormID_Local IS NOT NULL AND LOWER(el.EDID) NOT LIKE '%city%')
           )
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Settlement_PackIn,
 
     (
@@ -531,7 +527,6 @@ SELECT
         WHERE cc.Component_ID = ref.Component_ID
           AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Playerhome,
 
     (
@@ -553,7 +548,6 @@ SELECT
         WHERE cc.Component_ID = ref.Component_ID
           AND cc.Is_PackIn = 1
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Playerhome_PackIn,
 
     (
@@ -576,7 +570,6 @@ SELECT
         WHERE cc.Component_ID = ref.Component_ID
           AND cc.Is_PackIn = 0
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Dungeon,
 
     (
@@ -598,7 +591,6 @@ SELECT
         WHERE cc.Component_ID = ref.Component_ID
           AND cc.Is_PackIn = 1
           AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-          AND cc.Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
     ) AS qry_CELL_Dungeon_PackIn,
 
     (
@@ -618,7 +610,6 @@ SELECT
         FROM Components_ESM_CELL_Ship 
         WHERE Component_ID = ref.Component_ID
           AND Is_PackIn = 0
-          AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
     ) AS qry_CELL_Ship,
 
     (
@@ -634,7 +625,6 @@ SELECT
         FROM Components_ESM_CELL_Ship 
         WHERE Component_ID = ref.Component_ID
           AND Is_PackIn = 1
-          AND Cell_FormID NOT IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
     ) AS qry_CELL_Ship_PackIn,
 
     (

@@ -2,6 +2,12 @@
 
 Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `Components_ESM_References` für die Klassifizierung von Starfield-Modifikationen im Rahmen von **Starfield LOH**.
 
+> [!NOTE]
+> **Allgemeine Leseart des Datenmodells:**
+> *   **Stamm-Zähler** (z. B. `CELL`, `STAT`, `WEAP`, `LIGH`): Die **Gesamtzahl** aller Einträge dieses Typs in der Mod-Datei (Neu + Überschrieben).
+> *   **Suffix `_Override`** (z. B. `CELL_Override`, `STAT_Override`, `WEAP_Override`): Der **Teilbereich** der Gesamtzahl, der bestehende Einträge aus Masterfiles überschreibt.
+> *   **Echte neue Einträge** ergeben sich folglich immer durch die Subtraktion: `Stamm-Zähler - Suffix_Override`.
+
 ---
 
 ## 1. Übergreifende Spalten

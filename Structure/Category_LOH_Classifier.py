@@ -478,7 +478,7 @@ def _check_has_sound(cursor, mod_id):
     return False
 
 
-def _check_is_city(row, cursor, component_id):
+def _has_city_cells(row, cursor, component_id):
     """Prüft, ob die Komponente städtische Merkmale besitzt."""
     # 1. Prüfen, ob die Mod eigene Stadt-/Siedlungs-Locations definiert
     cursor.execute("""
@@ -513,7 +513,7 @@ def _check_is_city(row, cursor, component_id):
     return has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
 
 
-def _check_is_playerhome(row, cursor, component_id):
+def _has_playerhome_cells(row, cursor, component_id):
     """Prüft, ob die Komponente Spielerheim-Merkmale besitzt."""
     # 1. Prüfen, ob die Mod eigene Spielerheim-Locations definiert (in Components_ESM_LCTN oder über LCTN_KYWD_Playerhome)
     cursor.execute("""
@@ -523,7 +523,7 @@ def _check_is_playerhome(row, cursor, component_id):
         LIMIT 1
     """, (component_id,))
     has_own_playerhome_lctn = cursor.fetchone() is not None or (row.get('LCTN_KYWD_Playerhome') or 0) > 0
-
+ 
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einem Spielerheim gehören
     cursor.execute("""
         SELECT 1 FROM Components_ESM_CELL_LCTN cc
@@ -534,7 +534,7 @@ def _check_is_playerhome(row, cursor, component_id):
         LIMIT 1
     """, (component_id,))
     has_playerhome_cell_override = cursor.fetchone() is not None
-
+ 
     # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
     stat = row.get('STAT') or 0
     stat_o = row.get('STAT_Override') or 0
@@ -546,6 +546,29 @@ def _check_is_playerhome(row, cursor, component_id):
     return has_own_playerhome_lctn or (has_playerhome_cell_override and has_structural_objects)
 
 
+def _has_ship_cells(row, cursor, component_id):
+    """Prüft, ob die Komponente Schiffs-Zell-Merkmale besitzt."""
+    # 1. Prüfen, ob die Mod Schiffs-Zellen verändert
+    cursor.execute("""
+        SELECT 1 FROM Components_ESM_CELL_Ship
+        WHERE Component_ID = ?
+        LIMIT 1
+    """, (component_id,))
+    has_ship_cells_in_db = cursor.fetchone() is not None
+    
+    # 2. Prüfen, ob die Mod überhaupt strukturelle/dekorative/platzierte Objekte besitzt
+    stat = row.get('STAT') or 0
+    stat_o = row.get('STAT_Override') or 0
+    furn = row.get('FURN') or 0
+    furn_o = row.get('FURN_Override') or 0
+    pkin = row.get('PKIN') or 0
+    refr = row.get('REFR') or 0
+    refr_o = row.get('REFR_Override') or 0
+    has_placements = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0 or refr > 0 or refr_o > 0)
+    
+    return has_ship_cells_in_db and has_placements
+
+
 def _exclude_non_city(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
@@ -553,7 +576,7 @@ def _exclude_non_city(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
     
-    is_city = _check_is_city(row, cursor, component_id)
+    is_city = _has_city_cells(row, cursor, component_id)
     
     if not is_city:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")
@@ -593,11 +616,12 @@ def _exclude_non_building(row, cursor, cat_ids):
         # Dynamische POIs sind niemals statische Gebäude
         is_building = False
     else:
-        # 2. Prüfen, ob sich die Anpassung in einer Stadt/Siedlung befindet oder ein Spielerheim ist
-        is_in_city = _check_is_city(row, cursor, component_id)
-        is_playerhome = _check_is_playerhome(row, cursor, component_id)
+        # 2. Prüfen, ob sich die Anpassung in einer Stadt/Siedlung befindet, ein Spielerheim oder eine Schiffsmod ist
+        is_in_city = _has_city_cells(row, cursor, component_id)
+        is_playerhome = _has_playerhome_cells(row, cursor, component_id)
+        is_ship = _has_ship_cells(row, cursor, component_id)
         
-        if is_in_city or is_playerhome:
+        if is_in_city or is_playerhome or is_ship:
             is_building = False
         else:
             # 3. Vorhandensein von statischen/strukturellen Objekten prüfen
@@ -647,7 +671,7 @@ def _exclude_non_playerhome(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
     
-    is_playerhome = _check_is_playerhome(row, cursor, component_id)
+    is_playerhome = _has_playerhome_cells(row, cursor, component_id)
     
     if not is_playerhome:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Spielerheime'")
@@ -1131,9 +1155,12 @@ def _exclude_non_vehicle(row, cursor, cat_ids):
 
 def _exclude_non_ship(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Schiffsmod (SPAC, SPAC_Override, SHST, SHST_Override, SMOD, SMOD_Override, GBFM (abzüglich Crowd- und Fahrzeug-Regionen), WEAP_KWDA_Ship, STMP, STND oder STBH) vorliegen.
+    Prüft, ob Referenzen für eine Schiffsmod (SPAC, SPAC_Override, SHST, SHST_Override, SMOD, SMOD_Override, GBFM (abzüglich Crowd- und Fahrzeug-Regionen), WEAP_KWDA_Ship, STMP, STND oder STBH) vorliegen, oder Schiffs-Zellen verändert werden.
     Wenn nicht, wird die Kategorie 'Schiffe' (24) in der Ausschlussmatrix auf 0 gesetzt.
     """
+    mod_id = row.get('Mod_ID') or row.get('ID')
+    component_id = row.get('Component_ID')
+    
     spac = row.get('SPAC') or 0
     spac_o = row.get('SPAC_Override') or 0
     shst = row.get('SHST') or 0
@@ -1151,10 +1178,11 @@ def _exclude_non_ship(row, cursor, cat_ids):
     # Echte Schiffskonfigurationen (GBFM abzüglich Crowd- und Fahrzeug-Blaupausen)
     ship_gbfm = gbfm - gbfm_crowd - gbfm_vehicle
     
+    # Prüfe Schiffs-Zellen-Eingriffe
+    is_ship = _has_ship_cells(row, cursor, component_id)
+    
     if (spac == 0 and spac_o == 0 and shst == 0 and shst_o == 0 and smod == 0 and smod_o == 0 
-            and ship_gbfm <= 0 and weap_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0):
-        mod_id = row.get('Mod_ID') or row.get('ID')
-        component_id = row.get('Component_ID')
+            and ship_gbfm <= 0 and weap_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0 and not is_ship):
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Schiffe'")
         s_row = cursor.fetchone()
@@ -1170,7 +1198,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
                 SET "{ship_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Schiffe' ausgeschlossen (keine SPAC/SHST/SMOD/WEAP_KWDA_Ship/STMP/STND/STBH-Referenzen)."
+            return "Kategorie 'Schiffe' ausgeschlossen (keine SPAC/SHST/SMOD/WEAP_KWDA_Ship/STMP/STND/STBH-Referenzen oder Schiffs-Zellen vorhanden)."
     return None
 
 def _exclude_non_remover(row, cursor, cat_ids):

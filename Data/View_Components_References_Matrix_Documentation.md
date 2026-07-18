@@ -35,16 +35,20 @@ Diese Spalten werden im VIEW dynamisch über verknüpfte Unterabfragen aus den S
     *   **Bedeutung:** Zählt Zellen, die als Schiffskabine / Modul-Innenraum deklariert sind.
     *   **Ermittlung:** Abgleich gegen die Schiffszellentabelle `Components_ESM_CELL_Ship` (neu vs. System-Schiffszelle).
 
-
 ---
 
-## 3. Zukünftige Kalkulationswerte (Präfix `calc_`)
+## 3. Berechnete Kalkulationswerte (Präfix `calc_`)
 
-*Dieser Abschnitt ist für zukünftige Phasen reserviert.*
+Diese Spalten führen mathematische Berechnungen direkt in SQL aus, um bereinigte Daten für die Prüfregeln bereitzustellen:
 
-Hier werden Spalten mit dem Präfix `calc_` aufgenommen, welche die finalen mathematischen Berechnungen (z. B. Abzug der PackIns von den physischen Zellen zur Ermittlung der echten Wildniszellen) direkt in SQL abbilden. 
+*   **`calc_CELL_real`**:
+    *   **Bedeutung:** Die Anzahl der tatsächlich real implementierten neuen Weltzellen.
+    *   **Berechnung:** `MAX(0, CELL - CELL_PackIn)` (Abzug aller PackIn-Templates von den deklarierten neuen Zellen).
+*   **`calc_CELL_Override_real`**:
+    *   **Bedeutung:** Die Anzahl der tatsächlich real veränderten überschriebenen Weltzellen.
+    *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn)` (Abzug aller PackIn-Templates von den geänderten Zellen).
 
-Diese Spalten dienen dem Classifier in Python später als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung` oder `Gebäude`.
+Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung` oder `Gebäude`.
 
 ---
 

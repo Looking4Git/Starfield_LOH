@@ -515,6 +515,10 @@ SELECT
           AND Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
     ) AS qry_CELL_Override_Ship,
 
+    -- --- BERECHNETE WERTE (Präfix calc_) ---
+    MAX(0, ref.CELL - ref.CELL_PackIn) AS calc_CELL_real,
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn) AS calc_CELL_Override_real,
+
     -- Alle originalen Zähler-Referenzen
     ref.*
 FROM Components_ESM_References ref

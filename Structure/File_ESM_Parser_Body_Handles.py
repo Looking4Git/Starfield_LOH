@@ -12,58 +12,41 @@ from Structure.File_ESM_Parser_Base import (
 CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 
 MOD_POINTER_COLS = [
-    # Gravity 1: System & Quests
-    'GMST', 'GMST_Override',
-    'QUST', 'QUST_Override',
-    'QUST_FULL', 'QUST_INDX', 'QUST_QOBJ',
-    'QUST_QTYP_0', 'QUST_QTYP_1', 'QUST_QTYP_2',
-    'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5',
-    'Shifter_Quest_Starter',
-    'Shifter_Quest_Trader',
-    'Shifter_Quest_Chest',
-    'Shifter_Quest_Ship',
-    'DIAL', 'DIAL_Override',
-    'INFO', 'INFO_Override',
-    'GLOB', 'GLOB_Override',
-
-    # Gravity 2: World & Structure
-    'WRLD', 'CELL', 'CELL_Override', 'CELL_Override_PackIn', 'CELL_PackIn', 'NVNM', 'NAVM', 'REFR',
-    'STAT', 'STAT_Override', 'FURN', 'FURN_Override',
-    'FURN_VMRT', 'FURN_VCMT', 'FURN_VWWD', 'FURN_VCTT',
-    'TERM',
-    'LCTN', 'LCTN_Override',
-    'LCTN_KYWD_City', 'LCTN_KYWD_Settlement', 'LCTN_KYWD_Playerhome', 'LCTN_KYWD_Dungeon',
-    'FLOR', 'FLOR_Override',
-    'TREE', 'TREE_Override',
-
-    # Gravity 3: Gameplay & Actors
-    'NPC_', 'NPC__Override', 'ACHR', 'PKIN',
-    'PERK', 'PERK_Override', 'AVIF', 'AVIF_Override', 'MOVT',
-    'NPC_KYWD_Ship', 'NPC_KYWD_Companion', 'NPC_KYWD_Creature', 'NPC_KYWD_Shop',
-    'RACE', 'RACE_Override',
-
-    # Gravity 4: Visuals, Audio & Interface
-    'TXST', 'MATO', 'LIGH', 'LIGH_Override', 'LIGH_FNAM',
-    'SNDR', 'SNDR_Override', 'SOUN', 'CLFM', 'HDPT',
-    'MGEF', 'MGEF_Override', 'EFSH', 'EFSH_Override',
-    'SPEL', 'SPEL_Override', 'ENCH', 'ENCH_Override',
-    'VFXS', 'VFXS_Override', 'ALCH', 'ALCH_Override',
-
-    # Gravity 5: Items, Ships & Vehicles
-    'WEAP', 'WEAP_Override', 'WEAP_KWDA_Vehicle', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Helper', 'AMMO', 'AMMO_Override',
-    'ARMO', 'ARMO_Override', 'APWR', 'COBJ', 'COBJ_Override',
-    'SPAC', 'SPAC_Override', 'SHST', 'SHST_Override',
-    'SMOD', 'SMOD_Override', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'SFBK', 'SFBK_Override', 'STMP', 'STND', 'STBH', 'STDT',
-    'VEHI', 'VEHI_Override', 'VMOD', 'VMOD_Override',
-    'RSPJ', 'KYWD', 'PKEY', 'PCBN', 'PCCN',
-    'REFR_Deleted', 'REFR_Disabled', 'REFR_Buried',
-    'SPEL_Remove', 'MGEF_Remove', 'EFSH_Remove', 'ENCH_Remove', 'VFXS_Remove', 'ALCH_Remove', 'PERK_Remove', 'FLOR_Remove', 'TREE_Remove',
-    'LVLI', 'LVLI_Override', 'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'FLST', 'FLST_Override',
-    'MISC', 'MISC_Override', 'KEYM', 'KEYM_Override', 'BOOK', 'BOOK_Override',
-    'MSWP', 'MSWP_Override', 'OMOD', 'OMOD_Override', 'LMSW', 'LMSW_Override', 'MUSC', 'MUSC_Override',
-    'INNR', 'INNR_Override', 'MSTT', 'MSTT_Override', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Ship',
-    'WTHR', 'WTHR_Override', 'CLMT', 'CLMT_Override', 'REGN', 'REGN_Override',
-    'IMAD', 'IMAD_Override'
+    'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
+    'AMMO_Override', 'APWR', 'ARMO', 'ARMO_Override', 'AVIF',
+    'AVIF_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Override',
+    'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM', 'CLMT', 'CLMT_Override',
+    'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Ship', 'COBJ_Override',
+    'DIAL', 'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove',
+    'ENCH', 'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override',
+    'FLOR_Remove', 'FLST', 'FLST_Override', 'FURN', 'FURN_Override',
+    'FURN_VCMT', 'FURN_VCTT', 'FURN_VMRT', 'FURN_VWWD', 'GBFM',
+    'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'GLOB', 'GLOB_Override', 'GMST',
+    'GMST_Override', 'HDPT', 'IMAD', 'IMAD_Override', 'INFO',
+    'INFO_Override', 'INNR', 'INNR_Override', 'KEYM', 'KEYM_Override',
+    'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Playerhome',
+    'LCTN_KYWD_Settlement', 'LCTN_Override', 'LIGH', 'LIGH_FNAM', 'LIGH_Override',
+    'LMSW', 'LMSW_Override', 'LVLI', 'LVLI_Override', 'LVLN',
+    'LVLN_Override', 'LVLP', 'LVLP_Override', 'MATO', 'MGEF',
+    'MGEF_Override', 'MGEF_Remove', 'MISC', 'MISC_Override', 'MOVT',
+    'MSTT', 'MSTT_Override', 'MSWP', 'MSWP_Override', 'MUSC',
+    'MUSC_Override', 'NAVM', 'NPC_', 'NPC__Override', 'NPC_KYWD_Companion',
+    'NPC_KYWD_Creature', 'NPC_KYWD_Ship', 'NPC_KYWD_Shop', 'NVNM', 'OMOD',
+    'OMOD_Override', 'PCBN', 'PCCN', 'PERK', 'PERK_Override',
+    'PERK_Remove', 'PKEY', 'PKIN', 'QUST', 'QUST_FULL',
+    'QUST_INDX', 'QUST_Override', 'QUST_QOBJ', 'QUST_QTYP_0', 'QUST_QTYP_1',
+    'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5', 'RACE',
+    'RACE_Override', 'REFR', 'REFR_Buried', 'REFR_Deleted', 'REFR_Disabled',
+    'REGN', 'REGN_Override', 'RSPJ', 'SFBK', 'SFBK_Override',
+    'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter', 'Shifter_Quest_Trader', 'SHST',
+    'SHST_Override', 'SMOD', 'SMOD_Override', 'SNDR', 'SNDR_Override',
+    'SOUN', 'SPAC', 'SPAC_Override', 'SPEL', 'SPEL_Override',
+    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STDT',
+    'STMP', 'STND', 'TERM', 'TREE', 'TREE_Override',
+    'TREE_Remove', 'TXST', 'VEHI', 'VEHI_Override', 'VFXS',
+    'VFXS_Override', 'VFXS_Remove', 'VMOD', 'VMOD_Override', 'WEAP',
+    'WEAP_KWDA_Helper', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Vehicle', 'WEAP_Override', 'WRLD',
+    'WTHR', 'WTHR_Override'
 ]
 
 POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität

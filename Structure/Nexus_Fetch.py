@@ -181,37 +181,49 @@ def run_nexus_fetch(log_signal=None):
                     
                     # 1. VERSUCH: Suche über alle Mods des Autors (hochpräzise, stabil und gecached)
                     if author_to_search and search_page_loaded:
-                        if author_to_search not in author_mods_cache:
-                            log(f"  -> Suche alle Mods von Autor '{author_to_search}'...")
-                            try:
-                                # Suchfelder füllen (Autor füllen, Titel leeren) und absenden
-                                page.fill("#title-search-parameters", "")
-                                page.fill("#author-search-parameters", author_to_search)
-                                page.press("#author-search-parameters", "Enter")
-                                page.wait_for_timeout(5000)
+                        # Erstelle Variationen für die Suche: Original, Lowercase, Uppercase
+                        author_variations = [author_to_search]
+                        if author_to_search.lower() not in author_variations:
+                            author_variations.append(author_to_search.lower())
+                        if author_to_search.upper() not in author_variations:
+                            author_variations.append(author_to_search.upper())
+                        
+                        author_mods = []
+                        for current_author_search in author_variations:
+                            if current_author_search not in author_mods_cache:
+                                log(f"  -> Suche alle Mods von Autor '{current_author_search}'...")
+                                try:
+                                    # Suchfelder füllen (Autor füllen, Titel leeren) und absenden
+                                    page.fill("#title-search-parameters", "")
+                                    page.fill("#author-search-parameters", current_author_search)
+                                    page.press("#author-search-parameters", "Enter")
+                                    page.wait_for_timeout(5000)
+                                    
+                                    # Extrahiere alle Mod-Links mit Texten
+                                    links = page.locator("a").evaluate_all(
+                                        "nodes => nodes.map(n => ({text: n.innerText, href: n.href}))"
+                                    )
+                                    current_author_mods = []
+                                    for l in links:
+                                        href = l['href']
+                                        text = l['text'].strip()
+                                        match = re.search(r'nexusmods\.com/starfield/mods/(\d+)', href)
+                                        if match and text:
+                                            current_author_mods.append((text, match.group(1)))
+                                            
+                                        # Deduplizieren
+                                        current_author_mods = list(dict.fromkeys(current_author_mods))
+                                        author_mods_cache[current_author_search] = current_author_mods
+                                    log(f"    -> {len(current_author_mods)} Mods von Autor '{current_author_search}' im Cache gespeichert.")
+                                except Exception as e:
+                                    log(f"    -> Fehler beim Laden der Autoren-Mods für '{current_author_search}': {e}")
+                                    author_mods_cache[current_author_search] = []
+                            
+                            author_mods = author_mods_cache.get(current_author_search, [])
+                            if author_mods:
+                                # Sobald wir Mods für eine Variante gefunden haben, brechen wir ab
+                                break
                                 
-                                # Extrahiere alle Mod-Links mit Texten
-                                links = page.locator("a").evaluate_all(
-                                    "nodes => nodes.map(n => ({text: n.innerText, href: n.href}))"
-                                )
-                                author_mods = []
-                                for l in links:
-                                    href = l['href']
-                                    text = l['text'].strip()
-                                    match = re.search(r'nexusmods\.com/starfield/mods/(\d+)', href)
-                                    if match and text:
-                                        author_mods.append((text, match.group(1)))
-                                        
-                                # Deduplizieren
-                                author_mods = list(dict.fromkeys(author_mods))
-                                author_mods_cache[author_to_search] = author_mods
-                                log(f"    -> {len(author_mods)} Mods von Autor '{author_to_search}' im Cache gespeichert.")
-                            except Exception as e:
-                                log(f"    -> Fehler beim Laden der Autoren-Mods für '{author_to_search}': {e}")
-                                author_mods_cache[author_to_search] = []
-                                
-                        # Lokales Matching durchführen
-                        author_mods = author_mods_cache.get(author_to_search, [])
                         if author_mods:
                             # Bereite Suchbegriffe vor
                             local_name = clean_spaces(os.path.splitext(filename)[0])
@@ -238,6 +250,19 @@ def run_nexus_fetch(log_signal=None):
                                 for title, mid in author_mods:
                                     norm_title = re.sub(r'[^a-z0-9]', '', title.lower())
                                     if norm_name in norm_title or norm_title in norm_name:
+                                        match_id = mid
+                                        break
+                                        
+                            # C. Bereinigter Mod-Titel (z.B. ohne "by Author") in der Beschreibung?
+                            if not match_id and norm_desc:
+                                for title, mid in author_mods:
+                                    clean_title = re.sub(r'(?i)\bby\s+' + re.escape(current_author_search), '', title)
+                                    clean_title = re.sub(r'(?i)\bby\s+' + re.escape(author_to_search), '', clean_title)
+                                    if ' - ' in clean_title:
+                                        clean_title = clean_title.split(' - ')[0]
+                                    
+                                    norm_clean_title = re.sub(r'[^a-z0-9]', '', clean_title.lower())
+                                    if len(norm_clean_title) >= 4 and norm_clean_title in norm_desc:
                                         match_id = mid
                                         break
                                         
@@ -275,6 +300,7 @@ def run_nexus_fetch(log_signal=None):
                                     if prefix and len(prefix) <= 4:
                                         candidates.append(f"{prefix} {desc_cleaned}")
                                 if local_author and local_author.lower() != 'default':
+                                    remember_author = local_author
                                     candidates.append(f"{local_author} {desc_cleaned}")
                                 
                         # 2. Falls keine Beschreibung da ist, oder als Fallback auf den Dateinamen:
@@ -295,6 +321,10 @@ def run_nexus_fetch(log_signal=None):
                             
                         seen = set()
                         unique_candidates = [x for x in candidates if not (x.lower() in seen or seen.add(x.lower()))]
+                        
+                        # Filtere generische Begriffe und sehr kurze Strings heraus
+                        blacklist = {"features", "mod", "beta", "patch", "update", "fix", "translation", "addon", "plugin", "default"}
+                        unique_candidates = [x for x in unique_candidates if x.lower().strip() not in blacklist and len(x.strip()) > 2]
                         
                         log(f"  -> Autoren-Matching fehlgeschlagen oder nicht möglich. Fallback auf Titel-Kandidaten: {unique_candidates}")
                         

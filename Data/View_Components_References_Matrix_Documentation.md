@@ -35,8 +35,6 @@ Diese Spalten werden im VIEW dynamisch über verknüpfte Unterabfragen aus den S
     *   **Bedeutung:** Zählt Zellen, die als Schiffskabine / Modul-Innenraum deklariert sind.
     *   **Ermittlung:** Abgleich gegen die Schiffszellentabelle `Components_ESM_CELL_Ship` (neu vs. System-Schiffszelle).
 
-> [!NOTE]
-> Diese `qry_`-Spalten werden direkt in den Prüfregeln der Klassifizierungslogik in `Category_LOH_Classifier.py` ausgewertet.
 
 ---
 
@@ -47,3 +45,8 @@ Diese Spalten werden im VIEW dynamisch über verknüpfte Unterabfragen aus den S
 Hier werden Spalten mit dem Präfix `calc_` aufgenommen, welche die finalen mathematischen Berechnungen (z. B. Abzug der PackIns von den physischen Zellen zur Ermittlung der echten Wildniszellen) direkt in SQL abbilden. 
 
 Diese Spalten dienen dem Classifier in Python später als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung` oder `Gebäude`.
+
+---
+
+> [!NOTE]
+> Diese `qry_`-Spalten und `calc_`-Spalten werden direkt in den Prüfregeln der Klassifizierungslogik in `Category_LOH_Classifier.py` ausgewertet.

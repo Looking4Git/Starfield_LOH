@@ -1086,8 +1086,8 @@ def _exclude_non_environment(row, cursor, cat_ids):
     """, (component_id,))
     ship_cells = cursor.fetchone()[0] or 0
     
-    # 3. Verbleibende Wildnis-Zellen berechnen (CELL + CELL_Override minus Stadt- und Schiffs-Zellen)
-    total_cells = cell + cell_o
+    # 3. Verbleibende Wildnis-Zellen berechnen (CELL minus Stadt- und Schiffs-Zellen)
+    total_cells = cell
     wilderness_cells = max(0, total_cells - city_cells - ship_cells)
     
     if (wrld == 0 and wilderness_cells == 0 and

@@ -636,10 +636,10 @@ SELECT
     ) AS qry_CELL_Override_Ship_PackIn,
 
     -- --- BERECHNETE WERTE (Präfix calc_) ---
-    MAX(0, ref.CELL - ref.CELL_PackIn) AS calc_CELL_real,
+    MAX(0, ref.CELL - ref.CELL_Override - ref.CELL_PackIn) AS calc_CELL_real,
     MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn) AS calc_CELL_Override_real,
 
-    MAX(0, ref.CELL - ref.CELL_PackIn - (
+    MAX(0, ref.CELL - ref.CELL_Override - ref.CELL_PackIn - (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN cc
         LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817

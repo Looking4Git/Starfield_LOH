@@ -170,33 +170,21 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
                 if is_override:
                     local_counts[f"{sig_str}_Override"] += 1
                     
-                    # Spezialfall CELL_Override_PackIn: Prüfe, ob die Zelle ein PackIn ist
-                    if sig == b'CELL':
-                        is_packin = False
-                        decompressed_data = decompress_payload(f, data_size, flags)
-                        if decompressed_data:
-                            for sub_sig, sub_data in iter_subrecords(decompressed_data):
-                                if sub_sig == b'EDID':
-                                    edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
-                                    if "packin" in edid_str:
-                                        is_packin = True
-                                    break
-                        if is_packin:
+                # Spezialfall CELL_PackIn & CELL_Override_PackIn:
+                if sig == b'CELL':
+                    is_packin = False
+                    decompressed_data = decompress_payload(f, data_size, flags)
+                    if decompressed_data:
+                        for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                            if sub_sig == b'EDID':
+                                edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                                if "packin" in edid_str:
+                                    is_packin = True
+                                break
+                    if is_packin:
+                        local_counts['CELL_PackIn'] += 1
+                        if is_override:
                             local_counts['CELL_Override_PackIn'] += 1
-                else:
-                    # Spezialfall CELL_PackIn: Prüfe, ob die neu angelegte Zelle ein PackIn ist
-                    if sig == b'CELL':
-                        is_packin = False
-                        decompressed_data = decompress_payload(f, data_size, flags)
-                        if decompressed_data:
-                            for sub_sig, sub_data in iter_subrecords(decompressed_data):
-                                if sub_sig == b'EDID':
-                                    edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
-                                    if "packin" in edid_str:
-                                        is_packin = True
-                                    break
-                        if is_packin:
-                            local_counts['CELL_PackIn'] += 1
 
             # 5. Spezialfall: QUST
             if sig == b'QUST' and 'QUST_FULL' in local_counts:

@@ -590,14 +590,12 @@ def _exclude_non_building(row, cursor, cat_ids):
             pkin = row.get('PKIN') or 0
             has_structures = (stat > 0 or stat_o > 0 or furn > 0 or furn_o > 0 or pkin > 0)
             
-            # 4. Echte Zellen-Überschreibungen (abzüglich Pack-In-Überschreibungen) oder Planetengenerierungs-Eingriffe prüfen
-            cell_o = row.get('CELL_Override') or 0
-            cell_o_packin = row.get('CELL_Override_PackIn') or 0
+            # 4. Echte Zellen-Überschreibungen (abzüglich Pack-In- und Dummy-Überschreibungen) oder Planetengenerierungs-Eingriffe prüfen
             sfbk = row.get('SFBK') or 0
             sfbk_o = row.get('SFBK_Override') or 0
             
-            # Echte Weltzellen-Überschreibungen (Zell-Overrides abzüglich PackIns)
-            real_cell_overrides = max(0, cell_o - cell_o_packin)
+            # Nutze die fertig berechnete Spalte aus dem View
+            real_cell_overrides = row.get('calc_CELL_Override_real') or 0
             has_world_cell_intervention = (real_cell_overrides > 0 or sfbk > 0 or sfbk_o > 0)
             
             # 5. Dungeon-Keyword prüfen
@@ -957,13 +955,14 @@ def _exclude_non_furnishing(row, cursor, cat_ids):
             return "Kategorie 'Einrichtung' ausgeschlossen (keine passenden Möbel-, STAT-, MSTT-, PKIN- oder GBFM-Referenzen)."
             
     # Ergänzender Ausschluss bei reinen Welteingriffen ohne Rezept
-    cell_o = row.get('CELL_Override') or 0
     refr = row.get('REFR') or 0
     refr_o = row.get('REFR_Override') or 0
     cobj = row.get('COBJ') or 0
     cobj_o = row.get('COBJ_Override') or 0
     
-    has_world_placements = (cell_o > 0 or refr > 0 or refr_o > 0)
+    # Nutze die fertig berechnete Spalte aus dem View für echte Zellen-Überschreibungen
+    real_cell_overrides = row.get('calc_CELL_Override_real') or 0
+    has_world_placements = (real_cell_overrides > 0 or refr > 0 or refr_o > 0)
     has_recipes = (cobj > 0 or cobj_o > 0)
     
     if has_world_placements and not has_recipes:

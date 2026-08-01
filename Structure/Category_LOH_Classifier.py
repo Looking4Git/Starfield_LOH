@@ -475,27 +475,19 @@ def _check_has_sound(cursor, mod_id):
     return False
 
 
-def _has_city_cells(row, cursor, component_id):
+def _has_city_cells(row, cursor=None, component_id=None):
     """Prüft, ob die Komponente städtische Merkmale besitzt."""
     # 1. Prüfen, ob die Mod eigene Stadt-/Siedlungs-Locations definiert
-    cursor.execute("""
-        SELECT 1 FROM Components_ESM_LCTN
-        WHERE Component_ID = ?
-          AND FormID_Keyword = 140817 -- 0x22611 (loctypesettlement)
-        LIMIT 1
-    """, (component_id,))
-    has_own_city_lctn = cursor.fetchone() is not None or (row.get('LCTN_KYWD_City') or 0) > 0 or (row.get('LCTN_KYWD_Settlement') or 0) > 0
+    has_own_city_lctn = (
+        (row.get('LCTN_KYWD_City') or 0) > 0 or 
+        (row.get('LCTN_KYWD_Settlement') or 0) > 0
+    )
     
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
-    cursor.execute("""
-        SELECT 1 FROM Components_ESM_CELL_LCTN cc
-        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
-        WHERE cc.Component_ID = ?
-          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-        LIMIT 1
-    """, (component_id,))
-    has_city_cell_override = cursor.fetchone() is not None
+    has_city_cell_override = (
+        (row.get('qry_CELL_City') or 0) > 0 or 
+        (row.get('qry_CELL_Settlement') or 0) > 0
+    )
     
     # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
     stat = row.get('STAT') or 0
@@ -510,27 +502,13 @@ def _has_city_cells(row, cursor, component_id):
     return has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
 
 
-def _has_playerhome_cells(row, cursor, component_id):
+def _has_playerhome_cells(row, cursor=None, component_id=None):
     """Prüft, ob die Komponente Spielerheim-Merkmale besitzt."""
     # 1. Prüfen, ob die Mod eigene Spielerheim-Locations definiert (in Components_ESM_LCTN oder über LCTN_KYWD_Playerhome)
-    cursor.execute("""
-        SELECT 1 FROM Components_ESM_LCTN
-        WHERE Component_ID = ?
-          AND FormID_Keyword = 3076722 -- 0x2ef272 (loctypeplayerhome)
-        LIMIT 1
-    """, (component_id,))
-    has_own_playerhome_lctn = cursor.fetchone() is not None or (row.get('LCTN_KYWD_Playerhome') or 0) > 0
+    has_own_playerhome_lctn = (row.get('LCTN_KYWD_Playerhome') or 0) > 0
  
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einem Spielerheim gehören
-    cursor.execute("""
-        SELECT 1 FROM Components_ESM_CELL_LCTN cc
-        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 3076722
-        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 3076722
-        WHERE cc.Component_ID = ?
-          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-        LIMIT 1
-    """, (component_id,))
-    has_playerhome_cell_override = cursor.fetchone() is not None
+    has_playerhome_cell_override = (row.get('qry_CELL_Playerhome') or 0) > 0
  
     # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
     stat = row.get('STAT') or 0
@@ -543,15 +521,10 @@ def _has_playerhome_cells(row, cursor, component_id):
     return has_own_playerhome_lctn or (has_playerhome_cell_override and has_structural_objects)
 
 
-def _has_ship_cells(row, cursor, component_id):
+def _has_ship_cells(row, cursor=None, component_id=None):
     """Prüft, ob die Komponente Schiffs-Zell-Merkmale besitzt."""
     # Prüfen, ob die Mod Schiffs-Zellen verändert
-    cursor.execute("""
-        SELECT 1 FROM Components_ESM_CELL_Ship
-        WHERE Component_ID = ?
-        LIMIT 1
-    """, (component_id,))
-    return cursor.fetchone() is not None
+    return (row.get('qry_CELL_Ship') or 0) > 0
 
 
 def _exclude_non_city(row, cursor, cat_ids):

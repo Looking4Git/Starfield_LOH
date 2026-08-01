@@ -1,14 +1,22 @@
 import os
+import sys
+
+# Sicherstellen, dass das Projektverzeichnis im Python-Suchpfad enthalten ist
+_project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 import math
 import re
 import sqlite3
 import logging
 from Structure.Database import get_db_connection
 
-def _check_author_bgs(row, cursor, cat_ids):
+
+def _exclude_non_bgs(row, cursor, cat_ids):
     """
-    Prüft auf den Autor BGS. Ist dies der Fall, werden alle anderen 
-    Kategorien außer 'BGS' (1) in der Ausschlussmatrix auf 0 gesetzt.
+    Prüft auf den Autor BGS. Ist dies NICHT der Fall, wird die 
+    Kategorie 'BGS' (1) in der Ausschlussmatrix auf 0 gesetzt.
     """
     author = (row.get('Author') or "").strip().lower()
     mod_id = row.get('Mod_ID') or row.get('ID')
@@ -19,25 +27,14 @@ def _check_author_bgs(row, cursor, cat_ids):
     bgs_row = cursor.fetchone()
     bgs_id = bgs_row[0] if bgs_row else 1
     
-    if "bethesda" in author or author == "python":
-        # Alle anderen Kategorien in der Matrix auf 0 setzen, BGS auf 1
-        other_cols = [cat_id for cat_id in cat_ids if cat_id != bgs_id]
-        if other_cols:
-            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-            set_clause += f', "{bgs_id}" = 1'
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix 
-                SET {set_clause}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mod_id, component_id))
-        return "Automatisch als BGS-Inhalt klassifiziert (Autor ist Bethesda)."
-    else:
+    if not ("bethesda" in author or author == "python"):
         if bgs_id in cat_ids:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix 
                 SET "{bgs_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
+            return "Kategorie 'BGS' ausgeschlossen (Autor ist nicht Bethesda)."
     return None
 
 def _exclude_non_skin(row, cursor, cat_ids):
@@ -891,18 +888,6 @@ def _exclude_non_sorting(row, cursor, cat_ids):
             has_other_pointers = True
             break
 
-    if not has_other_pointers and (innr > 0 or innr_o > 0):
-        other_cols = [cat_id for cat_id in cat_ids if cat_id != sorting_id]
-        if other_cols:
-            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-            set_clause += f', "{sorting_id}" = 1'
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix 
-                SET {set_clause}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mod_id, component_id))
-        return "Eindeutige Sortierungs-Mod (ausschließlich INNR-Einträge)."
-
     # Ausschlusskriterien für Sortierung:
     # Wenn die Mod keine INNR hat und signifikante andere Record-Typen aufweist, ist es keine Sortierungs-Mod.
     if innr == 0 and innr_o == 0:
@@ -1054,8 +1039,6 @@ def _exclude_non_environment(row, cursor, cat_ids):
     component_id = row.get('Component_ID')
     
     wrld = row.get('WRLD') or 0
-    cell = row.get('CELL') or 0
-    cell_o = row.get('CELL_Override') or 0
     flor = row.get('FLOR') or 0
     flor_o = row.get('FLOR_Override') or 0
     tree = row.get('TREE') or 0
@@ -1067,28 +1050,10 @@ def _exclude_non_environment(row, cursor, cat_ids):
     regn = row.get('REGN') or 0
     regn_o = row.get('REGN_Override') or 0
     
-    # 1. Stadt-Zellen zählen
-    cursor.execute("""
-        SELECT COUNT(DISTINCT cc.Cell_FormID) 
-        FROM Components_ESM_CELL_LCTN cc
-        LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
-        WHERE cc.Component_ID = ?
-          AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-    """, (component_id,))
-    city_cells = cursor.fetchone()[0] or 0
-    
-    # 2. Schiffs-Zellen zählen
-    cursor.execute("""
-        SELECT COUNT(DISTINCT Cell_FormID) 
-        FROM Components_ESM_CELL_Ship 
-        WHERE Component_ID = ?
-    """, (component_id,))
-    ship_cells = cursor.fetchone()[0] or 0
-    
-    # 3. Verbleibende Wildnis-Zellen berechnen (CELL minus Stadt- und Schiffs-Zellen)
-    total_cells = cell
-    wilderness_cells = max(0, total_cells - city_cells - ship_cells)
+    # Nutze direkt die fertig berechnete Spalte aus der Ergebnistabelle (View)
+    wilderness_cells = row.get('calc_CELL_Environment') or 0
+    city_cells = row.get('qry_CELL_City') or 0
+    ship_cells = row.get('qry_CELL_Ship') or 0
     
     if (wrld == 0 and wilderness_cells == 0 and
         flor == 0 and flor_o == 0 and
@@ -1276,18 +1241,7 @@ def _exclude_non_remover(row, cursor, cat_ids):
     r_row = cursor.fetchone()
     remove_id = r_row[0] if r_row else 28
     
-    if is_remover:
-        # Wenn es ein Remover ist, werden alle anderen Kategorien auf 0 gesetzt
-        other_cols = [cat_id for cat_id in cat_ids if cat_id != remove_id]
-        if other_cols:
-            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix 
-                SET {set_clause}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mod_id, component_id))
-            return "Als Remover-Mod identifiziert (alle anderen Kategorien ausgeschlossen)."
-    else:
+    if not is_remover:
         # Wenn kein Remover, wird die Kategorie 'Remove' auf 0 gesetzt
         if remove_id in cat_ids:
             cursor.execute(f"""
@@ -1413,11 +1367,12 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
         
     return None
 
-def _check_Overhaul(row, cursor, cat_ids):
+def _exclude_non_overhaul(row, cursor, cat_ids):
     """
     Prüft technisch, ob die Mod ein Overhaul ist.
     Ein Overhaul verändert die Vanilla-Spielbasis durch eine hohe Anzahl an Overrides
     über mehrere funktionale Hauptbereiche hinweg oder durch eine massive absolute Override-Menge.
+    Falls nicht, wird die Kategorie 'Overhaul' ausgeschlossen.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
@@ -1431,7 +1386,7 @@ def _check_Overhaul(row, cursor, cat_ids):
     if is_master <= 0:
         if overhaul_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return "Kategorie 'Overhaul' ausgeschlossen (kein Masterfile)."
         
     # Einteilung in funktionale Hauptbereiche
     areas = {
@@ -1483,30 +1438,17 @@ def _check_Overhaul(row, cursor, cat_ids):
     if not (is_massive or is_systemic):
         if overhaul_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return f"Kategorie 'Overhaul' ausgeschlossen (Overrides: {total_override}, Quote: {ratio:.1f}%, Bereiche: {len(active_areas)})."
         
-    # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Overhaul auf 1
-    other_cols = [cat_id for cat_id in cat_ids if cat_id != overhaul_id]
-    if other_cols:
-        set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-        set_clause += f', "{overhaul_id}" = 1'
-        cursor.execute(f"""
-            UPDATE LoadOrder_Classifier_Matrix 
-            SET {set_clause}
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mod_id, component_id))
-        
-    reason = f"Als Overhaul eingestuft (Overrides: {total_override}, Quote: {ratio:.1f}%, Bereiche: {len(active_areas)})"
-    return reason
+    return None
 
-
-
-def _check_Bugfix(row, cursor, cat_ids):
+def _exclude_non_bugfix(row, cursor, cat_ids):
     """
     Prüft hart, ob die Mod ein globaler Bugfix-Mod ist.
     Dazu gehört:
     - Hohe Override-Dichte (>= 95% der veränderbaren Datensätze sind Overrides).
     - Hohe Diversität (Veränderte Datensätze in >= 4 Kategorien).
+    Falls nicht, wird die Kategorie 'Bugfix' ausgeschlossen.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
@@ -1540,33 +1482,21 @@ def _check_Bugfix(row, cursor, cat_ids):
     if total_base_val < 20:
         if bugfix_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return "Kategorie 'Bugfix' ausgeschlossen (zu wenige Basis-Datensätze)."
 
     override_ratio = total_override_val / total_base_val if total_base_val > 0 else 0.0
 
-    if override_ratio >= 0.95 and num_override_categories >= 4:
-        # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Bugfix auf 1
-        other_cols = [cat_id for cat_id in cat_ids if cat_id != bugfix_id]
-        if other_cols:
-            set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-            set_clause += f', "{bugfix_id}" = 1'
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix 
-                SET {set_clause}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mod_id, component_id))
-            
-        return f"Als Bugfix eingestuft (Ratio: {override_ratio:.2%}, Kategorien: {num_override_categories})."
+    if not (override_ratio >= 0.95 and num_override_categories >= 4):
+        if bugfix_id in cat_ids:
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
+        return f"Kategorie 'Bugfix' ausgeschlossen (Ratio: {override_ratio:.2%}, Kategorien: {num_override_categories})."
         
-    if bugfix_id in cat_ids:
-        cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
     return None
 
-
-def _check_Quest_Real(row, cursor, cat_ids):
+def _exclude_non_quest(row, cursor, cat_ids):
     """
     Prüft hart, ob die Mod eine echte Quest-Mod ist.
-    Falls ja, wird Quest in der Matrix auf 1 gesetzt und alle anderen Kategorien auf 0.
+    Falls nicht, wird die Kategorie 'Quest' ausgeschlossen.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
@@ -1580,7 +1510,7 @@ def _check_Quest_Real(row, cursor, cat_ids):
     if qust == 0:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return "Kategorie 'Quest' ausgeschlossen (keine QUST-Referenzen)."
         
     full = row.get('QUST_FULL') or 0
     qobj = row.get('QUST_QOBJ') or 0
@@ -1588,7 +1518,7 @@ def _check_Quest_Real(row, cursor, cat_ids):
         # Keine Quest mit Name im Logbuch vorhanden
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return "Kategorie 'Quest' ausgeschlossen (keine benannten Quests)."
         
     dial = row.get('DIAL') or 0
     # Wenn die Mod nur eine einzige Quest registriert, aber sehr viele Dialoge besitzt,
@@ -1596,7 +1526,7 @@ def _check_Quest_Real(row, cursor, cat_ids):
     if qust == 1 and dial >= 50:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
+        return "Kategorie 'Quest' ausgeschlossen (Service-NPC/Terminal Heuristik)."
         
     qtyp_0 = row.get('QUST_QTYP_0') or 0
     qtyp_1 = row.get('QUST_QTYP_1') or 0
@@ -1637,20 +1567,6 @@ def _check_Quest_Real(row, cursor, cat_ids):
     if not is_real_quest:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return None
-        
-    # Alle anderen Kategorien in der Ausschlussmatrix auf 0 setzen, Quest auf 1
-    other_cols = [cat_id for cat_id in cat_ids if cat_id != quest_id]
-    if other_cols:
-        set_clause = ", ".join([f'"{col}" = 0' for col in other_cols])
-        set_clause += f', "{quest_id}" = 1'
-        cursor.execute(f"""
-            UPDATE LoadOrder_Classifier_Matrix 
-            SET {set_clause}
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mod_id, component_id))
-        
-    return "Als Quest-Mod eingestuft."
 
 
 def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
@@ -1696,10 +1612,10 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
         _exclude_non_building,
         _exclude_non_city,
         _exclude_non_environment,
-        _check_Quest_Real,
-        _check_Overhaul,
-        _check_Bugfix,
-        _check_author_bgs
+        _exclude_non_quest,
+        _exclude_non_overhaul,
+        _exclude_non_bugfix,
+        _exclude_non_bgs
     ]
     
     notes = []
@@ -1713,6 +1629,82 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     if notes:
         return ", ".join(notes)
     return "Ausschlussmatrix angewendet (Klassifizierung ausstehend)."
+
+
+def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="", notes_cache=None):
+    """
+    Prüft die Matrix für bisher unbestimmte Mods, findet die Kategorie mit dem eindeutig
+    höchsten Wert (> 0) und trägt diese in 'Mods.Category_LOH_Classifier' ein.
+    Gibt ein Tuple (erfolgreiche_zuweisungen, verbleibende_unbestimmte) zurück.
+    """
+    cursor.execute("""
+        SELECT 
+            m.ID AS Mod_ID,
+            c.ID AS Component_ID,
+            m.Name_Online,
+            m.Name_ContentCatalog,
+            c.File AS Masterfile_Name
+        FROM Mods m
+        JOIN Mods_Components mc ON m.ID = mc.Mod_ID
+        JOIN Components c ON mc.Component_ID = c.ID
+        WHERE m.State = 1 AND c.Is_Masterfile > 0
+          AND m.Category_LOH_Classifier IS NULL
+    """)
+    unresolved_mods = [dict(r) for r in cursor.fetchall()]
+    
+    success_count = 0
+    col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
+    
+    for row in unresolved_mods:
+        mod_id = row['Mod_ID']
+        component_id = row['Component_ID']
+        mod_name = row['Name_Online'] or row['Name_ContentCatalog'] or f"Mod ID {mod_id}"
+        masterfile_name = row['Masterfile_Name']
+        
+        cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
+        matrix_row = cursor.fetchone()
+        
+        max_val = 0
+        best_cats = []
+        if matrix_row:
+            for cat_id in cat_ids:
+                val = matrix_row[str(cat_id)] or 0
+                if val > max_val:
+                    max_val = val
+                    best_cats = [cat_id]
+                elif val == max_val and val > 0:
+                    best_cats.append(cat_id)
+        
+        if len(best_cats) == 1:
+            final_cat_id = best_cats[0]
+            cursor.execute("""
+                UPDATE Mods 
+                SET Category_LOH_Classifier = ?
+                WHERE ID = ?
+            """, (final_cat_id, mod_id))
+            
+            cursor.execute("SELECT Name FROM Categories_LOH WHERE ID = ?", (final_cat_id,))
+            cat_name_row = cursor.fetchone()
+            cat_name = cat_name_row[0] if cat_name_row else str(final_cat_id)
+            
+            success_count += 1
+            note_str = ""
+            if notes_cache and (mod_id, component_id) in notes_cache:
+                note_str = f", Hinweis: {notes_cache[(mod_id, component_id)]}"
+            log_msg(f"  [KLASSIFIZIERT - {step_name}] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} (Wert: {max_val}{note_str})")
+            
+    # Zähle verbleibende unbestimmte Mods
+    cursor.execute("""
+        SELECT COUNT(DISTINCT m.ID) 
+        FROM Mods m
+        JOIN Mods_Components mc ON m.ID = mc.Mod_ID
+        JOIN Components c ON mc.Component_ID = c.ID
+        WHERE m.State = 1 AND c.Is_Masterfile > 0
+          AND m.Category_LOH_Classifier IS NULL
+    """)
+    remaining_count = cursor.fetchone()[0] or 0
+    
+    return success_count, remaining_count
 
 
 def run_classifier(log_signal=None):
@@ -1763,22 +1755,21 @@ def run_classifier(log_signal=None):
         log_msg("-> Setze alte Klassifizierungen in der Datenbank (Mods) zurück...")
         cursor.execute("UPDATE Mods SET Category_LOH_Classifier = NULL")
         
-        # Hole alle installierten Mods mit ihren Pointern
-        select_cols = ", ".join([f"em.{col}" for col in MOD_POINTER_COLS])
-        query = f"""
+        # Hole alle installierten Mods mit ihren Pointern aus dem View
+        query = """
             SELECT 
                 m.ID AS Mod_ID,
-                c.ID AS Component_ID,
+                v.Component_ID,
                 m.Name_Online,
                 m.Name_ContentCatalog,
                 m.Author,
-                c.File AS Masterfile_Name,
+                v.Component_File AS Masterfile_Name,
                 c.Is_Masterfile,
-                {select_cols}
-            FROM Mods m
-            JOIN Mods_Components mc ON m.ID = mc.Mod_ID
-            JOIN Components c ON mc.Component_ID = c.ID
-            LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID
+                v.*
+            FROM View_Components_References_Matrix v
+            JOIN Components c ON v.Component_ID = c.ID
+            JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            JOIN Mods m ON mc.Mod_ID = m.ID
             WHERE m.State = 1 AND c.Is_Masterfile > 0
         """
         cursor.execute(query)
@@ -1787,7 +1778,7 @@ def run_classifier(log_signal=None):
         log_msg(f"-> Gefundene installierte Mod-Komponenten zur Analyse: {len(rows)}")
         
         success_count = 0
-        undetermined_count = 0
+        notes_cache = {}
         
         col_names = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
         placeholders = ", ".join(["?"] * (len(cat_ids) + 2))
@@ -1799,53 +1790,163 @@ def run_classifier(log_signal=None):
             mod_name = row['Name_Online'] or row['Name_ContentCatalog'] or f"Mod ID {mod_id}"
             masterfile_name = row['Masterfile_Name']
             
-            # Initialisieren der Matrix für diesen Mod/Komponente mit standardmäßig 1 (True)
+            # Initialisieren der Matrix für diesen Mod/Komponente mit standardmäßig 1
             cursor.execute(insert_sql, [mod_id, component_id] + [1] * len(cat_ids))
-            log_msg(f"  [INITIALISIERT] '{mod_name}' ({masterfile_name}) -> Matrix-Zeile mit Standardwert 1 (True) angelegt.")
+            log_msg(f"  [INITIALISIERT] '{mod_name}' ({masterfile_name}) -> Matrix-Zeile mit Standardwert 1 angelegt.")
             
-            # Ausschlussregeln anwenden (übergibt cat_ids für Effizienz)
+            # Schritt 1: Ausschlussregeln anwenden
             note = apply_exclusion_rules(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
+            notes_cache[(mod_id, component_id)] = note
             
-            # Matrix-Zeile auswerten, um die verbleibenden Kategorien zu prüfen
-            col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
-            cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-            matrix_row = cursor.fetchone()
+        # Erste Auswertung nach Schritt 1
+        log_msg("\n-> Führe Auswertung nach Schritt 1 (Ausschlüsse) durch...")
+        newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+            cursor, cat_ids, log_msg, step_name="Schritt 1: Ausschlüsse", notes_cache=notes_cache
+        )
+        success_count += newly_assigned
+        
+        # Schritt 2a: BGS-Priorisierung
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 2a: Priorisiere BGS für verbleibende unbestimmte Mods ({unresolved_count})...")
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
+            bgs_row = cursor.fetchone()
+            bgs_id = bgs_row[0] if bgs_row else 1
             
-            active_cats = []
-            if matrix_row:
-                for cat_id in cat_ids:
-                    if matrix_row[str(cat_id)] == 1:
-                        active_cats.append(cat_id)
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET "{bgs_id}" = 2
+                WHERE "{bgs_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 2a: BGS", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 2b: Bugfix-Priorisierung
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 2b: Priorisiere Bugfixes für verbleibende unbestimmte Mods ({unresolved_count})...")
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Bugfix'")
+            bugfix_row = cursor.fetchone()
+            bugfix_id = bugfix_row[0] if bugfix_row else 2
             
-            if len(active_cats) == 1:
-                # Eindeutig klassifiziert!
-                final_cat_id = active_cats[0]
-                cursor.execute("""
-                    UPDATE Mods 
-                    SET Category_LOH_Classifier = ?
-                    WHERE ID = ?
-                """, (final_cat_id, mod_id))
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET "{bugfix_id}" = 2
+                WHERE "{bugfix_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 2b: Bugfix", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 2c: Overhaul-Priorisierung
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 2c: Priorisiere Overhauls für verbleibende unbestimmte Mods ({unresolved_count})...")
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Overhaul'")
+            overhaul_row = cursor.fetchone()
+            overhaul_id = overhaul_row[0] if overhaul_row else 3
+            
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET "{overhaul_id}" = 2
+                WHERE "{overhaul_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 2c: Overhaul", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 2d: Quest-Priorisierung
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 2d: Priorisiere Quests für verbleibende unbestimmte Mods ({unresolved_count})...")
+            cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Quest'")
+            quest_row = cursor.fetchone()
+            quest_id = quest_row[0] if quest_row else 4
+            
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET "{quest_id}" = 2
+                WHERE "{quest_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 2d: Quest", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 3: Kaskadierende Priorisierung CELL- / Welt-Mods
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 3: Kaskadierende Priorisierung CELL- / Welt-Mods ({unresolved_count})...")
+            
+            # Kategorie-IDs ermitteln
+            cursor.execute("SELECT ID, Name FROM Categories_LOH")
+            cat_map = {r[1]: r[0] for r in cursor.fetchall()}
+            
+            poi_id = cat_map.get('POIs') or cat_map.get('POI') or cat_map.get('Points of Interest')
+            city_id = cat_map.get('Städte')
+            playerhome_id = cat_map.get('Spielerheime')
+            building_id = cat_map.get('Gebäude')
+            outpost_id = cat_map.get('Außenposten')
+            env_id = cat_map.get('Umgebung')
+            
+            cell_cat_ids = {cid for cid in [poi_id, city_id, playerhome_id, building_id, outpost_id, env_id] if cid is not None}
+            non_cell_ids = [cid for cid in cat_ids if cid not in cell_cat_ids]
+            non_cell_set_clause = ", ".join([f'"{cid}" = CASE WHEN "{cid}" >= 1 THEN 3 ELSE 0 END' for cid in non_cell_ids]) if non_cell_ids else ""
+            
+            # Sub-Schritte der Welt-Kaskade
+            # 1. POIs (ohne Einschränkung)
+            # 2. Städte (ohne künstliche POIs != 3 Einschränkung - dient als Fehler-Diagnose wenn 2x 3 auftritt)
+            # 3. Spielerheime (Stadt schlägt Spielerheim -> city_id != 3)
+            # 4. Gebäude (Stadt / Spielerheim schlägt Gebäude -> city_id != 3 AND playerhome_id != 3)
+            # 5. Außenposten (Stadt / Spielerheim / Gebäude schlägt Außenposten -> city_id != 3 AND playerhome_id != 3 AND building_id != 3)
+            # 6. Umgebung (Stadt / Spielerheim / Gebäude / Außenposten schlägt Umgebung -> city_id != 3 AND playerhome_id != 3 AND building_id != 3 AND outpost_id != 3)
+            cell_steps = [
+                (poi_id, "POIs", []),
+                (city_id, "Städte", []),
+                (playerhome_id, "Spielerheime", [city_id]),
+                (building_id, "Gebäude", [city_id, playerhome_id]),
+                (outpost_id, "Außenposten", [city_id, playerhome_id, building_id]),
+                (env_id, "Umgebung", [city_id, playerhome_id, building_id, outpost_id])
+            ]
+            
+            for cid, cname, check_not_three in cell_steps:
+                if not cid or unresolved_count <= 0:
+                    continue
+                    
+                set_sql = f'"{cid}" = 3'
+                if non_cell_set_clause:
+                    set_sql += f', {non_cell_set_clause}'
+                    
+                where_conds = [f'"{cid}" >= 1']
+                for not_id in check_not_three:
+                    if not_id:
+                        where_conds.append(f'"{not_id}" != 3')
+                where_sql = " AND ".join(where_conds)
                 
-                # Holen des Namens für das Log
-                cursor.execute("SELECT Name FROM Categories_LOH WHERE ID = ?", (final_cat_id,))
-                cat_name_row = cursor.fetchone()
-                cat_name = cat_name_row[0] if cat_name_row else str(final_cat_id)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE {where_sql} AND Mod_ID IN (
+                        SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                    )
+                """)
                 
-                success_count += 1
-                log_msg(f"  [KLASSIFIZIERT] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} ({note})")
-            else:
-                cursor.execute("""
-                    UPDATE Mods 
-                    SET Category_LOH_Classifier = NULL
-                    WHERE ID = ?
-                """, (mod_id,))
-                undetermined_count += 1
-                log_msg(f"  [UNBESTIMMT] '{mod_name}' ({masterfile_name}) -> Beurteilung abgeschlossen (Mögliche Kategorien: {len(active_cats)}, Hinweis: {note})")
+                newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                    cursor, cat_ids, log_msg, step_name=f"Schritt 3: {cname}", notes_cache=notes_cache
+                )
+                success_count += newly_assigned
                 
         conn.commit()
         log_msg(f"\nDurchlauf abgeschlossen:")
         log_msg(f"- {success_count} Mods erfolgreich klassifiziert.")
-        log_msg(f"- {undetermined_count} Mods unbestimmt (NULL gesetzt, Matrix in DB gespeichert).")
+        log_msg(f"- {unresolved_count} Mods unbestimmt (NULL gesetzt, Matrix in DB gespeichert).")
         log_msg("--- Category LOH Classifier Durchlauf erfolgreich beendet ---\n")
         return True
         

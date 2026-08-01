@@ -1868,52 +1868,57 @@ def run_classifier(log_signal=None):
             outpost_id = cat_map.get('Außenposten')
             env_id = cat_map.get('Umgebung')
             
-            cell_cat_ids = {cid for cid in [poi_id, city_id, playerhome_id, building_id, outpost_id, env_id] if cid is not None}
+            cell_cat_ids = [cid for cid in [poi_id, city_id, playerhome_id, building_id, outpost_id, env_id] if cid is not None]
             non_cell_ids = [cid for cid in cat_ids if cid not in cell_cat_ids]
-            non_cell_set_clause = ", ".join([f'"{cid}" = CASE WHEN "{cid}" >= 1 THEN 3 ELSE 0 END' for cid in non_cell_ids]) if non_cell_ids else ""
             
-            # Sub-Schritte der Welt-Kaskade
-            # 1. POIs (ohne Einschränkung)
-            # 2. Städte (ohne künstliche POIs != 3 Einschränkung - dient als Fehler-Diagnose wenn 2x 3 auftritt)
-            # 3. Spielerheime (Stadt schlägt Spielerheim -> city_id != 3)
-            # 4. Gebäude (Stadt / Spielerheim schlägt Gebäude -> city_id != 3 AND playerhome_id != 3)
-            # 5. Außenposten (Stadt / Spielerheim / Gebäude schlägt Außenposten -> city_id != 3 AND playerhome_id != 3 AND building_id != 3)
-            # 6. Umgebung (Stadt / Spielerheim / Gebäude / Außenposten schlägt Umgebung -> city_id != 3 AND playerhome_id != 3 AND building_id != 3 AND outpost_id != 3)
-            cell_steps = [
-                (poi_id, "POIs", []),
-                (city_id, "Städte", []),
-                (playerhome_id, "Spielerheime", [city_id]),
-                (building_id, "Gebäude", [city_id, playerhome_id]),
-                (outpost_id, "Außenposten", [city_id, playerhome_id, building_id]),
-                (env_id, "Umgebung", [city_id, playerhome_id, building_id, outpost_id])
-            ]
-            
-            for cid, cname, check_not_three in cell_steps:
-                if not cid or unresolved_count <= 0:
-                    continue
-                    
-                set_sql = f'"{cid}" = 3'
-                if non_cell_set_clause:
-                    set_sql += f', {non_cell_set_clause}'
-                    
-                where_conds = [f'"{cid}" >= 1']
-                for not_id in check_not_three:
-                    if not_id:
-                        where_conds.append(f'"{not_id}" != 3')
-                where_sql = " AND ".join(where_conds)
-                
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE {where_sql} AND Mod_ID IN (
-                        SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-                    )
-                """)
-                
-                newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                    cursor, cat_ids, log_msg, step_name=f"Schritt 3: {cname}", notes_cache=notes_cache
+            # Lade die Matrix-Daten der verbleibenden unklassifizierten Mods
+            col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
                 )
-                success_count += newly_assigned
+            """)
+            unresolved_rows = [dict(r) for r in cursor.fetchall()]
+            
+            for urow in unresolved_rows:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Sequentielle Case-Hierarchie: Erstes aktives Weltkriterium auswählen
+                selected_cat = None
+                if poi_id and (urow.get(str(poi_id)) or 0) >= 1:
+                    selected_cat = poi_id
+                elif city_id and (urow.get(str(city_id)) or 0) >= 1:
+                    selected_cat = city_id
+                elif playerhome_id and (urow.get(str(playerhome_id)) or 0) >= 1:
+                    selected_cat = playerhome_id
+                elif building_id and (urow.get(str(building_id)) or 0) >= 1:
+                    selected_cat = building_id
+                elif outpost_id and (urow.get(str(outpost_id)) or 0) >= 1:
+                    selected_cat = outpost_id
+                elif env_id and (urow.get(str(env_id)) or 0) >= 1:
+                    selected_cat = env_id
+                
+                if selected_cat is not None:
+                    set_clauses = [f'"{selected_cat}" = 3']
+                    
+                    # Andere (Nicht-Welt) Kategorien auf 3 anheben, falls aktiv (sonst unverändert lassen)
+                    for nc_id in non_cell_ids:
+                        set_clauses.append(f'"{nc_id}" = CASE WHEN "{nc_id}" >= 1 THEN 3 ELSE "{nc_id}" END')
+                        
+                    set_sql = ", ".join(set_clauses)
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {set_sql}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+            
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 3: Kaskadierende Priorisierung", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
                 
         conn.commit()
         log_msg(f"\nDurchlauf abgeschlossen:")

@@ -556,11 +556,9 @@ def _exclude_non_building(row, cursor, cat_ids):
     Schließt die Kategorie 'Gebäude' (ID 7) aus, wenn keine Anzeichen für ein statisches Gebäude oder einen statischen Dungeon vorliegen.
     Ein Gebäude liegt vor, wenn:
     - Physische strukturelle Objekte platziert/verändert werden (STAT, STAT_Override, FURN, FURN_Override, PKIN > 0) 
-      in vorhandenen Zellen (CELL_Override > 0, abzüglich Pack-In-Schablonen) oder Planet-Blocks (SFBK/SFBK_Override > 0)
+      in vorhandenen Zellen außerhalb von Städten/Spielerheimen/Schiffen (calc_CELL_Environment > 0) oder Planet-Blocks (SFBK/SFBK_Override > 0)
     - ODER ein statischer Dungeon (LCTN_KYWD_Dungeon > 0) definiert wird
     - UND die Platzierung statisch und NICHT dynamisch über POI-Nodes erfolgt (PCBN und PCCN == 0)
-    - UND die Anpassung NICHT in einem Stadt- oder Siedlungsbereich liegt
-    - UND die Anpassung KEIN Spielerheim ist.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
@@ -579,7 +577,17 @@ def _exclude_non_building(row, cursor, cat_ids):
         is_playerhome = _has_playerhome_cells(row, cursor, component_id)
         is_ship = _has_ship_cells(row, cursor, component_id)
         
-        if is_in_city or is_playerhome or is_ship:
+        # Bestimme, ob verbleibende echte Wildnis-/Gebäudezellen existieren
+        cell_env = row.get('calc_CELL_Environment') or 0
+        has_wilderness = (cell_env > 0)
+        
+        # Ein harter Ausschluss erfolgt nur, wenn es sich um eine REINE Stadt-, Spielerheim- 
+        # oder Schiffsmod handelt (d.h. wenn diese Bereiche berührt werden, aber KEINE Wildniszellen existieren)
+        is_pure_city = is_in_city and not has_wilderness
+        is_pure_playerhome = is_playerhome and not has_wilderness
+        is_pure_ship = is_ship and not has_wilderness
+        
+        if is_pure_city or is_pure_playerhome or is_pure_ship:
             is_building = False
         else:
             # 3. Vorhandensein von statischen/strukturellen Objekten prüfen
@@ -593,16 +601,13 @@ def _exclude_non_building(row, cursor, cat_ids):
             # 4. Echte Zellen-Überschreibungen (abzüglich Pack-In- und Dummy-Überschreibungen) oder Planetengenerierungs-Eingriffe prüfen
             sfbk = row.get('SFBK') or 0
             sfbk_o = row.get('SFBK_Override') or 0
-            
-            # Nutze die fertig berechnete Spalte aus dem View
-            real_cell_overrides = row.get('calc_CELL_Override_real') or 0
-            has_world_cell_intervention = (real_cell_overrides > 0 or sfbk > 0 or sfbk_o > 0)
+            has_wilderness_cell_intervention = (cell_env > 0 or sfbk > 0 or sfbk_o > 0)
             
             # 5. Dungeon-Keyword prüfen
             lctn_dungeon = row.get('LCTN_KYWD_Dungeon') or 0
             
-            # Ein Gebäude liegt vor bei statischen Strukturen mit echtem Welt-Eingriff ODER wenn es als statischer Dungeon deklariert ist
-            is_building = (has_structures and has_world_cell_intervention) or (lctn_dungeon > 0)
+            # Ein Gebäude liegt vor bei statischen Strukturen mit echtem Wildnis-Eingriff ODER wenn es als statischer Dungeon deklariert ist
+            is_building = (has_structures and has_wilderness_cell_intervention) or (lctn_dungeon > 0)
     
     if not is_building:
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Gebäude'")
@@ -615,7 +620,7 @@ def _exclude_non_building(row, cursor, cat_ids):
                 SET "{bld_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gebäude' ausgeschlossen (keine statische Gebäude- oder Dungeon-Struktur vorhanden, in Stadt/Siedlung oder ist Spielerheim)."
+            return "Kategorie 'Gebäude' ausgeschlossen (keine statische Gebäude- oder Dungeon-Struktur außerhalb von Städten, Spielerheimen oder Schiffen)."
             
     return None
 

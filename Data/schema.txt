@@ -369,29 +369,29 @@ CREATE TABLE "Components_ESM_CELL_LCTN" (
 	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );
 
-CREATE TABLE "Components_System_CELL_Ship" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"Cell_FormID"	INTEGER NOT NULL,
-	"Is_PackIn"	INTEGER DEFAULT 0,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
-);
+CREATE VIEW "Components_System_CELL_Ship" AS
+SELECT 
+    Component_ID,
+    FormID_Local AS Cell_FormID,
+    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+FROM Components_System_FormIDs
+WHERE Sig = 'CELL' 
+  AND (LOWER(EDID) LIKE '%ship%' 
+       OR LOWER(EDID) LIKE '%station%' 
+       OR LOWER(EDID) LIKE '%spaceship%'
+       OR LOWER(EDID) LIKE 'ss%');
 
-CREATE UNIQUE INDEX "idx_sys_cell_ship_unique" ON "Components_System_CELL_Ship" ("Component_ID", "Cell_FormID");
-
-CREATE TABLE "Components_ESM_CELL_Ship" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"Cell_FormID"	INTEGER NOT NULL,
-	"Is_PackIn"	INTEGER DEFAULT 0,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX "idx_esm_cell_ship_unique" ON "Components_ESM_CELL_Ship" ("Component_ID", "Cell_FormID");
-CREATE INDEX "idx_sys_cell_ship_lookup" ON "Components_System_CELL_Ship" ("Cell_FormID");
-CREATE INDEX "idx_esm_cell_ship_lookup" ON "Components_ESM_CELL_Ship" ("Cell_FormID");
+CREATE VIEW "Components_ESM_CELL_Ship" AS
+SELECT 
+    Component_ID,
+    FormID_Local AS Cell_FormID,
+    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+FROM Components_ESM_FormIDs
+WHERE Sig = 'CELL' 
+  AND (LOWER(EDID) LIKE '%ship%' 
+       OR LOWER(EDID) LIKE '%station%' 
+       OR LOWER(EDID) LIKE '%spaceship%'
+       OR LOWER(EDID) LIKE 'ss%');
 
 CREATE TABLE sqlite_sequence(name,seq);
 

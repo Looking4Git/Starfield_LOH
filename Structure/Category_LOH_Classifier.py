@@ -1026,6 +1026,10 @@ def _exclude_non_environment(row, cursor, cat_ids):
     clmt_o = row.get('CLMT_Override') or 0
     regn = row.get('REGN') or 0
     regn_o = row.get('REGN_Override') or 0
+    biom = row.get('BIOM') or 0
+    biom_o = row.get('BIOM_Override') or 0
+    land = row.get('LAND') or 0
+    land_o = row.get('LAND_Override') or 0
     
     # Nutze direkt die fertig berechnete Spalte aus der Ergebnistabelle (View)
     wilderness_cells = row.get('calc_CELL_Environment') or 0
@@ -1035,7 +1039,8 @@ def _exclude_non_environment(row, cursor, cat_ids):
     if (wrld == 0 and wilderness_cells == 0 and
         flor == 0 and flor_o == 0 and
         tree == 0 and tree_o == 0 and wthr == 0 and wthr_o == 0 and
-        clmt == 0 and clmt_o == 0 and regn == 0 and regn_o == 0):
+        clmt == 0 and clmt_o == 0 and regn == 0 and regn_o == 0 and
+        biom == 0 and biom_o == 0 and land == 0 and land_o == 0):
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Umgebung'")
         e_row = cursor.fetchone()

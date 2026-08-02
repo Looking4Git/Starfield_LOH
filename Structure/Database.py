@@ -428,6 +428,7 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.DIAL, em.DIAL_Override,
             em.INFO, em.INFO_Override,
             em.WRLD, em.CELL, em.CELL_Override, em.NVNM, em.NAVM, em.REFR,
+            em.BIOM, em.BIOM_Override, em.LAND, em.LAND_Override,
             em.STAT, em.STAT_Override, em.FURN, em.FURN_Override,
             em.FURN_VMRT, em.FURN_VCMT, em.FURN_VWWD, em.FURN_VCTT,
             em.TERM, em.LCTN, em.LCTN_Override, em.LCTN_KYWD_City, em.LCTN_KYWD_Settlement, em.LCTN_KYWD_Playerhome, em.LCTN_KYWD_Dungeon,

@@ -14,7 +14,7 @@ CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 MOD_POINTER_COLS = [
     'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
     'AMMO_Override', 'APWR', 'ARMO', 'ARMO_Override', 'AVIF',
-    'AVIF_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Dummy',
+    'AVIF_Override', 'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Dummy',
     'CELL_Override', 'CELL_Override_Dummy', 'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM',
     'CLMT', 'CLMT_Override', 'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft',
     'COBJ_BNAM_Ship', 'COBJ_Override', 'CONT', 'CONT_Override',
@@ -25,7 +25,7 @@ MOD_POINTER_COLS = [
     'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'GLOB', 'GLOB_Override', 'GMST',
     'GMST_Override', 'HDPT', 'IMAD', 'IMAD_Override', 'INFO',
     'INFO_Override', 'INNR', 'INNR_Override', 'KEYM', 'KEYM_Override',
-    'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Playerhome',
+    'LAND', 'LAND_Override', 'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Playerhome',
     'LCTN_KYWD_Settlement', 'LCTN_Override', 'LIGH', 'LIGH_FNAM', 'LIGH_Override',
     'LMSW', 'LMSW_Override', 'LVLI', 'LVLI_Override', 'LVLN',
     'LVLN_Override', 'LVLP', 'LVLP_Override', 'MATO', 'MGEF',
@@ -89,7 +89,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
         b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'VFXS', b'ALCH',
         b'GLOB', b'LCTN', b'RACE', b'LVLI', b'LVLN', b'LVLP', b'FLST',
         b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC', b'INNR',
-        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM'
+        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM', b'BIOM', b'LAND'
     }
     
     if num_full_masters is None:

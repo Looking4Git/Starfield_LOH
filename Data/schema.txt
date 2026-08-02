@@ -44,7 +44,9 @@ CREATE TABLE "Components_ESM_References" (
         "BOOK"                  INTEGER DEFAULT 0,
         "BOOK_Override"         INTEGER DEFAULT 0,
         "CELL"                  INTEGER DEFAULT 0,
+        "CELL_Dummy"            INTEGER DEFAULT 0,
         "CELL_Override"         INTEGER DEFAULT 0,
+        "CELL_Override_Dummy"   INTEGER DEFAULT 0,
         "CELL_Override_PackIn"  INTEGER DEFAULT 0,
         "CELL_PackIn"           INTEGER DEFAULT 0,
         "CLFM"                  INTEGER DEFAULT 0,
@@ -202,6 +204,10 @@ CREATE TABLE "Components_ESM_References" (
         "WRLD"                  INTEGER DEFAULT 0,
         "WTHR"                  INTEGER DEFAULT 0,
         "WTHR_Override"         INTEGER DEFAULT 0,
+        "BIOM"                  INTEGER DEFAULT 0,
+        "BIOM_Override"         INTEGER DEFAULT 0,
+        "LAND"                  INTEGER DEFAULT 0,
+        "LAND_Override"         INTEGER DEFAULT 0,
         PRIMARY KEY("Component_ID"),
         FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
     )
@@ -881,10 +887,10 @@ SELECT
     cell_typ.qry_CELL_Override_Ship_PackIn,
     
     -- --- BERECHNETE WERTE (Präfix calc_) ---
-    MAX(0, ref.CELL - ref.CELL_PackIn) AS calc_CELL_real,
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn) AS calc_CELL_Override_real,
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)) AS calc_CELL_real,
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)) AS calc_CELL_Override_real,
     
-    MAX(0, ref.CELL - ref.CELL_PackIn
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)
         - COALESCE(cell_typ.qry_CELL_City, 0)
         - COALESCE(cell_typ.qry_CELL_Settlement, 0)
         - COALESCE(cell_typ.qry_CELL_Playerhome, 0)
@@ -892,13 +898,27 @@ SELECT
         - COALESCE(cell_typ.qry_CELL_Ship, 0)
     ) AS calc_CELL_Environment,
     
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)
         - COALESCE(cell_typ.qry_CELL_Override_City, 0)
         - COALESCE(cell_typ.qry_CELL_Override_Settlement, 0)
         - COALESCE(cell_typ.qry_CELL_Override_Playerhome, 0)
         - COALESCE(cell_typ.qry_CELL_Override_Dungeon, 0)
         - COALESCE(cell_typ.qry_CELL_Override_Ship, 0)
     ) AS calc_CELL_Override_Environment,
+    
+    (COALESCE(ref.CONT, 0) + COALESCE(ref.CONT_Override, 0) + 
+     COALESCE(ref.TERM, 0) + COALESCE(ref.TERM_Override, 0) + 
+     COALESCE(ref.BOOK, 0) + COALESCE(ref.BOOK_Override, 0) + 
+     COALESCE(ref.KEYM, 0) + COALESCE(ref.KEYM_Override, 0) + 
+     COALESCE(ref.ACHR, 0)) AS calc_Helper_Objects,
+    
+    MIN(1.0, CAST(
+        COALESCE(ref.CONT, 0) + COALESCE(ref.CONT_Override, 0) + 
+        COALESCE(ref.TERM, 0) + COALESCE(ref.TERM_Override, 0) + 
+        COALESCE(ref.BOOK, 0) + COALESCE(ref.BOOK_Override, 0) + 
+        COALESCE(ref.KEYM, 0) + COALESCE(ref.KEYM_Override, 0) + 
+        COALESCE(ref.ACHR, 0) AS REAL
+    ) / MAX(1, COALESCE(ref.REFR, 0) + COALESCE(ref.ACHR, 0))) AS calc_Helper_Objects_Ratio,
     
     -- Alle originalen Zähler-Referenzen
     ref.*

@@ -14,9 +14,10 @@ CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 MOD_POINTER_COLS = [
     'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
     'AMMO_Override', 'APWR', 'ARMO', 'ARMO_Override', 'AVIF',
-    'AVIF_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Override',
-    'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM', 'CLMT', 'CLMT_Override',
-    'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Ship', 'COBJ_Override',
+    'AVIF_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Dummy',
+    'CELL_Override', 'CELL_Override_Dummy', 'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM',
+    'CLMT', 'CLMT_Override', 'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft',
+    'COBJ_BNAM_Ship', 'COBJ_Override', 'CONT', 'CONT_Override',
     'DIAL', 'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove',
     'ENCH', 'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override',
     'FLOR_Remove', 'FLST', 'FLST_Override', 'FURN', 'FURN_Override',
@@ -42,7 +43,7 @@ MOD_POINTER_COLS = [
     'SHST_Override', 'SMOD', 'SMOD_Override', 'SNDR', 'SNDR_Override',
     'SOUN', 'SPAC', 'SPAC_Override', 'SPEL', 'SPEL_Override',
     'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STDT',
-    'STMP', 'STND', 'TERM', 'TREE', 'TREE_Override',
+    'STMP', 'STND', 'TERM', 'TERM_Override', 'TREE', 'TREE_Override',
     'TREE_Remove', 'TXST', 'VEHI', 'VEHI_Override', 'VFXS',
     'VFXS_Override', 'VFXS_Remove', 'VMOD', 'VMOD_Override', 'WEAP',
     'WEAP_KWDA_Helper', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Vehicle', 'WEAP_Override', 'WRLD',
@@ -57,7 +58,7 @@ def _get_sig_from_col(col):
         name = name[:-9]
     return name
 
-def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
+def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid_to_sig=None):
     """
     Parst eine Bethesda .esm Datei und zählt die vorkommenden Handles.
     """
@@ -88,7 +89,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
         b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'VFXS', b'ALCH',
         b'GLOB', b'LCTN', b'RACE', b'LVLI', b'LVLN', b'LVLP', b'FLST',
         b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC', b'INNR',
-        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD'
+        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM'
     }
     
     if num_full_masters is None:
@@ -96,14 +97,60 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
     else:
         num_masters = num_full_masters
 
+    current_cell_id = None
+    local_signatures = {} # Speichert (sig, is_override, cell_form_id) für alle Mod-Records
+
     # Iteriere über alle Records in der Datei mittels der Kern-Bibliothek
     for sig, data_size, flags, form_id, f, is_medium_master, is_small_master in iter_esm_records(file_path):
+        if sig == b'CELL':
+            current_cell_id = form_id & 0x00FFFFFF
+
+        # Override-Status global für diesen Record berechnen
+        master_idx = form_id >> 24
+        is_override = (
+            master_idx < num_masters or 
+            (master_idx == 0xFD and not is_medium_master) or 
+            (master_idx == 0xFE and not is_small_master)
+        )
+
+        should_store = (not is_core) or (sig not in {b'REFR', b'ACHR', b'LAND', b'NAVM'})
+
+        # Caching der Dekomprimierung für Performance-Optimierung
+        _decompressed_cache = [None]
+        def get_decompressed():
+            if _decompressed_cache[0] is None:
+                _decompressed_cache[0] = decompress_payload(f, data_size, flags) or b''
+            return _decompressed_cache[0]
+
+        edid_str = None
+        base_fid = None
+        if should_store and sig != b'TES4':
+            dec = get_decompressed()
+            if dec:
+                for sub_sig, sub_data in iter_subrecords(dec):
+                    if sub_sig == b'EDID' and len(sub_data) > 0:
+                        edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore')
+                    elif (sig == b'REFR' or sig == b'ACHR') and sub_sig == b'NAME' and len(sub_data) >= 4:
+                        base_fid = struct.unpack('<I', sub_data[:4])[0] & 0x00FFFFFF
+                    if edid_str is not None and (sig not in {b'REFR', b'ACHR'} or base_fid is not None):
+                        break
+
+        # Alle FormIDs mitspeichern für spätere Konfliktanalyse (sowohl System als auch ESM)
+        if should_store:
+            local_signatures[(form_id & 0x00FFFFFF, is_override)] = (
+                sig, 
+                master_idx if is_override else None, 
+                current_cell_id if sig in {b'REFR', b'ACHR'} else None,
+                edid_str,
+                base_fid
+            )
+
         if sig in targets:
             sig_str = sig.decode('utf-8', errors='ignore')
             
             # 1. Spezialfall: GBFM
             if not is_core and sig == b'GBFM':
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     local_counts['GBFM'] += 1
                     is_crowd_region = False
@@ -126,69 +173,69 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 2. Overrides & Deletions: REFR und ACHR
             if not is_core and (sig == b'REFR' or sig == b'ACHR'):
-                master_idx = form_id >> 24
-                is_override = (
-                    master_idx < num_masters or 
-                    (master_idx == 0xFD and not is_medium_master) or 
-                    (master_idx == 0xFE and not is_small_master)
-                )
                 if is_override:
-                    if flags & 0x00000020:
-                        local_counts['REFR_Deleted'] += 1
-                    if flags & 0x00000800:
-                        local_counts['REFR_Disabled'] += 1
-                        
-                    decompressed_data = decompress_payload(f, data_size, flags)
-                    if decompressed_data:
-                        for sub_sig, sub_data in iter_subrecords(decompressed_data):
-                            if sub_sig == b'DATA' and len(sub_data) >= 12:
-                                _, _, pos_z = struct.unpack('<fff', sub_data[0:12])
-                                if pos_z < -10000.0:
-                                    local_counts['REFR_Buried'] += 1
-                                break
+                    if sig == b'REFR':
+                        if flags & 0x00000020:
+                            local_counts['REFR_Deleted'] += 1
+                        if flags & 0x00000800:
+                            local_counts['REFR_Disabled'] += 1
+                            
+                        decompressed_data = get_decompressed()
+                        if decompressed_data:
+                            for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                                if sub_sig == b'DATA' and len(sub_data) >= 12:
+                                    _, _, pos_z = struct.unpack('<fff', sub_data[0:12])
+                                    if pos_z < -10000.0:
+                                        local_counts['REFR_Buried'] += 1
+                                    break
                 continue
 
             # 3. Remover-Prüfung für Spells & Effekte
             if not is_core and sig in {b'SPEL', b'MGEF', b'EFSH', b'ENCH', b'VFXS', b'ALCH', b'PERK'}:
-                master_idx = form_id >> 24
-                is_override = (
-                    master_idx < num_masters or 
-                    (master_idx == 0xFD and not is_medium_master) or 
-                    (master_idx == 0xFE and not is_small_master)
-                )
                 if is_override and (flags & 0x00000020):
                     local_counts[f"{sig_str}_Remove"] += 1
 
             # 4. Standard-Overrides
             if not is_core and sig in override_targets:
-                master_idx = form_id >> 24
-                is_override = (
-                    master_idx < num_masters or 
-                    (master_idx == 0xFD and not is_medium_master) or 
-                    (master_idx == 0xFE and not is_small_master)
-                )
                 if is_override:
                     local_counts[f"{sig_str}_Override"] += 1
                     
-                # Spezialfall CELL_PackIn & CELL_Override_PackIn:
+                # Spezialfall CELL_PackIn, CELL_Dummy & Overrides:
                 if sig == b'CELL':
                     is_packin = False
-                    decompressed_data = decompress_payload(f, data_size, flags)
+                    is_dummy = False
+                    decompressed_data = get_decompressed()
                     if decompressed_data:
+                        has_xlcn = False
+                        has_full = False
+                        edid_lower = ""
                         for sub_sig, sub_data in iter_subrecords(decompressed_data):
                             if sub_sig == b'EDID':
-                                edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
-                                if "packin" in edid_str:
-                                    is_packin = True
-                                break
+                                edid_lower = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                            elif sub_sig == b'XLCN':
+                                has_xlcn = True
+                            elif sub_sig == b'FULL':
+                                val = sub_data.split(b'\x00')[0]
+                                if len(val) > 0:
+                                    has_full = True
+                        
+                        if "packin" in edid_lower:
+                            is_packin = True
+                        elif any(k in edid_lower for k in ["holding", "utility", "test", "dummy", "faux", "ctest"]) or (not has_xlcn and not has_full):
+                            is_dummy = True
+                            
                     if is_packin:
                         local_counts['CELL_PackIn'] += 1
                         if is_override:
                             local_counts['CELL_Override_PackIn'] += 1
+                    elif is_dummy:
+                        local_counts['CELL_Dummy'] += 1
+                        if is_override:
+                            local_counts['CELL_Override_Dummy'] += 1
 
             # 5. Spezialfall: QUST
             if sig == b'QUST' and 'QUST_FULL' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     has_qtyp = False
                     qtyp_val = None
@@ -223,7 +270,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 6. Spezialfall: KYWD
             if sig == b'KYWD' and not is_core:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'EDID':
@@ -240,7 +287,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 7. Spezialfall: WEAP
             if sig == b'WEAP' and 'WEAP_KWDA_Vehicle' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     is_helper = False
                     is_vehicle = False
@@ -275,7 +322,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 8. Spezialfall: NPC_
             if sig == b'NPC_' and 'NPC_KYWD_Ship' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'EDID':
@@ -293,7 +340,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 9. Spezialfall: FURN
             if sig == b'FURN' and not is_core and 'VEHI' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'VMRT':
@@ -308,7 +355,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
                 
             # 10. Spezialfall: COBJ
             if sig == b'COBJ' and not is_core:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'BNAM' and len(sub_data) >= 4:
@@ -329,7 +376,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 10. Spezialfall: LIGH
             if sig == b'LIGH' and not is_core and 'LIGH_FNAM' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'FNAM':
@@ -339,7 +386,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
 
             # 11. Spezialfall: LCTN
             if sig == b'LCTN' and not is_core and 'LCTN_KYWD_City' in local_counts:
-                decompressed_data = decompress_payload(f, data_size, flags)
+                decompressed_data = get_decompressed()
                 if decompressed_data:
                     edid = ""
                     kwda_list = []
@@ -362,4 +409,4 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None):
                             local_counts['LCTN_KYWD_Settlement'] += 1
                 continue
 
-    return local_counts
+    return local_counts, local_signatures

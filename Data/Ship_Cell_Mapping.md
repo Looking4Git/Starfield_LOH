@@ -1,6 +1,6 @@
 # Dokumentation: Schiffs-Zell-Referenzierung (CELL_Ship) im Starfield LOH
 
-Dieses Dokument beschreibt die Architektur zur Erkennung und Archivierung von Schiffs-Innenraumzellen. Es erklärt das Zusammenspiel zwischen den Datenbanktabellen, dem Binärparser und der späteren Klassifizierungslogik.
+Dieses Dokument beschreibt die Architektur zur Erkennung und Klassifizierung von Schiffs-Innenraumzellen. Es erklärt das Zusammenspiel zwischen den Datenbank-Views, der FormID-Datenbasis und der späteren Klassifizierungslogik.
 
 ---
 
@@ -13,37 +13,50 @@ Da Schiffs-Innenräume in der Regel keine räumlichen Location-Referenzen (`XLCN
 
 ---
 
-## 2. Datenbank-Tabellen
+## 2. Datenbank-Views (Dynamische Erkennung via FormIDs)
 
-Die Daten werden analog zu den Städte-Zellen in zwei Tabellen aufgeteilt, um Systemdaten und Mod-Eingriffe getrennt zu verwalten:
+Um die Komplexität im Python-Code zu reduzieren, werden die Schiffszellen nicht mehr über einen separaten Parser eingelesen und in physischen Tabellen gespeichert. Stattdessen nutzen wir die in den FormID-Katalogen (`Components_System_FormIDs` und `Components_ESM_FormIDs`) hinterlegten Editor-IDs (`EDID`) und ermitteln die Schiffszellen dynamisch über SQL-Views:
 
-### A. `Components_System_CELL_Ship` (System-Zellen)
-Speichert alle originalen Schiffszellen, die in den Bethesda-Masterfiles (`Components_System`, z. B. `Starfield.esm` und `BlueprintShips-Starfield.esm`) vorhanden sind.
-*   **Spalten:**
-    *   `Component_ID` (FK auf Components_System)
-    *   `Cell_FormID` (Die lokale 3-Byte FormID der Zelle)
+### A. `Components_System_CELL_Ship` (System-View)
+Filtert alle originalen Schiffszellen aus den offiziellen Masterfiles der Spieldateien.
+*   **SQL-Logik:**
+    ```sql
+    CREATE VIEW Components_System_CELL_Ship AS
+    SELECT 
+        Component_ID,
+        FormID_Local AS Cell_FormID,
+        CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+    FROM Components_System_FormIDs
+    WHERE Sig = 'CELL' 
+      AND (LOWER(EDID) LIKE '%ship%' 
+           OR LOWER(EDID) LIKE '%station%' 
+           OR LOWER(EDID) LIKE '%spaceship%'
+           OR LOWER(EDID) LIKE 'ss%');
+    ```
 
-### B. `Components_ESM_CELL_Ship` (Mod-Zellen)
-Speichert neu erstellte Schiffszellen aus installierten Mods.
-*   **Spalten:**
-    *   `Component_ID` (FK auf Components)
-    *   `Cell_FormID` (Die lokale 3-Byte FormID der Zelle)
+### B. `Components_ESM_CELL_Ship` (Mod-View)
+Filtert alle geänderten oder neuen Schiffszellen aus den installierten Mod-Dateien.
+*   **SQL-Logik:**
+    ```sql
+    CREATE VIEW Components_ESM_CELL_Ship AS
+    SELECT 
+        Component_ID,
+        FormID_Local AS Cell_FormID,
+        CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+    FROM Components_ESM_FormIDs
+    WHERE Sig = 'CELL' 
+      AND (LOWER(EDID) LIKE '%ship%' 
+           OR LOWER(EDID) LIKE '%station%' 
+           OR LOWER(EDID) LIKE '%spaceship%'
+           OR LOWER(EDID) LIKE 'ss%');
+    ```
 
 ---
 
-## 3. Separater Ship-Cell-Parser (`File_ESM_Parser_Body_CELL_Ship.py`)
+## 3. Funktionsweise der Erkennung
 
-Um die Wartbarkeit hochzuhalten, extrahiert ein eigenständiger Parser die Zellen:
-
-```
-[ESM-Datei] ──> [Iteriere Records]
-                   └── sig == 'CELL' ──> Decompress Payload 
-                                            └── Sucht EDID-Subrecord 
-                                                    └── EDID-Match auf "ship", "spaceship" oder "station"
-```
-
-*   **Filter-Methode:** Der Parser sucht im `CELL`-Record nach dem `EDID`-Subrecord. Enthält dieses den Begriff `ship`, `spaceship` oder `station` (case-insensitive), wird die FormID erfasst.
-*   **Ergebnis:** Der Parser liefert eine Liste zurück, die im Anschluss via Bulk-Insert in die entsprechende Tabelle (`Components_System_CELL_Ship` bzw. `Components_ESM_CELL_Ship`) geschrieben wird.
+*   **Identifizierung:** Der View selektiert alle Datensätze mit der Signatur `CELL` und prüft, ob die Editor-ID (`EDID`) die Begriffe `ship`, `station`, `spaceship` enthält oder mit dem Präfix `ss` (für Space Station, z. B. `ssTheEyeInt`) beginnt.
+*   **PackIn-Kennzeichnung:** Das Flag `Is_PackIn` wird automatisch über SQL auf `1` gesetzt, falls der Begriff `packin` in der `EDID` vorkommt (z. B. bei Vorlagen für Schiffsmodule), andernfalls auf `0`.
 
 ---
 

@@ -25,13 +25,17 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **ARMO / ARMO_Override**: *Armor*. Raumanzüge, Helme, Rucksäcke und normale Kleidung.
 *   **AVIF / AVIF_Override**: *Actor Value Information*. Attribute, Fraktionsbeziehungen und Statuswerte (z. B. Gesundheit, Tragekapazität).
 *   **BOOK / BOOK_Override**: *Book*. Bücher, Notizen, Slates und Datenpads.
-*   **CELL / CELL_Override / CELL_Override_PackIn / CELL_PackIn**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume). `CELL_Override_PackIn` erfasst Zell-Überschreibungen, bei denen die Editor-ID auf ein Pack-In oder eine Storage-Schablonenzelle hinweist (z. B. enthaltend "packin"). `CELL_PackIn` erfasst neu angelegte Zellen, die als Pack-In-Storage-Schablonenzellen deklariert sind.
+*   **BIOM / BIOM_Override**: *Biome*. Biom-Definitionsdatensätze. Bestimmen die Verteilung von Flora, Fauna, Texturen und Landschafts-Features.
+*   **CELL / CELL_Dummy / CELL_Override / CELL_Override_Dummy / CELL_Override_PackIn / CELL_PackIn**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume). 
+    *   `CELL_Dummy` / `CELL_Override_Dummy`: Erfasst reine Skript-, Holding-, Test- und Utility-Zellen ohne Location oder Ingame-Namen.
+    *   `CELL_PackIn` / `CELL_Override_PackIn`: Erfasst Zell-Schablonen für Fertigbauteile (PackIns).
 *   **CLFM**: *Color Form*. Farbpaletten für Kleidung, Haare oder Benutzeroberflächen.
 *   **CLMT / CLMT_Override**: *Climate*. Klimazyklen (Tag-Nacht-Rhythmen, Wetterverteilungen für Planeten).
 *   **COBJ / COBJ_Override / COBJ_BNAM_Outpost_Heavy / COBJ_BNAM_Outpost_Soft / COBJ_BNAM_Ship**: *Constructible Object*. Handwerksrezepte für Werkbänke und das Außenposten- oder Schiffbausystem.
     *   `COBJ_BNAM_Outpost_Heavy`: Rezepte für Außenposten-Kernkomponenten (Extraktoren, Generatoren, Abwehr).
     *   `COBJ_BNAM_Outpost_Soft`: Rezepte für Außenposten-Strukturen und -Deko (Habs, Kisten, Roboter).
     *   `COBJ_BNAM_Ship`: Rezepte für den Schiffsbau-Editor (Workbench-Abgleich).
+*   **CONT / CONT_Override**: *Container*. Behälter und Kisten.
 *   **DIAL / DIAL_Override**: *Dialogue Branch*. Dialogthemen und -zweige.
 *   **EFSH / EFSH_Override / EFSH_Remove**: *Effect Shader*. Visuelle Grafikeffekte auf Objekten/NPCs.
 *   **ENCH / ENCH_Override / ENCH_Remove**: *Enchantment*. Verzauberungen und Rüstungs-/Waffeneffekte.
@@ -52,6 +56,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **INFO / INFO_Override**: *Dialogue Info*. Einzelne gesprochene Sätze und Reaktionen.
 *   **INNR / INNR_Override**: *Instance Naming Rules*. Namensregeln zur dynamischen Namensvergabe von Gegenständen wie Waffen und Rüstungen.
 *   **KEYM / KEYM_Override**: *Key*. Schlüssel und Schlüsselkarten für Schlösser und Türen.
+*   **LAND / LAND_Override**: *Landscape*. Landschafts-Höhendaten und 3D-Verformungen des Bodens.
 *   **KYWD**: *Keyword*. Labels und Kategorisierungsschlüssel der Creation Engine.
 *   **LCTN / LCTN_Override / LCTN_KYWD_City / LCTN_KYWD_Dungeon / LCTN_KYWD_Playerhome / LCTN_KYWD_Settlement**: *Location*. Definitionen von Orten, Städten, Dungeons oder Points of Interest (POI).
 *   **LIGH / LIGH_Override / LIGH_FNAM**: *Light*. Lichtquellen. `LIGH_FNAM` erfasst projizierende Lichtquellen (Spotlights).
@@ -77,7 +82,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **PKIN**: *Pack-In*. Vorgefertigte Gruppen von Objekten, die zusammen in die Welt geladen werden.
 *   **QUST / QUST_Override / QUST_FULL / QUST_INDX / QUST_QOBJ / QUST_QTYP_0 bis QUST_QTYP_5**: *Quest*. Quest-Steuerungsdatensätze.
 *   **RACE / RACE_Override**: *Race*. Definitionen von spielbaren und nicht-spielbaren Rassen, Kreaturen-Skeletten oder Eigenschaften.
-*   **REFR / REFR_Buried / REFR_Deleted / REFR_Disabled**: *Placed Object Reference*. Konkrete Platzierung eines Objekts in einer Zelle (z. B. gelöscht, deaktiviert oder vergraben).
+*   **REFR / REFR_Buried / REFR_Deleted / REFR_Disabled**: *Placed Object Reference*. Konkrete Platzierung eines Objekts in einer Zelle (z. B. gelöscht, deaktiviert, vergraben).
 *   **REGN / REGN_Override**: *Region*. Geografische Planeten-Regionen, die Klimazonen und Wetterverteilungen verknüpfen.
 *   **RSPJ**: *Space Project*. Definition von Sternensystemen und Galaxien-Projektionen.
 *   **SFBK / SFBK_Override**: *Starfield Planet Block*. Registrierungs- und Platzierungseinträge für prozedurale Planetengenerierung (POIs).

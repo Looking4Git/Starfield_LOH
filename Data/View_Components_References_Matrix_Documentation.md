@@ -15,6 +15,12 @@ Der View aggregiert Daten aus folgenden Quellen der LOH-Datenbank:
 *   **`View_Components_CELL_Typ`** (Spaltenpräfix `cell_typ.*`): Eine Hilfs-View (Subview), die die komplexen Zählungen der Zelltypen pro Komponente bündelt. Sie berücksichtigt mod-übergreifende Overrides anhand der automatisierten Abhängigkeitsliste (`Mods_Requirements_Masterfile_List`) und der System-Referenzen.
 *   **`View_Components_CELL_Helper_Objects`**: Eine neue Hilfs-View, die für jede Zelle einer Mod die mod-eigenen Hilfsobjekte (Kisten, Terminals, Notizen, Schlüssel, Werkbänke, Händler) erfasst und kosmetische Dekorationsobjekte (`is_deco`) herausfiltert.
 
+> [!IMPORTANT]
+> **Creation Engine 2 Technische Begründung für mod-eigene Hilfsobjekte:**
+> In der Creation Engine 2 ist es für Modder zwingend erforderlich, **neue, mod-eigene Container** (`CONT` mit lokaler FormID) zu definieren, wenn sie eigene Items (wie neue Waffen oder Rüstungen) in der Spielwelt verteilen möchten. Würde ein Modder stattdessen einen bestehenden Vanilla-Container bearbeiten, um seine Items hineinzulegen, würde diese Änderung global auf *jeden* Container dieses Typs im gesamten Universum angewendet werden (was zu schweren Kompatibilitätskonflikten und Balancing-Fehlern führt).
+> 
+> Analog verhält es sich bei Werkbänken und Terminals: Eigene Rezepte (`COBJ`) oder Funktionen sind an spezifische Mod-Ressourcen gekoppelt. Der Ausschluss von standardmäßigen Vanilla-Möbeln und Vanilla-Kisten stellt somit sicher, dass wir ausschließlich funktionale, gezielt zur Übergabe des Mod-Inhalts platzierte Objekte als Hilfsobjekte werten, während allgemeine Einrichtungsgegenstände (z. B. in Spielerheimen) korrekt als Strukturen verbucht werden.
+
 ---
 
 ## 2. Dynamisch ermittelte Abfragewerte (Präfix `qry_`) aus `View_Components_CELL_Typ`
@@ -81,9 +87,5 @@ Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Au
 > [!NOTE]
 > Diese `qry_`-Spalten und `calc_`-Spalten werden direkt in den Prüfregeln der Klassifizierungslogik in `Category_LOH_Classifier.py` ausgewertet.
 
-> [!IMPORTANT]
-> **Creation Engine 2 Technische Begründung für mod-eigene Hilfsobjekte:**
-> In der Creation Engine 2 ist es für Modder zwingend erforderlich, **neue, mod-eigene Container** (`CONT` mit lokaler FormID) zu definieren, wenn sie eigene Items (wie neue Waffen oder Rüstungen) in der Spielwelt verteilen möchten. Würde ein Modder stattdessen einen bestehenden Vanilla-Container bearbeiten, um seine Items hineinzulegen, würde diese Änderung global auf *jeden* Container dieses Typs im gesamten Universum angewendet werden (was zu schweren Kompatibilitätskonflikten und Balancing-Fehlern führt).
-> 
-> Analog verhält es sich bei Werkbänken: Eigene Rezepte (`COBJ`) sind an spezifische Keywords gekoppelt. Der Ausschluss von standardmäßigen Vanilla-Möbeln und Vanilla-Kisten stellt somit sicher, dass wir ausschließlich funktionale, gezielt zur Übergabe des Mod-Inhalts platzierte Objekte als Hilfsobjekte werten, während allgemeine Einrichtungsgegenstände (z. B. in Spielerheimen) korrekt als Strukturen verbucht werden.
+
 

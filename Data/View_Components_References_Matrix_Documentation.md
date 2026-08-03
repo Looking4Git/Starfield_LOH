@@ -13,6 +13,7 @@ Der View aggregiert Daten aus folgenden Quellen der LOH-Datenbank:
 *   **`Categories_LOH`**: Zugeordnete Kategorie der Mod (`Category_LOH`) sowie die vom automatischen Classifier vergebene Kategorie (`Category_LOH_Classifier`).
 *   **`LoadOrder_Classifier_Matrix`** (Klassenspalten `BGS`, `Bugfix` bis `Remove`): Die aktuelle Ausschlussmatrix für diese Komponente.
 *   **`View_Components_CELL_Typ`** (Spaltenpräfix `cell_typ.*`): Eine Hilfs-View (Subview), die die komplexen Zählungen der Zelltypen pro Komponente bündelt. Sie berücksichtigt mod-übergreifende Overrides anhand der automatisierten Abhängigkeitsliste (`Mods_Requirements_Masterfile_List`) und der System-Referenzen.
+*   **`View_Components_CELL_Helper_Objects`**: Eine neue Hilfs-View, die für jede Zelle einer Mod die mod-eigenen Hilfsobjekte (Kisten, Terminals, Notizen, Schlüssel, Werkbänke, Händler) erfasst und kosmetische Dekorationsobjekte (`is_deco`) herausfiltert.
 
 ---
 
@@ -50,20 +51,28 @@ Diese Spalten werden in der Subview `View_Components_CELL_Typ` ermittelt. Sie si
 
 ## 3. Berechnete Kalkulationswerte (Präfix `calc_`)
 
-Diese Spalten führen mathematische Berechnungen direkt in SQL aus, um bereinigte Daten für die Prüfregeln bereitzustellen. Sie beziehen sich direkt auf die vorabgefragten Zellwerte der Subview `View_Components_CELL_Typ`:
+Diese Spalten führen mathematische Berechnungen direkt in SQL aus, um bereinigte Daten für die Prüfregeln bereitzustellen. Sie beziehen sich direkt auf die vorabgefragten Zellwerte der Subview `View_Components_CELL_Typ` bzw. `View_Components_CELL_Helper_Objects`:
 
 *   **`calc_CELL_real`**:
     *   **Bedeutung:** Die Anzahl der tatsächlich real implementierten Weltzellen (inkl. Overrides).
-    *   **Berechnung:** `MAX(0, CELL - CELL_PackIn)` (Abzug aller PackIn-Templates von den deklarierten Zellen).
+    *   **Berechnung:** `MAX(0, CELL - CELL_PackIn - CELL_Dummy)` (Abzug aller PackIn- und Skript-Dummy-Zellen von den deklarierten Zellen).
 *   **`calc_CELL_Override_real`**:
     *   **Bedeutung:** Die Anzahl der tatsächlich real veränderten überschriebenen Weltzellen.
-    *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn)` (Abzug aller PackIn-Templates von den geänderten Zellen).
+    *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn - CELL_Override_Dummy)` (Abzug aller PackIn- und Skript-Dummy-Zellen von den geänderten Zellen).
 *   **`calc_CELL_Environment`**:
     *   **Bedeutung:** Die Anzahl der verbleibenden bearbeiteten Wildnis-/Umgebungsweltzellen (inkl. Overrides).
-    *   **Berechnung:** `MAX(0, CELL - CELL_PackIn - qry_CELL_City - qry_CELL_Settlement - qry_CELL_Playerhome - qry_CELL_Dungeon - qry_CELL_Ship)`.
+    *   **Berechnung:** `MAX(0, CELL - CELL_PackIn - CELL_Dummy - qry_CELL_City - qry_CELL_Settlement - qry_CELL_Playerhome - qry_CELL_Dungeon - qry_CELL_Ship)`.
 *   **`calc_CELL_Override_Environment`**:
     *   **Bedeutung:** Die Anzahl der verbleibenden überschriebenen Wildnis-/Umgebungsweltzellen.
-    *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn - qry_CELL_Override_City - qry_CELL_Override_Settlement - qry_CELL_Override_Playerhome - qry_CELL_Override_Dungeon - qry_CELL_Override_Ship)`.
+    *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn - CELL_Override_Dummy - qry_CELL_Override_City - qry_CELL_Override_Settlement - qry_CELL_Override_Playerhome - qry_CELL_Override_Dungeon - qry_CELL_Override_Ship)`.
+*   **`calc_Helper_Objects`**:
+    *   **Bedeutung:** Die Gesamtsumme aller mod-eigenen Hilfsobjekte über alle bearbeiteten Zellen hinweg.
+    *   **Ermittlung:** Subquery-Summe der Spalte `calc_Helper_Objects` aus `View_Components_CELL_Helper_Objects` für die entsprechende Mod.
+*   **`calc_Helper_Objects_Ratio`**:
+    *   **Bedeutung:** Das Verhältnis der mod-eigenen Hilfsobjekte zur bereinigten Gesamtzahl aller platzierten Weltreferenzen (Gesamtsumme Helpers / (Gesamtsumme Refs - Gesamtsumme Dekorationen)).
+    *   **Ermittlung:** Berechnet über Subqueries auf `View_Components_CELL_Helper_Objects` (Verhältnis der Gesamtsummen über alle Zellen hinweg).
+
+
 
 Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung` oder `Gebäude`.
 

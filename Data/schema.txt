@@ -843,6 +843,121 @@ SELECT
 FROM Components_ESM_References;
 
 
+CREATE VIEW IF NOT EXISTS "View_Components_CELL_Helper_Objects" AS
+WITH Computed_Refs AS (
+    SELECT 
+        ref.Component_ID,
+        ref.Cell_FormID,
+        ref.FormID_Local,
+        COALESCE(sys_base.Sig, esm_base.Sig) AS Base_Sig,
+        esm_base.FormID_Local AS esm_base_local,
+        ref.Sig AS Ref_Sig,
+        LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) AS Base_EDID,
+        
+        -- Deko-Ermittlung
+        CASE WHEN 
+            COALESCE(sys_base.Sig, esm_base.Sig) IN ('MSTT', 'MISC')
+            OR (COALESCE(sys_base.Sig, esm_base.Sig) = 'STAT' AND (
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%clutter%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%deco%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%poster%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%painting%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rug%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%carpet%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%vase%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plant%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%pot%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%dish%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plate%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%cup%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%mug%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%bottle%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%glass%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%tray%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%garbage%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%trash%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rubble%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%debris%'
+            ))
+        THEN 1 ELSE 0 END AS is_deco
+    FROM Components_ESM_FormIDs ref
+    LEFT JOIN Components_System_FormIDs sys_base 
+        ON ref.Base_FormID = sys_base.FormID_Local
+    LEFT JOIN Components_ESM_FormIDs esm_base 
+        ON ref.Base_FormID = esm_base.FormID_Local AND esm_base.Component_ID = ref.Component_ID
+    WHERE ref.Sig IN ('REFR', 'ACHR') AND ref.Cell_FormID IS NOT NULL
+)
+SELECT 
+    Component_ID,
+    Cell_FormID,
+    COUNT(FormID_Local) AS calc_CELL_Refs,
+    
+    SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_CONT,
+    SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_TERM,
+    SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_BOOK,
+    SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_KEYM,
+    
+    SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+        Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_FURN,
+    
+    SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+        Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+        Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+        Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+        Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_ACHR,
+    
+    (
+        SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+            Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+        ) THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+            Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+            Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+            Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+            Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+        ) THEN 1 ELSE 0 END)
+    ) AS calc_Helper_Objects,
+    
+    SUM(is_deco) AS calc_Deko_Objects,
+    
+    SUM(CASE WHEN 
+        Base_Sig IN ('DOOR', 'LIGH')
+        OR (Base_Sig = 'FURN' AND NOT (
+            esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+            )
+        ))
+        OR (Base_Sig = 'STAT' AND NOT is_deco)
+    THEN 1 ELSE 0 END) AS calc_Structural_Refs,
+    
+    CAST(
+        (
+            SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+            ) THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+                Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+                Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+                Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+            ) THEN 1 ELSE 0 END)
+        ) AS REAL
+    ) / MAX(1, COUNT(FormID_Local) - SUM(is_deco)) AS calc_Helper_Objects_Ratio
+    
+FROM Computed_Refs
+GROUP BY Component_ID, Cell_FormID;
+
+
 CREATE VIEW IF NOT EXISTS "View_Components_References_Matrix" AS
 SELECT 
     m.Name_Online AS Mod_Name,
@@ -906,19 +1021,21 @@ SELECT
         - COALESCE(cell_typ.qry_CELL_Override_Ship, 0)
     ) AS calc_CELL_Override_Environment,
     
-    (COALESCE(ref.CONT, 0) + COALESCE(ref.CONT_Override, 0) + 
-     COALESCE(ref.TERM, 0) + COALESCE(ref.TERM_Override, 0) + 
-     COALESCE(ref.BOOK, 0) + COALESCE(ref.BOOK_Override, 0) + 
-     COALESCE(ref.KEYM, 0) + COALESCE(ref.KEYM_Override, 0) + 
-     COALESCE(ref.ACHR, 0)) AS calc_Helper_Objects,
+    -- Neue Summen-Variante für die mod-eigenen Hilfsobjekte (über alle Zellen hinweg)
+    (SELECT COALESCE(SUM(h.calc_Helper_Objects), 0) 
+     FROM View_Components_CELL_Helper_Objects h 
+     WHERE h.Component_ID = ref.Component_ID) AS calc_Helper_Objects,
     
-    MIN(1.0, CAST(
-        COALESCE(ref.CONT, 0) + COALESCE(ref.CONT_Override, 0) + 
-        COALESCE(ref.TERM, 0) + COALESCE(ref.TERM_Override, 0) + 
-        COALESCE(ref.BOOK, 0) + COALESCE(ref.BOOK_Override, 0) + 
-        COALESCE(ref.KEYM, 0) + COALESCE(ref.KEYM_Override, 0) + 
-        COALESCE(ref.ACHR, 0) AS REAL
-    ) / MAX(1, COALESCE(ref.REFR, 0) + COALESCE(ref.ACHR, 0))) AS calc_Helper_Objects_Ratio,
+    -- Neue Summen-Ratio (Gesamtsumme Helpers / Gesamt-Refs abzüglich Deko)
+    CAST(
+        (SELECT COALESCE(SUM(h.calc_Helper_Objects), 0) 
+         FROM View_Components_CELL_Helper_Objects h 
+         WHERE h.Component_ID = ref.Component_ID) AS REAL
+    ) / MAX(1, 
+        (SELECT COALESCE(SUM(h.calc_CELL_Refs - h.calc_Deko_Objects), 0) 
+         FROM View_Components_CELL_Helper_Objects h 
+         WHERE h.Component_ID = ref.Component_ID)
+    ) AS calc_Helper_Objects_Ratio,
     
     -- Alle originalen Zähler-Referenzen
     ref.*

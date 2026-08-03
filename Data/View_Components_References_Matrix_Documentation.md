@@ -81,3 +81,9 @@ Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Au
 > [!NOTE]
 > Diese `qry_`-Spalten und `calc_`-Spalten werden direkt in den Prüfregeln der Klassifizierungslogik in `Category_LOH_Classifier.py` ausgewertet.
 
+> [!IMPORTANT]
+> **Creation Engine 2 Technische Begründung für mod-eigene Hilfsobjekte:**
+> In der Creation Engine 2 ist es für Modder zwingend erforderlich, **neue, mod-eigene Container** (`CONT` mit lokaler FormID) zu definieren, wenn sie eigene Items (wie neue Waffen oder Rüstungen) in der Spielwelt verteilen möchten. Würde ein Modder stattdessen einen bestehenden Vanilla-Container bearbeiten, um seine Items hineinzulegen, würde diese Änderung global auf *jeden* Container dieses Typs im gesamten Universum angewendet werden (was zu schweren Kompatibilitätskonflikten und Balancing-Fehlern führt).
+> 
+> Analog verhält es sich bei Werkbänken: Eigene Rezepte (`COBJ`) sind an spezifische Keywords gekoppelt. Der Ausschluss von standardmäßigen Vanilla-Möbeln und Vanilla-Kisten stellt somit sicher, dass wir ausschließlich funktionale, gezielt zur Übergabe des Mod-Inhalts platzierte Objekte als Hilfsobjekte werten, während allgemeine Einrichtungsgegenstände (z. B. in Spielerheimen) korrekt als Strukturen verbucht werden.
+

@@ -5,6 +5,12 @@ import json
 import html
 import logging
 import struct
+import sys
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
 from Structure.Database import check_component_exists, get_mod_by_id, get_components_by_mod_id, get_db_connection
 
@@ -19,7 +25,7 @@ from Structure.File_ESM_Parser_Body_Handles import (
     MOD_POINTER_COLS
 )
 from Structure.File_ESM_Parser_Body_CELL_LCTN import extract_esm_locations_and_cells
-from Structure.File_ESM_Parser_Body_CELL_Ship import extract_esm_ship_cells, extract_esm_all_cells
+
 
 def calculate_shifters(counts):
     """Berechnet die Quest-Shifter-Koeffizienten (0.0 bis 1.0) basierend auf den ESM-Referenzen."""
@@ -222,7 +228,7 @@ def scan_and_update_system_components(log_msg):
             
             if needs_scan:
                 log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
-                counts = scan_esm_for_handles(filepath, is_core=True)
+                counts, local_sigs = scan_esm_for_handles(filepath, is_core=True)
                 
                 # Locations und Zellen extrahieren
                 locations, cell_locations = extract_esm_locations_and_cells(filepath)
@@ -253,15 +259,53 @@ def scan_and_update_system_components(log_msg):
                     cursor.execute(query, params)
                     sys_id = cursor.lastrowid
                 
+                # FormID Signaturen speichern
+                cursor.execute("DELETE FROM Components_System_FormIDs WHERE Component_ID = ?", (sys_id,))
+                if local_sigs:
+                    from Structure.File_ESM_Parser_Base import get_masters_list
+                    masters = get_masters_list(filepath)
+                    master_id_map = {}
+                    for idx, master_name in enumerate(masters):
+                        cursor.execute("SELECT ID FROM Components_System WHERE LOWER(File) = ?", (master_name.lower(),))
+                        sys_row = cursor.fetchone()
+                        if sys_row:
+                            master_id_map[idx] = (sys_row[0], 1)
+                        else:
+                            master_id_map[idx] = (None, None)
+
+                    insert_sigs = []
+                    for (fid, is_ovr), (sig_bytes, master_idx, cell_fid, edid, base_fid) in local_sigs.items():
+                        master_db_id, is_system = (None, None)
+                        if is_ovr and master_idx is not None and master_idx in master_id_map:
+                            master_db_id, is_system = master_id_map[master_idx]
+
+                        insert_sigs.append((
+                            sys_id,
+                            fid,
+                            sig_bytes.decode('ascii', errors='ignore'),
+                            1 if is_ovr else 0,
+                            master_db_id,
+                            is_system,
+                            cell_fid,
+                            edid,
+                            base_fid
+                        ))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_System_FormIDs (
+                            Component_ID, FormID_Local, Sig, Is_Override, Master_Component_ID, Master_Is_System, Cell_FormID, EDID, Base_FormID
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, insert_sigs)
+
                 # Locations in Components_System_LCTN speichern
                 cursor.execute("DELETE FROM Components_System_LCTN WHERE Component_ID = ?", (sys_id,))
                 if locations:
                     insert_locs = []
                     for loc in locations:
-                        insert_locs.append((sys_id, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                        insert_locs.append((sys_id, loc['form_id_local'], loc['form_id_keyword']))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_System_LCTN (Component_ID, FormID_Local, FormID_Keyword, EDID)
-                        VALUES (?, ?, ?, ?)
+                        INSERT OR IGNORE INTO Components_System_LCTN (Component_ID, FormID_Local, FormID_Keyword)
+                        VALUES (?, ?, ?)
                     """, insert_locs)
                 
                 # Zell-Location-Referenzen in Components_System_CELL_LCTN speichern
@@ -275,20 +319,8 @@ def scan_and_update_system_components(log_msg):
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
-                # Schiffs-Zellen in Components_System_CELL_Ship speichern
-                cursor.execute("DELETE FROM Components_System_CELL_Ship WHERE Component_ID = ?", (sys_id,))
-                ship_cells = extract_esm_ship_cells(filepath)
-                if ship_cells:
-                    insert_ship_cells = []
-                    for sc in ship_cells:
-                        insert_ship_cells.append((sys_id, sc['cell_form_id'], sc.get('is_pack_in', 0)))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_System_CELL_Ship (Component_ID, Cell_FormID, Is_PackIn)
-                        VALUES (?, ?, ?)
-                    """, insert_ship_cells)
-                
                 conn.commit()
-                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)}, Cells: {len(cell_locations)}, Ship Cells: {len(ship_cells)} | Metadaten gespeichert.")
+                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)}, Cells: {len(cell_locations)} | Metadaten gespeichert.")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
@@ -339,7 +371,16 @@ def scan_and_update_mod_components(log_msg):
             
             if needs_scan:
                 num_full = get_num_full_masters(filepath, cursor)
-                counts = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full)
+                
+                formid_to_sig = {}
+                cursor.execute("SELECT FormID_Local, Sig FROM Components_System_FormIDs")
+                for fid, sig in cursor.fetchall():
+                    formid_to_sig[fid] = sig.encode('ascii')
+                cursor.execute("SELECT FormID_Local, Sig FROM Components_ESM_FormIDs")
+                for fid, sig in cursor.fetchall():
+                    formid_to_sig[fid] = sig.encode('ascii')
+                
+                counts, local_sigs = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full, formid_to_sig=formid_to_sig)
                 calculate_shifters(counts)
                 
                 # Locations und Zellen extrahieren
@@ -367,15 +408,60 @@ def scan_and_update_mod_components(log_msg):
                 params = [comp_id] + pointer_values
                 cursor.execute(query, params)
                 
+                # FormID Signaturen speichern
+                cursor.execute("DELETE FROM Components_ESM_FormIDs WHERE Component_ID = ?", (comp_id,))
+                if local_sigs:
+                    from Structure.File_ESM_Parser_Base import get_masters_list
+                    masters = get_masters_list(filepath)
+                    master_id_map = {}
+                    for idx, master_name in enumerate(masters):
+                        # 1. In Components_System suchen
+                        cursor.execute("SELECT ID FROM Components_System WHERE LOWER(File) = ?", (master_name.lower(),))
+                        sys_row = cursor.fetchone()
+                        if sys_row:
+                            master_id_map[idx] = (sys_row[0], 1)
+                        else:
+                            # 2. In Components suchen
+                            cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (master_name.lower(),))
+                            mod_row = cursor.fetchone()
+                            if mod_row:
+                                master_id_map[idx] = (mod_row[0], 0)
+                            else:
+                                master_id_map[idx] = (None, None)
+
+                    insert_sigs = []
+                    for (fid, is_ovr), (sig_bytes, master_idx, cell_fid, edid, base_fid) in local_sigs.items():
+                        master_db_id, is_system = (None, None)
+                        if is_ovr and master_idx is not None and master_idx in master_id_map:
+                            master_db_id, is_system = master_id_map[master_idx]
+
+                        insert_sigs.append((
+                            comp_id,
+                            fid,
+                            sig_bytes.decode('ascii', errors='ignore'),
+                            1 if is_ovr else 0,
+                            master_db_id,
+                            is_system,
+                            cell_fid,
+                            edid,
+                            base_fid
+                        ))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_FormIDs (
+                            Component_ID, FormID_Local, Sig, Is_Override, Master_Component_ID, Master_Is_System, Cell_FormID, EDID, Base_FormID
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, insert_sigs)
+
                 # 3. Locations in Components_ESM_LCTN speichern
                 cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ?", (comp_id,))
                 if locations:
                     insert_locs = []
                     for loc in locations:
-                        insert_locs.append((comp_id, loc['form_id_local'], loc['form_id_keyword'], loc['edid']))
+                        insert_locs.append((comp_id, loc['form_id_local'], loc['form_id_keyword']))
                     cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, FormID_Local, FormID_Keyword, EDID)
-                        VALUES (?, ?, ?, ?)
+                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, FormID_Local, FormID_Keyword)
+                        VALUES (?, ?, ?)
                     """, insert_locs)
                 
                 # Zell-Location-Referenzen in Components_ESM_CELL_LCTN speichern
@@ -388,34 +474,6 @@ def scan_and_update_mod_components(log_msg):
                         INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
-                
-                # Schiffs-Zellen in Components_ESM_CELL_Ship speichern
-                cursor.execute("DELETE FROM Components_ESM_CELL_Ship WHERE Component_ID = ?", (comp_id,))
-                all_mod_cells = extract_esm_all_cells(filepath)
-                
-                # System-Schiffs-Zellen FormIDs für schnellen Abgleich laden
-                cursor.execute("SELECT Cell_FormID FROM Components_System_CELL_Ship")
-                sys_ship_cells = {r[0] for r in cursor.fetchall()}
-                
-                import re
-                SHIP_CELL_PATTERN = re.compile(r"(?i)ship|station|spaceship")
-                
-                ship_cells_found = []
-                for cell in all_mod_cells:
-                    fid = cell['cell_form_id']
-                    edid = cell['edid']
-                    if (edid and SHIP_CELL_PATTERN.search(edid)) or fid in sys_ship_cells:
-                        is_pack_in = 1 if (edid and "packin" in edid.lower()) else 0
-                        ship_cells_found.append((fid, is_pack_in))
-                
-                if ship_cells_found:
-                    insert_ship_cells = []
-                    for fid, is_pack_in in ship_cells_found:
-                        insert_ship_cells.append((comp_id, fid, is_pack_in))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_CELL_Ship (Component_ID, Cell_FormID, Is_PackIn)
-                        VALUES (?, ?, ?)
-                    """, insert_ship_cells)
                 
                 # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern
                 cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
@@ -439,7 +497,7 @@ def scan_and_update_mod_components(log_msg):
                             """, insert_reqs)
                 
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}, Ship Cells: {len(ship_cells_found)}")
+                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}")
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")

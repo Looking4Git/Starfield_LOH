@@ -36,13 +36,16 @@ CREATE TABLE "Components_ESM_References" (
         "ALCH_Remove"           INTEGER DEFAULT 0,
         "AMMO"                  INTEGER DEFAULT 0,
         "AMMO_Override"         INTEGER DEFAULT 0,
-        "APWR"                  INTEGER DEFAULT 0,
         "ARMO"                  INTEGER DEFAULT 0,
         "ARMO_Override"         INTEGER DEFAULT 0,
         "AVIF"                  INTEGER DEFAULT 0,
         "AVIF_Override"         INTEGER DEFAULT 0,
+        "BIOM"                  INTEGER DEFAULT 0,
+        "BIOM_Override"         INTEGER DEFAULT 0,
         "BOOK"                  INTEGER DEFAULT 0,
         "BOOK_Override"         INTEGER DEFAULT 0,
+        "CAMS"                  INTEGER DEFAULT 0,
+        "CAMS_Override"         INTEGER DEFAULT 0,
         "CELL"                  INTEGER DEFAULT 0,
         "CELL_Dummy"            INTEGER DEFAULT 0,
         "CELL_Override"         INTEGER DEFAULT 0,
@@ -54,9 +57,16 @@ CREATE TABLE "Components_ESM_References" (
         "CLMT_Override"         INTEGER DEFAULT 0,
         "COBJ"                  INTEGER DEFAULT 0,
         "COBJ_BNAM_Outpost_Heavy" INTEGER DEFAULT 0,
+        "COBJ_BNAM_Outpost_Heavy_Override" INTEGER DEFAULT 0,
         "COBJ_BNAM_Outpost_Soft" INTEGER DEFAULT 0,
+        "COBJ_BNAM_Outpost_Soft_Override" INTEGER DEFAULT 0,
         "COBJ_BNAM_Ship"        INTEGER DEFAULT 0,
+        "COBJ_BNAM_Ship_Override" INTEGER DEFAULT 0,
         "COBJ_Override"         INTEGER DEFAULT 0,
+        "CONT"                  INTEGER DEFAULT 0,
+        "CONT_Override"         INTEGER DEFAULT 0,
+        "CPTH"                  INTEGER DEFAULT 0,
+        "CPTH_Override"         INTEGER DEFAULT 0,
         "DIAL"                  INTEGER DEFAULT 0,
         "DIAL_Override"         INTEGER DEFAULT 0,
         "EFSH"                  INTEGER DEFAULT 0,
@@ -95,9 +105,13 @@ CREATE TABLE "Components_ESM_References" (
         "KYWD"                  INTEGER DEFAULT 0,
         "LCTN"                  INTEGER DEFAULT 0,
         "LCTN_KYWD_City"        INTEGER DEFAULT 0,
+        "LCTN_KYWD_City_Override" INTEGER DEFAULT 0,
         "LCTN_KYWD_Dungeon"     INTEGER DEFAULT 0,
+        "LCTN_KYWD_Dungeon_Override" INTEGER DEFAULT 0,
         "LCTN_KYWD_Playerhome"  INTEGER DEFAULT 0,
+        "LCTN_KYWD_Playerhome_Override" INTEGER DEFAULT 0,
         "LCTN_KYWD_Settlement"  INTEGER DEFAULT 0,
+        "LCTN_KYWD_Settlement_Override" INTEGER DEFAULT 0,
         "LCTN_Override"         INTEGER DEFAULT 0,
         "LIGH"                  INTEGER DEFAULT 0,
         "LIGH_FNAM"             INTEGER DEFAULT 0,
@@ -110,7 +124,6 @@ CREATE TABLE "Components_ESM_References" (
         "LVLN_Override"         INTEGER DEFAULT 0,
         "LVLP"                  INTEGER DEFAULT 0,
         "LVLP_Override"         INTEGER DEFAULT 0,
-        "MATO"                  INTEGER DEFAULT 0,
         "MGEF"                  INTEGER DEFAULT 0,
         "MGEF_Override"         INTEGER DEFAULT 0,
         "MGEF_Remove"           INTEGER DEFAULT 0,
@@ -119,8 +132,6 @@ CREATE TABLE "Components_ESM_References" (
         "MOVT"                  INTEGER DEFAULT 0,
         "MSTT"                  INTEGER DEFAULT 0,
         "MSTT_Override"         INTEGER DEFAULT 0,
-        "MSWP"                  INTEGER DEFAULT 0,
-        "MSWP_Override"         INTEGER DEFAULT 0,
         "MUSC"                  INTEGER DEFAULT 0,
         "MUSC_Override"         INTEGER DEFAULT 0,
         "NAVM"                  INTEGER DEFAULT 0,
@@ -130,7 +141,6 @@ CREATE TABLE "Components_ESM_References" (
         "NPC_KYWD_Creature"     INTEGER DEFAULT 0,
         "NPC_KYWD_Ship"         INTEGER DEFAULT 0,
         "NPC_KYWD_Shop"         INTEGER DEFAULT 0,
-        "NVNM"                  INTEGER DEFAULT 0,
         "OMOD"                  INTEGER DEFAULT 0,
         "OMOD_Override"         INTEGER DEFAULT 0,
         "PCBN"                  INTEGER DEFAULT 0,
@@ -138,7 +148,6 @@ CREATE TABLE "Components_ESM_References" (
         "PERK"                  INTEGER DEFAULT 0,
         "PERK_Override"         INTEGER DEFAULT 0,
         "PERK_Remove"           INTEGER DEFAULT 0,
-        "PKEY"                  INTEGER DEFAULT 0,
         "PKIN"                  INTEGER DEFAULT 0,
         "QUST"                  INTEGER DEFAULT 0,
         "QUST_FULL"             INTEGER DEFAULT 0,
@@ -160,21 +169,14 @@ CREATE TABLE "Components_ESM_References" (
         "REGN"                  INTEGER DEFAULT 0,
         "REGN_Override"         INTEGER DEFAULT 0,
         "RSPJ"                  INTEGER DEFAULT 0,
+        "RSPJ_Override"         INTEGER DEFAULT 0,
         "SFBK"                  INTEGER DEFAULT 0,
         "SFBK_Override"         INTEGER DEFAULT 0,
         "Shifter_Quest_Chest"   REAL DEFAULT 0.0,
         "Shifter_Quest_Ship"    REAL DEFAULT 0.0,
         "Shifter_Quest_Starter" REAL DEFAULT 0.0,
         "Shifter_Quest_Trader"  REAL DEFAULT 0.0,
-        "SHST"                  INTEGER DEFAULT 0,
-        "SHST_Override"         INTEGER DEFAULT 0,
-        "SMOD"                  INTEGER DEFAULT 0,
-        "SMOD_Override"         INTEGER DEFAULT 0,
-        "SNDR"                  INTEGER DEFAULT 0,
-        "SNDR_Override"         INTEGER DEFAULT 0,
         "SOUN"                  INTEGER DEFAULT 0,
-        "SPAC"                  INTEGER DEFAULT 0,
-        "SPAC_Override"         INTEGER DEFAULT 0,
         "SPEL"                  INTEGER DEFAULT 0,
         "SPEL_Override"         INTEGER DEFAULT 0,
         "SPEL_Remove"           INTEGER DEFAULT 0,
@@ -182,35 +184,24 @@ CREATE TABLE "Components_ESM_References" (
         "STAT_Override"         INTEGER DEFAULT 0,
         "STBH"                  INTEGER DEFAULT 0,
         "STDT"                  INTEGER DEFAULT 0,
+        "STDT_Override"         INTEGER DEFAULT 0,
         "STMP"                  INTEGER DEFAULT 0,
         "STND"                  INTEGER DEFAULT 0,
         "TERM"                  INTEGER DEFAULT 0,
-        "TREE"                  INTEGER DEFAULT 0,
-        "TREE_Override"         INTEGER DEFAULT 0,
-        "TREE_Remove"           INTEGER DEFAULT 0,
+        "TERM_Override"         INTEGER DEFAULT 0,
         "TXST"                  INTEGER DEFAULT 0,
-        "VEHI"                  INTEGER DEFAULT 0,
-        "VEHI_Override"         INTEGER DEFAULT 0,
-        "VFXS"                  INTEGER DEFAULT 0,
-        "VFXS_Override"         INTEGER DEFAULT 0,
-        "VFXS_Remove"           INTEGER DEFAULT 0,
-        "VMOD"                  INTEGER DEFAULT 0,
-        "VMOD_Override"         INTEGER DEFAULT 0,
         "WEAP"                  INTEGER DEFAULT 0,
         "WEAP_KWDA_Helper"      INTEGER DEFAULT 0,
         "WEAP_KWDA_Ship"        INTEGER DEFAULT 0,
         "WEAP_KWDA_Vehicle"     INTEGER DEFAULT 0,
         "WEAP_Override"         INTEGER DEFAULT 0,
         "WRLD"                  INTEGER DEFAULT 0,
-        "WTHR"                  INTEGER DEFAULT 0,
-        "WTHR_Override"         INTEGER DEFAULT 0,
-        "BIOM"                  INTEGER DEFAULT 0,
-        "BIOM_Override"         INTEGER DEFAULT 0,
-        "LAND"                  INTEGER DEFAULT 0,
-        "LAND_Override"         INTEGER DEFAULT 0,
+        "WRLD_Override"         INTEGER DEFAULT 0,
+        "WTHS"                  INTEGER DEFAULT 0,
+        "WTHS_Override"         INTEGER DEFAULT 0,
         PRIMARY KEY("Component_ID"),
         FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-    )
+);
 
 CREATE TABLE "LoadOrder" (
 	"ID_Profile"	INTEGER NOT NULL,
@@ -325,7 +316,6 @@ CREATE TABLE "Components_System_LCTN" (
 	"Component_ID"	INTEGER NOT NULL,
 	"FormID_Local"	INTEGER NOT NULL,
 	"FormID_Keyword"	INTEGER NOT NULL,
-	"EDID"	TEXT,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
 );
@@ -338,7 +328,6 @@ CREATE TABLE "Components_ESM_LCTN" (
 	"Component_ID"	INTEGER NOT NULL,
 	"FormID_Local"	INTEGER NOT NULL,
 	"FormID_Keyword"	INTEGER NOT NULL,
-	"EDID"	TEXT,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );
@@ -369,7 +358,7 @@ CREATE TABLE "Components_ESM_CELL_LCTN" (
 	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );
 
-CREATE VIEW "Components_System_CELL_Ship" AS
+CREATE VIEW "View_Components_System_CELL_Ship" AS
 SELECT 
     Component_ID,
     FormID_Local AS Cell_FormID,
@@ -381,7 +370,7 @@ WHERE Sig = 'CELL'
        OR LOWER(EDID) LIKE '%spaceship%'
        OR LOWER(EDID) LIKE 'ss%');
 
-CREATE VIEW "Components_ESM_CELL_Ship" AS
+CREATE VIEW "View_Components_ESM_CELL_Ship" AS
 SELECT 
     Component_ID,
     FormID_Local AS Cell_FormID,
@@ -392,6 +381,34 @@ WHERE Sig = 'CELL'
        OR LOWER(EDID) LIKE '%station%' 
        OR LOWER(EDID) LIKE '%spaceship%'
        OR LOWER(EDID) LIKE 'ss%');
+
+CREATE VIEW "View_Components_System_LCTN" AS
+SELECT 
+    l.ID,
+    l.Component_ID,
+    l.FormID_Local,
+    l.FormID_Keyword,
+    f.EDID
+FROM "Components_System_LCTN" l
+LEFT JOIN "Components_System_FormIDs" f 
+    ON l.FormID_Local = f.FormID_Local 
+   AND f.Sig = 'LCTN';
+
+CREATE VIEW "View_Components_ESM_LCTN" AS
+SELECT 
+    l.ID,
+    l.Component_ID,
+    l.FormID_Local,
+    l.FormID_Keyword,
+    COALESCE(ef.EDID, sf.EDID) AS EDID
+FROM "Components_ESM_LCTN" l
+LEFT JOIN "Components_ESM_FormIDs" ef 
+    ON l.FormID_Local = ef.FormID_Local 
+   AND l.Component_ID = ef.Component_ID 
+   AND ef.Sig = 'LCTN'
+LEFT JOIN "Components_System_FormIDs" sf 
+    ON l.FormID_Local = sf.FormID_Local 
+   AND sf.Sig = 'LCTN';
 
 CREATE TABLE sqlite_sequence(name,seq);
 
@@ -405,34 +422,34 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
           )
     ) AS qry_CELL_City,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
           )
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
@@ -454,34 +471,34 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
           )
     ) AS qry_CELL_City_PackIn,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
           )
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
@@ -506,34 +523,34 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) NOT LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
           )
     ) AS qry_CELL_Settlement,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) NOT LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
           )
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
@@ -555,34 +572,34 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) NOT LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
           )
     ) AS qry_CELL_Settlement_PackIn,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 140817
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
           AND (
-              (Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_System_LCTN.EDID) NOT LIKE '%city%')
-              OR (Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
           )
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
@@ -607,29 +624,29 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 3076722
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 3076722
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
     ) AS qry_CELL_Playerhome,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 3076722
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 3076722
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
               OR EXISTS (
@@ -650,29 +667,29 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 3076722
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 3076722
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
     ) AS qry_CELL_Playerhome_PackIn,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 3076722
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 3076722
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 3076722
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
               OR EXISTS (
@@ -696,29 +713,29 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 152764
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 152764
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
     ) AS qry_CELL_Dungeon,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 152764
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 152764
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
               OR EXISTS (
@@ -739,29 +756,29 @@ SELECT
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 152764
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 152764
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
     ) AS qry_CELL_Dungeon_PackIn,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
         FROM Components_ESM_CELL_LCTN AS cc
-        LEFT JOIN Components_System_LCTN 
-            ON cc.FormID_LCTN = Components_System_LCTN.FormID_Local 
-           AND Components_System_LCTN.FormID_Keyword = 152764
-        LEFT JOIN Components_ESM_LCTN 
-            ON cc.FormID_LCTN = Components_ESM_LCTN.FormID_Local 
-           AND Components_ESM_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_System_LCTN 
+            ON cc.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 152764
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cc.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 152764
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
-          AND (Components_System_LCTN.FormID_Local IS NOT NULL OR Components_ESM_LCTN.FormID_Local IS NOT NULL)
+          AND (View_Components_System_LCTN.FormID_Local IS NOT NULL OR View_Components_ESM_LCTN.FormID_Local IS NOT NULL)
           AND (
               cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_LCTN)
               OR EXISTS (
@@ -780,25 +797,25 @@ SELECT
     ) AS qry_CELL_Override_Dungeon_PackIn,
 
     -- =========================================================================
-    -- SCHIFFE / STATIONEN (aus Components_ESM_CELL_Ship)
+    -- SCHIFFE / STATIONEN (aus View_Components_ESM_CELL_Ship)
     -- =========================================================================
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
-        FROM Components_ESM_CELL_Ship AS cc
+        FROM View_Components_ESM_CELL_Ship AS cc
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
     ) AS qry_CELL_Ship,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
-        FROM Components_ESM_CELL_Ship AS cc
+        FROM View_Components_ESM_CELL_Ship AS cc
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 0
           AND (
-              cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+              cc.Cell_FormID IN (SELECT Cell_FormID FROM View_Components_System_CELL_Ship)
               OR EXISTS (
                   SELECT 1 
-                  FROM Components_ESM_CELL_Ship AS Master_Cells
+                  FROM View_Components_ESM_CELL_Ship AS Master_Cells
                   JOIN Components AS Master_Components 
                       ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
@@ -813,21 +830,21 @@ SELECT
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
-        FROM Components_ESM_CELL_Ship AS cc
+        FROM View_Components_ESM_CELL_Ship AS cc
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
     ) AS qry_CELL_Ship_PackIn,
 
     (
         SELECT COUNT(DISTINCT cc.Cell_FormID) 
-        FROM Components_ESM_CELL_Ship AS cc
+        FROM View_Components_ESM_CELL_Ship AS cc
         WHERE cc.Component_ID = Components_ESM_References.Component_ID
           AND cc.Is_PackIn = 1
           AND (
-              cc.Cell_FormID IN (SELECT Cell_FormID FROM Components_System_CELL_Ship)
+              cc.Cell_FormID IN (SELECT Cell_FormID FROM View_Components_System_CELL_Ship)
               OR EXISTS (
                   SELECT 1 
-                  FROM Components_ESM_CELL_Ship AS Master_Cells
+                  FROM View_Components_ESM_CELL_Ship AS Master_Cells
                   JOIN Components AS Master_Components 
                       ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
@@ -958,6 +975,500 @@ FROM Computed_Refs
 GROUP BY Component_ID, Cell_FormID;
 
 
+CREATE VIEW IF NOT EXISTS "View_Components_References_Qry" AS
+SELECT 
+    Component_ID,
+    qry_CELL_City,
+    qry_CELL_Override_City,
+    qry_CELL_City_PackIn,
+    qry_CELL_Override_City_PackIn,
+    qry_CELL_Settlement,
+    qry_CELL_Override_Settlement,
+    qry_CELL_Settlement_PackIn,
+    qry_CELL_Override_Settlement_PackIn,
+    qry_CELL_Playerhome,
+    qry_CELL_Override_Playerhome,
+    qry_CELL_Playerhome_PackIn,
+    qry_CELL_Override_Playerhome_PackIn,
+    qry_CELL_Dungeon,
+    qry_CELL_Override_Dungeon,
+    qry_CELL_Dungeon_PackIn,
+    qry_CELL_Override_Dungeon_PackIn,
+    qry_CELL_Ship,
+    qry_CELL_Override_Ship,
+    qry_CELL_Ship_PackIn,
+    qry_CELL_Override_Ship_PackIn
+FROM View_Components_CELL_Typ;
+
+
+CREATE VIEW IF NOT EXISTS "View_Components_References_Calc" AS
+SELECT
+    ref.Component_ID,
+    
+    -- Hilfssummen für Overrides (inklusive logische Forms: AVIF, CONT, FLST, KYWD, MISC, SOUN, TERM, TXST, WTHS)
+    (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
+     COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
+     COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
+     COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
+     COALESCE(ref.CPTH, 0) + 
+     COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
+     COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
+     COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
+     COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
+     COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
+     COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
+     COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
+     COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
+     COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
+     COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
+     COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
+     COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
+     COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
+     COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
+     COALESCE(ref.WTHS, 0)) AS calc_Total_Base_Val,
+     
+    (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+     COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
+     COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
+     COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
+     COALESCE(ref.CPTH_Override, 0) + 
+     COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
+     COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+     COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
+     COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
+     COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
+     COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
+     COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
+     COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
+     COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
+     COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+     COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
+     COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
+     COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
+     COALESCE(ref.WTHS_Override, 0)) AS calc_Total_Override_Val,
+
+    ((CASE WHEN ref.ALCH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.AMMO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.ARMO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.AVIF_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.BIOM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.BOOK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CAMS_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CELL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CLMT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.COBJ_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CONT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CPTH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.DIAL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.EFSH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.ENCH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FLOR_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FLST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FURN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.GLOB_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.GMST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.IMAD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.INFO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.INNR_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.KEYM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LCTN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LIGH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LMSW_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLI_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLP_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MGEF_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MISC_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MSTT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MUSC_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.NPC__Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.OMOD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.PERK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.QUST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.RACE_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.REGN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.RSPJ_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.SFBK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.SPEL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.STAT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.STDT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.TERM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WEAP_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WRLD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WTHS_Override > 0 THEN 1 ELSE 0 END)) AS calc_Num_Override_Categories,
+
+    -- Das Verhältnis (Ratio)
+    CAST(
+        (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+         COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
+         COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
+         COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
+         COALESCE(ref.CPTH_Override, 0) + 
+         COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
+         COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+         COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
+         COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
+         COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
+         COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
+         COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
+         COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
+         COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
+         COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+         COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
+         COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
+         COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
+         COALESCE(ref.WTHS_Override, 0)) AS REAL
+    ) / NULLIF(
+        (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
+         COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
+         COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
+         COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
+         COALESCE(ref.CPTH, 0) + 
+         COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
+         COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
+         COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
+         COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
+         COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
+         COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
+         COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
+         COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
+         COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
+         COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
+         COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
+         COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
+         COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
+         COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
+         COALESCE(ref.WTHS, 0)), 0
+    ) AS calc_Override_Ratio,
+
+    -- Zähler der aktiven funktionalen Bereiche für Overhauls (World, Actors, Effects, Items, Systems)
+    (CASE WHEN (COALESCE(ref.CELL_Override, 0) + COALESCE(ref.STAT_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+                COALESCE(ref.WTHS_Override, 0) + COALESCE(ref.WRLD_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+                COALESCE(ref.STDT_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.NPC__Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.AVIF_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.SPEL_Override, 0) + COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.ENCH_Override, 0) + COALESCE(ref.ALCH_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.CONT_Override, 0) + COALESCE(ref.MISC_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.GMST_Override, 0) + COALESCE(ref.QUST_Override, 0) + COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.INFO_Override, 0) + COALESCE(ref.TERM_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CPTH_Override, 0)) > 0 THEN 1 ELSE 0 END) AS calc_Overhaul_Active_Areas,
+
+    -- Die bisherigen calc_ Spalten
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)) AS calc_CELL_real,
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)) AS calc_CELL_Override_real,
+    
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)
+        - COALESCE(qry.qry_CELL_City, 0)
+        - COALESCE(qry.qry_CELL_Settlement, 0)
+        - COALESCE(qry.qry_CELL_Playerhome, 0)
+        - COALESCE(qry.qry_CELL_Dungeon, 0)
+        - COALESCE(qry.qry_CELL_Ship, 0)
+    ) AS calc_CELL_Environment,
+    
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)
+        - COALESCE(qry.qry_CELL_Override_City, 0)
+        - COALESCE(qry.qry_CELL_Override_Settlement, 0)
+        - COALESCE(qry.qry_CELL_Override_Playerhome, 0)
+        - COALESCE(qry.qry_CELL_Override_Dungeon, 0)
+        - COALESCE(qry.qry_CELL_Override_Ship, 0)
+    ) AS calc_CELL_Override_Environment,
+    
+    COALESCE(helper.calc_Helper_Objects, 0) AS calc_Helper_Objects,
+    CAST(COALESCE(helper.calc_Helper_Objects, 0) AS REAL) / MAX(1, COALESCE(helper.calc_Helper_Refs_Netto, 0)) AS calc_Helper_Objects_Ratio
+
+FROM Components_ESM_References ref
+LEFT JOIN (
+    SELECT 
+        Component_ID,
+        SUM(calc_Helper_Objects) AS calc_Helper_Objects,
+        SUM(calc_CELL_Refs - calc_Deko_Objects) AS calc_Helper_Refs_Netto
+    FROM View_Components_CELL_Helper_Objects
+    GROUP BY Component_ID
+) helper ON ref.Component_ID = helper.Component_ID
+LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
+-- Join für die BGS-Klassifizierung:
+LEFT JOIN Components c ON ref.Component_ID = c.ID
+LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID;
+
+
+CREATE TABLE IF NOT EXISTS "Components_References_Base" (
+    "Component_ID" INTEGER PRIMARY KEY,
+    
+    -- Berechnungsspalten für Dimensionen
+    "dim_calc_inner_Bugfix" REAL,
+    "dim_calc_outer_Bugfix" REAL,
+    "dim_calc_inner_Overhaul" INTEGER,
+    "dim_calc_outer_Overhaul" INTEGER,
+    "dim_calc_inner_Quest" REAL,
+    "dim_calc_outer_Quest" INTEGER,
+    "dim_calc_inner_Umgebung" REAL,
+    "dim_calc_outer_Umgebung" REAL,
+    "dim_calc_inner_Städte" REAL,
+    "dim_calc_outer_Städte" REAL,
+    "dim_calc_inner_Gebäude" REAL,
+    "dim_calc_outer_Gebäude" REAL,
+    "dim_calc_inner_Spielerheime" REAL,
+    "dim_calc_outer_Spielerheime" REAL,
+    "dim_calc_inner_Außenposten" REAL,
+    "dim_calc_outer_Außenposten" REAL,
+    "dim_calc_inner_Einrichtung" REAL,
+    "dim_calc_outer_Einrichtung" REAL,
+    "dim_calc_inner_POIs" REAL,
+    "dim_calc_outer_POIs" REAL,
+    "dim_calc_inner_Pflanzen" REAL,
+    "dim_calc_outer_Pflanzen" REAL,
+    "dim_calc_inner_Gameplay" REAL,
+    "dim_calc_outer_Gameplay" REAL,
+    "dim_calc_inner_NPCs" REAL,
+    "dim_calc_outer_NPCs" REAL,
+    "dim_calc_inner_Begleiter" REAL,
+    "dim_calc_outer_Begleiter" REAL,
+    "dim_calc_inner_Kreaturen" REAL,
+    "dim_calc_outer_Kreaturen" REAL,
+    "dim_calc_inner_Texturen" REAL,
+    "dim_calc_outer_Texturen" REAL,
+    "dim_calc_inner_Licht" REAL,
+    "dim_calc_outer_Licht" REAL,
+    "dim_calc_inner_Effekte" REAL,
+    "dim_calc_outer_Effekte" REAL,
+    "dim_calc_inner_Sound" REAL,
+    "dim_calc_outer_Sound" REAL,
+    "dim_calc_inner_Interface" REAL,
+    "dim_calc_outer_Interface" REAL,
+    "dim_calc_inner_Sortierung" REAL,
+    "dim_calc_outer_Sortierung" REAL,
+    "dim_calc_inner_Tweaks" REAL,
+    "dim_calc_outer_Tweaks" REAL,
+    "dim_calc_inner_Charakter" REAL,
+    "dim_calc_outer_Charakter" REAL,
+    "dim_calc_inner_Kleidung" REAL,
+    "dim_calc_outer_Kleidung" REAL,
+    "dim_calc_inner_Waffen" REAL,
+    "dim_calc_outer_Waffen" REAL,
+    "dim_calc_inner_Crafting" REAL,
+    "dim_calc_outer_Crafting" REAL,
+    "dim_calc_inner_Schiffe" REAL,
+    "dim_calc_outer_Schiffe" REAL,
+    "dim_calc_inner_Fahrzeuge" REAL,
+    "dim_calc_outer_Fahrzeuge" REAL,
+    "dim_calc_inner_Items" REAL,
+    "dim_calc_outer_Items" REAL,
+    "dim_calc_inner_Skins" REAL,
+    "dim_calc_outer_Skins" REAL,
+    "dim_calc_inner_Remove" REAL,
+    "dim_calc_outer_Remove" REAL,
+    
+    -- Dynamisch ermittelte Zellen
+    "qry_CELL_City" INTEGER,
+    "qry_CELL_Override_City" INTEGER,
+    "qry_CELL_City_PackIn" INTEGER,
+    "qry_CELL_Override_City_PackIn" INTEGER,
+    "qry_CELL_Settlement" INTEGER,
+    "qry_CELL_Override_Settlement" INTEGER,
+    "qry_CELL_Settlement_PackIn" INTEGER,
+    "qry_CELL_Override_Settlement_PackIn" INTEGER,
+    "qry_CELL_Playerhome" INTEGER,
+    "qry_CELL_Override_Playerhome" INTEGER,
+    "qry_CELL_Playerhome_PackIn" INTEGER,
+    "qry_CELL_Override_Playerhome_PackIn" INTEGER,
+    "qry_CELL_Dungeon" INTEGER,
+    "qry_CELL_Override_Dungeon" INTEGER,
+    "qry_CELL_Dungeon_PackIn" INTEGER,
+    "qry_CELL_Override_Dungeon_PackIn" INTEGER,
+    "qry_CELL_Ship" INTEGER,
+    "qry_CELL_Override_Ship" INTEGER,
+    "qry_CELL_Ship_PackIn" INTEGER,
+    "qry_CELL_Override_Ship_PackIn" INTEGER,
+    
+    -- Berechnete Werte
+    "calc_Total_Base_Val" INTEGER,
+    "calc_Total_Override_Val" INTEGER,
+    "calc_Num_Override_Categories" INTEGER,
+    "calc_Overhaul_Active_Areas" INTEGER,
+    "calc_CELL_real" INTEGER,
+    "calc_CELL_Override_real" INTEGER,
+    "calc_CELL_Environment" INTEGER,
+    "calc_CELL_Override_Environment" INTEGER,
+    "calc_Helper_Objects" INTEGER,
+    "calc_Helper_Objects_Ratio" REAL,
+    "calc_Override_Ratio" REAL,
+    
+    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE VIEW IF NOT EXISTS "View_Components_References_Base" AS
+SELECT
+    ref.Component_ID,
+    
+    -- --- BERECHNUNGSSPALTEN FÜR DIMENSIONEN ---
+    COALESCE(calc.calc_Num_Override_Categories * log10(NULLIF(calc.calc_Total_Base_Val, 0)), 0) AS dim_calc_inner_Bugfix,
+    COALESCE(calc.calc_Override_Ratio, 0) AS dim_calc_outer_Bugfix,
+    
+    COALESCE(calc.calc_Overhaul_Active_Areas, 0) AS dim_calc_inner_Overhaul,
+    COALESCE(calc.calc_Total_Override_Val, 0) AS dim_calc_outer_Overhaul,
+    
+    COALESCE(ref.QUST_Override, 0) + 
+    COALESCE(log10(NULLIF(ref.DIAL_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.INFO_Override, 0)) * 2, 0) AS dim_calc_inner_Quest,
+    
+    COALESCE(ref.QUST, 0) + 
+    COALESCE(ref.QUST_QOBJ, 0) + 
+    COALESCE(log10(NULLIF(ref.DIAL, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.INFO, 0)) * 2, 0) AS dim_calc_outer_Quest,
+    
+    COALESCE(ref.WRLD_Override, 0) + 
+    COALESCE(calc.calc_CELL_Override_Environment, 0) + 
+    COALESCE(ref.CLMT_Override, 0) + 
+    COALESCE(ref.WTHS_Override, 0) + 
+    COALESCE(ref.REGN_Override, 0) + 
+    COALESCE(ref.BIOM_Override, 0) + 
+    COALESCE(ref.RSPJ_Override, 0) + 
+    COALESCE(ref.STDT_Override, 0) + 
+    COALESCE(log10(NULLIF(ref.FLOR_Override, 0)) * 2, 0) AS dim_calc_inner_Umgebung,
+    
+    COALESCE(ref.WRLD, 0) + 
+    COALESCE(calc.calc_CELL_Environment, 0) + 
+    COALESCE(ref.CLMT, 0) + 
+    COALESCE(ref.WTHS, 0) + 
+    COALESCE(ref.REGN, 0) + 
+    COALESCE(ref.BIOM, 0) + 
+    COALESCE(ref.RSPJ, 0) + 
+    COALESCE(ref.STDT, 0) + 
+    COALESCE(log10(NULLIF(ref.FLOR, 0)) * 2, 0) AS dim_calc_outer_Umgebung,
+    
+    COALESCE(qry.qry_CELL_Override_City, 0) + 
+    COALESCE(qry.qry_CELL_Override_Settlement, 0) + 
+    COALESCE(ref.LCTN_KYWD_City_Override, 0) + 
+    COALESCE(ref.LCTN_KYWD_Settlement_Override, 0) + 
+    COALESCE(log10(NULLIF(ref.NAVM, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(COALESCE(qry.qry_CELL_Override_City_PackIn, 0) + COALESCE(qry.qry_CELL_Override_Settlement_PackIn, 0), 0)) * 2, 0) AS dim_calc_inner_Städte,
+    
+    COALESCE(qry.qry_CELL_City, 0) + 
+    COALESCE(qry.qry_CELL_Settlement, 0) + 
+    COALESCE(ref.LCTN_KYWD_City, 0) + 
+    COALESCE(ref.LCTN_KYWD_Settlement, 0) + 
+    COALESCE(ref.GBFM_EDID_CrowdRegion, 0) + 
+    COALESCE(log10(NULLIF(ref.NAVM, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(COALESCE(qry.qry_CELL_City_PackIn, 0) + COALESCE(qry.qry_CELL_Settlement_PackIn, 0), 0)) * 2, 0) AS dim_calc_outer_Städte,
+    
+    COALESCE(ref.LCTN_KYWD_Dungeon_Override, 0) + 
+    COALESCE(ref.SFBK_Override, 0) + 
+    COALESCE(calc.calc_CELL_Override_Environment, 0) + 
+    COALESCE(log10(NULLIF(ref.STAT_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.PKIN, 0)) * 2, 0) AS dim_calc_inner_Gebäude,
+    
+    COALESCE(ref.LCTN_KYWD_Dungeon, 0) + 
+    COALESCE(ref.SFBK, 0) + 
+    COALESCE(calc.calc_CELL_Environment, 0) + 
+    COALESCE(log10(NULLIF(ref.STAT, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.PKIN, 0)) * 2, 0) AS dim_calc_outer_Gebäude,
+    
+    COALESCE(ref.LCTN_KYWD_Playerhome_Override, 0) + 
+    COALESCE(qry.qry_CELL_Override_Playerhome, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.STAT_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(qry.qry_CELL_Override_Playerhome_PackIn, 0)) * 2, 0) AS dim_calc_inner_Spielerheime,
+    
+    COALESCE(ref.LCTN_KYWD_Playerhome, 0) + 
+    COALESCE(qry.qry_CELL_Playerhome, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.STAT, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(qry.qry_CELL_Playerhome_PackIn, 0)) * 2, 0) AS dim_calc_outer_Spielerheime,
+    
+    COALESCE(ref.COBJ_BNAM_Outpost_Heavy_Override, 0) + 
+    COALESCE(ref.COBJ_BNAM_Outpost_Soft_Override, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN_Override, 0)) * 2, 0) AS dim_calc_inner_Außenposten,
+    
+    COALESCE(ref.COBJ_BNAM_Outpost_Heavy, 0) + 
+    COALESCE(ref.COBJ_BNAM_Outpost_Soft, 0) + 
+    COALESCE(log10(NULLIF(ref.FURN, 0)) * 2, 0) AS dim_calc_outer_Außenposten,
+    
+    COALESCE(ref.FURN_Override, 0) + 
+    COALESCE(ref.COBJ_BNAM_Outpost_Soft_Override, 0) + 
+    COALESCE(ref.STAT_Override, 0) + 
+    COALESCE(ref.MSTT_Override, 0) AS dim_calc_inner_Einrichtung,
+    
+    MAX(0, COALESCE(ref.FURN, 0) - COALESCE(ref.FURN_VMRT, 0) - COALESCE(ref.FURN_VCMT, 0) - COALESCE(ref.FURN_VWWD, 0) - COALESCE(ref.FURN_VCTT, 0)) + 
+    COALESCE(ref.COBJ_BNAM_Outpost_Soft, 0) + 
+    COALESCE(ref.STAT, 0) + 
+    COALESCE(ref.MSTT, 0) + 
+    COALESCE(ref.PKIN, 0) AS dim_calc_outer_Einrichtung,
+    
+    COALESCE(ref.SFBK, 0) AS dim_calc_inner_POIs,
+    
+    COALESCE(ref.SFBK, 0) + 
+    COALESCE(log10(NULLIF(ref.PCCN, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.PCBN, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(ref.LCTN, 0)) * 2, 0) AS dim_calc_outer_POIs,
+    
+    0 AS dim_calc_inner_Pflanzen, 0 AS dim_calc_outer_Pflanzen,
+    0 AS dim_calc_inner_Gameplay, 0 AS dim_calc_outer_Gameplay,
+    0 AS dim_calc_inner_NPCs, 0 AS dim_calc_outer_NPCs,
+    0 AS dim_calc_inner_Begleiter, 0 AS dim_calc_outer_Begleiter,
+    0 AS dim_calc_inner_Kreaturen, 0 AS dim_calc_outer_Kreaturen,
+    0 AS dim_calc_inner_Texturen, 0 AS dim_calc_outer_Texturen,
+    0 AS dim_calc_inner_Licht, 0 AS dim_calc_outer_Licht,
+    0 AS dim_calc_inner_Effekte, 0 AS dim_calc_outer_Effekte,
+    0 AS dim_calc_inner_Sound, 0 AS dim_calc_outer_Sound,
+    0 AS dim_calc_inner_Interface, 0 AS dim_calc_outer_Interface,
+    0 AS dim_calc_inner_Sortierung, 0 AS dim_calc_outer_Sortierung,
+    0 AS dim_calc_inner_Tweaks, 0 AS dim_calc_outer_Tweaks,
+    0 AS dim_calc_inner_Charakter, 0 AS dim_calc_outer_Charakter,
+    0 AS dim_calc_inner_Kleidung, 0 AS dim_calc_outer_Kleidung,
+    0 AS dim_calc_inner_Waffen, 0 AS dim_calc_outer_Waffen,
+    0 AS dim_calc_inner_Crafting, 0 AS dim_calc_outer_Crafting,
+    0 AS dim_calc_inner_Schiffe, 0 AS dim_calc_outer_Schiffe,
+    0 AS dim_calc_inner_Fahrzeuge, 0 AS dim_calc_outer_Fahrzeuge,
+    0 AS dim_calc_inner_Items, 0 AS dim_calc_outer_Items,
+    0 AS dim_calc_inner_Skins, 0 AS dim_calc_outer_Skins,
+    0 AS dim_calc_inner_Remove, 0 AS dim_calc_outer_Remove,
+    
+    -- --- DYNAMISCH ERMITTELTE ZELLEN (aus View_Components_References_Qry) ---
+    qry.qry_CELL_City,
+    qry.qry_CELL_Override_City,
+    qry.qry_CELL_City_PackIn,
+    qry.qry_CELL_Override_City_PackIn,
+    
+    qry.qry_CELL_Settlement,
+    qry.qry_CELL_Override_Settlement,
+    qry.qry_CELL_Settlement_PackIn,
+    qry.qry_CELL_Override_Settlement_PackIn,
+    
+    qry.qry_CELL_Playerhome,
+    qry.qry_CELL_Override_Playerhome,
+    qry.qry_CELL_Playerhome_PackIn,
+    qry.qry_CELL_Override_Playerhome_PackIn,
+    
+    qry.qry_CELL_Dungeon,
+    qry.qry_CELL_Override_Dungeon,
+    qry.qry_CELL_Dungeon_PackIn,
+    qry.qry_CELL_Override_Dungeon_PackIn,
+    
+    qry.qry_CELL_Ship,
+    qry.qry_CELL_Override_Ship,
+    qry.qry_CELL_Ship_PackIn,
+    qry.qry_CELL_Override_Ship_PackIn,
+    
+    -- --- BERECHNETE WERTE (aus View_Components_References_Calc) ---
+    calc.calc_Total_Base_Val,
+    calc.calc_Total_Override_Val,
+    calc.calc_Num_Override_Categories,
+    calc.calc_Overhaul_Active_Areas,
+    calc.calc_CELL_real,
+    calc.calc_CELL_Override_real,
+    calc.calc_CELL_Environment,
+    calc.calc_CELL_Override_Environment,
+    calc.calc_Helper_Objects,
+    calc.calc_Helper_Objects_Ratio,
+    calc.calc_Override_Ratio
+
+FROM Components_ESM_References ref
+LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
+LEFT JOIN View_Components_References_Calc calc ON ref.Component_ID = calc.Component_ID;
+;
+
+
 CREATE VIEW IF NOT EXISTS "View_Components_References_Matrix" AS
 SELECT 
     m.Name_Online AS Mod_Name,
@@ -975,67 +1486,79 @@ SELECT
     mat."21" AS "Kleidung", mat."22" AS "Waffen", mat."23" AS "Crafting", mat."24" AS "Schiffe", 
     mat."25" AS "Fahrzeuge", mat."26" AS "Items", mat."27" AS "Skins", mat."28" AS "Remove",
     
-    -- --- DYNAMISCH ERMITTELTE ZELLEN (aus View_Components_CELL_Typ) ---
-    cell_typ.qry_CELL_City,
-    cell_typ.qry_CELL_Override_City,
-    cell_typ.qry_CELL_City_PackIn,
-    cell_typ.qry_CELL_Override_City_PackIn,
+    -- BGS Dimensionen (hängt von Classifier-Zuweisung ab)
+    CASE WHEN cat_class.Name = 'BGS' THEN 1 ELSE 0 END AS dim_calc_inner_BGS,
+    CASE WHEN cat_class.Name = 'BGS' THEN 1 ELSE 0 END AS dim_calc_outer_BGS,
     
-    cell_typ.qry_CELL_Settlement,
-    cell_typ.qry_CELL_Override_Settlement,
-    cell_typ.qry_CELL_Settlement_PackIn,
-    cell_typ.qry_CELL_Override_Settlement_PackIn,
+    -- Alle anderen berechneten Dimensionen und Werte aus der statischen Tabelle
+    base.dim_calc_inner_Bugfix,
+    base.dim_calc_outer_Bugfix,
+    base.dim_calc_inner_Overhaul,
+    base.dim_calc_outer_Overhaul,
+    base.dim_calc_inner_Quest,
+    base.dim_calc_outer_Quest,
     
-    cell_typ.qry_CELL_Playerhome,
-    cell_typ.qry_CELL_Override_Playerhome,
-    cell_typ.qry_CELL_Playerhome_PackIn,
-    cell_typ.qry_CELL_Override_Playerhome_PackIn,
+    base.dim_calc_inner_Umgebung, base.dim_calc_outer_Umgebung,
+    base.dim_calc_inner_Städte, base.dim_calc_outer_Städte,
+    base.dim_calc_inner_Gebäude, base.dim_calc_outer_Gebäude,
+    base.dim_calc_inner_Spielerheime, base.dim_calc_outer_Spielerheime,
+    base.dim_calc_inner_Außenposten, base.dim_calc_outer_Außenposten,
+    base.dim_calc_inner_Einrichtung, base.dim_calc_outer_Einrichtung,
+    base.dim_calc_inner_POIs, base.dim_calc_outer_POIs,
+    base.dim_calc_inner_Pflanzen, base.dim_calc_outer_Pflanzen,
+    base.dim_calc_inner_Gameplay, base.dim_calc_outer_Gameplay,
+    base.dim_calc_inner_NPCs, base.dim_calc_outer_NPCs,
+    base.dim_calc_inner_Begleiter, base.dim_calc_outer_Begleiter,
+    base.dim_calc_inner_Kreaturen, base.dim_calc_outer_Kreaturen,
+    base.dim_calc_inner_Texturen, base.dim_calc_outer_Texturen,
+    base.dim_calc_inner_Licht, base.dim_calc_outer_Licht,
+    base.dim_calc_inner_Effekte, base.dim_calc_outer_Effekte,
+    base.dim_calc_inner_Sound, base.dim_calc_outer_Sound,
+    base.dim_calc_inner_Interface, base.dim_calc_outer_Interface,
+    base.dim_calc_inner_Sortierung, base.dim_calc_outer_Sortierung,
+    base.dim_calc_inner_Tweaks, base.dim_calc_outer_Tweaks,
+    base.dim_calc_inner_Charakter, base.dim_calc_outer_Charakter,
+    base.dim_calc_inner_Kleidung, base.dim_calc_outer_Kleidung,
+    base.dim_calc_inner_Waffen, base.dim_calc_outer_Waffen,
+    base.dim_calc_inner_Crafting, base.dim_calc_outer_Crafting,
+    base.dim_calc_inner_Schiffe, base.dim_calc_outer_Schiffe,
+    base.dim_calc_inner_Fahrzeuge, base.dim_calc_outer_Fahrzeuge,
+    base.dim_calc_inner_Items, base.dim_calc_outer_Items,
+    base.dim_calc_inner_Skins, base.dim_calc_outer_Skins,
+    base.dim_calc_inner_Remove, base.dim_calc_outer_Remove,
     
-    cell_typ.qry_CELL_Dungeon,
-    cell_typ.qry_CELL_Override_Dungeon,
-    cell_typ.qry_CELL_Dungeon_PackIn,
-    cell_typ.qry_CELL_Override_Dungeon_PackIn,
+    base.qry_CELL_City,
+    base.qry_CELL_Override_City,
+    base.qry_CELL_City_PackIn,
+    base.qry_CELL_Override_City_PackIn,
+    base.qry_CELL_Settlement,
+    base.qry_CELL_Override_Settlement,
+    base.qry_CELL_Settlement_PackIn,
+    base.qry_CELL_Override_Settlement_PackIn,
+    base.qry_CELL_Playerhome,
+    base.qry_CELL_Override_Playerhome,
+    base.qry_CELL_Playerhome_PackIn,
+    base.qry_CELL_Override_Playerhome_PackIn,
+    base.qry_CELL_Dungeon,
+    base.qry_CELL_Override_Dungeon,
+    base.qry_CELL_Dungeon_PackIn,
+    base.qry_CELL_Override_Dungeon_PackIn,
+    base.qry_CELL_Ship,
+    base.qry_CELL_Override_Ship,
+    base.qry_CELL_Ship_PackIn,
+    base.qry_CELL_Override_Ship_PackIn,
     
-    cell_typ.qry_CELL_Ship,
-    cell_typ.qry_CELL_Override_Ship,
-    cell_typ.qry_CELL_Ship_PackIn,
-    cell_typ.qry_CELL_Override_Ship_PackIn,
-    
-    -- --- BERECHNETE WERTE (Präfix calc_) ---
-    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)) AS calc_CELL_real,
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)) AS calc_CELL_Override_real,
-    
-    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)
-        - COALESCE(cell_typ.qry_CELL_City, 0)
-        - COALESCE(cell_typ.qry_CELL_Settlement, 0)
-        - COALESCE(cell_typ.qry_CELL_Playerhome, 0)
-        - COALESCE(cell_typ.qry_CELL_Dungeon, 0)
-        - COALESCE(cell_typ.qry_CELL_Ship, 0)
-    ) AS calc_CELL_Environment,
-    
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)
-        - COALESCE(cell_typ.qry_CELL_Override_City, 0)
-        - COALESCE(cell_typ.qry_CELL_Override_Settlement, 0)
-        - COALESCE(cell_typ.qry_CELL_Override_Playerhome, 0)
-        - COALESCE(cell_typ.qry_CELL_Override_Dungeon, 0)
-        - COALESCE(cell_typ.qry_CELL_Override_Ship, 0)
-    ) AS calc_CELL_Override_Environment,
-    
-    -- Neue Summen-Variante für die mod-eigenen Hilfsobjekte (über alle Zellen hinweg)
-    (SELECT COALESCE(SUM(h.calc_Helper_Objects), 0) 
-     FROM View_Components_CELL_Helper_Objects h 
-     WHERE h.Component_ID = ref.Component_ID) AS calc_Helper_Objects,
-    
-    -- Neue Summen-Ratio (Gesamtsumme Helpers / Gesamt-Refs abzüglich Deko)
-    CAST(
-        (SELECT COALESCE(SUM(h.calc_Helper_Objects), 0) 
-         FROM View_Components_CELL_Helper_Objects h 
-         WHERE h.Component_ID = ref.Component_ID) AS REAL
-    ) / MAX(1, 
-        (SELECT COALESCE(SUM(h.calc_CELL_Refs - h.calc_Deko_Objects), 0) 
-         FROM View_Components_CELL_Helper_Objects h 
-         WHERE h.Component_ID = ref.Component_ID)
-    ) AS calc_Helper_Objects_Ratio,
+    base.calc_Total_Base_Val,
+    base.calc_Total_Override_Val,
+    base.calc_Num_Override_Categories,
+    base.calc_Overhaul_Active_Areas,
+    base.calc_CELL_real,
+    base.calc_CELL_Override_real,
+    base.calc_CELL_Environment,
+    base.calc_CELL_Override_Environment,
+    base.calc_Helper_Objects,
+    base.calc_Helper_Objects_Ratio,
+    base.calc_Override_Ratio,
     
     -- Alle originalen Zähler-Referenzen
     ref.*
@@ -1046,5 +1569,6 @@ LEFT JOIN Mods m ON mc.Mod_ID = m.ID
 LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID
 LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
 LEFT JOIN LoadOrder_Classifier_Matrix mat ON m.ID = mat.Mod_ID AND c.ID = mat.Component_ID
-LEFT JOIN View_Components_CELL_Typ cell_typ ON ref.Component_ID = cell_typ.Component_ID
+LEFT JOIN Components_References_Base base ON ref.Component_ID = base.Component_ID
 WHERE c.Is_Blueprint = 0 AND c.Is_Masterfile > 0;
+;

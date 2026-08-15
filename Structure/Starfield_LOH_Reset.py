@@ -22,12 +22,12 @@ def reset_database(log_signal=None):
         
         # Bewegungsdaten-Tabellen leeren
         tables_to_clear = [
-            "Components_System_CELL_Ship",
-            "Components_ESM_CELL_Ship",
             "Components_System_CELL_LCTN",
             "Components_ESM_CELL_LCTN",
             "Components_System_LCTN",
             "Components_ESM_LCTN",
+            "Components_System_FormIDs",
+            "Components_ESM_FormIDs",
             "Components_System",
             "Mods_Components",
             "Mods_Category_Creations",
@@ -60,6 +60,12 @@ def reset_database(log_signal=None):
         placeholders = ", ".join("?" for _ in master_tables)
         cursor.execute(f"DELETE FROM sqlite_sequence WHERE name NOT IN ({placeholders});", master_tables)
         log("-> Autoincrement-Zähler für Bewegungstabellen zurückgesetzt.")
+        
+        # Temporäre Klassifizierungs- und Ergebnistabellen löschen/leeren
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix;")
+        cursor.execute("DELETE FROM Components_References_Base;")
+        cursor.execute("DROP TABLE IF EXISTS Components_References_Matrix;")
+        log("-> Temporäre Klassifizierungs- und Ergebnistabellen gelöscht.")
         
         conn.commit()
         log("-> Alle Änderungen erfolgreich committet.")

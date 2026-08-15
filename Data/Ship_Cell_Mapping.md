@@ -17,11 +17,11 @@ Da Schiffs-Innenräume in der Regel keine räumlichen Location-Referenzen (`XLCN
 
 Um die Komplexität im Python-Code zu reduzieren, werden die Schiffszellen nicht mehr über einen separaten Parser eingelesen und in physischen Tabellen gespeichert. Stattdessen nutzen wir die in den FormID-Katalogen (`Components_System_FormIDs` und `Components_ESM_FormIDs`) hinterlegten Editor-IDs (`EDID`) und ermitteln die Schiffszellen dynamisch über SQL-Views:
 
-### A. `Components_System_CELL_Ship` (System-View)
+### A. `View_Components_System_CELL_Ship` (System-View)
 Filtert alle originalen Schiffszellen aus den offiziellen Masterfiles der Spieldateien.
 *   **SQL-Logik:**
     ```sql
-    CREATE VIEW Components_System_CELL_Ship AS
+    CREATE VIEW View_Components_System_CELL_Ship AS
     SELECT 
         Component_ID,
         FormID_Local AS Cell_FormID,
@@ -34,11 +34,11 @@ Filtert alle originalen Schiffszellen aus den offiziellen Masterfiles der Spield
            OR LOWER(EDID) LIKE 'ss%');
     ```
 
-### B. `Components_ESM_CELL_Ship` (Mod-View)
+### B. `View_Components_ESM_CELL_Ship` (Mod-View)
 Filtert alle geänderten oder neuen Schiffszellen aus den installierten Mod-Dateien.
 *   **SQL-Logik:**
     ```sql
-    CREATE VIEW Components_ESM_CELL_Ship AS
+    CREATE VIEW View_Components_ESM_CELL_Ship AS
     SELECT 
         Component_ID,
         FormID_Local AS Cell_FormID,
@@ -64,6 +64,6 @@ Filtert alle geänderten oder neuen Schiffszellen aus den installierten Mod-Date
 Im späteren Klassifizierungsschritt (in `Category_LOH_Classifier.py`) kann für jede Mod folgendes ermittelt werden:
 *   `cell_total`: Gesamtzahl der Zell-Einträge der Mod (`CELL + CELL_Override`).
 *   `cell_city`: Anzahl der städtischen Zellen der Mod (via `Components_ESM_CELL_LCTN`).
-*   `cell_ship`: Anzahl der Schiffs-Zellen der Mod (mittels Lookup in `Components_System_CELL_Ship` und `Components_ESM_CELL_Ship`).
+*   `cell_ship`: Anzahl der Schiffs-Zellen der Mod (mittels Lookup in `View_Components_System_CELL_Ship` und `View_Components_ESM_CELL_Ship`).
 
 Ist die Differenz `cell_total - cell_city - cell_ship == 0`, so greift die Mod *ausschließlich* in Städten und/oder auf Schiffen ein. Die Kategorie **Umgebung** (Wildnis, Landschaft) kann in diesem Fall für die Mod sicher ausgeschlossen werden.

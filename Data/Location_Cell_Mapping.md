@@ -11,20 +11,22 @@ Da diese Mods keine eigenen Location-Datensätze (`LCTN`) besitzen, wurden sie i
 
 ---
 
-## 2. Datenbank-Tabellen (1-zu-n-Beziehung)
+## 2. Datenbank-Tabellen (Normalisierte Beziehungsstrukturen)
 
-Die Daten werden in vier spezialisierte Tabellen aufgeteilt, um eine strikte relationale Trennung zwischen Bethesda-Originaldaten (System) und Mod-Daten zu gewährleisten:
+Die Daten werden in spezialisierte Tabellen aufgeteilt, um eine strikte relationale Trennung zwischen Bethesda-Originaldaten (System) und Mod-Daten zu gewährleisten:
 
-### A. Location-Tabellen (Katalog der Gebiete)
-Speichern die extrahierten Locations mit ihren Keywords.
-*   **`Components_System_LCTN`**: Original-Locations aus `Starfield.esm` und offiziellen DLCs.
-*   **`Components_ESM_LCTN`**: Neue Locations, die durch installierte Mods hinzugefügt werden.
+### A. Location-Beziehungstabellen (n:m-Zuordnung)
+Speichern rein die extrahierten Verknüpfungen zwischen Locations und ihren Keywords. Da Textnamen (`EDID`) bereits in den Haupt-FormID-Katalogen (`Components_System_FormIDs` und `Components_ESM_FormIDs`) hinterlegt sind, sind diese Tabellen vollkommen frei von Textduplikaten und künstlichen IDs.
+*   **`Components_System_LCTN`**: Original-Locations aus `Starfield.esm` und offiziellen DLCs verknüpft mit Keywords.
+*   **`Components_ESM_LCTN`**: Neue Locations von Mods verknüpft mit Keywords.
 
 *Spalten:*
 *   `Component_ID` (FK auf Components / Components_System)
 *   `FormID_Local` (Die lokale 3-Byte FormID der Location)
 *   `FormID_Keyword` (Die FormID des Keywords, z. B. `140817` für Städte/Siedlungen)
-*   `EDID` (Editor-ID für Debugging und Lesbarkeit, z. B. `CityNewAtlantisLocation`)
+
+*Primärschlüssel:*
+*   `PRIMARY KEY (Component_ID, FormID_Local, FormID_Keyword)` (Garantiert absolute Eindeutigkeit ohne Zähler-Verwaltung)
 
 ### B. Zell-Location-Verknüpfungstabellen (Die Zuordnung)
 Speichern, welche Zelle im Spiel zu welcher Location gehört. Es werden nur Zellen erfasst, die tatsächlich eine Location-Referenz besitzen (Wildnis ohne Zuordnung wird ignoriert).
@@ -35,6 +37,7 @@ Speichern, welche Zelle im Spiel zu welcher Location gehört. Es werden nur Zell
 *   `Component_ID` (FK)
 *   `Cell_FormID` (Lokale FormID der Zelle)
 *   `FormID_LCTN` (Lokale FormID der referenzierten Location)
+*   `Is_PackIn` (Integer-Flag, das anzeigt, ob es sich um ein PackIn handelt)
 
 ---
 
@@ -44,7 +47,7 @@ Um die Performance zu maximieren und die 12 GB große `Starfield.esm` nicht mehr
 
 ```
 [ESM-Datei] ──> [Iteriere Records]
-                   ├── sig == 'LCTN' ──> Extrahiere EDID & Keywords
+                   ├── sig == 'LCTN' ──> Extrahiere Keywords (EDIDs gehen in FormIDs-Katalog)
                    └── sig == 'CELL' ──> Dekomprimiere Payload, suche XLCN
 ```
 

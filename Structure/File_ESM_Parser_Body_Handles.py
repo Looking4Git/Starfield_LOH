@@ -13,11 +13,14 @@ CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 
 MOD_POINTER_COLS = [
     'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
-    'AMMO_Override', 'APWR', 'ARMO', 'ARMO_Override', 'AVIF',
-    'AVIF_Override', 'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override', 'CELL', 'CELL_Dummy',
+    'AMMO_Override', 'ARMO', 'ARMO_Override', 'AVIF',
+    'AVIF_Override', 'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override',
+    'CAMS', 'CAMS_Override', 'CELL', 'CELL_Dummy',
     'CELL_Override', 'CELL_Override_Dummy', 'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM',
-    'CLMT', 'CLMT_Override', 'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Soft',
-    'COBJ_BNAM_Ship', 'COBJ_Override', 'CONT', 'CONT_Override',
+    'CLMT', 'CLMT_Override', 'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Heavy_Override',
+    'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Outpost_Soft_Override',
+    'COBJ_BNAM_Ship', 'COBJ_BNAM_Ship_Override', 'COBJ_Override', 'CONT', 'CONT_Override',
+    'CPTH', 'CPTH_Override',
     'DIAL', 'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove',
     'ENCH', 'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override',
     'FLOR_Remove', 'FLST', 'FLST_Override', 'FURN', 'FURN_Override',
@@ -25,29 +28,28 @@ MOD_POINTER_COLS = [
     'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'GLOB', 'GLOB_Override', 'GMST',
     'GMST_Override', 'HDPT', 'IMAD', 'IMAD_Override', 'INFO',
     'INFO_Override', 'INNR', 'INNR_Override', 'KEYM', 'KEYM_Override',
-    'LAND', 'LAND_Override', 'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Playerhome',
-    'LCTN_KYWD_Settlement', 'LCTN_Override', 'LIGH', 'LIGH_FNAM', 'LIGH_Override',
+    'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_City_Override',
+    'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Dungeon_Override', 'LCTN_KYWD_Playerhome', 'LCTN_KYWD_Playerhome_Override',
+    'LCTN_KYWD_Settlement', 'LCTN_KYWD_Settlement_Override', 'LCTN_Override', 'LIGH', 'LIGH_FNAM', 'LIGH_Override',
     'LMSW', 'LMSW_Override', 'LVLI', 'LVLI_Override', 'LVLN',
-    'LVLN_Override', 'LVLP', 'LVLP_Override', 'MATO', 'MGEF',
+    'LVLN_Override', 'LVLP', 'LVLP_Override', 'MGEF',
     'MGEF_Override', 'MGEF_Remove', 'MISC', 'MISC_Override', 'MOVT',
-    'MSTT', 'MSTT_Override', 'MSWP', 'MSWP_Override', 'MUSC',
+    'MSTT', 'MSTT_Override', 'MUSC',
     'MUSC_Override', 'NAVM', 'NPC_', 'NPC__Override', 'NPC_KYWD_Companion',
-    'NPC_KYWD_Creature', 'NPC_KYWD_Ship', 'NPC_KYWD_Shop', 'NVNM', 'OMOD',
+    'NPC_KYWD_Creature', 'NPC_KYWD_Ship', 'NPC_KYWD_Shop', 'OMOD',
     'OMOD_Override', 'PCBN', 'PCCN', 'PERK', 'PERK_Override',
-    'PERK_Remove', 'PKEY', 'PKIN', 'QUST', 'QUST_FULL',
+    'PERK_Remove', 'PKIN', 'QUST', 'QUST_FULL',
     'QUST_INDX', 'QUST_Override', 'QUST_QOBJ', 'QUST_QTYP_0', 'QUST_QTYP_1',
     'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5', 'RACE',
     'RACE_Override', 'REFR', 'REFR_Buried', 'REFR_Deleted', 'REFR_Disabled',
-    'REGN', 'REGN_Override', 'RSPJ', 'SFBK', 'SFBK_Override',
-    'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter', 'Shifter_Quest_Trader', 'SHST',
-    'SHST_Override', 'SMOD', 'SMOD_Override', 'SNDR', 'SNDR_Override',
-    'SOUN', 'SPAC', 'SPAC_Override', 'SPEL', 'SPEL_Override',
-    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STDT',
-    'STMP', 'STND', 'TERM', 'TERM_Override', 'TREE', 'TREE_Override',
-    'TREE_Remove', 'TXST', 'VEHI', 'VEHI_Override', 'VFXS',
-    'VFXS_Override', 'VFXS_Remove', 'VMOD', 'VMOD_Override', 'WEAP',
-    'WEAP_KWDA_Helper', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Vehicle', 'WEAP_Override', 'WRLD',
-    'WTHR', 'WTHR_Override'
+    'REGN', 'REGN_Override', 'RSPJ', 'RSPJ_Override', 'SFBK', 'SFBK_Override',
+    'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter', 'Shifter_Quest_Trader',
+    'SOUN', 'SPEL', 'SPEL_Override',
+    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STDT', 'STDT_Override',
+    'STMP', 'STND', 'TERM', 'TERM_Override',
+    'TXST', 'WEAP',
+    'WEAP_KWDA_Helper', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Vehicle', 'WEAP_Override', 'WRLD', 'WRLD_Override',
+    'WTHS', 'WTHS_Override'
 ]
 
 POINTER_COLS = MOD_POINTER_COLS # Abwärtskompatibilität
@@ -84,12 +86,12 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
     
     override_targets = {
         b'GMST', b'QUST', b'DIAL', b'INFO', b'CELL', b'STAT', b'FURN', b'NPC_',
-        b'PERK', b'AVIF', b'LIGH', b'SNDR', b'WEAP', b'AMMO', b'ARMO', b'COBJ',
-        b'SPAC', b'SHST', b'SMOD', b'SFBK', b'VEHI', b'VMOD',
-        b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'VFXS', b'ALCH',
+        b'PERK', b'AVIF', b'LIGH', b'WEAP', b'AMMO', b'ARMO', b'COBJ',
+        b'SFBK', b'MGEF', b'EFSH', b'SPEL', b'ENCH', b'ALCH',
         b'GLOB', b'LCTN', b'RACE', b'LVLI', b'LVLN', b'LVLP', b'FLST',
-        b'MISC', b'KEYM', b'BOOK', b'MSWP', b'OMOD', b'LMSW', b'MUSC', b'INNR',
-        b'MSTT', b'WTHR', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM', b'BIOM', b'LAND'
+        b'MISC', b'KEYM', b'BOOK', b'OMOD', b'LMSW', b'MUSC', b'INNR',
+        b'MSTT', b'WTHS', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM', b'BIOM',
+        b'WRLD', b'RSPJ', b'STDT', b'CAMS', b'CPTH'
     }
     
     if num_full_masters is None:
@@ -191,7 +193,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                 continue
 
             # 3. Remover-Prüfung für Spells & Effekte
-            if not is_core and sig in {b'SPEL', b'MGEF', b'EFSH', b'ENCH', b'VFXS', b'ALCH', b'PERK'}:
+            if not is_core and sig in {b'SPEL', b'MGEF', b'EFSH', b'ENCH', b'ALCH', b'PERK'}:
                 if is_override and (flags & 0x00000020):
                     local_counts[f"{sig_str}_Remove"] += 1
 
@@ -364,13 +366,19 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                             # Heavy: Extraktoren, Power, Defenses, Builders
                             if masked_bnam in {0x00008406, 0x0005A6DE, 0x001E6641, 0x002731A0}:
                                 local_counts['COBJ_BNAM_Outpost_Heavy'] += 1
+                                if is_override:
+                                    local_counts['COBJ_BNAM_Outpost_Heavy_Override'] += 1
                                 break
                             # Soft: Strukturen, Diverses, Roboter, Storage, Crafting
                             elif masked_bnam in {0x0006D72D, 0x000E6A3E, 0x001D9F5F, 0x0027319A, 0x002A7578, 0x002CFDE6}:
                                 local_counts['COBJ_BNAM_Outpost_Soft'] += 1
+                                if is_override:
+                                    local_counts['COBJ_BNAM_Outpost_Soft_Override'] += 1
                                 break
                             elif masked_bnam == 0x0029C480:
                                 local_counts['COBJ_BNAM_Ship'] += 1
+                                if is_override:
+                                    local_counts['COBJ_BNAM_Ship_Override'] += 1
                                 break
                 continue
 
@@ -398,15 +406,24 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                             for i in range(num_ids):
                                 fid = struct.unpack('<I', sub_data[i*4:(i+1)*4])[0]
                                 kwda_list.append(fid & 0x00FFFFFF)
+                    
                     if 0x2ef272 in kwda_list:
                         local_counts['LCTN_KYWD_Playerhome'] += 1
+                        if is_override:
+                            local_counts['LCTN_KYWD_Playerhome_Override'] += 1
                     if 0x254bc in kwda_list:
                         local_counts['LCTN_KYWD_Dungeon'] += 1
+                        if is_override:
+                            local_counts['LCTN_KYWD_Dungeon_Override'] += 1
                     if 0x22611 in kwda_list:
                         if "city" in edid:
                             local_counts['LCTN_KYWD_City'] += 1
+                            if is_override:
+                                local_counts['LCTN_KYWD_City_Override'] += 1
                         else:
                             local_counts['LCTN_KYWD_Settlement'] += 1
+                            if is_override:
+                                local_counts['LCTN_KYWD_Settlement_Override'] += 1
                 continue
 
     return local_counts, local_signatures

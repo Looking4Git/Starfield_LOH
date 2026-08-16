@@ -24,8 +24,8 @@ MOD_POINTER_COLS = [
     'DIAL', 'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove',
     'ENCH', 'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override',
     'FLOR_Remove', 'FLST', 'FLST_Override', 'FURN', 'FURN_Override',
-    'FURN_VCMT', 'FURN_VCTT', 'FURN_VMRT', 'FURN_VWWD', 'GBFM',
-    'GBFM_EDID_CrowdRegion', 'GBFM_EDID_Vehicle', 'GLOB', 'GLOB_Override', 'GMST',
+    'FURN_VCMT', 'FURN_VCMT_Override', 'FURN_VCTT', 'FURN_VCTT_Override', 'FURN_VMRT', 'FURN_VMRT_Override', 'FURN_VWWD', 'FURN_VWWD_Override', 'GBFM',
+    'GBFM_EDID_CrowdRegion', 'GBFM_EDID_CrowdRegion_Override', 'GBFM_EDID_Vehicle', 'GBFM_EDID_Vehicle_Override', 'GBFM_Override', 'GLOB', 'GLOB_Override', 'GMST',
     'GMST_Override', 'HDPT', 'HDPT_Override', 'IMAD', 'IMAD_Override', 'INFO',
     'INFO_Override', 'INNR', 'INNR_Override', 'KEYM', 'KEYM_Override',
     'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_City_Override',
@@ -48,8 +48,8 @@ MOD_POINTER_COLS = [
     'REGN', 'REGN_Override', 'RSPJ', 'RSPJ_Override', 'SFBK', 'SFBK_Override',
     'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter', 'Shifter_Quest_Trader',
     'SOUN', 'SOUN_Override', 'SPEL', 'SPEL_Override',
-    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STDT', 'STDT_Override',
-    'STMP', 'STND', 'TERM', 'TERM_Override',
+    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STBH_Override', 'STDT', 'STDT_Override',
+    'STMP', 'STMP_Override', 'STND', 'STND_Override', 'TERM', 'TERM_Override',
     'TXST', 'TXST_Override', 'WEAP',
     'WEAP_KWDA_Helper', 'WEAP_KWDA_Helper_Override', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Ship_Override', 'WEAP_KWDA_Vehicle', 'WEAP_KWDA_Vehicle_Override', 'WEAP_Override', 'WRLD', 'WRLD_Override',
     'WTHS', 'WTHS_Override'
@@ -95,7 +95,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
         b'MISC', b'KEYM', b'BOOK', b'OMOD', b'LMSW', b'MUSC', b'INNR',
         b'MSTT', b'WTHS', b'CLMT', b'REGN', b'IMAD', b'CONT', b'TERM', b'BIOM',
         b'WRLD', b'RSPJ', b'STDT', b'CAMS', b'CPTH', b'TXST', b'SOUN', b'MOVT',
-        b'CLFM', b'HDPT'
+        b'CLFM', b'HDPT', b'GBFM', b'STMP', b'STND', b'STBH'
     }
     
     if num_full_masters is None:
@@ -159,6 +159,8 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                 decompressed_data = get_decompressed()
                 if decompressed_data:
                     local_counts['GBFM'] += 1
+                    if is_override:
+                        local_counts['GBFM_Override'] += 1
                     is_crowd_region = False
                     is_vehicle = False
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
@@ -171,8 +173,12 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                             break
                     if is_crowd_region:
                         local_counts['GBFM_EDID_CrowdRegion'] += 1
+                        if is_override:
+                            local_counts['GBFM_EDID_CrowdRegion_Override'] += 1
                     elif is_vehicle:
                         local_counts['GBFM_EDID_Vehicle'] += 1
+                        if is_override:
+                            local_counts['GBFM_EDID_Vehicle_Override'] += 1
                 continue
             
             local_counts[sig_str] += 1
@@ -359,18 +365,26 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                 continue
 
             # 9. Spezialfall: FURN
-            if sig == b'FURN' and not is_core and 'VEHI' in local_counts:
+            if sig == b'FURN' and not is_core and 'FURN_VMRT' in local_counts:
                 decompressed_data = get_decompressed()
                 if decompressed_data:
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'VMRT':
                             local_counts['FURN_VMRT'] += 1
+                            if is_override:
+                                local_counts['FURN_VMRT_Override'] += 1
                         elif sub_sig == b'VCMT':
                             local_counts['FURN_VCMT'] += 1
+                            if is_override:
+                                local_counts['FURN_VCMT_Override'] += 1
                         elif sub_sig == b'VWWD':
                             local_counts['FURN_VWWD'] += 1
+                            if is_override:
+                                local_counts['FURN_VWWD_Override'] += 1
                         elif sub_sig == b'VCTT':
                             local_counts['FURN_VCTT'] += 1
+                            if is_override:
+                                local_counts['FURN_VCTT_Override'] += 1
                 continue
                 
             # 10. Spezialfall: COBJ

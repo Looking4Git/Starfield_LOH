@@ -42,14 +42,14 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **ENCH / ENCH_Override / ENCH_Remove**: *Enchantment*. Verzauberungen und Rüstungs-/Waffeneffekte.
 *   **FLOR / FLOR_Override / FLOR_Remove**: *Flora*. Pflanzen-, Baum- und Großvegetations-Definitionen sowie organische Ressourcen.
 *   **FLST / FLST_Override**: *FormID List*. Sammellisten von FormIDs (z. B. für Händler oder Rezepte).
-*   **FURN / FURN_Override / FURN_VCMT / FURN_VCTT / FURN_VMRT / FURN_VWWD**: *Furniture*. Möbel und interaktive Stationsplatzierungen.
-    *   `FURN_VMRT` (*Vehicle Mount*): Plätze für Fahrzeuginsassen (Sitze).
-    *   `FURN_VCMT` (*Vehicle Camera*): Kameraperspektiven an Fahrzeugen.
-    *   `FURN_VWWD` (*Vehicle Wheels*): Radaufhängungen für Landfahrzeuge.
-    *   `FURN_VCTT` (*Vehicle Controls*): Cockpit-Steuerungen für Fahrzeuge.
-*   **GBFM / GBFM_EDID_CrowdRegion / GBFM_EDID_Vehicle**: *Gameplay Blueprint*. Allgemeine Gameplay-Blaupausen.
-    *   `GBFM_EDID_CrowdRegion`: NPC-Spawnzonen (Crowds) in Städten.
-    *   `GBFM_EDID_Vehicle`: Landfahrzeug-Blaupausen (REV-8 etc.).
+*   **FURN / FURN_Override / FURN_VCMT / FURN_VCMT_Override / FURN_VCTT / FURN_VCTT_Override / FURN_VMRT / FURN_VMRT_Override / FURN_VWWD / FURN_VWWD_Override**: *Furniture*. Möbel und interaktive Stationsplatzierungen.
+    *   `FURN_VMRT` / `FURN_VMRT_Override` (*Vehicle Mount*): Plätze für Fahrzeuginsassen (Sitze).
+    *   `FURN_VCMT` / `FURN_VCMT_Override` (*Vehicle Camera*): Kameraperspektiven an Fahrzeugen.
+    *   `FURN_VWWD` / `FURN_VWWD_Override` (*Vehicle Wheels*): Radaufhängungen für Landfahrzeuge.
+    *   `FURN_VCTT` / `FURN_VCTT_Override` (*Vehicle Controls*): Cockpit-Steuerungen für Fahrzeuge.
+*   **GBFM / GBFM_Override / GBFM_EDID_CrowdRegion / GBFM_EDID_CrowdRegion_Override / GBFM_EDID_Vehicle / GBFM_EDID_Vehicle_Override**: *Gameplay Blueprint*. Allgemeine Gameplay-Blaupausen.
+    *   `GBFM_EDID_CrowdRegion` / `GBFM_EDID_CrowdRegion_Override`: NPC-Spawnzonen (Crowds) in Städten.
+    *   `GBFM_EDID_Vehicle` / `GBFM_EDID_Vehicle_Override`: Landfahrzeug-Blaupausen (REV-8 etc.).
 *   **GLOB / GLOB_Override**: *Global Variable*. Globale Variablen zur Systemkonfiguration oder Tweak-Steuerung.
 *   **GMST / GMST_Override**: *Game Setting*. Systemkonfigurationen (z. B. Gravitationsstärke, Gameplay-Grenzwerte).
 *   **HDPT / HDPT_Override**: *Head Part*. Gesichtsmerkmale und Frisuren für den Charaktereditor.
@@ -86,10 +86,10 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **SOUN / SOUN_Override**: *Sound*. Verweise auf Wwise-Audiodateien und Soundbanks.
 *   **SPEL / SPEL_Override / SPEL_Remove**: *Spell*. Zauber, Fähigkeiten und Krankheiten.
 *   **STAT / STAT_Override**: *Static*. Unbewegliche 3D-Modelle (Häuser, Felsen, Wände).
-*   **STBH**: *Ship Behavior*. Verhaltensdefinitionen für Schiffsteile (z. B. begehbare Luken, Türen und Wände in Habs).
+*   **STBH / STBH_Override**: *Ship Behavior*. Verhaltensdefinitionen für Schiffsteile (z. B. begehbare Luken, Türen und Wände in Habs).
 *   **STDT / STDT_Override**: *Star*. Daten und Eigenschaften für Sonnen/Sterne (z. B. Sternenfarben, Helligkeit).
-*   **STMP**: *Ship Template*. Schablonen/Vorlagen für Raumschiffe.
-*   **STND**: *Ship Node*. Anschlusspunkte (Snap-Nodes) für Schiffsteile.
+*   **STMP / STMP_Override**: *Ship Template*. Schablonen/Vorlagen für Raumschiffe.
+*   **STND / STND_Override**: *Ship Node*. Anschlusspunkte (Snap-Nodes) für Schiffsteile.
 *   **TERM / TERM_Override**: *Terminal*. Interaktive Computerterminals.
 *   **TXST / TXST_Override**: *Texture Set*. Textursatz-Definitionen für 3D-Modelle.
 *   **WEAP / WEAP_Override / WEAP_KWDA_Helper / WEAP_KWDA_Helper_Override / WEAP_KWDA_Ship / WEAP_KWDA_Ship_Override / WEAP_KWDA_Vehicle / WEAP_KWDA_Vehicle_Override**: *Weapon*. Waffen aller Art (Handfeuer-, Fahrzeug-, Schiffswaffen oder Hilfswerkzeuge).

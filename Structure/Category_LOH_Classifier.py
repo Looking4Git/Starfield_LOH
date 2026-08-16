@@ -70,12 +70,14 @@ def _exclude_non_skin(row, cursor, cat_ids):
 def _exclude_non_item(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Items' aus, wenn keine gegenstandsbezogenen
-    Merkmale (MISC, LVLI) vorliegen (Rezepte COBJ gehören zu Crafting).
+    Merkmale (MISC, LVLI, BOOK, KEYM) vorliegen (Rezepte COBJ gehören zu Crafting, ALCH zu Gameplay).
     """
     misc = row.get('MISC') or 0
     lvli = row.get('LVLI') or 0
+    book = row.get('BOOK') or 0
+    keym = row.get('KEYM') or 0
     
-    if misc == 0 and lvli == 0:
+    if misc == 0 and lvli == 0 and book == 0 and keym == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -89,7 +91,7 @@ def _exclude_non_item(row, cursor, cat_ids):
                 SET "{items_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Items' ausgeschlossen (keine MISC/LVLI-Referenzen)."
+            return "Kategorie 'Items' ausgeschlossen (keine MISC/LVLI/BOOK/KEYM-Referenzen)."
     return None
 
 def _exclude_non_weapon(row, cursor, cat_ids):
@@ -150,12 +152,17 @@ def _exclude_non_clothing(row, cursor, cat_ids):
 
 def _exclude_non_crafting(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Craftingmod (COBJ) vorliegen.
-    Wenn nicht, wird die Kategorie 'Crafting' (27) in der Ausschlussmatrix auf 0 gesetzt.
+    Prüft, ob funktionale Werkbank-Referenzen für eine Craftingmod (COBJ abzüglich Außenposten- und Schiffsrezepte) vorliegen.
+    Wenn nicht, wird die Kategorie 'Crafting' in der Ausschlussmatrix auf 0 gesetzt.
     """
     cobj = row.get('COBJ') or 0
+    cobj_heavy = row.get('COBJ_BNAM_Outpost_Heavy') or 0
+    cobj_soft = row.get('COBJ_BNAM_Outpost_Soft') or 0
+    cobj_ship = row.get('COBJ_BNAM_Ship') or 0
     
-    if cobj == 0:
+    workbench_cobj = cobj - cobj_heavy - cobj_soft - cobj_ship
+    
+    if workbench_cobj <= 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -169,7 +176,7 @@ def _exclude_non_crafting(row, cursor, cat_ids):
                 SET "{crafting_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Crafting' ausgeschlossen (keine COBJ-Referenzen)."
+            return "Kategorie 'Crafting' ausgeschlossen (keine reinen Werkbank-COBJ-Referenzen)."
     return None
 
 def _check_has_sound(cursor, mod_id):

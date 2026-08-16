@@ -84,12 +84,19 @@ CREATE TABLE "Components_ESM_References" (
         "FURN"                  INTEGER DEFAULT 0,
         "FURN_Override"         INTEGER DEFAULT 0,
         "FURN_VCMT"             INTEGER DEFAULT 0,
+        "FURN_VCMT_Override"    INTEGER DEFAULT 0,
         "FURN_VCTT"             INTEGER DEFAULT 0,
+        "FURN_VCTT_Override"    INTEGER DEFAULT 0,
         "FURN_VMRT"             INTEGER DEFAULT 0,
+        "FURN_VMRT_Override"    INTEGER DEFAULT 0,
         "FURN_VWWD"             INTEGER DEFAULT 0,
+        "FURN_VWWD_Override"    INTEGER DEFAULT 0,
         "GBFM"                  INTEGER DEFAULT 0,
         "GBFM_EDID_CrowdRegion" INTEGER DEFAULT 0,
+        "GBFM_EDID_CrowdRegion_Override" INTEGER DEFAULT 0,
         "GBFM_EDID_Vehicle"     INTEGER DEFAULT 0,
+        "GBFM_EDID_Vehicle_Override" INTEGER DEFAULT 0,
+        "GBFM_Override"         INTEGER DEFAULT 0,
         "GLOB"                  INTEGER DEFAULT 0,
         "GLOB_Override"         INTEGER DEFAULT 0,
         "GMST"                  INTEGER DEFAULT 0,
@@ -191,10 +198,13 @@ CREATE TABLE "Components_ESM_References" (
         "STAT"                  INTEGER DEFAULT 0,
         "STAT_Override"         INTEGER DEFAULT 0,
         "STBH"                  INTEGER DEFAULT 0,
+        "STBH_Override"         INTEGER DEFAULT 0,
         "STDT"                  INTEGER DEFAULT 0,
         "STDT_Override"         INTEGER DEFAULT 0,
         "STMP"                  INTEGER DEFAULT 0,
+        "STMP_Override"         INTEGER DEFAULT 0,
         "STND"                  INTEGER DEFAULT 0,
+        "STND_Override"         INTEGER DEFAULT 0,
         "TERM"                  INTEGER DEFAULT 0,
         "TERM_Override"         INTEGER DEFAULT 0,
         "TXST"                  INTEGER DEFAULT 0,
@@ -1545,12 +1555,95 @@ SELECT
            COALESCE(ref.WEAP_KWDA_Ship, 0) - 
            COALESCE(ref.WEAP_KWDA_Helper, 0)) + 
     COALESCE(ref.AMMO, 0) AS dim_calc_outer_Waffen,
-    0 AS dim_calc_inner_Crafting, 0 AS dim_calc_outer_Crafting,
-    0 AS dim_calc_inner_Schiffe, 0 AS dim_calc_outer_Schiffe,
-    0 AS dim_calc_inner_Fahrzeuge, 0 AS dim_calc_outer_Fahrzeuge,
-    0 AS dim_calc_inner_Items, 0 AS dim_calc_outer_Items,
-    0 AS dim_calc_inner_Skins, 0 AS dim_calc_outer_Skins,
-    0 AS dim_calc_inner_Remove, 0 AS dim_calc_outer_Remove,
+    
+    MAX(0, COALESCE(ref.COBJ_Override, 0) - 
+           COALESCE(ref.COBJ_BNAM_Outpost_Heavy_Override, 0) - 
+           COALESCE(ref.COBJ_BNAM_Outpost_Soft_Override, 0) - 
+           COALESCE(ref.COBJ_BNAM_Ship_Override, 0)) AS dim_calc_inner_Crafting,
+    
+    MAX(0, COALESCE(ref.COBJ, 0) - 
+           COALESCE(ref.COBJ_BNAM_Outpost_Heavy, 0) - 
+           COALESCE(ref.COBJ_BNAM_Outpost_Soft, 0) - 
+           COALESCE(ref.COBJ_BNAM_Ship, 0)) AS dim_calc_outer_Crafting,
+    COALESCE(ref.COBJ_BNAM_Ship_Override, 0) + 
+    MAX(0, COALESCE(ref.GBFM_Override, 0) - 
+           COALESCE(ref.GBFM_EDID_CrowdRegion_Override, 0) - 
+           COALESCE(ref.GBFM_EDID_Vehicle_Override, 0)) + 
+    COALESCE(ref.WEAP_KWDA_Ship_Override, 0) + 
+    COALESCE(ref.STMP_Override, 0) + 
+    COALESCE(ref.STND_Override, 0) + 
+    COALESCE(ref.STBH_Override, 0) + 
+    COALESCE(qry.qry_CELL_Override_Ship, 0) + 
+    COALESCE(qry.qry_CELL_Override_Ship_PackIn, 0) AS dim_calc_inner_Schiffe,
+    
+    COALESCE(ref.COBJ_BNAM_Ship, 0) + 
+    MAX(0, COALESCE(ref.GBFM, 0) - 
+           COALESCE(ref.GBFM_EDID_CrowdRegion, 0) - 
+           COALESCE(ref.GBFM_EDID_Vehicle, 0)) + 
+    COALESCE(ref.WEAP_KWDA_Ship, 0) + 
+    COALESCE(ref.STMP, 0) + 
+    COALESCE(ref.STND, 0) + 
+    COALESCE(ref.STBH, 0) + 
+    COALESCE(qry.qry_CELL_Ship, 0) + 
+    COALESCE(qry.qry_CELL_Ship_PackIn, 0) AS dim_calc_outer_Schiffe,
+    COALESCE(ref.GBFM_EDID_Vehicle_Override, 0) + 
+    COALESCE(ref.WEAP_KWDA_Vehicle_Override, 0) + 
+    COALESCE(ref.FURN_VMRT_Override, 0) + 
+    COALESCE(ref.FURN_VCMT_Override, 0) + 
+    COALESCE(ref.FURN_VWWD_Override, 0) + 
+    COALESCE(ref.FURN_VCTT_Override, 0) AS dim_calc_inner_Fahrzeuge,
+    
+    COALESCE(ref.GBFM_EDID_Vehicle, 0) + 
+    COALESCE(ref.WEAP_KWDA_Vehicle, 0) + 
+    COALESCE(ref.FURN_VMRT, 0) + 
+    COALESCE(ref.FURN_VCMT, 0) + 
+    COALESCE(ref.FURN_VWWD, 0) + 
+    COALESCE(ref.FURN_VCTT, 0) AS dim_calc_outer_Fahrzeuge,
+    COALESCE(ref.MISC_Override, 0) + 
+    COALESCE(ref.LVLI_Override, 0) + 
+    COALESCE(ref.BOOK_Override, 0) + 
+    COALESCE(ref.KEYM_Override, 0) AS dim_calc_inner_Items,
+    
+    COALESCE(ref.MISC, 0) + 
+    COALESCE(ref.LVLI, 0) + 
+    COALESCE(ref.BOOK, 0) + 
+    COALESCE(ref.KEYM, 0) AS dim_calc_outer_Items,
+    COALESCE(ref.OMOD_Override, 0) + 
+    COALESCE(ref.LMSW_Override, 0) + 
+    COALESCE(ref.TXST_Override, 0) + 
+    COALESCE(ref.CLFM_Override, 0) + 
+    COALESCE(ref.ARMO_Override, 0) + 
+    COALESCE(ref.WEAP_Override, 0) AS dim_calc_inner_Skins,
+    
+    COALESCE(ref.OMOD, 0) + 
+    COALESCE(ref.LMSW, 0) + 
+    COALESCE(ref.TXST, 0) + 
+    COALESCE(ref.CLFM, 0) + 
+    COALESCE(ref.ARMO_Override, 0) + 
+    COALESCE(ref.WEAP_Override, 0) AS dim_calc_outer_Skins,
+    COALESCE(ref.REFR_Deleted, 0) + 
+    COALESCE(ref.REFR_Disabled, 0) + 
+    COALESCE(ref.REFR_Buried, 0) + 
+    COALESCE(ref.FLOR_Remove, 0) + 
+    CASE 
+        WHEN (COALESCE(ref.SPEL_Remove, 0) + COALESCE(ref.MGEF_Remove, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+              COALESCE(ref.ENCH_Remove, 0) + COALESCE(ref.ALCH_Remove, 0) + COALESCE(ref.PERK_Remove, 0)) > 0 
+        THEN (LOG10(COALESCE(ref.SPEL_Remove, 0) + COALESCE(ref.MGEF_Remove, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+                    COALESCE(ref.ENCH_Remove, 0) + COALESCE(ref.ALCH_Remove, 0) + COALESCE(ref.PERK_Remove, 0)) * 2)
+        ELSE 0 
+    END AS dim_calc_inner_Remove,
+    
+    COALESCE(ref.REFR_Deleted, 0) + 
+    COALESCE(ref.REFR_Disabled, 0) + 
+    COALESCE(ref.REFR_Buried, 0) + 
+    COALESCE(ref.FLOR_Remove, 0) + 
+    CASE 
+        WHEN (COALESCE(ref.SPEL_Remove, 0) + COALESCE(ref.MGEF_Remove, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+              COALESCE(ref.ENCH_Remove, 0) + COALESCE(ref.ALCH_Remove, 0) + COALESCE(ref.PERK_Remove, 0)) > 0 
+        THEN (LOG10(COALESCE(ref.SPEL_Remove, 0) + COALESCE(ref.MGEF_Remove, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+                    COALESCE(ref.ENCH_Remove, 0) + COALESCE(ref.ALCH_Remove, 0) + COALESCE(ref.PERK_Remove, 0)) * 2)
+        ELSE 0 
+    END AS dim_calc_outer_Remove,
     
     -- --- DYNAMISCH ERMITTELTE ZELLEN (aus View_Components_References_Qry) ---
     qry.qry_CELL_City,

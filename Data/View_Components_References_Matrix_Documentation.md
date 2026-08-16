@@ -261,8 +261,42 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
 *   **`dim_calc_outer_Waffen`**:
     *   **Bedeutung:** Die quantitative Gesamtmasse aller echten Handfeuer-/Nahkampfwaffen und Munitionsarten der Mod (`MAX(0, WEAP - WEAP_KWDA_Vehicle - WEAP_KWDA_Ship - WEAP_KWDA_Helper) + AMMO`, 1:1 gleichberechtigt).
     *   **Wert:** `MAX(0, WEAP - WEAP_KWDA_Vehicle - WEAP_KWDA_Ship - WEAP_KWDA_Helper) + AMMO`.
-*   **Alle weiteren Kategorien (`Crafting` bis `Remove`)**:
-    *   **Wert:** Initial auf `0` gesetzt.
+*   **`dim_calc_inner_Crafting`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Werkbankrezepte (`MAX(0, COBJ_Override - COBJ_BNAM_Outpost_Heavy_Override - COBJ_BNAM_Outpost_Soft_Override - COBJ_BNAM_Ship_Override)`).
+    *   **Wert:** `MAX(0, COBJ_Override - COBJ_BNAM_Outpost_Heavy_Override - COBJ_BNAM_Outpost_Soft_Override - COBJ_BNAM_Ship_Override)`.
+*   **`dim_calc_outer_Crafting`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller reinen Werkbank-Herstellungsrezepte der Mod (`MAX(0, COBJ - COBJ_BNAM_Outpost_Heavy - COBJ_BNAM_Outpost_Soft - COBJ_BNAM_Ship)`, 1:1 gleichberechtigt).
+    *   **Wert:** `MAX(0, COBJ - COBJ_BNAM_Outpost_Heavy - COBJ_BNAM_Outpost_Soft - COBJ_BNAM_Ship)`.
+*   **`dim_calc_inner_Schiffe`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Schiffskomponenten, Netto-Blaupausen, Bordwaffen, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen (`COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`).
+    *   **Wert:** `COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`.
+*   **`dim_calc_outer_Schiffe`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Schiffsbau-Rezepte, Netto-Blaupausen, Bordwaffen, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen der Mod (`COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`, 1:1 gleichberechtigt).
+    *   **Wert:** `COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`.
+*   **`dim_calc_inner_Fahrzeuge`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Landfahrzeuge, Fahrzeuggeschütze, Sitze, Kameras, Räder und Steuerungen (`GBFM_EDID_Vehicle_Override + WEAP_KWDA_Vehicle_Override + FURN_VMRT_Override + FURN_VCMT_Override + FURN_VWWD_Override + FURN_VCTT_Override`).
+    *   **Wert:** `GBFM_EDID_Vehicle_Override + WEAP_KWDA_Vehicle_Override + FURN_VMRT_Override + FURN_VCMT_Override + FURN_VWWD_Override + FURN_VCTT_Override`.
+*   **`dim_calc_outer_Fahrzeuge`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Landfahrzeug-Blaupausen, Fahrzeuggeschütze, Sitze, Kameras, Räder und Steuerungen der Mod (`GBFM_EDID_Vehicle + WEAP_KWDA_Vehicle + FURN_VMRT + FURN_VCMT + FURN_VWWD + FURN_VCTT`, 1:1 gleichberechtigt).
+    *   **Wert:** `GBFM_EDID_Vehicle + WEAP_KWDA_Vehicle + FURN_VMRT + FURN_VCMT + FURN_VWWD + FURN_VCTT`.
+*   **`dim_calc_inner_Items`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Sonstiges-Objekte, Beutetabellen, Bücher und Schlüssel (`MISC_Override + LVLI_Override + BOOK_Override + KEYM_Override`).
+    *   **Wert:** `MISC_Override + LVLI_Override + BOOK_Override + KEYM_Override`.
+*   **`dim_calc_outer_Items`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Sonstiges-Objekte, Ressourcen, Beutetabellen, Bücher/Slates und Schlüssel der Mod (`MISC + LVLI + BOOK + KEYM`, 1:1 gleichberechtigt).
+    *   **Wert:** `MISC + LVLI + BOOK + KEYM`.
+*   **`dim_calc_inner_Skins`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Skins, Material-Swaps, Textursätze, Farbvarianten und Ausrüstungs-Skin-Slots (`OMOD_Override + LMSW_Override + TXST_Override + CLFM_Override + ARMO_Override + WEAP_Override`).
+    *   **Wert:** `OMOD_Override + LMSW_Override + TXST_Override + CLFM_Override + ARMO_Override + WEAP_Override`.
+*   **`dim_calc_outer_Skins`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Waffen- und Rüstungsmodifikationen/Skins, Material-Swaps, Textursätze, Farbvarianten und Ausrüstungs-Overrides der Mod (`OMOD + LMSW + TXST + CLFM + ARMO_Override + WEAP_Override`, 1:1 gleichberechtigt).
+    *   **Wert:** `OMOD + LMSW + TXST + CLFM + ARMO_Override + WEAP_Override`.
+*   **`dim_calc_inner_Remove`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Objekte durch Entfernungen, Deaktivierungen, Versenkungen, Pflanzenlöschungen und gedämpfte Zauber-/Effekt-Removals (`REFR_Deleted + REFR_Disabled + REFR_Buried + FLOR_Remove + log10(SPEL_Remove + MGEF_Remove + EFSH_Remove + ENCH_Remove + ALCH_Remove + PERK_Remove) * 2`).
+    *   **Wert:** `REFR_Deleted + REFR_Disabled + REFR_Buried + FLOR_Remove + CASE WHEN (SPEL_Remove + MGEF_Remove + EFSH_Remove + ENCH_Remove + ALCH_Remove + PERK_Remove) > 0 THEN LOG10(Summe)*2 ELSE 0 END`.
+*   **`dim_calc_outer_Remove`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Entfernungs-, Deaktivierungs- und Versenkungsoperationen der Mod (1:1 identisch zum inneren Polygon).
+    *   **Wert:** `REFR_Deleted + REFR_Disabled + REFR_Buried + FLOR_Remove + CASE WHEN (SPEL_Remove + MGEF_Remove + EFSH_Remove + ENCH_Remove + ALCH_Remove + PERK_Remove) > 0 THEN LOG10(Summe)*2 ELSE 0 END`.
 
 ---
 

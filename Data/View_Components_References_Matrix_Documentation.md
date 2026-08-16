@@ -171,7 +171,97 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
 *   **`dim_calc_outer_POIs`**:
     *   **Bedeutung:** Die quantitative Gesamtmasse aller POIs inklusive aller prozeduralen Spawn-Regeln, Content-Nodes und Locations (SFBK 1:1, PCCN, PCBN und LCTN logarithmisch gedämpft).
     *   **Wert:** `SFBK + log10(PCCN)*2 + log10(PCBN)*2 + log10(LCTN)*2`.
-*   **Alle weiteren Kategorien (`Pflanzen` bis `Remove`)**:
+*   **`dim_calc_inner_Pflanzen`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl überschriebener Vanilla-Pflanzen (`FLOR_Override`).
+    *   **Wert:** `FLOR_Override`.
+*   **`dim_calc_outer_Pflanzen`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller pflanzlichen Datensätze der Mod (`FLOR`, Neu + Overrides 1:1).
+    *   **Wert:** `FLOR`.
+*   **`dim_calc_inner_Gameplay`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Summe aller Overrides und Deaktivierungen auf Vanilla-Gameplaymechaniken (`PERK_Override + PERK_Remove + SPEL_Override + SPEL_Remove + AVIF_Override + ENCH_Override + ENCH_Remove + ALCH_Override + ALCH_Remove + MGEF_Override + MGEF_Remove` 1:1 gleichberechtigt).
+    *   **Wert:** `PERK_Override + PERK_Remove + SPEL_Override + SPEL_Remove + AVIF_Override + ENCH_Override + ENCH_Remove + ALCH_Override + ALCH_Remove + MGEF_Override + MGEF_Remove`.
+*   **`dim_calc_outer_Gameplay`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller deklarierten oder entfernten Gameplay-Inhalte der Mod (`PERK + PERK_Remove + SPEL + SPEL_Remove + AVIF + ENCH + ENCH_Remove + ALCH + ALCH_Remove + MGEF + MGEF_Remove` 1:1 gleichberechtigt).
+    *   **Wert:** `PERK + PERK_Remove + SPEL + SPEL_Remove + AVIF + ENCH + ENCH_Remove + ALCH + ALCH_Remove + MGEF + MGEF_Remove`.
+*   **`dim_calc_inner_NPCs`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl überschriebener allgemeiner/humanoiden Vanilla-NPCs (bereinigt um Begleiter- und Kreaturen-Overrides: `MAX(0, NPC__Override - NPC_KYWD_Companion_Override - NPC_KYWD_Creature_Override)`).
+    *   **Wert:** `MAX(0, NPC__Override - NPC_KYWD_Companion_Override - NPC_KYWD_Creature_Override)`.
+*   **`dim_calc_outer_NPCs`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller allgemeinen/humanoiden Charaktere der Mod (bereinigt um Begleiter und Kreaturen: `MAX(0, NPC_ - NPC_KYWD_Companion - NPC_KYWD_Creature)`).
+    *   **Wert:** `MAX(0, NPC_ - NPC_KYWD_Companion - NPC_KYWD_Creature)`.
+*   **`dim_calc_inner_Begleiter`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC_KYWD_Companion_Override`).
+    *   **Wert:** `NPC_KYWD_Companion_Override`.
+*   **`dim_calc_outer_Begleiter`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Begleiter-Charaktere der Mod (`NPC_KYWD_Companion`, Neu + Overrides 1:1).
+    *   **Wert:** `NPC_KYWD_Companion`.
+*   **`dim_calc_inner_Kreaturen`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Kreaturen und -Rassen (`NPC_KYWD_Creature_Override + RACE_Override`).
+    *   **Wert:** `NPC_KYWD_Creature_Override + RACE_Override`.
+*   **`dim_calc_outer_Kreaturen`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC_KYWD_Creature + RACE`, 1:1 gleichberechtigt).
+    *   **Wert:** `NPC_KYWD_Creature + RACE`.
+*   **`dim_calc_inner_Texturen`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
+    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s) END`.
+*   **`dim_calc_outer_Texturen`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Textur-Inhalte der Mod (`TXST` 1:1 bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
+    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST ELSE Count(Texture_BA2s) END`.
+*   **`dim_calc_inner_Licht`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Lichtquellen und -Sterne (`LIGH_Override + STDT_Override`).
+    *   **Wert:** `LIGH_Override + STDT_Override`.
+*   **`dim_calc_outer_Licht`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Lichtquellen und Sonnen/Sterne der Mod (`LIGH + STDT`, 1:1 gleichberechtigt).
+    *   **Wert:** `LIGH + STDT`.
+*   **`dim_calc_inner_Effekte`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in visuelle Shader und Bildschirmfilter (`EFSH_Override + EFSH_Remove + IMAD_Override`).
+    *   **Wert:** `EFSH_Override + EFSH_Remove + IMAD_Override`.
+*   **`dim_calc_outer_Effekte`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller rein visuellen Effekt-Shader und Bildschirmfilter der Mod (`EFSH + EFSH_Remove + IMAD`, 1:1 gleichberechtigt).
+    *   **Wert:** `EFSH + EFSH_Remove + IMAD`.
+*   **`dim_calc_inner_Sound`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Audio (`SOUN_Override + MUSC_Override` bei Vorhandensein von Form-Sounds im Plugin, andernfalls die Anzahl der `*- sounds.ba2` / `*- voices.ba2`-Replacer-Archive).
+    *   **Wert:** `CASE WHEN (SOUN + MUSC) > 0 THEN SOUN_Override + MUSC_Override ELSE Count(Audio_BA2s) END`.
+*   **`dim_calc_outer_Sound`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Sound- und Musikinhalte der Mod (`SOUN + MUSC` 1:1 bei Vorhandensein von Form-Sounds im Plugin, andernfalls die Anzahl der `*- sounds.ba2` / `*- voices.ba2`-Replacer-Archive).
+    *   **Wert:** `CASE WHEN (SOUN + MUSC) > 0 THEN SOUN + MUSC ELSE Count(Audio_BA2s) END`.
+*   **`dim_calc_inner_Interface`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in die Benutzeroberfläche (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface-Asset-Archive).
+    *   **Wert:** `Count(Interface_BA2s)`.
+*   **`dim_calc_outer_Interface`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Interface- und UI-Inhalte der Mod (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface-Asset-Archive).
+    *   **Wert:** `Count(Interface_BA2s)`.
+*   **`dim_calc_inner_Sortierung`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Namensregeln und Gegenstands-Umbenennungen (`INNR_Override + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`).
+    *   **Wert:** `INNR_Override + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`.
+*   **`dim_calc_outer_Sortierung`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Namensregeln und Gegenstands-Overrides der Mod (`INNR + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`, 1:1 gleichberechtigt).
+    *   **Wert:** `INNR + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`.
+*   **`dim_calc_inner_Tweaks`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Spieleinstellungen, Kameras und Systemvariablen (`GMST_Override + MOVT_Override + GLOB_Override + CAMS_Override + CPTH_Override`).
+    *   **Wert:** `GMST_Override + MOVT_Override + GLOB_Override + CAMS_Override + CPTH_Override`.
+*   **`dim_calc_outer_Tweaks`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Spieleinstellungen, Bewegungsarten, globalen Variablen und Kamerasteuerungen der Mod (`GMST + MOVT + GLOB + CAMS + CPTH`, 1:1 gleichberechtigt).
+    *   **Wert:** `GMST + MOVT + GLOB + CAMS + CPTH`.
+*   **`dim_calc_inner_Charakter`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Charakterfarben, Kopfteile/Frisuren und Rassen (`CLFM_Override + HDPT_Override + RACE_Override`).
+    *   **Wert:** `CLFM_Override + HDPT_Override + RACE_Override`.
+*   **`dim_calc_outer_Charakter`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Charakter-Editor-Farben, Frisuren/Kopfteile und Rassen der Mod (`CLFM + HDPT + RACE`, 1:1 gleichberechtigt).
+    *   **Wert:** `CLFM + HDPT + RACE`.
+*   **`dim_calc_inner_Kleidung`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Kleidung, Raumanzüge und Helme (`ARMO_Override`).
+    *   **Wert:** `ARMO_Override`.
+*   **`dim_calc_outer_Kleidung`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Kleidungsstücke, Raumanzüge, Helme, Boostpacks und tragbaren Accessoires der Mod (`ARMO`, Neu + Overrides 1:1).
+    *   **Wert:** `ARMO`.
+*   **`dim_calc_inner_Waffen`**:
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Handwaffen und -Munition (`MAX(0, WEAP_Override - WEAP_KWDA_Vehicle_Override - WEAP_KWDA_Ship_Override - WEAP_KWDA_Helper_Override) + AMMO_Override`).
+    *   **Wert:** `MAX(0, WEAP_Override - WEAP_KWDA_Vehicle_Override - WEAP_KWDA_Ship_Override - WEAP_KWDA_Helper_Override) + AMMO_Override`.
+*   **`dim_calc_outer_Waffen`**:
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller echten Handfeuer-/Nahkampfwaffen und Munitionsarten der Mod (`MAX(0, WEAP - WEAP_KWDA_Vehicle - WEAP_KWDA_Ship - WEAP_KWDA_Helper) + AMMO`, 1:1 gleichberechtigt).
+    *   **Wert:** `MAX(0, WEAP - WEAP_KWDA_Vehicle - WEAP_KWDA_Ship - WEAP_KWDA_Helper) + AMMO`.
+*   **Alle weiteren Kategorien (`Crafting` bis `Remove`)**:
     *   **Wert:** Initial auf `0` gesetzt.
 
 ---

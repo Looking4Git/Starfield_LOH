@@ -29,7 +29,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **CELL / CELL_Dummy / CELL_Override / CELL_Override_Dummy / CELL_Override_PackIn / CELL_PackIn**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume). 
     *   `CELL_Dummy` / `CELL_Override_Dummy`: Erfasst reine Skript-, Holding-, Test- und Utility-Zellen ohne Location oder Ingame-Namen.
     *   `CELL_PackIn` / `CELL_Override_PackIn`: Erfasst Zell-Schablonen für Fertigbauteile (PackIns).
-*   **CLFM**: *Color Form*. Farbpaletten für Kleidung, Haare oder Benutzeroberflächen.
+*   **CLFM / CLFM_Override**: *Color Form*. Farbpaletten für Kleidung, Haare, Augen oder Make-up.
 *   **CLMT / CLMT_Override**: *Climate*. Klimazyklen (Tag-Nacht-Rhythmen, Wetterverteilungen für Planeten).
 *   **COBJ / COBJ_Override / COBJ_BNAM_Outpost_Heavy / COBJ_BNAM_Outpost_Heavy_Override / COBJ_BNAM_Outpost_Soft / COBJ_BNAM_Outpost_Soft_Override / COBJ_BNAM_Ship / COBJ_BNAM_Ship_Override**: *Constructible Object*. Handwerksrezepte für Werkbänke und das Außenposten- oder Schiffbausystem.
     *   `COBJ_BNAM_Outpost_Heavy` / `COBJ_BNAM_Outpost_Heavy_Override`: Rezepte für Außenposten-Kernkomponenten (Extraktoren, Generatoren, Abwehr).
@@ -52,7 +52,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
     *   `GBFM_EDID_Vehicle`: Landfahrzeug-Blaupausen (REV-8 etc.).
 *   **GLOB / GLOB_Override**: *Global Variable*. Globale Variablen zur Systemkonfiguration oder Tweak-Steuerung.
 *   **GMST / GMST_Override**: *Game Setting*. Systemkonfigurationen (z. B. Gravitationsstärke, Gameplay-Grenzwerte).
-*   **HDPT**: *Head Part*. Gesichtsmerkmale für den Charaktereditor.
+*   **HDPT / HDPT_Override**: *Head Part*. Gesichtsmerkmale und Frisuren für den Charaktereditor.
 *   **IMAD / IMAD_Override**: *Image Space Modifier*. Post-Processing-Shader und Farbkorrekturen für Wetter und Effekte.
 *   **INFO / INFO_Override**: *Dialogue Info*. Einzelne gesprochene Sätze und Reaktionen.
 *   **INNR / INNR_Override**: *Instance Naming Rules*. Namensregeln zur dynamischen Namensvergabe von Gegenständen wie Waffen und Rüstungen.
@@ -66,11 +66,11 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **LVLP / LVLP_Override**: *Leveled Pack-In*. Dynamische Pack-In Platzierungstabellen.
 *   **MGEF / MGEF_Override / MGEF_Remove**: *Magic Effect*. Magische Effekte (Heilung, Buffs, Debuffs).
 *   **MISC / MISC_Override**: *Misc Object*. Sonstige Objekte, Ressourcen, Trays (Tabletts), Schneekugeln und Schrott.
-*   **MOVT**: *Movement Type*. Bewegungseigenschaften (Geschwindigkeit, Beschleunigung).
+*   **MOVT / MOVT_Override**: *Movement Type*. Bewegungseigenschaften (Geschwindigkeit, Beschleunigung).
 *   **MSTT / MSTT_Override**: *Movable Static*. Bewegliche statische Objekte (z. B. Becher, physikalisch bewegliche Dekorationsgegenstände).
 *   **MUSC / MUSC_Override**: *Music Type*. Musik-Wiedergabelisten und -Zuweisungen.
 *   **NAVM**: *NavMesh*. Top-Level-Datensätze für Navigationsnetze pro Zelle.
-*   **NPC_ / NPC__Override / NPC_KYWD_Companion / NPC_KYWD_Creature / NPC_KYWD_Ship / NPC_KYWD_Shop**: *Non-Player Character / Actor*. Charakter-Definitionen (Gegner, Begleiter, Händler, Kreaturen).
+*   **NPC_ / NPC__Override / NPC_KYWD_Companion / NPC_KYWD_Companion_Override / NPC_KYWD_Creature / NPC_KYWD_Creature_Override / NPC_KYWD_Ship / NPC_KYWD_Ship_Override / NPC_KYWD_Shop / NPC_KYWD_Shop_Override**: *Non-Player Character / Actor*. Charakter-Definitionen (Gegner, Begleiter, Händler, Kreaturen) sowie deren spezifische Override-Anteile.
 *   **OMOD / OMOD_Override**: *Object Modification*. Modifikationen für Waffen und Rüstungen.
 *   **PCBN**: *Planet Content Block Node*. Knotenpunkte zur prozeduralen Verteilung von POIs.
 *   **PCCN**: *Planet Content Connection*. Verknüpfungen zur Einspeisung von Custom-POIs in das Spawnsystem.
@@ -83,7 +83,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **RSPJ / RSPJ_Override**: *Space Project*. Definition von Sternensystemen und Galaxien-Projektionen.
 *   **SFBK / SFBK_Override**: *Starfield Planet Block*. Registrierungs- und Platzierungseinträge für prozedurale Planetengenerierung (POIs).
 *   **Shifter_Quest_Chest / Shifter_Quest_Ship / Shifter_Quest_Starter / Shifter_Quest_Trader**: Berechnete Koeffizienten (0.0 bis 1.0), die beschreiben, wie eine Quest ins Spiel injiziert wird (z. B. Händler, Truhen).
-*   **SOUN**: *Sound*. Verweise auf Wwise-Audiodateien und Soundbanks.
+*   **SOUN / SOUN_Override**: *Sound*. Verweise auf Wwise-Audiodateien und Soundbanks.
 *   **SPEL / SPEL_Override / SPEL_Remove**: *Spell*. Zauber, Fähigkeiten und Krankheiten.
 *   **STAT / STAT_Override**: *Static*. Unbewegliche 3D-Modelle (Häuser, Felsen, Wände).
 *   **STBH**: *Ship Behavior*. Verhaltensdefinitionen für Schiffsteile (z. B. begehbare Luken, Türen und Wände in Habs).
@@ -91,7 +91,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **STMP**: *Ship Template*. Schablonen/Vorlagen für Raumschiffe.
 *   **STND**: *Ship Node*. Anschlusspunkte (Snap-Nodes) für Schiffsteile.
 *   **TERM / TERM_Override**: *Terminal*. Interaktive Computerterminals.
-*   **TXST**: *Texture Set*. Texturdefinitionen für 3D-Modelle.
-*   **WEAP / WEAP_Override / WEAP_KWDA_Helper / WEAP_KWDA_Ship / WEAP_KWDA_Vehicle**: *Weapon*. Waffen aller Art (Handfeuer-, Fahrzeug-, Schiffswaffen oder Hilfswerkzeuge).
+*   **TXST / TXST_Override**: *Texture Set*. Textursatz-Definitionen für 3D-Modelle.
+*   **WEAP / WEAP_Override / WEAP_KWDA_Helper / WEAP_KWDA_Helper_Override / WEAP_KWDA_Ship / WEAP_KWDA_Ship_Override / WEAP_KWDA_Vehicle / WEAP_KWDA_Vehicle_Override**: *Weapon*. Waffen aller Art (Handfeuer-, Fahrzeug-, Schiffswaffen oder Hilfswerkzeuge).
 *   **WRLD / WRLD_Override**: *Worldspace*. Ganze Planetenoberflächen oder große Außenbereiche.
 *   **WTHS / WTHS_Override**: *Weather*. Wetter-Definitionen (Niederschlag, Wolken, Wind).

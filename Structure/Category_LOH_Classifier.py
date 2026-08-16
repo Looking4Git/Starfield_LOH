@@ -174,7 +174,8 @@ def _exclude_non_crafting(row, cursor, cat_ids):
 
 def _check_has_sound(cursor, mod_id):
     """
-    Prüft, ob zugeordnete BA2-Dateien der Mod Sound-Assets enthalten.
+    Ermittelt die Anzahl der zugeordneten BA2-Sound/Audio-Archive für einen Mod.
+    Gibt einen Integer >= 0 zurück (0 = False, >0 = True).
     """
     cursor.execute("""
         SELECT File 
@@ -184,20 +185,22 @@ def _check_has_sound(cursor, mod_id):
     """, (mod_id,))
     ba2_files = [r[0] for r in cursor.fetchall()]
     
+    count = 0
     from Structure.Paths import STARFIELD_GAME_DATA_PATH
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
     
     for ba2_file in ba2_files:
         ba2_lower = ba2_file.lower()
         if "voices" in ba2_lower or "sounds" in ba2_lower or "sound.ba2" in ba2_lower or "audio" in ba2_lower or "music" in ba2_lower:
-            return True
+            count += 1
+            continue
             
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
             if ba2_flags.get("has_audio"):
-                return True
-    return False
+                count += 1
+    return count
 
 def _exclude_non_sound(row, cursor, cat_ids):
     """
@@ -228,14 +231,14 @@ def _exclude_non_sound(row, cursor, cat_ids):
 
 def _exclude_non_effects(row, cursor, cat_ids):
     """
-    Schließt die Kategorie 'Effekte' aus, wenn keine magischen oder visuellen
-    Effekt-Merkmale (MGEF, EFSH, IMAD) vorliegen.
+    Schließt die Kategorie 'Effekte' (15) aus, wenn keine rein visuellen
+    Effekt-Merkmale (EFSH, EFSH_Remove oder IMAD) vorliegen.
     """
-    mgef = row.get('MGEF') or 0
     efsh = row.get('EFSH') or 0
+    efsh_r = row.get('EFSH_Remove') or 0
     imad = row.get('IMAD') or 0
     
-    if mgef == 0 and efsh == 0 and imad == 0:
+    if efsh == 0 and efsh_r == 0 and imad == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -249,7 +252,7 @@ def _exclude_non_effects(row, cursor, cat_ids):
                 SET "{effects_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Effekte' ausgeschlossen (keine MGEF/EFSH/IMAD-Referenzen)."
+            return "Kategorie 'Effekte' ausgeschlossen (keine EFSH/IMAD-Referenzen)."
     return None
 
 def _exclude_non_light(row, cursor, cat_ids):
@@ -390,7 +393,8 @@ def _exclude_non_poi(row, cursor, cat_ids):
 
 def _check_is_interface(cursor, mod_id):
     """
-    Prüft, ob zugeordnete BA2-Dateien der Mod Interface-Assets enthalten.
+    Ermittelt die Anzahl der zugeordneten BA2-Interface-Archive für einen Mod.
+    Gibt einen Integer >= 0 zurück (0 = False, >0 = True).
     """
     cursor.execute("""
         SELECT File 
@@ -400,7 +404,7 @@ def _check_is_interface(cursor, mod_id):
     """, (mod_id,))
     ba2_files = [r[0] for r in cursor.fetchall()]
     
-    has_interface_assets = False
+    count = 0
     from Structure.Paths import STARFIELD_GAME_DATA_PATH
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
     
@@ -408,21 +412,21 @@ def _check_is_interface(cursor, mod_id):
         ba2_lower = ba2_file.lower()
         # Schnelle Prüfung auf Namensebene
         if "interface" in ba2_lower:
-            has_interface_assets = True
-            break
+            count += 1
+            continue
             
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
             if ba2_flags.get("has_interface"):
-                has_interface_assets = True
-                break
-    return has_interface_assets
+                count += 1
+    return count
 
 
 def _check_has_textures(cursor, mod_id):
     """
-    Prüft, ob zugeordnete BA2-Dateien der Mod Textur-Assets enthalten.
+    Ermittelt die Anzahl der zugeordneten BA2-Texturarchive für einen Mod.
+    Gibt einen Integer >= 0 zurück (0 = False, >0 = True).
     """
     cursor.execute("""
         SELECT File 
@@ -432,48 +436,22 @@ def _check_has_textures(cursor, mod_id):
     """, (mod_id,))
     ba2_files = [r[0] for r in cursor.fetchall()]
     
+    count = 0
     from Structure.Paths import STARFIELD_GAME_DATA_PATH
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
     
     for ba2_file in ba2_files:
         ba2_lower = ba2_file.lower()
         if "textures" in ba2_lower or "texture.ba2" in ba2_lower:
-            return True
+            count += 1
+            continue
             
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
             if ba2_flags.get("has_textures"):
-                return True
-    return False
-
-
-def _check_has_sound(cursor, mod_id):
-    """
-    Prüft, ob zugeordnete BA2-Dateien der Mod Audio-Assets enthalten.
-    """
-    cursor.execute("""
-        SELECT File 
-        FROM Components c 
-        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
-        WHERE mc.Mod_ID = ? AND LOWER(c.File) LIKE '%.ba2'
-    """, (mod_id,))
-    ba2_files = [r[0] for r in cursor.fetchall()]
-    
-    from Structure.Paths import STARFIELD_GAME_DATA_PATH
-    from Structure.File_BA2_Parser import scan_ba2_archive_for_types
-    
-    for ba2_file in ba2_files:
-        ba2_lower = ba2_file.lower()
-        if "voices" in ba2_lower or "sounds" in ba2_lower or "sound.ba2" in ba2_lower:
-            return True
-            
-        ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
-        if os.path.exists(ba2_path):
-            ba2_flags = scan_ba2_archive_for_types(ba2_path)
-            if ba2_flags.get("has_audio"):
-                return True
-    return False
+                count += 1
+    return count
 
 
 def _has_city_cells(row, cursor=None, component_id=None):
@@ -696,12 +674,17 @@ def _exclude_non_companion(row, cursor, cat_ids):
 
 def _exclude_non_npc(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine NPC-Mod (NPC_) vorliegen.
+    Prüft, ob Referenzen für eine allgemeine/humanoide NPC-Mod (NPC_ abzüglich 
+    Begleiter und Kreaturen) vorliegen.
     Wenn nicht, wird die Kategorie 'NPCs' (12) in der Ausschlussmatrix auf 0 gesetzt.
     """
     npc = row.get('NPC_') or 0
+    comp = row.get('NPC_KYWD_Companion') or 0
+    creat = row.get('NPC_KYWD_Creature') or 0
     
-    if npc == 0:
+    pure_npc = max(0, npc - comp - creat)
+    
+    if pure_npc == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -715,7 +698,7 @@ def _exclude_non_npc(row, cursor, cat_ids):
                 SET "{npcs_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'NPCs' ausgeschlossen (keine NPC_-Referenzen)."
+            return "Kategorie 'NPCs' ausgeschlossen (keine allgemeinen humanoiden NPC-Referenzen)."
     return None
 
 def _exclude_non_character(row, cursor, cat_ids):
@@ -1224,43 +1207,30 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
     
-    # 2. Komponenten-Dateinamen des Mods ermitteln (für BA2-Asset-Prüfung)
+    # 2. BA2-Asset-Prüfung modular über Hilfsfunktionen
+    has_textures = _check_has_textures(cursor, mod_id) > 0
+    has_audio = _check_has_sound(cursor, mod_id) > 0
+    has_interface = _check_is_interface(cursor, mod_id) > 0
+    
+    # Scripte in BA2-Dateien prüfen
     cursor.execute("""
         SELECT File 
         FROM Components c 
         JOIN Mods_Components mc ON c.ID = mc.Component_ID 
-        WHERE mc.Mod_ID = ?
+        WHERE mc.Mod_ID = ? AND LOWER(c.File) LIKE '%.ba2'
     """, (mod_id,))
-    components = [r[0] for r in cursor.fetchall()]
+    ba2_files = [r[0] for r in cursor.fetchall()]
     
-    # 3. BA2-Dateien filtern und scannen
-    has_textures = False
-    has_audio = False
-    has_interface = _check_is_interface(cursor, mod_id)
     has_scripts = False
-    
-    ba2_files = [f for f in components if f.lower().endswith(".ba2")]
-    
     from Structure.Paths import STARFIELD_GAME_DATA_PATH
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
-    
     for ba2_file in ba2_files:
-        ba2_lower = ba2_file.lower()
-        
-        # Audio-Archive direkt am Namen erkennen (Zeitersparnis)
-        if "voices" in ba2_lower or "sounds" in ba2_lower or "sound.ba2" in ba2_lower:
-            has_audio = True
-            continue
-            
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
-            if ba2_flags.get("has_textures"):
-                has_textures = True
-            if ba2_flags.get("has_audio"):
-                has_audio = True
             if ba2_flags.get("has_scripts"):
                 has_scripts = True
+                break
                 
     # 4. IDs der Asset-Kategorien ermitteln
     cursor.execute("SELECT ID, Name FROM Categories_LOH WHERE Name IN ('Gameplay', 'Texturen', 'Sound', 'Interface')")

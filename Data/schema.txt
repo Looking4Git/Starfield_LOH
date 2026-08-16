@@ -53,6 +53,7 @@ CREATE TABLE "Components_ESM_References" (
         "CELL_Override_PackIn"  INTEGER DEFAULT 0,
         "CELL_PackIn"           INTEGER DEFAULT 0,
         "CLFM"                  INTEGER DEFAULT 0,
+        "CLFM_Override"         INTEGER DEFAULT 0,
         "CLMT"                  INTEGER DEFAULT 0,
         "CLMT_Override"         INTEGER DEFAULT 0,
         "COBJ"                  INTEGER DEFAULT 0,
@@ -94,6 +95,7 @@ CREATE TABLE "Components_ESM_References" (
         "GMST"                  INTEGER DEFAULT 0,
         "GMST_Override"         INTEGER DEFAULT 0,
         "HDPT"                  INTEGER DEFAULT 0,
+        "HDPT_Override"         INTEGER DEFAULT 0,
         "IMAD"                  INTEGER DEFAULT 0,
         "IMAD_Override"         INTEGER DEFAULT 0,
         "INFO"                  INTEGER DEFAULT 0,
@@ -130,6 +132,7 @@ CREATE TABLE "Components_ESM_References" (
         "MISC"                  INTEGER DEFAULT 0,
         "MISC_Override"         INTEGER DEFAULT 0,
         "MOVT"                  INTEGER DEFAULT 0,
+        "MOVT_Override"         INTEGER DEFAULT 0,
         "MSTT"                  INTEGER DEFAULT 0,
         "MSTT_Override"         INTEGER DEFAULT 0,
         "MUSC"                  INTEGER DEFAULT 0,
@@ -137,10 +140,14 @@ CREATE TABLE "Components_ESM_References" (
         "NAVM"                  INTEGER DEFAULT 0,
         "NPC_"                  INTEGER DEFAULT 0,
         "NPC__Override"         INTEGER DEFAULT 0,
-        "NPC_KYWD_Companion"    INTEGER DEFAULT 0,
-        "NPC_KYWD_Creature"     INTEGER DEFAULT 0,
-        "NPC_KYWD_Ship"         INTEGER DEFAULT 0,
-        "NPC_KYWD_Shop"         INTEGER DEFAULT 0,
+        "NPC_KYWD_Companion"           INTEGER DEFAULT 0,
+        "NPC_KYWD_Companion_Override"  INTEGER DEFAULT 0,
+        "NPC_KYWD_Creature"            INTEGER DEFAULT 0,
+        "NPC_KYWD_Creature_Override"   INTEGER DEFAULT 0,
+        "NPC_KYWD_Ship"                INTEGER DEFAULT 0,
+        "NPC_KYWD_Ship_Override"       INTEGER DEFAULT 0,
+        "NPC_KYWD_Shop"                INTEGER DEFAULT 0,
+        "NPC_KYWD_Shop_Override"       INTEGER DEFAULT 0,
         "OMOD"                  INTEGER DEFAULT 0,
         "OMOD_Override"         INTEGER DEFAULT 0,
         "PCBN"                  INTEGER DEFAULT 0,
@@ -177,6 +184,7 @@ CREATE TABLE "Components_ESM_References" (
         "Shifter_Quest_Starter" REAL DEFAULT 0.0,
         "Shifter_Quest_Trader"  REAL DEFAULT 0.0,
         "SOUN"                  INTEGER DEFAULT 0,
+        "SOUN_Override"         INTEGER DEFAULT 0,
         "SPEL"                  INTEGER DEFAULT 0,
         "SPEL_Override"         INTEGER DEFAULT 0,
         "SPEL_Remove"           INTEGER DEFAULT 0,
@@ -190,10 +198,14 @@ CREATE TABLE "Components_ESM_References" (
         "TERM"                  INTEGER DEFAULT 0,
         "TERM_Override"         INTEGER DEFAULT 0,
         "TXST"                  INTEGER DEFAULT 0,
+        "TXST_Override"         INTEGER DEFAULT 0,
         "WEAP"                  INTEGER DEFAULT 0,
         "WEAP_KWDA_Helper"      INTEGER DEFAULT 0,
+        "WEAP_KWDA_Helper_Override" INTEGER DEFAULT 0,
         "WEAP_KWDA_Ship"        INTEGER DEFAULT 0,
+        "WEAP_KWDA_Ship_Override" INTEGER DEFAULT 0,
         "WEAP_KWDA_Vehicle"     INTEGER DEFAULT 0,
+        "WEAP_KWDA_Vehicle_Override" INTEGER DEFAULT 0,
         "WEAP_Override"         INTEGER DEFAULT 0,
         "WRLD"                  INTEGER DEFAULT 0,
         "WRLD_Override"         INTEGER DEFAULT 0,
@@ -1402,21 +1414,137 @@ SELECT
     COALESCE(log10(NULLIF(ref.PCBN, 0)) * 2, 0) + 
     COALESCE(log10(NULLIF(ref.LCTN, 0)) * 2, 0) AS dim_calc_outer_POIs,
     
-    0 AS dim_calc_inner_Pflanzen, 0 AS dim_calc_outer_Pflanzen,
-    0 AS dim_calc_inner_Gameplay, 0 AS dim_calc_outer_Gameplay,
-    0 AS dim_calc_inner_NPCs, 0 AS dim_calc_outer_NPCs,
-    0 AS dim_calc_inner_Begleiter, 0 AS dim_calc_outer_Begleiter,
-    0 AS dim_calc_inner_Kreaturen, 0 AS dim_calc_outer_Kreaturen,
-    0 AS dim_calc_inner_Texturen, 0 AS dim_calc_outer_Texturen,
-    0 AS dim_calc_inner_Licht, 0 AS dim_calc_outer_Licht,
-    0 AS dim_calc_inner_Effekte, 0 AS dim_calc_outer_Effekte,
-    0 AS dim_calc_inner_Sound, 0 AS dim_calc_outer_Sound,
-    0 AS dim_calc_inner_Interface, 0 AS dim_calc_outer_Interface,
-    0 AS dim_calc_inner_Sortierung, 0 AS dim_calc_outer_Sortierung,
-    0 AS dim_calc_inner_Tweaks, 0 AS dim_calc_outer_Tweaks,
-    0 AS dim_calc_inner_Charakter, 0 AS dim_calc_outer_Charakter,
-    0 AS dim_calc_inner_Kleidung, 0 AS dim_calc_outer_Kleidung,
-    0 AS dim_calc_inner_Waffen, 0 AS dim_calc_outer_Waffen,
+    COALESCE(ref.FLOR_Override, 0) AS dim_calc_inner_Pflanzen,
+    COALESCE(ref.FLOR, 0) AS dim_calc_outer_Pflanzen,
+    COALESCE(ref.PERK_Override, 0) + COALESCE(ref.PERK_Remove, 0) + 
+    COALESCE(ref.SPEL_Override, 0) + COALESCE(ref.SPEL_Remove, 0) + 
+    COALESCE(ref.AVIF_Override, 0) + 
+    COALESCE(ref.ENCH_Override, 0) + COALESCE(ref.ENCH_Remove, 0) + 
+    COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.ALCH_Remove, 0) + 
+    COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MGEF_Remove, 0) AS dim_calc_inner_Gameplay,
+    
+    COALESCE(ref.PERK, 0) + COALESCE(ref.PERK_Remove, 0) + 
+    COALESCE(ref.SPEL, 0) + COALESCE(ref.SPEL_Remove, 0) + 
+    COALESCE(ref.AVIF, 0) + 
+    COALESCE(ref.ENCH, 0) + COALESCE(ref.ENCH_Remove, 0) + 
+    COALESCE(ref.ALCH, 0) + COALESCE(ref.ALCH_Remove, 0) + 
+    COALESCE(ref.MGEF, 0) + COALESCE(ref.MGEF_Remove, 0) AS dim_calc_outer_Gameplay,
+    MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC_KYWD_Companion_Override, 0) - COALESCE(ref.NPC_KYWD_Creature_Override, 0)) AS dim_calc_inner_NPCs,
+    MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC_KYWD_Companion, 0) - COALESCE(ref.NPC_KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
+    COALESCE(ref.NPC_KYWD_Companion_Override, 0) AS dim_calc_inner_Begleiter,
+    COALESCE(ref.NPC_KYWD_Companion, 0) AS dim_calc_outer_Begleiter,
+    COALESCE(ref.NPC_KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) AS dim_calc_inner_Kreaturen,
+    COALESCE(ref.NPC_KYWD_Creature, 0) + COALESCE(ref.RACE, 0) AS dim_calc_outer_Kreaturen,
+    CASE 
+        WHEN COALESCE(ref.TXST, 0) > 0 THEN COALESCE(ref.TXST_Override, 0)
+        ELSE COALESCE((
+            SELECT COUNT(*) 
+            FROM Components c_ba2 
+            JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+            JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+            WHERE mc_esm.Component_ID = ref.Component_ID 
+              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2')
+        ), 0)
+    END AS dim_calc_inner_Texturen,
+    
+    CASE 
+        WHEN COALESCE(ref.TXST, 0) > 0 THEN ref.TXST
+        ELSE COALESCE((
+            SELECT COUNT(*) 
+            FROM Components c_ba2 
+            JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+            JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+            WHERE mc_esm.Component_ID = ref.Component_ID 
+              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2')
+        ), 0)
+    END AS dim_calc_outer_Texturen,
+    COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.STDT_Override, 0) AS dim_calc_inner_Licht,
+    COALESCE(ref.LIGH, 0) + COALESCE(ref.STDT, 0) AS dim_calc_outer_Licht,
+    COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+    COALESCE(ref.IMAD_Override, 0) AS dim_calc_inner_Effekte,
+    
+    COALESCE(ref.EFSH, 0) + COALESCE(ref.EFSH_Remove, 0) + 
+    COALESCE(ref.IMAD, 0) AS dim_calc_outer_Effekte,
+    CASE 
+        WHEN (COALESCE(ref.SOUN, 0) + COALESCE(ref.MUSC, 0)) > 0 THEN 
+            COALESCE(ref.SOUN_Override, 0) + COALESCE(ref.MUSC_Override, 0)
+        ELSE COALESCE((
+            SELECT COUNT(*) 
+            FROM Components c_ba2 
+            JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+            JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+            WHERE mc_esm.Component_ID = ref.Component_ID 
+              AND (LOWER(c_ba2.File) LIKE '%sound%.ba2' OR LOWER(c_ba2.File) LIKE '%voice%.ba2' OR LOWER(c_ba2.File) LIKE '%audio%.ba2')
+        ), 0)
+    END AS dim_calc_inner_Sound,
+    
+    CASE 
+        WHEN (COALESCE(ref.SOUN, 0) + COALESCE(ref.MUSC, 0)) > 0 THEN 
+            COALESCE(ref.SOUN, 0) + COALESCE(ref.MUSC, 0)
+        ELSE COALESCE((
+            SELECT COUNT(*) 
+            FROM Components c_ba2 
+            JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+            JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+            WHERE mc_esm.Component_ID = ref.Component_ID 
+              AND (LOWER(c_ba2.File) LIKE '%sound%.ba2' OR LOWER(c_ba2.File) LIKE '%voice%.ba2' OR LOWER(c_ba2.File) LIKE '%audio%.ba2')
+        ), 0)
+    END AS dim_calc_outer_Sound,
+    
+    COALESCE((
+        SELECT COUNT(*) 
+        FROM Components c_ba2 
+        JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+        JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+        WHERE mc_esm.Component_ID = ref.Component_ID 
+          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2')
+    ), 0) AS dim_calc_inner_Interface,
+    
+    COALESCE((
+        SELECT COUNT(*) 
+        FROM Components c_ba2 
+        JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
+        JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
+        WHERE mc_esm.Component_ID = ref.Component_ID 
+          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2')
+    ), 0) AS dim_calc_outer_Interface,
+    
+    COALESCE(ref.INNR_Override, 0) + 
+    COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+    COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ALCH_Override, 0) + 
+    COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.MISC_Override, 0) + 
+    COALESCE(ref.KEYM_Override, 0) + COALESCE(ref.BOOK_Override, 0) AS dim_calc_inner_Sortierung,
+    
+    COALESCE(ref.INNR, 0) + 
+    COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+    COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ALCH_Override, 0) + 
+    COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.MISC_Override, 0) + 
+    COALESCE(ref.KEYM_Override, 0) + COALESCE(ref.BOOK_Override, 0) AS dim_calc_outer_Sortierung,
+    COALESCE(ref.GMST_Override, 0) + COALESCE(ref.MOVT_Override, 0) + 
+    COALESCE(ref.GLOB_Override, 0) + 
+    COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CPTH_Override, 0) AS dim_calc_inner_Tweaks,
+    
+    COALESCE(ref.GMST, 0) + COALESCE(ref.MOVT, 0) + 
+    COALESCE(ref.GLOB, 0) + 
+    COALESCE(ref.CAMS, 0) + COALESCE(ref.CPTH, 0) AS dim_calc_outer_Tweaks,
+    COALESCE(ref.CLFM_Override, 0) + COALESCE(ref.HDPT_Override, 0) + 
+    COALESCE(ref.RACE_Override, 0) AS dim_calc_inner_Charakter,
+    
+    COALESCE(ref.CLFM, 0) + COALESCE(ref.HDPT, 0) + 
+    COALESCE(ref.RACE, 0) AS dim_calc_outer_Charakter,
+    COALESCE(ref.ARMO_Override, 0) AS dim_calc_inner_Kleidung,
+    COALESCE(ref.ARMO, 0) AS dim_calc_outer_Kleidung,
+    MAX(0, COALESCE(ref.WEAP_Override, 0) - 
+           COALESCE(ref.WEAP_KWDA_Vehicle_Override, 0) - 
+           COALESCE(ref.WEAP_KWDA_Ship_Override, 0) - 
+           COALESCE(ref.WEAP_KWDA_Helper_Override, 0)) + 
+    COALESCE(ref.AMMO_Override, 0) AS dim_calc_inner_Waffen,
+    
+    MAX(0, COALESCE(ref.WEAP, 0) - 
+           COALESCE(ref.WEAP_KWDA_Vehicle, 0) - 
+           COALESCE(ref.WEAP_KWDA_Ship, 0) - 
+           COALESCE(ref.WEAP_KWDA_Helper, 0)) + 
+    COALESCE(ref.AMMO, 0) AS dim_calc_outer_Waffen,
     0 AS dim_calc_inner_Crafting, 0 AS dim_calc_outer_Crafting,
     0 AS dim_calc_inner_Schiffe, 0 AS dim_calc_outer_Schiffe,
     0 AS dim_calc_inner_Fahrzeuge, 0 AS dim_calc_outer_Fahrzeuge,

@@ -1822,9 +1822,151 @@ def run_classifier(log_signal=None):
                         SET {set_sql}
                         WHERE Mod_ID = ? AND Component_ID = ?
                     """, (mid, cid))
+
+            # Endschritt Schritt 3: Alle Zeilen, die nur 0 und 1 enthalten (keine Weltmods), heben 1er auf 3 an
+            col_cases_3 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 1 THEN 3 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check3 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check3:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 1:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_3}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
             
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 3: Kaskadierende Priorisierung", notes_cache=notes_cache
+                cursor, cat_ids, log_msg, step_name="Schritt 3: Kaskadierende Priorisierung Welt-Mods", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 4: Objekt-Mods (Massevergleich & KO-Regeln)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 4: Objekt-Mods (Massevergleich & KO-Regeln) ({unresolved_count})...")
+            
+            # Die 7 Objekt-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+            object_cat_tuples = [
+                ("Waffen", "dim_calc_outer_Waffen"),
+                ("Kleidung", "dim_calc_outer_Kleidung"),
+                ("Pflanzen", "dim_calc_outer_Pflanzen"),
+                ("Crafting", "dim_calc_outer_Crafting"),
+                ("Einrichtung", "dim_calc_outer_Einrichtung"),
+                ("Items", "dim_calc_outer_Items"),
+                ("Skins", "dim_calc_outer_Skins"),
+            ]
+            obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+            non_obj_ids = [cid for cid in cat_ids if cid not in obj_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_4 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_4:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Objekt-Kategorien auf Stufe 3
+                active_obj_scores = {}
+                for cname, dim_col in object_cat_tuples:
+                    cid_val = cat_map.get(cname)
+                    if cid_val is not None:
+                        val = mat_row.get(str(cid_val)) or 0
+                        if val == 3:
+                            score = urow.get(dim_col) or 0
+                            if score > 0:
+                                active_obj_scores[cname] = score
+                                
+                if active_obj_scores:
+                    # 2. Harte KO-Kriterien anwenden (LLO-Hierarchie)
+                    # KO 1: Waffen schlägt Skins, Crafting, Items und Einrichtung (Deko-Ständer)
+                    if "Waffen" in active_obj_scores and active_obj_scores["Waffen"] > 0:
+                        active_obj_scores.pop("Skins", None)
+                        active_obj_scores.pop("Crafting", None)
+                        active_obj_scores.pop("Items", None)
+                        active_obj_scores.pop("Einrichtung", None)
+                        
+                    # KO 2: Kleidung schlägt Items, Crafting, Skins und Einrichtung (Schaufensterpuppen/Deko)
+                    if "Kleidung" in active_obj_scores and active_obj_scores["Kleidung"] > 0:
+                        active_obj_scores.pop("Items", None)
+                        active_obj_scores.pop("Crafting", None)
+                        active_obj_scores.pop("Skins", None)
+                        active_obj_scores.pop("Einrichtung", None)
+                        
+                    # KO 3: Crafting schlägt Items (Rohstoffe/Materialien dienen der Werkbank)
+                    if "Crafting" in active_obj_scores and active_obj_scores["Crafting"] > 0:
+                        active_obj_scores.pop("Items", None)
+                        
+                    if active_obj_scores:
+                        # 3. Gewinner nach Masse ermitteln
+                        sorted_obj = sorted(active_obj_scores.items(), key=lambda x: x[1], reverse=True)
+                        winner_cname = sorted_obj[0][0]
+                        winner_cid = cat_map[winner_cname]
+                        
+                        # Gewinner auf 4 setzen, und alle Nicht-Objekt-Kategorien mit 3 auf 4 anheben
+                        set_clauses = [f'"{winner_cid}" = 4']
+                        for non_obj_id in non_obj_ids:
+                            set_clauses.append(f'"{non_obj_id}" = CASE WHEN "{non_obj_id}" = 3 THEN 4 ELSE "{non_obj_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 4: Alle Zeilen, die mehrere 3er und noch keinen Wert 4 enthalten (keine Objekt-Kandidaten hatten), heben alle 3er auf 4 an
+            col_cases_4 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 3 THEN 4 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check4 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check4:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 3:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_4}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 4: Objekt-Mods", notes_cache=notes_cache
             )
             success_count += newly_assigned
             

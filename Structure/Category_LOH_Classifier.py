@@ -2612,6 +2612,271 @@ def run_classifier(log_signal=None):
                 cursor, cat_ids, log_msg, step_name="Schritt 10: Inhalts-Vorrang über Sensorik", notes_cache=notes_cache
             )
             success_count += newly_assigned
+
+        # ==============================================================================
+        # BLOCK 1: TRANSPORT-DUELLE (Schiffe & Fahrzeuge -> Schritte 11 bis 15)
+        # ==============================================================================
+
+        # Schritt 11: Transport vs. Objekte (Schiffe/Fahrzeuge vs. Einrichtung/Skins/Items/Crafting/Waffen/Kleidung/Pflanzen)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 11: Transport vs. Objekte ({unresolved_count})...")
+            
+            transport_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            object_cat_tuples = [
+                ("Waffen", "dim_calc_outer_Waffen"),
+                ("Kleidung", "dim_calc_outer_Kleidung"),
+                ("Crafting", "dim_calc_outer_Crafting"),
+                ("Einrichtung", "dim_calc_outer_Einrichtung"),
+                ("Items", "dim_calc_outer_Items"),
+                ("Skins", "dim_calc_outer_Skins"),
+                ("Pflanzen", "dim_calc_outer_Pflanzen"),
+            ]
+            
+            trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+            obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+            non_duel_ids_11 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in obj_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_11 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_11:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport- und Objekt-Kandidaten auf Stufe 10
+                active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 10]
+                active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 10]
+                
+                if active_trans_cids and active_obj_cids:
+                    t_cid = active_trans_cids[0]
+                    o_cid = active_obj_cids[0]
+                    
+                    t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+                    o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+                    
+                    val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+                    val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+                    
+                    cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+                    ship_cells = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+                    stbh = urow.get('STBH') or 0
+                    vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+                    is_ship_or_vehicle_module = (cobj_ship > 0 or ship_cells > 0 or stbh > 0 or vehicle_gbfm > 0)
+                    
+                    winner_cid = None
+                    # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
+                    if o_name in ('Einrichtung', 'Skins') and is_ship_or_vehicle_module:
+                        winner_cid = t_cid
+                    else:
+                        # Regel C: Direkter relationaler Massenvergleich für alle unabhängigen Objekte (Waffen, Kleidung, Crafting, Items, freie Deko)
+                        if val_t >= val_o:
+                            winner_cid = t_cid
+                        else:
+                            winner_cid = o_cid
+                            
+                    if winner_cid is not None:
+                        set_clauses = [f'"{winner_cid}" = 11']
+                        for non_id in non_duel_ids_11:
+                            set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 10 THEN 11 ELSE "{non_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 11: Alle Zeilen ohne Transport/Objekt-Kollision heben alle 10er auf 11 an
+            col_cases_11 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 10 THEN 11 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check11 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check11:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 10:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_11}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 11: Transport vs. Objekte", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 12: Transport vs. Charakter (Schiffe/Fahrzeuge vs. Charakter-Styling)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 12: Transport vs. Charakter ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Transport vs. Charakter implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 12: Transport vs. Charakter", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 13: Transport vs. Systeme (Schiffe/Fahrzeuge vs. Gameplay/Sortierung/Interface/Tweaks)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 13: Transport vs. Systeme ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Transport vs. Systeme implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 13: Transport vs. Systeme", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 14: Transport vs. Akteure (Schiffe/Fahrzeuge vs. NPCs/Begleiter/Kreaturen)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 14: Transport vs. Akteure ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Transport vs. Akteure implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 14: Transport vs. Akteure", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 15: Transport vs. Welt (Schiffe/Fahrzeuge vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 15: Transport vs. Welt ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Transport vs. Welt implementieren (NavMesh/Worldspace vs. reine Habs)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 15: Transport vs. Welt", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # ==============================================================================
+        # BLOCK 2: OBJEKT-DUELLE (Waffen, Kleidung, Crafting etc. -> Schritte 21 bis 24)
+        # ==============================================================================
+
+        # Schritt 21: Objekte vs. Charakter (Waffen/Kleidung vs. Charakter-Styling)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 21: Objekte vs. Charakter ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Objekte vs. Charakter implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 21: Objekte vs. Charakter", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 22: Objekte vs. Systeme (Objekte vs. Gameplay/Sortierung/Interface/Tweaks)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 22: Objekte vs. Systeme ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Objekte vs. Systeme implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 22: Objekte vs. Systeme", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 23: Objekte vs. Akteure (Objekte vs. NPCs/Begleiter/Kreaturen)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 23: Objekte vs. Akteure ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Objekte vs. Akteure implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 23: Objekte vs. Akteure", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 24: Objekte vs. Welt (Objekte vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 24: Objekte vs. Welt ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Objekte vs. Welt implementieren (Helper-Objects-Ratio vs. Weltbauten)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 24: Objekte vs. Welt", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # ==============================================================================
+        # BLOCK 3: CHARAKTER-DUELLE (Styling / HDPT / CLFM / RACE -> Schritte 31 bis 33)
+        # ==============================================================================
+
+        # Schritt 31: Charakter vs. Systeme (Charakter-Styling vs. Gameplay/Sortierung/Interface/Tweaks)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 31: Charakter vs. Systeme ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Charakter vs. Systeme implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 31: Charakter vs. Systeme", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 32: Charakter vs. Akteure (Charakter-Styling vs. NPCs/Begleiter/Kreaturen)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 32: Charakter vs. Akteure ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Charakter vs. Akteure implementieren (KO: HDPT/RACE gehören zum NPC)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 32: Charakter vs. Akteure", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 33: Charakter vs. Welt (Charakter-Styling vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 33: Charakter vs. Welt ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Charakter vs. Welt implementieren (KO: Echte Weltbauten schlagen Styling)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 33: Charakter vs. Welt", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # ==============================================================================
+        # BLOCK 4: AKTEURE-DUELLE (Begleiter, Kreaturen, NPCs -> Schritte 41 bis 42)
+        # ==============================================================================
+
+        # Schritt 41: Akteure vs. Systeme (NPCs/Begleiter/Kreaturen vs. Gameplay/Sortierung/Interface/Tweaks)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 41: Akteure vs. Systeme ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Akteure vs. Systeme implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 41: Akteure vs. Systeme", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 42: Akteure vs. Welt (NPCs/Begleiter/Kreaturen vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 42: Akteure vs. Welt ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Akteure vs. Welt implementieren (Platzierter Bar-NPC vs. Neuer Dungeon)
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 42: Akteure vs. Welt", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # ==============================================================================
+        # BLOCK 5: SYSTEME-DUELLE (Gameplay, Sortierung etc. -> Schritt 51)
+        # ==============================================================================
+
+        # Schritt 51: Systeme vs. Welt (Gameplay/Sortierung/Interface/Tweaks vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 51: Systeme vs. Welt ({unresolved_count})...")
+            # TODO: Detaillierte Duell-Regeln Systeme vs. Welt implementieren
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 51: Systeme vs. Welt", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
             
         # Ergebnistabelle Components_References_Matrix einfrieren (Statische Tabelle aus View erstellen)
         # Löschen der alten Ergebnistabelle Components_References_Matrix, da nun der View direkt genutzt wird

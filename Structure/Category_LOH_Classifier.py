@@ -1969,6 +1969,649 @@ def run_classifier(log_signal=None):
                 cursor, cat_ids, log_msg, step_name="Schritt 4: Objekt-Mods", notes_cache=notes_cache
             )
             success_count += newly_assigned
+
+        # Schritt 5: Sensorik- & Atmosphären-Mods (Licht, Effekte, Texturen, Sound)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 5: Sensorik & Atmosphäre (Licht, Effekte, Texturen, Sound) ({unresolved_count})...")
+            
+            # Die 4 Sensorik-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+            sensor_cat_tuples = [
+                ("Licht", "dim_calc_outer_Licht"),
+                ("Effekte", "dim_calc_outer_Effekte"),
+                ("Texturen", "dim_calc_outer_Texturen"),
+                ("Sound", "dim_calc_outer_Sound"),
+            ]
+            sensor_cat_ids = [cat_map[name] for name, _ in sensor_cat_tuples if name in cat_map]
+            non_sensor_ids = [cid for cid in cat_ids if cid not in sensor_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_5 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_5:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Sensorik-Kategorien auf Stufe 4
+                active_sensor_scores = {}
+                for cname, dim_col in sensor_cat_tuples:
+                    cid_val = cat_map.get(cname)
+                    if cid_val is not None:
+                        val = mat_row.get(str(cid_val)) or 0
+                        if val == 4:
+                            score = urow.get(dim_col) or 0
+                            if score > 0:
+                                active_sensor_scores[cname] = score
+                                
+                if active_sensor_scores:
+                    # 2. KO-Kriterien anwenden (LLO-Kaskade)
+                    # KO 1: Licht schlägt Effekte, Texturen und Sound (Beleuchtung ist empfindlichste Render-Ebene)
+                    if "Licht" in active_sensor_scores and active_sensor_scores["Licht"] > 0:
+                        active_sensor_scores.pop("Effekte", None)
+                        active_sensor_scores.pop("Texturen", None)
+                        active_sensor_scores.pop("Sound", None)
+                        
+                    # KO 2: Effekte schlägt Texturen und Sound (Shader/Post-Processing greift tiefer als Texturen/Audio)
+                    elif "Effekte" in active_sensor_scores and active_sensor_scores["Effekte"] > 0:
+                        active_sensor_scores.pop("Texturen", None)
+                        active_sensor_scores.pop("Sound", None)
+                        
+                    if active_sensor_scores:
+                        # 3. Gewinner nach Masse ermitteln (z. B. Texturen vs. Sound)
+                        sorted_sensor = sorted(active_sensor_scores.items(), key=lambda x: x[1], reverse=True)
+                        winner_cname = sorted_sensor[0][0]
+                        winner_cid = cat_map[winner_cname]
+                        
+                        # Gewinner auf 5 setzen, und alle Nicht-Sensorik-Kategorien mit 4 auf 5 anheben
+                        set_clauses = [f'"{winner_cid}" = 5']
+                        for non_sensor_id in non_sensor_ids:
+                            set_clauses.append(f'"{non_sensor_id}" = CASE WHEN "{non_sensor_id}" = 4 THEN 5 ELSE "{non_sensor_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 5: Alle Zeilen, die mehrere 4er und noch keinen Wert 5 enthalten (keine Sensorik-Kandidaten hatten), heben alle 4er auf 5 an
+            col_cases_5 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 4 THEN 5 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check5 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check5:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 4:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_5}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 5: Sensorik & Atmosphäre", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 6: Lebendige Akteure (NPCs, Begleiter, Kreaturen)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 6: Lebendige Akteure (NPCs, Begleiter, Kreaturen) ({unresolved_count})...")
+            
+            # Die 3 Akteurs-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+            actor_cat_tuples = [
+                ("Begleiter", "dim_calc_outer_Begleiter"),
+                ("Kreaturen", "dim_calc_outer_Kreaturen"),
+                ("NPCs", "dim_calc_outer_NPCs"),
+            ]
+            actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+            non_actor_ids = [cid for cid in cat_ids if cid not in actor_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_6 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_6:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Akteurs-Kategorien auf Stufe 5
+                active_actor_scores = {}
+                for cname, dim_col in actor_cat_tuples:
+                    cid_val = cat_map.get(cname)
+                    if cid_val is not None:
+                        val = mat_row.get(str(cid_val)) or 0
+                        if val == 5:
+                            score = urow.get(dim_col) or 0
+                            if score > 0:
+                                active_actor_scores[cname] = score
+                                
+                if active_actor_scores:
+                    # 2. KO-Kriterien anwenden (LLO-Kaskade)
+                    # KO: Spezialisierte Akteure (Begleiter & Kreaturen) stechen allgemeine humanoide NPCs aus
+                    if ("Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0) or \
+                       ("Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0):
+                        active_actor_scores.pop("NPCs", None)
+                        
+                    if active_actor_scores:
+                        # 3. Gewinner nach Masse ermitteln (z. B. Begleiter vs. Kreaturen oder verbleibende reine NPCs)
+                        sorted_actors = sorted(active_actor_scores.items(), key=lambda x: x[1], reverse=True)
+                        winner_cname = sorted_actors[0][0]
+                        winner_cid = cat_map[winner_cname]
+                        
+                        # Gewinner auf 6 setzen, und alle Nicht-Akteurs-Kategorien mit 5 auf 6 anheben
+                        set_clauses = [f'"{winner_cid}" = 6']
+                        for non_actor_id in non_actor_ids:
+                            set_clauses.append(f'"{non_actor_id}" = CASE WHEN "{non_actor_id}" = 5 THEN 6 ELSE "{non_actor_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 6: Alle Zeilen, die mehrere 5er und noch keinen Wert 6 enthalten (keine Akteurs-Kandidaten hatten), heben alle 5er auf 6 an
+            col_cases_6 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 5 THEN 6 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check6 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check6:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 5:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_6}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 6: Lebendige Akteure", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 7: Systeme, Mechaniken & QoL (Gameplay, Interface, Sortierung, Tweaks)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 7: Systeme, Mechaniken & QoL (Gameplay, Interface, Sortierung, Tweaks) ({unresolved_count})...")
+            
+            # Die 4 System-/QoL-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+            sys_cat_tuples = [
+                ("Gameplay", "dim_calc_outer_Gameplay"),
+                ("Interface", "dim_calc_outer_Interface"),
+                ("Sortierung", "dim_calc_outer_Sortierung"),
+                ("Tweaks", "dim_calc_outer_Tweaks"),
+            ]
+            sys_cat_ids = [cat_map[name] for name, _ in sys_cat_tuples if name in cat_map]
+            non_sys_ids = [cid for cid in cat_ids if cid not in sys_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_7 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_7:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive System-/QoL-Kategorien auf Stufe 6
+                active_sys_scores = {}
+                for cname, dim_col in sys_cat_tuples:
+                    cid_val = cat_map.get(cname)
+                    if cid_val is not None:
+                        val = mat_row.get(str(cid_val)) or 0
+                        if val == 6:
+                            score = urow.get(dim_col) or 0
+                            if score > 0:
+                                active_sys_scores[cname] = score
+                                
+                if active_sys_scores:
+                    # 2. KO-Kriterien anwenden:
+                    # Sobald Gameplay (Zauber/Perks), Sortierung (INNR/Namens-Overrides) oder Interface (UI-Dateien)
+                    # aktiv sind, scheidet Tweaks per KO aus
+                    if ("Gameplay" in active_sys_scores and active_sys_scores["Gameplay"] > 0) or \
+                       ("Sortierung" in active_sys_scores and active_sys_scores["Sortierung"] > 0) or \
+                       ("Interface" in active_sys_scores and active_sys_scores["Interface"] > 0):
+                        active_sys_scores.pop("Tweaks", None)
+                        
+                    if active_sys_scores:
+                        # 3. Gewinner nach Masse ermitteln (z. B. Gameplay vs. Sortierung vs. Interface oder reiner Tweak)
+                        sorted_sys = sorted(active_sys_scores.items(), key=lambda x: x[1], reverse=True)
+                        winner_cname = sorted_sys[0][0]
+                        winner_cid = cat_map[winner_cname]
+                        
+                        # Gewinner auf 7 setzen, und alle Nicht-System-Kategorien mit 6 auf 7 anheben
+                        set_clauses = [f'"{winner_cid}" = 7']
+                        for non_sys_id in non_sys_ids:
+                            set_clauses.append(f'"{non_sys_id}" = CASE WHEN "{non_sys_id}" = 6 THEN 7 ELSE "{non_sys_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 7: Alle Zeilen, die mehrere 6er und noch keinen Wert 7 enthalten (keine System-/QoL-Kandidaten hatten), heben alle 6er auf 7 an
+            col_cases_7 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 6 THEN 7 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check7 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check7:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 6:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_7}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 7: Systeme, Mechaniken & QoL", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 8: Transport & Vehikel (Schiffe vs. Fahrzeuge)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 8: Transport & Vehikel (Schiffe vs. Fahrzeuge) ({unresolved_count})...")
+            
+            # Die 2 Transport-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+            trans_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            trans_cat_ids = [cat_map[name] for name, _ in trans_cat_tuples if name in cat_map]
+            non_trans_ids = [cid for cid in cat_ids if cid not in trans_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_8 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_8:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport-Kategorien auf Stufe 7
+                active_trans_scores = {}
+                for cname, dim_col in trans_cat_tuples:
+                    cid_val = cat_map.get(cname)
+                    if cid_val is not None:
+                        val = mat_row.get(str(cid_val)) or 0
+                        if val == 7:
+                            score = urow.get(dim_col) or 0
+                            if score > 0:
+                                active_trans_scores[cname] = score
+                                
+                if active_trans_scores:
+                    # 2. Gewinner nach Masse ermitteln (Schiffe vs. Fahrzeuge)
+                    sorted_trans = sorted(active_trans_scores.items(), key=lambda x: x[1], reverse=True)
+                    winner_cname = sorted_trans[0][0]
+                    winner_cid = cat_map[winner_cname]
+                    
+                    # Gewinner auf 8 setzen, und alle Nicht-Transport-Kategorien mit 7 auf 8 anheben
+                    set_clauses = [f'"{winner_cid}" = 8']
+                    for non_trans_id in non_trans_ids:
+                        set_clauses.append(f'"{non_trans_id}" = CASE WHEN "{non_trans_id}" = 7 THEN 8 ELSE "{non_trans_id}" END')
+                        
+                    set_sql = ", ".join(set_clauses)
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {set_sql}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            # Endschritt Schritt 8: Alle Zeilen, die mehrere 7er und noch keinen Wert 8 enthalten (keine Transport-Kandidaten hatten), heben alle 7er auf 8 an
+            col_cases_8 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 7 THEN 8 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check8 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check8:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 7:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_8}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 8: Transport & Vehikel", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 9: Lösch- & Deaktivierungs-Mods (Remover)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 9: Lösch- & Deaktivierungs-Mods (Remover) ({unresolved_count})...")
+            
+            remove_id = cat_map.get('Remove') or cat_map.get('Remover') or 28
+            world_cat_ids = [poi_id, city_id, playerhome_id, building_id, outpost_id, env_id]
+            content_cat_ids = [cid for cid in cat_ids if cid != remove_id and cid not in world_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_9 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_9:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # Prüfe, ob Remover auf Stufe 8 aktiv ist
+                remove_val = mat_row.get(str(remove_id)) or 0
+                remove_score = urow.get('dim_calc_outer_Remove') or 0
+                
+                if remove_val == 8 and remove_score > 0:
+                    # 1. Prüfe, ob andere Inhalts-Kandidaten (Objekte, Akteure, Transport, Systeme, Sensorik, Charakter) auf Stufe 8 aktiv sind
+                    active_content_cids = [
+                        c for c in content_cat_ids 
+                        if (mat_row.get(str(c)) or 0) == 8
+                    ]
+                    
+                    # 2. Prüfe, ob Welt-Kandidaten auf Stufe 8 aktiv sind
+                    active_world_cids = [
+                        c for c in world_cat_ids 
+                        if (mat_row.get(str(c)) or 0) == 8
+                    ]
+                    
+                    # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
+                    stat = urow.get('STAT') or 0
+                    stat_o = urow.get('STAT_Override') or 0
+                    new_stat = max(0, stat - stat_o)
+                    furn = urow.get('FURN') or 0
+                    furn_o = urow.get('FURN_Override') or 0
+                    new_furn = max(0, furn - furn_o)
+                    pkin = urow.get('PKIN') or 0
+                    has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
+                    
+                    set_clauses = []
+                    if active_content_cids:
+                        # Inhalts-Kandidaten schlagen Remover per KO (Remover scheidet aus)
+                        for c in active_content_cids:
+                            set_clauses.append(f'"{c}" = 9')
+                        for c in active_world_cids:
+                            set_clauses.append(f'"{c}" = 9')
+                    elif active_world_cids:
+                        if has_new_structures:
+                            # Welt-Mod gewinnt per KO (Löschung diente nur dem Bauplatz für neue Strukturen)
+                            for c in active_world_cids:
+                                set_clauses.append(f'"{c}" = 9')
+                        else:
+                            # Reiner Remover gewinnt (keine neuen Strukturen, reine Deaktivierungen)
+                            set_clauses.append(f'"{remove_id}" = 9')
+                    else:
+                        # Reiner Remover ohne Konkurrenz
+                        set_clauses.append(f'"{remove_id}" = 9')
+                        
+                    if set_clauses:
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 9: Alle Zeilen, die mehrere 8er und noch keinen Wert 9 enthalten (keine Remover-Kandidaten hatten), heben alle 8er auf 9 an
+            col_cases_9 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 8 THEN 9 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check9 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check9:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 8:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_9}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 9: Lösch- & Deaktivierungs-Mods", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
+
+        # Schritt 10: Inhalts-Vorrang über Sensorik (Texturen, Sound, Licht, Effekte)
+        if unresolved_count > 0:
+            log_msg(f"\n-> Schritt 10: Inhalts-Vorrang über Sensorik ({unresolved_count})...")
+            
+            sensor_cat_ids = [cat_map[n] for n in ["Licht", "Effekte", "Texturen", "Sound"] if n in cat_map]
+            passive_sensor_ids = [cat_map[n] for n in ["Texturen", "Sound"] if n in cat_map]
+            active_render_ids = [cat_map[n] for n in ["Licht", "Effekte"] if n in cat_map]
+            
+            object_cat_ids = [cat_map[n] for n in ["Waffen", "Kleidung", "Pflanzen", "Crafting", "Einrichtung", "Items", "Skins"] if n in cat_map]
+            actor_cat_ids = [cat_map[n] for n in ["NPCs", "Begleiter", "Kreaturen"] if n in cat_map]
+            transport_cat_ids = [cat_map[n] for n in ["Schiffe", "Fahrzeuge"] if n in cat_map]
+            system_cat_ids = [cat_map[n] for n in ["Gameplay", "Interface", "Sortierung", "Tweaks"] if n in cat_map]
+            char_cat_ids = [cat_map['Charakter']] if 'Charakter' in cat_map else []
+            world_cat_ids = [cat_map[n] for n in ["Umgebung", "Städte", "Gebäude", "Spielerheime", "POIs", "Außenposten"] if n in cat_map]
+            
+            primary_content_ids = object_cat_ids + actor_cat_ids + transport_cat_ids + system_cat_ids + char_cat_ids
+            non_sensor_ids = primary_content_ids + world_cat_ids
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_10 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_10:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # Prüfe aktive Kandidaten auf Stufe 9
+                active_sensors = [c for c in sensor_cat_ids if (mat_row.get(str(c)) or 0) == 9]
+                active_non_sensors = [c for c in non_sensor_ids if (mat_row.get(str(c)) or 0) == 9]
+                
+                if active_sensors and active_non_sensors:
+                    # Sensorik trifft auf Inhalt
+                    has_passive_sensor = any(c in passive_sensor_ids for c in active_sensors)
+                    has_active_render = any(c in active_render_ids for c in active_sensors)
+                    
+                    has_primary_content = any(c in primary_content_ids for c in active_non_sensors)
+                    active_worlds = [c for c in world_cat_ids if c in active_non_sensors]
+                    
+                    # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
+                    stat = urow.get('STAT') or 0
+                    stat_o = urow.get('STAT_Override') or 0
+                    new_stat = max(0, stat - stat_o)
+                    furn = urow.get('FURN') or 0
+                    furn_o = urow.get('FURN_Override') or 0
+                    new_furn = max(0, furn - furn_o)
+                    pkin = urow.get('PKIN') or 0
+                    has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
+                    
+                    set_clauses = []
+                    
+                    if has_active_render and not has_passive_sensor and not has_primary_content and active_worlds and not has_new_structures:
+                        # Reines Licht/Effekt-Overhaul ohne neue Strukturen in bestehenden Welt-Zellen (z.B. ELFX) -> Licht gewinnt!
+                        for scid in active_sensors:
+                            set_clauses.append(f'"{scid}" = 10')
+                    else:
+                        # In allen anderen Fällen schlägt Inhalt die Sensorik (Texturen/Sound verlieren immer; Licht/Effekte verlieren bei Objekten/Neubauten)
+                        for ncid in active_non_sensors:
+                            set_clauses.append(f'"{ncid}" = 10')
+                            
+                    if set_clauses:
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 10: Alle Zeilen, die mehrere 9er und noch keinen Wert 10 enthalten (keine Sensorik-Kollision hatten), heben alle 9er auf 10 an
+            col_cases_10 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 9 THEN 10 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check10 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check10:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 9:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_10}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
+                cursor, cat_ids, log_msg, step_name="Schritt 10: Inhalts-Vorrang über Sensorik", notes_cache=notes_cache
+            )
+            success_count += newly_assigned
             
         # Ergebnistabelle Components_References_Matrix einfrieren (Statische Tabelle aus View erstellen)
         # Löschen der alten Ergebnistabelle Components_References_Matrix, da nun der View direkt genutzt wird

@@ -40,16 +40,16 @@ def _exclude_non_bgs(row, cursor, cat_ids):
 def _exclude_non_skin(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Skins' aus, wenn keine kosmetischen oder gegenstandsbezogenen
-    Merkmale (TXST, CLFM, ARMO_Override, WEAP_Override, OMOD, LMSW) vorliegen.
+    Merkmale (TXST, CLFM_KYWD_Skin, ARMO_Override, WEAP_Override, OMOD, LMSW) vorliegen.
     """
     txst = row.get('TXST') or 0
-    clfm = row.get('CLFM') or 0
+    clfm_skin = row.get('CLFM_KYWD_Skin') or 0
     armo_o = row.get('ARMO_Override') or 0
     weap_o = row.get('WEAP_Override') or 0
     omod = row.get('OMOD') or 0
     lmsw = row.get('LMSW') or 0
     
-    if (txst == 0 and clfm == 0 and armo_o == 0 and weap_o == 0 and 
+    if (txst == 0 and clfm_skin == 0 and armo_o == 0 and weap_o == 0 and 
         omod == 0 and lmsw == 0):
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
@@ -64,7 +64,7 @@ def _exclude_non_skin(row, cursor, cat_ids):
                 SET "{skins_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Skins' ausgeschlossen (keine TXST/CLFM/ARMO_Override/WEAP_Override/OMOD/LMSW-Referenzen)."
+            return "Kategorie 'Skins' ausgeschlossen (keine TXST/CLFM_KYWD_Skin/ARMO_Override/WEAP_Override/OMOD/LMSW-Referenzen)."
     return None
 
 def _exclude_non_item(row, cursor, cat_ids):
@@ -468,22 +468,39 @@ def _has_city_cells(row, cursor=None, component_id=None):
         (row.get('LCTN_KYWD_City') or 0) > 0 or 
         (row.get('LCTN_KYWD_Settlement') or 0) > 0
     )
-    
+    if has_own_city_lctn:
+        return True
+        
+    crowd_region = (row.get('GBFM_EDID_CrowdRegion') or 0) > 0
+    if crowd_region:
+        return True
+        
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
-    has_city_cell_override = (
-        (row.get('qry_CELL_City') or 0) > 0 or 
-        (row.get('qry_CELL_Settlement') or 0) > 0
-    )
-    
+    cell_city = (row.get('qry_CELL_City') or 0) + (row.get('qry_CELL_Settlement') or 0)
+    if cell_city == 0:
+        return False
+        
     # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
     stat = row.get('STAT') or 0
     furn = row.get('FURN') or 0
     pkin = row.get('PKIN') or 0
     has_structural_objects = (stat > 0 or furn > 0 or pkin > 0)
     
-    crowd_region = row.get('GBFM_EDID_CrowdRegion') or 0
+    if not has_structural_objects:
+        return False
+        
+    # Wenn die Mod Schiffsbauteile/Snap-Nodes/Schiffs-PackIns deklariert und keine Stadt-Location hat:
+    # Prüfe, ob es ein reines Schiffs-Paket ist, das lediglich einen leeren Spaceport-Header besitzt
+    cobj_ship = row.get('COBJ_BNAM_Ship') or 0
+    ship_cells = (row.get('qry_CELL_Ship') or 0) + (row.get('qry_CELL_Ship_PackIn') or 0)
+    stbh = row.get('STBH') or 0
     
-    return has_own_city_lctn or (has_city_cell_override and has_structural_objects) or (crowd_region > 0)
+    is_ship_vendor_only = (cobj_ship > 0 or ship_cells > 0 or stbh > 0) and cell_city <= 2 and (row.get('WRLD') or 0) <= 1
+    # Ausnahme: Falkland Systems baut einen ganzen Plaza (WRLD=1, aber REFR=91.278)
+    if is_ship_vendor_only and (row.get('REFR') or 0) < 500:
+        return False
+    
+    return True
 
 
 def _has_playerhome_cells(row, cursor=None, component_id=None):
@@ -710,14 +727,14 @@ def _exclude_non_npc(row, cursor, cat_ids):
 
 def _exclude_non_character(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Charaktermod (CLFM, HDPT oder RACE) vorliegen.
+    Prüft, ob Referenzen für eine Charaktermod (CLFM_KYWD_Character, HDPT oder RACE) vorliegen.
     Wenn nicht, wird die Kategorie 'Charakter' (20) in der Ausschlussmatrix auf 0 gesetzt.
     """
-    clfm = row.get('CLFM') or 0
+    clfm_char = row.get('CLFM_KYWD_Character') or 0
     hdpt = row.get('HDPT') or 0
     race = row.get('RACE') or 0
     
-    if clfm == 0 and hdpt == 0 and race == 0:
+    if clfm_char == 0 and hdpt == 0 and race == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -731,7 +748,7 @@ def _exclude_non_character(row, cursor, cat_ids):
                 SET "{char_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Charakter' ausgeschlossen (keine CLFM/HDPT/RACE-Referenzen)."
+            return "Kategorie 'Charakter' ausgeschlossen (keine CLFM_KYWD_Character/HDPT/RACE-Referenzen)."
     return None
 
 def _exclude_non_gameplay(row, cursor, cat_ids):
@@ -1053,7 +1070,7 @@ def _exclude_non_vehicle(row, cursor, cat_ids):
 
 def _exclude_non_ship(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Schiffsmod (GBFM (abzüglich Crowd- und Fahrzeug-Regionen), WEAP_KWDA_Ship, COBJ_BNAM_Ship, STMP, STND oder STBH) vorliegen, oder Schiffs-Zellen verändert werden.
+    Prüft, ob Referenzen für eine Schiffsmod (GBFM (abzüglich Crowd- und Fahrzeug-Regionen), WEAP_KWDA_Ship, CLFM_KYWD_Ship, COBJ_BNAM_Ship, STMP, STND oder STBH) vorliegen, oder Schiffs-Zellen verändert werden.
     Wenn nicht, wird die Kategorie 'Schiffe' (24) in der Ausschlussmatrix auf 0 gesetzt.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
@@ -1063,6 +1080,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
     gbfm_crowd = row.get('GBFM_EDID_CrowdRegion') or 0
     gbfm_vehicle = row.get('GBFM_EDID_Vehicle') or 0
     weap_ship = row.get('WEAP_KWDA_Ship') or 0
+    clfm_ship = row.get('CLFM_KYWD_Ship') or 0
     cobj_ship = row.get('COBJ_BNAM_Ship') or 0
     stmp = row.get('STMP') or 0
     stnd = row.get('STND') or 0
@@ -1074,7 +1092,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
     # Prüfe Schiffs-Zellen-Eingriffe
     is_ship = _has_ship_cells(row, cursor, component_id)
     
-    if (ship_gbfm <= 0 and weap_ship == 0 and cobj_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0 and not is_ship):
+    if (ship_gbfm <= 0 and weap_ship == 0 and clfm_ship == 0 and cobj_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0 and not is_ship):
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Schiffe'")
         s_row = cursor.fetchone()
@@ -1090,7 +1108,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
                 SET "{ship_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Schiffe' ausgeschlossen (keine Schiffs-GBFM/COBJ/WEAP_KWDA_Ship/STMP/STND/STBH-Referenzen oder Schiffs-Zellen vorhanden)."
+            return "Kategorie 'Schiffe' ausgeschlossen (keine Schiffs-GBFM/COBJ/WEAP_KWDA_Ship/CLFM_KYWD_Ship/STMP/STND/STBH-Referenzen oder Schiffs-Zellen vorhanden)."
     return None
 
 def _exclude_non_remover(row, cursor, cat_ids):
@@ -2681,15 +2699,25 @@ def run_classifier(log_signal=None):
                     val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
                     
                     cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+                    cobj_op_soft = urow.get('COBJ_BNAM_Outpost_Soft') or 0
                     ship_cells = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
-                    stbh = urow.get('STBH') or 0
                     vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
-                    is_ship_or_vehicle_module = (cobj_ship > 0 or ship_cells > 0 or stbh > 0 or vehicle_gbfm > 0)
+                    gbfm = urow.get('GBFM') or 0
+                    
+                    # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft (COBJ_Ship > 0 oder GBFM > 0) und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
+                    is_ship_hab_package = (cobj_ship > 0 or gbfm > 0 or ship_cells > 0 or vehicle_gbfm > 0) and cobj_op_soft == 0
                     
                     winner_cid = None
                     # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
-                    if o_name in ('Einrichtung', 'Skins') and is_ship_or_vehicle_module:
+                    if o_cid == cat_map.get('Skins') and is_ship_hab_package:
                         winner_cid = t_cid
+                    elif o_cid == cat_map.get('Einrichtung'):
+                        if is_ship_hab_package:
+                            winner_cid = t_cid
+                        elif val_o >= val_t:
+                            winner_cid = o_cid
+                        else:
+                            winner_cid = t_cid
                     else:
                         # Regel C: Direkter relationaler Massenvergleich für alle unabhängigen Objekte (Waffen, Kleidung, Crafting, Items, freie Deko)
                         if val_t >= val_o:
@@ -2739,7 +2767,88 @@ def run_classifier(log_signal=None):
         # Schritt 12: Transport vs. Charakter (Schiffe/Fahrzeuge vs. Charakter-Styling)
         if unresolved_count > 0:
             log_msg(f"\n-> Schritt 12: Transport vs. Charakter ({unresolved_count})...")
-            # TODO: Detaillierte Duell-Regeln Transport vs. Charakter implementieren
+            
+            transport_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            charakter_cat_tuples = [
+                ("Charakter", "dim_calc_outer_Charakter"),
+            ]
+            
+            trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+            char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+            non_duel_ids_12 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in char_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_12 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_12:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport- und Charakter-Kandidaten auf Stufe 11
+                active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 11]
+                active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == 11]
+                
+                if active_trans_cids and active_char_cids:
+                    t_cid = active_trans_cids[0]
+                    # KO-Regel: Transport siegt über Charakter (Engine-Hierarchie & LLO Ladeorder-Priorität)
+                    winner_cid = t_cid
+                    
+                    set_clauses = [f'"{winner_cid}" = 12']
+                    for non_id in non_duel_ids_12:
+                        set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 11 THEN 12 ELSE "{non_id}" END')
+                        
+                    set_sql = ", ".join(set_clauses)
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {set_sql}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
+            # Endschritt Schritt 12: Alle Zeilen ohne Transport/Charakter-Kollision heben alle 11er auf 12 an
+            col_cases_12 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 11 THEN 12 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check12 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check12:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 11:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_12}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
                 cursor, cat_ids, log_msg, step_name="Schritt 12: Transport vs. Charakter", notes_cache=notes_cache
             )
@@ -2748,7 +2857,113 @@ def run_classifier(log_signal=None):
         # Schritt 13: Transport vs. Systeme (Schiffe/Fahrzeuge vs. Gameplay/Sortierung/Interface/Tweaks)
         if unresolved_count > 0:
             log_msg(f"\n-> Schritt 13: Transport vs. Systeme ({unresolved_count})...")
-            # TODO: Detaillierte Duell-Regeln Transport vs. Systeme implementieren
+            
+            transport_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            system_cat_tuples = [
+                ("Gameplay", "dim_calc_outer_Gameplay"),
+                ("Sortierung", "dim_calc_outer_Sortierung"),
+                ("Interface", "dim_calc_outer_Interface"),
+                ("Tweaks", "dim_calc_outer_Tweaks"),
+            ]
+            
+            trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+            sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+            non_duel_ids_13 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in sys_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_13 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_13:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport- und Systeme-Kandidaten auf Stufe 12
+                active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 12]
+                active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 12]
+                
+                if active_trans_cids and active_sys_cids:
+                    t_cid = active_trans_cids[0]
+                    s_cid = active_sys_cids[0]
+                    
+                    t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+                    s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+                    
+                    val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+                    val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
+                    
+                    winner_cid = None
+                    # Regel A: Transport schlägt reine Hilfssysteme (Tweaks, Sortierung, Interface) per KO
+                    if s_name in ('Tweaks', 'Sortierung', 'Interface'):
+                        winner_cid = t_cid
+                    # Regel B: Transport vs. Gameplay per relationalem Massenvergleich
+                    elif s_name == 'Gameplay':
+                        if val_t >= val_s:
+                            winner_cid = t_cid
+                        else:
+                            winner_cid = s_cid
+                    else:
+                        if val_t >= val_s:
+                            winner_cid = t_cid
+                        else:
+                            winner_cid = s_cid
+                            
+                    if winner_cid is not None:
+                        set_clauses = [f'"{winner_cid}" = 13']
+                        for non_id in non_duel_ids_13:
+                            set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 12 THEN 13 ELSE "{non_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 13: Alle Zeilen ohne Transport/Systeme-Kollision heben alle 12er auf 13 an
+            col_cases_13 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 12 THEN 13 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check13 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check13:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 12:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_13}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
                 cursor, cat_ids, log_msg, step_name="Schritt 13: Transport vs. Systeme", notes_cache=notes_cache
             )
@@ -2757,7 +2972,145 @@ def run_classifier(log_signal=None):
         # Schritt 14: Transport vs. Akteure (Schiffe/Fahrzeuge vs. NPCs/Begleiter/Kreaturen)
         if unresolved_count > 0:
             log_msg(f"\n-> Schritt 14: Transport vs. Akteure ({unresolved_count})...")
-            # TODO: Detaillierte Duell-Regeln Transport vs. Akteure implementieren
+            
+            transport_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            actor_cat_tuples = [
+                ("NPCs", "dim_calc_outer_NPCs"),
+                ("Begleiter", "dim_calc_outer_Begleiter"),
+                ("Kreaturen", "dim_calc_outer_Kreaturen"),
+            ]
+            
+            trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+            actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+            non_duel_ids_14 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in actor_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_14 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_14:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport- und Akteure-Kandidaten auf Stufe 13
+                active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 13]
+                active_actor_cids = [c for c in actor_cat_ids if (mat_row.get(str(c)) or 0) == 13]
+                
+                if active_trans_cids and active_actor_cids:
+                    t_cid = active_trans_cids[0]
+                    a_cid = active_actor_cids[0]
+                    
+                    t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+                    a_name = [name for name, c_id in cat_map.items() if c_id == a_cid][0]
+                    
+                    val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+                    
+                    winner_cid = None
+                    
+                    # Regel A: Transport vs. NPCs (Allgemeine humanoide NPCs / Schiffstechniker)
+                    if a_cid == cat_map.get('NPCs'):
+                        npc_total = urow.get('NPC_') or 0
+                        comp_val = urow.get('NPC_KYWD_Companion') or 0
+                        creat_val = urow.get('NPC_KYWD_Creature') or 0
+                        ship_npc = urow.get('NPC_KYWD_Ship') or 0
+                        
+                        netto_npc = max(0, npc_total - comp_val - creat_val - ship_npc)
+                        
+                        if netto_npc == 0:
+                            # Reine Schiffstechniker / Landepad-Händler -> KO-Sieg für Transport
+                            winner_cid = t_cid
+                        elif netto_npc >= (2 * val_t):
+                            # Nur wenn der NPC-Anteil mindestens doppelt so hoch ist wie der Transport-Anteil
+                            winner_cid = a_cid
+                        else:
+                            winner_cid = t_cid
+                            
+                    # Regel B: Transport vs. Begleiter (Companions)
+                    elif a_cid == cat_map.get('Begleiter'):
+                        cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+                        stbh = urow.get('STBH') or 0
+                        ship_cells = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+                        vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+                        v_furn = (urow.get('FURN_VMRT') or 0) + (urow.get('FURN_VCMT') or 0) + (urow.get('FURN_VWWD') or 0) + (urow.get('FURN_VCTT') or 0)
+                        
+                        has_transport_structures = (cobj_ship > 0 or stbh > 0 or ship_cells > 0 or vehicle_gbfm > 0 or v_furn > 0)
+                        
+                        if has_transport_structures:
+                            # Mod bringt eigene Schiffs-/Fahrzeugbauten mit -> Transport gewinnt (Block 5)
+                            winner_cid = t_cid
+                        else:
+                            # Reiner Begleiter mit bestehendem Schiff/Fahrzeug -> Begleiter gewinnt (Block 4)
+                            winner_cid = a_cid
+                            
+                    # Regel C: Transport vs. Kreaturen
+                    elif a_cid == cat_map.get('Kreaturen'):
+                        outer_creat = urow.get('dim_calc_outer_Kreaturen') or 0
+                        if outer_creat >= (2 * val_t):
+                            winner_cid = a_cid
+                        else:
+                            winner_cid = t_cid
+                    else:
+                        if (urow.get(f'dim_calc_outer_{a_name}') or 0) >= (2 * val_t):
+                            winner_cid = a_cid
+                        else:
+                            winner_cid = t_cid
+                            
+                    if winner_cid is not None:
+                        set_clauses = [f'"{winner_cid}" = 14']
+                        for non_id in non_duel_ids_14:
+                            set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 13 THEN 14 ELSE "{non_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 14: Alle Zeilen ohne Transport/Akteure-Kollision heben alle 13er auf 14 an
+            col_cases_14 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 13 THEN 14 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check14 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check14:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 13:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_14}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
                 cursor, cat_ids, log_msg, step_name="Schritt 14: Transport vs. Akteure", notes_cache=notes_cache
             )
@@ -2766,7 +3119,148 @@ def run_classifier(log_signal=None):
         # Schritt 15: Transport vs. Welt (Schiffe/Fahrzeuge vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
         if unresolved_count > 0:
             log_msg(f"\n-> Schritt 15: Transport vs. Welt ({unresolved_count})...")
-            # TODO: Detaillierte Duell-Regeln Transport vs. Welt implementieren (NavMesh/Worldspace vs. reine Habs)
+            
+            transport_cat_tuples = [
+                ("Schiffe", "dim_calc_outer_Schiffe"),
+                ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+            ]
+            world_cat_tuples = [
+                ("Städte", "dim_calc_outer_Städte"),
+                ("Gebäude", "dim_calc_outer_Gebäude"),
+                ("Spielerheime", "dim_calc_outer_Spielerheime"),
+                ("POIs", "dim_calc_outer_POIs"),
+                ("Außenposten", "dim_calc_outer_Außenposten"),
+                ("Umgebung", "dim_calc_outer_Umgebung"),
+            ]
+            
+            trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+            world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+            non_duel_ids_15 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in world_cat_ids]
+            
+            # Lade unklassifizierte Mods mit ihren View-Referenzen
+            cursor.execute(f"""
+                SELECT 
+                    lcm.Mod_ID, 
+                    lcm.Component_ID,
+                    v.*
+                FROM LoadOrder_Classifier_Matrix lcm
+                JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+                WHERE lcm.Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            unresolved_rows_15 = [dict(r) for r in cursor.fetchall()]
+            col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+            
+            for urow in unresolved_rows_15:
+                mid = urow['Mod_ID']
+                cid = urow['Component_ID']
+                
+                # Hole Matrix-Zeile für diesen Mod
+                cursor.execute(f"""
+                    SELECT {col_select_quotes}
+                    FROM LoadOrder_Classifier_Matrix
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+                mat_row = dict(cursor.fetchone())
+                
+                # 1. Ermittle aktive Transport- und Welt-Kandidaten auf Stufe 14
+                active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 14]
+                active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == 14]
+                
+                if active_trans_cids and active_world_cids:
+                    t_cid = active_trans_cids[0]
+                    w_cid = active_world_cids[0]
+                    
+                    t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+                    w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                    
+                    val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+                    val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
+                    
+                    cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+                    cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
+                    wrld = urow.get('WRLD') or 0
+                    navm = urow.get('NAVM') or 0
+                    cell_city = (urow.get('qry_CELL_City') or 0) + (urow.get('qry_CELL_Override_City') or 0)
+                    cell_ship = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+                    
+                    winner_cid = None
+                    
+                    # 1. POIs: Dynamische POI-Systeme siegen per KO
+                    if w_cid == cat_map.get('POIs'):
+                        winner_cid = w_cid
+                    # 2. Spielerheime: Feste Wohndomizile siegen per KO
+                    elif w_cid == cat_map.get('Spielerheime'):
+                        winner_cid = w_cid
+                    # 3. Städte: Direkte Städteklassifizierung (Echte Stadt-Locations oder reale Stadt-Umbauten)
+                    elif w_cid == cat_map.get('Städte'):
+                        lctn_city = urow.get('LCTN_KYWD_City') or 0
+                        refr = urow.get('REFR') or 0
+                        is_real_city_mod = (lctn_city > 0) or (cell_city > 0 and refr > 500)
+                        if is_real_city_mod:
+                            winner_cid = w_cid
+                        else:
+                            winner_cid = t_cid
+                    # 4. Außenposten:
+                    elif w_cid == cat_map.get('Außenposten'):
+                        if cobj_op > 0 and cobj_ship == 0:
+                            winner_cid = w_cid
+                        elif cobj_ship > 0 and cobj_op == 0:
+                            winner_cid = t_cid
+                        else:
+                            val_op = urow.get('dim_calc_outer_Außenposten') or 0
+                            winner_cid = w_cid if val_op >= val_t else t_cid
+                    # 5. Gebäude:
+                    elif w_cid == cat_map.get('Gebäude'):
+                        if (wrld > 0 or navm > 0) and cobj_ship == 0 and cell_ship == 0:
+                            winner_cid = w_cid
+                        elif (cobj_ship > 0 or cell_ship > 0):
+                            winner_cid = t_cid
+                        else:
+                            val_b = urow.get('dim_calc_outer_Gebäude') or 0
+                            winner_cid = w_cid if val_b >= val_t else t_cid
+                    # 6. Umgebung:
+                    elif w_cid == cat_map.get('Umgebung'):
+                        val_u = urow.get('dim_calc_outer_Umgebung') or 0
+                        winner_cid = w_cid if val_u >= val_t else t_cid
+                    else:
+                        winner_cid = t_cid if val_t >= val_w else w_cid
+                        
+                    if winner_cid is not None:
+                        set_clauses = [f'"{winner_cid}" = 15']
+                        for non_id in non_duel_ids_15:
+                            set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 14 THEN 15 ELSE "{non_id}" END')
+                            
+                        set_sql = ", ".join(set_clauses)
+                        cursor.execute(f"""
+                            UPDATE LoadOrder_Classifier_Matrix
+                            SET {set_sql}
+                            WHERE Mod_ID = ? AND Component_ID = ?
+                        """, (mid, cid))
+
+            # Endschritt Schritt 15: Alle Zeilen ohne Transport/Welt-Kollision heben alle 14er auf 15 an
+            col_cases_15 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 14 THEN 15 ELSE "{cid}" END' for cid in cat_ids])
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID, {col_select_quotes}
+                FROM LoadOrder_Classifier_Matrix
+                WHERE Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            rows_check15 = [dict(r) for r in cursor.fetchall()]
+            for r in rows_check15:
+                mid = r['Mod_ID']
+                cid = r['Component_ID']
+                vals = [r[str(c)] or 0 for c in cat_ids]
+                max_v = max(vals) if vals else 0
+                if max_v == 14:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix
+                        SET {col_cases_15}
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mid, cid))
+
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
                 cursor, cat_ids, log_msg, step_name="Schritt 15: Transport vs. Welt", notes_cache=notes_cache
             )

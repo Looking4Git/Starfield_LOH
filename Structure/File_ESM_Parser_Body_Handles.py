@@ -13,45 +13,44 @@ CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 
 MOD_POINTER_COLS = [
     'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
-    'AMMO_Override', 'ARMO', 'ARMO_Override', 'AVIF',
-    'AVIF_Override', 'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override',
-    'CAMS', 'CAMS_Override', 'CELL', 'CELL_Dummy',
-    'CELL_Override', 'CELL_Override_Dummy', 'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM', 'CLFM_Override',
+    'AMMO_Override', 'ARMO', 'ARMO_Override', 'AVIF', 'AVIF_Override',
+    'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override', 'CAMS',
+    'CAMS_Override', 'CELL', 'CELL_Dummy', 'CELL_Override', 'CELL_Override_Dummy',
+    'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM', 'CLFM_KYWD_Character', 'CLFM_KYWD_Character_Override',
+    'CLFM_KYWD_Ship', 'CLFM_KYWD_Ship_Override', 'CLFM_KYWD_Skin', 'CLFM_KYWD_Skin_Override', 'CLFM_Override',
     'CLMT', 'CLMT_Override', 'COBJ', 'COBJ_BNAM_Outpost_Heavy', 'COBJ_BNAM_Outpost_Heavy_Override',
-    'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Outpost_Soft_Override',
-    'COBJ_BNAM_Ship', 'COBJ_BNAM_Ship_Override', 'COBJ_Override', 'CONT', 'CONT_Override',
-    'CPTH', 'CPTH_Override',
-    'DIAL', 'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove',
-    'ENCH', 'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override',
-    'FLOR_Remove', 'FLST', 'FLST_Override', 'FURN', 'FURN_Override',
-    'FURN_VCMT', 'FURN_VCMT_Override', 'FURN_VCTT', 'FURN_VCTT_Override', 'FURN_VMRT', 'FURN_VMRT_Override', 'FURN_VWWD', 'FURN_VWWD_Override', 'GBFM',
-    'GBFM_EDID_CrowdRegion', 'GBFM_EDID_CrowdRegion_Override', 'GBFM_EDID_Vehicle', 'GBFM_EDID_Vehicle_Override', 'GBFM_Override', 'GLOB', 'GLOB_Override', 'GMST',
-    'GMST_Override', 'HDPT', 'HDPT_Override', 'IMAD', 'IMAD_Override', 'INFO',
-    'INFO_Override', 'INNR', 'INNR_Override', 'KEYM', 'KEYM_Override',
-    'KYWD', 'LCTN', 'LCTN_KYWD_City', 'LCTN_KYWD_City_Override',
-    'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Dungeon_Override', 'LCTN_KYWD_Playerhome', 'LCTN_KYWD_Playerhome_Override',
-    'LCTN_KYWD_Settlement', 'LCTN_KYWD_Settlement_Override', 'LCTN_Override', 'LIGH', 'LIGH_FNAM', 'LIGH_Override',
-    'LMSW', 'LMSW_Override', 'LVLI', 'LVLI_Override', 'LVLN',
-    'LVLN_Override', 'LVLP', 'LVLP_Override', 'MGEF',
-    'MGEF_Override', 'MGEF_Remove', 'MISC', 'MISC_Override', 'MOVT', 'MOVT_Override',
-    'MSTT', 'MSTT_Override', 'MUSC',
-    'MUSC_Override', 'NAVM', 'NPC_', 'NPC__Override', 
-    'NPC_KYWD_Companion', 'NPC_KYWD_Companion_Override',
-    'NPC_KYWD_Creature', 'NPC_KYWD_Creature_Override', 
-    'NPC_KYWD_Ship', 'NPC_KYWD_Ship_Override', 
-    'NPC_KYWD_Shop', 'NPC_KYWD_Shop_Override', 'OMOD',
-    'OMOD_Override', 'PCBN', 'PCCN', 'PERK', 'PERK_Override',
-    'PERK_Remove', 'PKIN', 'QUST', 'QUST_FULL',
-    'QUST_INDX', 'QUST_Override', 'QUST_QOBJ', 'QUST_QTYP_0', 'QUST_QTYP_1',
-    'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5', 'RACE',
-    'RACE_Override', 'REFR', 'REFR_Buried', 'REFR_Deleted', 'REFR_Disabled',
-    'REGN', 'REGN_Override', 'RSPJ', 'RSPJ_Override', 'SFBK', 'SFBK_Override',
-    'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter', 'Shifter_Quest_Trader',
-    'SOUN', 'SOUN_Override', 'SPEL', 'SPEL_Override',
-    'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH', 'STBH_Override', 'STDT', 'STDT_Override',
-    'STMP', 'STMP_Override', 'STND', 'STND_Override', 'TERM', 'TERM_Override',
-    'TXST', 'TXST_Override', 'WEAP',
-    'WEAP_KWDA_Helper', 'WEAP_KWDA_Helper_Override', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Ship_Override', 'WEAP_KWDA_Vehicle', 'WEAP_KWDA_Vehicle_Override', 'WEAP_Override', 'WRLD', 'WRLD_Override',
+    'COBJ_BNAM_Outpost_Soft', 'COBJ_BNAM_Outpost_Soft_Override', 'COBJ_BNAM_Ship', 'COBJ_BNAM_Ship_Override', 'COBJ_Override',
+    'CONT', 'CONT_Override', 'CPTH', 'CPTH_Override', 'DIAL',
+    'DIAL_Override', 'EFSH', 'EFSH_Override', 'EFSH_Remove', 'ENCH',
+    'ENCH_Override', 'ENCH_Remove', 'FLOR', 'FLOR_Override', 'FLOR_Remove',
+    'FLST', 'FLST_Override', 'FURN', 'FURN_Override', 'FURN_VCMT',
+    'FURN_VCMT_Override', 'FURN_VCTT', 'FURN_VCTT_Override', 'FURN_VMRT', 'FURN_VMRT_Override',
+    'FURN_VWWD', 'FURN_VWWD_Override', 'GBFM', 'GBFM_EDID_CrowdRegion', 'GBFM_EDID_CrowdRegion_Override',
+    'GBFM_EDID_Vehicle', 'GBFM_EDID_Vehicle_Override', 'GBFM_Override', 'GLOB', 'GLOB_Override',
+    'GMST', 'GMST_Override', 'HDPT', 'HDPT_Override', 'IMAD',
+    'IMAD_Override', 'INFO', 'INFO_Override', 'INNR', 'INNR_Override',
+    'KEYM', 'KEYM_Override', 'KYWD', 'LCTN', 'LCTN_KYWD_City',
+    'LCTN_KYWD_City_Override', 'LCTN_KYWD_Dungeon', 'LCTN_KYWD_Dungeon_Override', 'LCTN_KYWD_Playerhome', 'LCTN_KYWD_Playerhome_Override',
+    'LCTN_KYWD_Settlement', 'LCTN_KYWD_Settlement_Override', 'LCTN_Override', 'LIGH', 'LIGH_FNAM',
+    'LIGH_Override', 'LMSW', 'LMSW_Override', 'LVLI', 'LVLI_Override',
+    'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'MGEF',
+    'MGEF_Override', 'MGEF_Remove', 'MISC', 'MISC_Override', 'MOVT',
+    'MOVT_Override', 'MSTT', 'MSTT_Override', 'MUSC', 'MUSC_Override',
+    'NAVM', 'NPC_', 'NPC_KYWD_Companion', 'NPC_KYWD_Companion_Override', 'NPC_KYWD_Creature',
+    'NPC_KYWD_Creature_Override', 'NPC_KYWD_Ship', 'NPC_KYWD_Ship_Override', 'NPC_KYWD_Shop', 'NPC_KYWD_Shop_Override',
+    'NPC__Override', 'OMOD', 'OMOD_Override', 'PCBN', 'PCCN',
+    'PERK', 'PERK_Override', 'PERK_Remove', 'PKIN', 'QUST',
+    'QUST_FULL', 'QUST_INDX', 'QUST_Override', 'QUST_QOBJ', 'QUST_QTYP_0',
+    'QUST_QTYP_1', 'QUST_QTYP_2', 'QUST_QTYP_3', 'QUST_QTYP_4', 'QUST_QTYP_5',
+    'RACE', 'RACE_Override', 'REFR', 'REFR_Buried', 'REFR_Deleted',
+    'REFR_Disabled', 'REGN', 'REGN_Override', 'RSPJ', 'RSPJ_Override',
+    'SFBK', 'SFBK_Override', 'SOUN', 'SOUN_Override', 'SPEL',
+    'SPEL_Override', 'SPEL_Remove', 'STAT', 'STAT_Override', 'STBH',
+    'STBH_Override', 'STDT', 'STDT_Override', 'STMP', 'STMP_Override',
+    'STND', 'STND_Override', 'Shifter_Quest_Chest', 'Shifter_Quest_Ship', 'Shifter_Quest_Starter',
+    'Shifter_Quest_Trader', 'TERM', 'TERM_Override', 'TXST', 'TXST_Override',
+    'WEAP', 'WEAP_KWDA_Helper', 'WEAP_KWDA_Helper_Override', 'WEAP_KWDA_Ship', 'WEAP_KWDA_Ship_Override',
+    'WEAP_KWDA_Vehicle', 'WEAP_KWDA_Vehicle_Override', 'WEAP_Override', 'WRLD', 'WRLD_Override',
     'WTHS', 'WTHS_Override'
 ]
 
@@ -456,6 +455,38 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                             local_counts['LCTN_KYWD_Settlement'] += 1
                             if is_override:
                                 local_counts['LCTN_KYWD_Settlement_Override'] += 1
+                continue
+
+            # 13. Spezialfall: CLFM
+            if sig == b'CLFM' and not is_core and 'CLFM_KYWD_Character' in local_counts:
+                decompressed_data = get_decompressed()
+                if decompressed_data:
+                    edid_clfm = ""
+                    fnam_val = None
+                    kwda_clfm = []
+                    for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                        if sub_sig == b'EDID':
+                            edid_clfm = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
+                        elif sub_sig == b'FNAM' and len(sub_data) >= 4:
+                            fnam_val = struct.unpack('<I', sub_data[:4])[0]
+                        elif sub_sig == b'KWDA':
+                            num_ids = len(sub_data) // 4
+                            for i in range(num_ids):
+                                fid = struct.unpack('<I', sub_data[i*4:(i+1)*4])[0]
+                                kwda_clfm.append(fid & 0x00FFFFFF)
+                    
+                    if "shipbuilder" in edid_clfm or "shipcolor" in edid_clfm or "spaceshiptint" in edid_clfm:
+                        local_counts['CLFM_KYWD_Ship'] += 1
+                        if is_override:
+                            local_counts['CLFM_KYWD_Ship_Override'] += 1
+                    elif any(s in edid_clfm for s in ["skin_", "colorswap", "material_", "armor_", "weapon_", "spacesuit"]):
+                        local_counts['CLFM_KYWD_Skin'] += 1
+                        if is_override:
+                            local_counts['CLFM_KYWD_Skin_Override'] += 1
+                    elif (fnam_val is not None and fnam_val != 0) or any(c in edid_clfm for c in ["hair", "eye", "skin", "makeup", "tattoo", "chargen", "brow", "beard", "body", "tint"]):
+                        local_counts['CLFM_KYWD_Character'] += 1
+                        if is_override:
+                            local_counts['CLFM_KYWD_Character_Override'] += 1
                 continue
 
     return local_counts, local_signatures

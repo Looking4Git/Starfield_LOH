@@ -1,440 +1,118 @@
-CREATE TABLE "Assessments" (
-	"ID"	INTEGER NOT NULL,
-	"Description"	TEXT NOT NULL,
-	"Number_of_Stars"	INTEGER,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+CREATE VIEW "View_Components_CELL_Helper_Objects" AS
+WITH Computed_Refs AS (
+    SELECT 
+        ref.Component_ID,
+        ref.Cell_FormID,
+        ref.FormID_Local,
+        COALESCE(sys_base.Sig, esm_base.Sig) AS Base_Sig,
+        esm_base.FormID_Local AS esm_base_local,
+        ref.Sig AS Ref_Sig,
+        LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) AS Base_EDID,
+        
+        -- Deko-Ermittlung
+        CASE WHEN 
+            COALESCE(sys_base.Sig, esm_base.Sig) IN ('MSTT', 'MISC')
+            OR (COALESCE(sys_base.Sig, esm_base.Sig) = 'STAT' AND (
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%clutter%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%deco%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%poster%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%painting%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rug%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%carpet%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%vase%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plant%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%pot%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%dish%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plate%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%cup%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%mug%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%bottle%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%glass%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%tray%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%garbage%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%trash%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rubble%' OR
+                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%debris%'
+            ))
+        THEN 1 ELSE 0 END AS is_deco
+    FROM Components_ESM_FormIDs ref
+    LEFT JOIN Components_System_FormIDs sys_base 
+        ON ref.Base_FormID = sys_base.FormID_Local
+    LEFT JOIN Components_ESM_FormIDs esm_base 
+        ON ref.Base_FormID = esm_base.FormID_Local AND esm_base.Component_ID = ref.Component_ID
+    WHERE ref.Sig IN ('REFR', 'ACHR') AND ref.Cell_FormID IS NOT NULL
 )
-
-CREATE TABLE "Categories_Creations" (
-	"ID"	INTEGER NOT NULL,
-	"Name"	TEXT NOT NULL,
-	"ID_Category_LOH"	INTEGER,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("ID_Category_LOH") REFERENCES "Categories_LOH"("ID")
-)
-
-CREATE TABLE "Categories_LOH" (
-	"ID"	INTEGER NOT NULL,
-	"Position"	INTEGER NOT NULL UNIQUE,
-	"Name"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-
-CREATE TABLE "Components" (
-	"ID"	INTEGER NOT NULL,
-	"File"	TEXT NOT NULL,
-	"Is_Masterfile"	INTEGER DEFAULT 0,
-	"Is_Blueprint"	INTEGER DEFAULT 0, Filedate_Last_Check TEXT,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-
-CREATE TABLE "Components_ESM_References" (
-        "Component_ID"          INTEGER NOT NULL,
-        "ACHR"                  INTEGER DEFAULT 0,
-        "ALCH"                  INTEGER DEFAULT 0,
-        "ALCH_Override"         INTEGER DEFAULT 0,
-        "ALCH_Remove"           INTEGER DEFAULT 0,
-        "AMMO"                  INTEGER DEFAULT 0,
-        "AMMO_Override"         INTEGER DEFAULT 0,
-        "ARMO"                  INTEGER DEFAULT 0,
-        "ARMO_Override"         INTEGER DEFAULT 0,
-        "AVIF"                  INTEGER DEFAULT 0,
-        "AVIF_Override"         INTEGER DEFAULT 0,
-        "BIOM"                  INTEGER DEFAULT 0,
-        "BIOM_Override"         INTEGER DEFAULT 0,
-        "BOOK"                  INTEGER DEFAULT 0,
-        "BOOK_Override"         INTEGER DEFAULT 0,
-        "CAMS"                  INTEGER DEFAULT 0,
-        "CAMS_Override"         INTEGER DEFAULT 0,
-        "CELL"                  INTEGER DEFAULT 0,
-        "CELL_Dummy"            INTEGER DEFAULT 0,
-        "CELL_Override"         INTEGER DEFAULT 0,
-        "CELL_Override_Dummy"   INTEGER DEFAULT 0,
-        "CELL_Override_PackIn"  INTEGER DEFAULT 0,
-        "CELL_PackIn"           INTEGER DEFAULT 0,
-        "CLFM"                  INTEGER DEFAULT 0,
-        "CLFM_Override"         INTEGER DEFAULT 0,
-        "CLMT"                  INTEGER DEFAULT 0,
-        "CLMT_Override"         INTEGER DEFAULT 0,
-        "COBJ"                  INTEGER DEFAULT 0,
-        "COBJ_BNAM_Outpost_Heavy" INTEGER DEFAULT 0,
-        "COBJ_BNAM_Outpost_Heavy_Override" INTEGER DEFAULT 0,
-        "COBJ_BNAM_Outpost_Soft" INTEGER DEFAULT 0,
-        "COBJ_BNAM_Outpost_Soft_Override" INTEGER DEFAULT 0,
-        "COBJ_BNAM_Ship"        INTEGER DEFAULT 0,
-        "COBJ_BNAM_Ship_Override" INTEGER DEFAULT 0,
-        "COBJ_Override"         INTEGER DEFAULT 0,
-        "CONT"                  INTEGER DEFAULT 0,
-        "CONT_Override"         INTEGER DEFAULT 0,
-        "CPTH"                  INTEGER DEFAULT 0,
-        "CPTH_Override"         INTEGER DEFAULT 0,
-        "DIAL"                  INTEGER DEFAULT 0,
-        "DIAL_Override"         INTEGER DEFAULT 0,
-        "EFSH"                  INTEGER DEFAULT 0,
-        "EFSH_Override"         INTEGER DEFAULT 0,
-        "EFSH_Remove"           INTEGER DEFAULT 0,
-        "ENCH"                  INTEGER DEFAULT 0,
-        "ENCH_Override"         INTEGER DEFAULT 0,
-        "ENCH_Remove"           INTEGER DEFAULT 0,
-        "FLOR"                  INTEGER DEFAULT 0,
-        "FLOR_Override"         INTEGER DEFAULT 0,
-        "FLOR_Remove"           INTEGER DEFAULT 0,
-        "FLST"                  INTEGER DEFAULT 0,
-        "FLST_Override"         INTEGER DEFAULT 0,
-        "FURN"                  INTEGER DEFAULT 0,
-        "FURN_Override"         INTEGER DEFAULT 0,
-        "FURN_VCMT"             INTEGER DEFAULT 0,
-        "FURN_VCMT_Override"    INTEGER DEFAULT 0,
-        "FURN_VCTT"             INTEGER DEFAULT 0,
-        "FURN_VCTT_Override"    INTEGER DEFAULT 0,
-        "FURN_VMRT"             INTEGER DEFAULT 0,
-        "FURN_VMRT_Override"    INTEGER DEFAULT 0,
-        "FURN_VWWD"             INTEGER DEFAULT 0,
-        "FURN_VWWD_Override"    INTEGER DEFAULT 0,
-        "GBFM"                  INTEGER DEFAULT 0,
-        "GBFM_EDID_CrowdRegion" INTEGER DEFAULT 0,
-        "GBFM_EDID_CrowdRegion_Override" INTEGER DEFAULT 0,
-        "GBFM_EDID_Vehicle"     INTEGER DEFAULT 0,
-        "GBFM_EDID_Vehicle_Override" INTEGER DEFAULT 0,
-        "GBFM_Override"         INTEGER DEFAULT 0,
-        "GLOB"                  INTEGER DEFAULT 0,
-        "GLOB_Override"         INTEGER DEFAULT 0,
-        "GMST"                  INTEGER DEFAULT 0,
-        "GMST_Override"         INTEGER DEFAULT 0,
-        "HDPT"                  INTEGER DEFAULT 0,
-        "HDPT_Override"         INTEGER DEFAULT 0,
-        "IMAD"                  INTEGER DEFAULT 0,
-        "IMAD_Override"         INTEGER DEFAULT 0,
-        "INFO"                  INTEGER DEFAULT 0,
-        "INFO_Override"         INTEGER DEFAULT 0,
-        "INNR"                  INTEGER DEFAULT 0,
-        "INNR_Override"         INTEGER DEFAULT 0,
-        "KEYM"                  INTEGER DEFAULT 0,
-        "KEYM_Override"         INTEGER DEFAULT 0,
-        "KYWD"                  INTEGER DEFAULT 0,
-        "LCTN"                  INTEGER DEFAULT 0,
-        "LCTN_KYWD_City"        INTEGER DEFAULT 0,
-        "LCTN_KYWD_City_Override" INTEGER DEFAULT 0,
-        "LCTN_KYWD_Dungeon"     INTEGER DEFAULT 0,
-        "LCTN_KYWD_Dungeon_Override" INTEGER DEFAULT 0,
-        "LCTN_KYWD_Playerhome"  INTEGER DEFAULT 0,
-        "LCTN_KYWD_Playerhome_Override" INTEGER DEFAULT 0,
-        "LCTN_KYWD_Settlement"  INTEGER DEFAULT 0,
-        "LCTN_KYWD_Settlement_Override" INTEGER DEFAULT 0,
-        "LCTN_Override"         INTEGER DEFAULT 0,
-        "LIGH"                  INTEGER DEFAULT 0,
-        "LIGH_FNAM"             INTEGER DEFAULT 0,
-        "LIGH_Override"         INTEGER DEFAULT 0,
-        "LMSW"                  INTEGER DEFAULT 0,
-        "LMSW_Override"         INTEGER DEFAULT 0,
-        "LVLI"                  INTEGER DEFAULT 0,
-        "LVLI_Override"         INTEGER DEFAULT 0,
-        "LVLN"                  INTEGER DEFAULT 0,
-        "LVLN_Override"         INTEGER DEFAULT 0,
-        "LVLP"                  INTEGER DEFAULT 0,
-        "LVLP_Override"         INTEGER DEFAULT 0,
-        "MGEF"                  INTEGER DEFAULT 0,
-        "MGEF_Override"         INTEGER DEFAULT 0,
-        "MGEF_Remove"           INTEGER DEFAULT 0,
-        "MISC"                  INTEGER DEFAULT 0,
-        "MISC_Override"         INTEGER DEFAULT 0,
-        "MOVT"                  INTEGER DEFAULT 0,
-        "MOVT_Override"         INTEGER DEFAULT 0,
-        "MSTT"                  INTEGER DEFAULT 0,
-        "MSTT_Override"         INTEGER DEFAULT 0,
-        "MUSC"                  INTEGER DEFAULT 0,
-        "MUSC_Override"         INTEGER DEFAULT 0,
-        "NAVM"                  INTEGER DEFAULT 0,
-        "NPC_"                  INTEGER DEFAULT 0,
-        "NPC__Override"         INTEGER DEFAULT 0,
-        "NPC_KYWD_Companion"           INTEGER DEFAULT 0,
-        "NPC_KYWD_Companion_Override"  INTEGER DEFAULT 0,
-        "NPC_KYWD_Creature"            INTEGER DEFAULT 0,
-        "NPC_KYWD_Creature_Override"   INTEGER DEFAULT 0,
-        "NPC_KYWD_Ship"                INTEGER DEFAULT 0,
-        "NPC_KYWD_Ship_Override"       INTEGER DEFAULT 0,
-        "NPC_KYWD_Shop"                INTEGER DEFAULT 0,
-        "NPC_KYWD_Shop_Override"       INTEGER DEFAULT 0,
-        "OMOD"                  INTEGER DEFAULT 0,
-        "OMOD_Override"         INTEGER DEFAULT 0,
-        "PCBN"                  INTEGER DEFAULT 0,
-        "PCCN"                  INTEGER DEFAULT 0,
-        "PERK"                  INTEGER DEFAULT 0,
-        "PERK_Override"         INTEGER DEFAULT 0,
-        "PERK_Remove"           INTEGER DEFAULT 0,
-        "PKIN"                  INTEGER DEFAULT 0,
-        "QUST"                  INTEGER DEFAULT 0,
-        "QUST_FULL"             INTEGER DEFAULT 0,
-        "QUST_INDX"             INTEGER DEFAULT 0,
-        "QUST_Override"         INTEGER DEFAULT 0,
-        "QUST_QOBJ"             INTEGER DEFAULT 0,
-        "QUST_QTYP_0"           INTEGER DEFAULT 0,
-        "QUST_QTYP_1"           INTEGER DEFAULT 0,
-        "QUST_QTYP_2"           INTEGER DEFAULT 0,
-        "QUST_QTYP_3"           INTEGER DEFAULT 0,
-        "QUST_QTYP_4"           INTEGER DEFAULT 0,
-        "QUST_QTYP_5"           INTEGER DEFAULT 0,
-        "RACE"                  INTEGER DEFAULT 0,
-        "RACE_Override"         INTEGER DEFAULT 0,
-        "REFR"                  INTEGER DEFAULT 0,
-        "REFR_Buried"           INTEGER DEFAULT 0,
-        "REFR_Deleted"          INTEGER DEFAULT 0,
-        "REFR_Disabled"         INTEGER DEFAULT 0,
-        "REGN"                  INTEGER DEFAULT 0,
-        "REGN_Override"         INTEGER DEFAULT 0,
-        "RSPJ"                  INTEGER DEFAULT 0,
-        "RSPJ_Override"         INTEGER DEFAULT 0,
-        "SFBK"                  INTEGER DEFAULT 0,
-        "SFBK_Override"         INTEGER DEFAULT 0,
-        "Shifter_Quest_Chest"   REAL DEFAULT 0.0,
-        "Shifter_Quest_Ship"    REAL DEFAULT 0.0,
-        "Shifter_Quest_Starter" REAL DEFAULT 0.0,
-        "Shifter_Quest_Trader"  REAL DEFAULT 0.0,
-        "SOUN"                  INTEGER DEFAULT 0,
-        "SOUN_Override"         INTEGER DEFAULT 0,
-        "SPEL"                  INTEGER DEFAULT 0,
-        "SPEL_Override"         INTEGER DEFAULT 0,
-        "SPEL_Remove"           INTEGER DEFAULT 0,
-        "STAT"                  INTEGER DEFAULT 0,
-        "STAT_Override"         INTEGER DEFAULT 0,
-        "STBH"                  INTEGER DEFAULT 0,
-        "STBH_Override"         INTEGER DEFAULT 0,
-        "STDT"                  INTEGER DEFAULT 0,
-        "STDT_Override"         INTEGER DEFAULT 0,
-        "STMP"                  INTEGER DEFAULT 0,
-        "STMP_Override"         INTEGER DEFAULT 0,
-        "STND"                  INTEGER DEFAULT 0,
-        "STND_Override"         INTEGER DEFAULT 0,
-        "TERM"                  INTEGER DEFAULT 0,
-        "TERM_Override"         INTEGER DEFAULT 0,
-        "TXST"                  INTEGER DEFAULT 0,
-        "TXST_Override"         INTEGER DEFAULT 0,
-        "WEAP"                  INTEGER DEFAULT 0,
-        "WEAP_KWDA_Helper"      INTEGER DEFAULT 0,
-        "WEAP_KWDA_Helper_Override" INTEGER DEFAULT 0,
-        "WEAP_KWDA_Ship"        INTEGER DEFAULT 0,
-        "WEAP_KWDA_Ship_Override" INTEGER DEFAULT 0,
-        "WEAP_KWDA_Vehicle"     INTEGER DEFAULT 0,
-        "WEAP_KWDA_Vehicle_Override" INTEGER DEFAULT 0,
-        "WEAP_Override"         INTEGER DEFAULT 0,
-        "WRLD"                  INTEGER DEFAULT 0,
-        "WRLD_Override"         INTEGER DEFAULT 0,
-        "WTHS"                  INTEGER DEFAULT 0,
-        "WTHS_Override"         INTEGER DEFAULT 0,
-        PRIMARY KEY("Component_ID"),
-        FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-);
-
-CREATE TABLE "LoadOrder" (
-	"ID_Profile"	INTEGER NOT NULL,
-	"ID_Component"	INTEGER NOT NULL,
-	"Position"	INTEGER NOT NULL,
-	"Is_Active"	INTEGER NOT NULL DEFAULT 1,
-	PRIMARY KEY("ID_Component","ID_Profile"),
-	UNIQUE("ID_Profile","Position"),
-	FOREIGN KEY("ID_Component") REFERENCES "Components"("ID") ON DELETE CASCADE
-)
-
-CREATE TABLE "Mods" (
-                "ID"    INTEGER NOT NULL,
-                "Platform"    INTEGER NOT NULL,
-                "URL"    TEXT,
-                "ID_ContentCatalog"    TEXT,
-                "Name_ContentCatalog"    TEXT,
-                "Name_Online"    TEXT,
-                "Author"    TEXT,
-                "Description"    TEXT,
-                "Image"    TEXT,
-                "Category_LOH"    INTEGER,
-                "Category_LOH_Classifier"    INTEGER,
-                "Assessment"    INTEGER DEFAULT 4,
-                "Note"    TEXT,
-                "Date_installed"    TEXT,
-                "Version_installed"    TEXT,
-                "Date_available"    TEXT,
-                "Version_available"    TEXT,
-                "Version_Descriptiopn"    TEXT,
-                "State"    INTEGER NOT NULL,
-                PRIMARY KEY("ID" AUTOINCREMENT),
-                FOREIGN KEY("Assessment") REFERENCES "Assessments"("ID"),
-                FOREIGN KEY("Category_LOH") REFERENCES "Categories_LOH"("ID"),
-                FOREIGN KEY("Category_LOH_Classifier") REFERENCES "Categories_LOH"("ID"),
-                FOREIGN KEY("Platform") REFERENCES "Platforms"("ID"),
-                FOREIGN KEY("State") REFERENCES "Mods_State"("ID")
+SELECT 
+    Component_ID,
+    Cell_FormID,
+    COUNT(FormID_Local) AS calc_CELL_Refs,
+    
+    SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_CONT,
+    SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_TERM,
+    SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_BOOK,
+    SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_KEYM,
+    
+    SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+        Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_FURN,
+    
+    SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+        Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+        Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+        Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+        Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_ACHR,
+    
+    (
+        SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+            Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+        ) THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+            Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+            Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+            Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+            Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+        ) THEN 1 ELSE 0 END)
+    ) AS calc_Helper_Objects,
+    
+    SUM(is_deco) AS calc_Deko_Objects,
+    
+    SUM(CASE WHEN 
+        Base_Sig IN ('DOOR', 'LIGH')
+        OR (Base_Sig = 'FURN' AND NOT (
+            esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
             )
+        ))
+        OR (Base_Sig = 'STAT' AND NOT is_deco)
+    THEN 1 ELSE 0 END) AS calc_Structural_Refs,
+    
+    CAST(
+        (
+            SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
+            ) THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
+                Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
+                Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
+                Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
+                Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+            ) THEN 1 ELSE 0 END)
+        ) AS REAL
+    ) / MAX(1, COUNT(FormID_Local) - SUM(is_deco)) AS calc_Helper_Objects_Ratio
+    
+FROM Computed_Refs
+GROUP BY Component_ID, Cell_FormID;
 
-CREATE TABLE "Mods_Category_Creations" (
-                    "ID_Mod" INTEGER NOT NULL,
-                    "ID_Category_Creations" INTEGER NOT NULL,
-                    PRIMARY KEY("ID_Mod", "ID_Category_Creations"),
-                    FOREIGN KEY("ID_Category_Creations") REFERENCES "Categories_Creations"("ID") ON DELETE CASCADE,
-                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
-                )
-
-CREATE TABLE "Mods_Components" (
-                    "Mod_ID" INTEGER NOT NULL,
-                    "Component_ID" INTEGER NOT NULL,
-                    PRIMARY KEY("Mod_ID", "Component_ID"),
-                    FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
-                    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-                )
-
-CREATE TABLE "Mods_Requirements" (
-                    "ID_Mod"	INTEGER NOT NULL,
-                    "ID_Mod_Requirement"	INTEGER NOT NULL,
-                    "Header_Detection" INTEGER NOT NULL DEFAULT 0,
-                    PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
-                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
-                    FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
-                )
-
-CREATE TABLE "Mods_Requirements_Masterfile_List" (
-                    "ID_Mod"     INTEGER NOT NULL,
-                    "Masterfile" TEXT NOT NULL,
-                    PRIMARY KEY("ID_Mod", "Masterfile"),
-                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
-                )
-
-CREATE TABLE "Mods_State" (
-	"ID"	INTEGER NOT NULL,
-	"State"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-
-CREATE TABLE "Platforms" (
-	"ID"	INTEGER NOT NULL,
-	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-
-CREATE TABLE "Profiles" (
-	"ID"	INTEGER NOT NULL,
-	"Name"	TEXT,
-	"Description"	TEXT,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)
-
-CREATE TABLE "Components_System" (
-            "ID" INTEGER NOT NULL,
-            "File" TEXT NOT NULL UNIQUE,
-            "Friendly_Name" TEXT,
-            "Author" TEXT,
-            "Description" TEXT,
-            "REFR" INTEGER DEFAULT 0,
-            "ACHR" INTEGER DEFAULT 0,
-            "PKIN" INTEGER DEFAULT 0,
-            "Filedate_Last_Check" TEXT,
-            PRIMARY KEY("ID" AUTOINCREMENT)
-        )
-
-CREATE INDEX "idx_mods_components_mod_id" ON "Mods_Components" ("Mod_ID");
-CREATE INDEX "idx_mods_requirements_id_mod" ON "Mods_Requirements" ("ID_Mod");
-CREATE INDEX "idx_mods_requirements_id_mod_requirement" ON "Mods_Requirements" ("ID_Mod_Requirement");
-CREATE INDEX "idx_mods_req_masterfile" ON "Mods_Requirements_Masterfile_List" ("Masterfile");
-CREATE INDEX "idx_mods_category_creations_id_mod" ON "Mods_Category_Creations" ("ID_Mod");
-
-CREATE TABLE "Components_System_LCTN" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"FormID_Local"	INTEGER NOT NULL,
-	"FormID_Keyword"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX "idx_sys_lctn_unique" ON "Components_System_LCTN" ("Component_ID", "FormID_Local", "FormID_Keyword");
-CREATE INDEX "idx_sys_lctn_lookup" ON "Components_System_LCTN" ("FormID_Local", "FormID_Keyword");
-
-CREATE TABLE "Components_ESM_LCTN" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"FormID_Local"	INTEGER NOT NULL,
-	"FormID_Keyword"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX "idx_esm_lctn_unique" ON "Components_ESM_LCTN" ("Component_ID", "FormID_Local", "FormID_Keyword");
-CREATE INDEX "idx_esm_lctn_lookup" ON "Components_ESM_LCTN" ("FormID_Local", "FormID_Keyword");
-
-CREATE TABLE "Components_System_CELL_LCTN" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"Cell_FormID"	INTEGER NOT NULL,
-	"FormID_LCTN"	INTEGER NOT NULL,
-	"Is_PackIn"	INTEGER DEFAULT 0,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX "idx_sys_cell_lctn_unique" ON "Components_System_CELL_LCTN" ("Component_ID", "Cell_FormID");
-CREATE INDEX "idx_sys_cell_lctn_lookup" ON "Components_System_CELL_LCTN" ("Cell_FormID", "FormID_LCTN");
-
-CREATE TABLE "Components_ESM_CELL_LCTN" (
-	"ID"	INTEGER NOT NULL,
-	"Component_ID"	INTEGER NOT NULL,
-	"Cell_FormID"	INTEGER NOT NULL,
-	"FormID_LCTN"	INTEGER NOT NULL,
-	"Is_PackIn"	INTEGER DEFAULT 0,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-);
-
-CREATE VIEW "View_Components_System_CELL_Ship" AS
-SELECT 
-    Component_ID,
-    FormID_Local AS Cell_FormID,
-    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
-FROM Components_System_FormIDs
-WHERE Sig = 'CELL' 
-  AND (LOWER(EDID) LIKE '%ship%' 
-       OR LOWER(EDID) LIKE '%station%' 
-       OR LOWER(EDID) LIKE '%spaceship%'
-       OR LOWER(EDID) LIKE 'ss%');
-
-CREATE VIEW "View_Components_ESM_CELL_Ship" AS
-SELECT 
-    Component_ID,
-    FormID_Local AS Cell_FormID,
-    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
-FROM Components_ESM_FormIDs
-WHERE Sig = 'CELL' 
-  AND (LOWER(EDID) LIKE '%ship%' 
-       OR LOWER(EDID) LIKE '%station%' 
-       OR LOWER(EDID) LIKE '%spaceship%'
-       OR LOWER(EDID) LIKE 'ss%');
-
-CREATE VIEW "View_Components_System_LCTN" AS
-SELECT 
-    l.ID,
-    l.Component_ID,
-    l.FormID_Local,
-    l.FormID_Keyword,
-    f.EDID
-FROM "Components_System_LCTN" l
-LEFT JOIN "Components_System_FormIDs" f 
-    ON l.FormID_Local = f.FormID_Local 
-   AND f.Sig = 'LCTN';
-
-CREATE VIEW "View_Components_ESM_LCTN" AS
-SELECT 
-    l.ID,
-    l.Component_ID,
-    l.FormID_Local,
-    l.FormID_Keyword,
-    COALESCE(ef.EDID, sf.EDID) AS EDID
-FROM "Components_ESM_LCTN" l
-LEFT JOIN "Components_ESM_FormIDs" ef 
-    ON l.FormID_Local = ef.FormID_Local 
-   AND l.Component_ID = ef.Component_ID 
-   AND ef.Sig = 'LCTN'
-LEFT JOIN "Components_System_FormIDs" sf 
-    ON l.FormID_Local = sf.FormID_Local 
-   AND sf.Sig = 'LCTN';
-
-CREATE TABLE sqlite_sequence(name,seq);
-
-CREATE VIEW IF NOT EXISTS "View_Components_CELL_Typ" AS
+CREATE VIEW "View_Components_CELL_Typ" AS
 SELECT
     Components_ESM_References.Component_ID,
 
@@ -881,443 +559,35 @@ SELECT
 
 FROM Components_ESM_References;
 
-
-CREATE VIEW IF NOT EXISTS "View_Components_CELL_Helper_Objects" AS
-WITH Computed_Refs AS (
-    SELECT 
-        ref.Component_ID,
-        ref.Cell_FormID,
-        ref.FormID_Local,
-        COALESCE(sys_base.Sig, esm_base.Sig) AS Base_Sig,
-        esm_base.FormID_Local AS esm_base_local,
-        ref.Sig AS Ref_Sig,
-        LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) AS Base_EDID,
-        
-        -- Deko-Ermittlung
-        CASE WHEN 
-            COALESCE(sys_base.Sig, esm_base.Sig) IN ('MSTT', 'MISC')
-            OR (COALESCE(sys_base.Sig, esm_base.Sig) = 'STAT' AND (
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%clutter%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%deco%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%poster%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%painting%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rug%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%carpet%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%vase%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plant%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%pot%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%dish%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%plate%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%cup%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%mug%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%bottle%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%glass%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%tray%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%garbage%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%trash%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%rubble%' OR
-                LOWER(COALESCE(sys_base.EDID, esm_base.EDID)) LIKE '%debris%'
-            ))
-        THEN 1 ELSE 0 END AS is_deco
-    FROM Components_ESM_FormIDs ref
-    LEFT JOIN Components_System_FormIDs sys_base 
-        ON ref.Base_FormID = sys_base.FormID_Local
-    LEFT JOIN Components_ESM_FormIDs esm_base 
-        ON ref.Base_FormID = esm_base.FormID_Local AND esm_base.Component_ID = ref.Component_ID
-    WHERE ref.Sig IN ('REFR', 'ACHR') AND ref.Cell_FormID IS NOT NULL
-)
+CREATE VIEW "View_Components_ESM_CELL_Ship" AS
 SELECT 
     Component_ID,
-    Cell_FormID,
-    COUNT(FormID_Local) AS calc_CELL_Refs,
-    
-    SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_CONT,
-    SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_TERM,
-    SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_BOOK,
-    SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_KEYM,
-    
-    SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
-        Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
-    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_FURN,
-    
-    SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-        Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-        Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-        Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-        Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
-    ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_ACHR,
-    
-    (
-        SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
-            Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
-        ) THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-            Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-            Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-            Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-            Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
-        ) THEN 1 ELSE 0 END)
-    ) AS calc_Helper_Objects,
-    
-    SUM(is_deco) AS calc_Deko_Objects,
-    
-    SUM(CASE WHEN 
-        Base_Sig IN ('DOOR', 'LIGH')
-        OR (Base_Sig = 'FURN' AND NOT (
-            esm_base_local IS NOT NULL AND (
-                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
-            )
-        ))
-        OR (Base_Sig = 'STAT' AND NOT is_deco)
-    THEN 1 ELSE 0 END) AS calc_Structural_Refs,
-    
-    CAST(
-        (
-            SUM(CASE WHEN Base_Sig = 'CONT' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Base_Sig = 'TERM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Base_Sig = 'BOOK' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Base_Sig = 'KEYM' AND esm_base_local IS NOT NULL THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
-                Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
-            ) THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-                Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-                Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-                Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-                Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
-            ) THEN 1 ELSE 0 END)
-        ) AS REAL
-    ) / MAX(1, COUNT(FormID_Local) - SUM(is_deco)) AS calc_Helper_Objects_Ratio
-    
-FROM Computed_Refs
-GROUP BY Component_ID, Cell_FormID;
+    FormID_Local AS Cell_FormID,
+    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+FROM Components_ESM_FormIDs
+WHERE Sig = 'CELL' 
+  AND (LOWER(EDID) LIKE '%ship%' 
+       OR LOWER(EDID) LIKE '%station%' 
+       OR LOWER(EDID) LIKE '%spaceship%'
+       OR LOWER(EDID) LIKE 'ss%');
 
-
-CREATE VIEW IF NOT EXISTS "View_Components_References_Qry" AS
+CREATE VIEW "View_Components_ESM_LCTN" AS
 SELECT 
-    Component_ID,
-    qry_CELL_City,
-    qry_CELL_Override_City,
-    qry_CELL_City_PackIn,
-    qry_CELL_Override_City_PackIn,
-    qry_CELL_Settlement,
-    qry_CELL_Override_Settlement,
-    qry_CELL_Settlement_PackIn,
-    qry_CELL_Override_Settlement_PackIn,
-    qry_CELL_Playerhome,
-    qry_CELL_Override_Playerhome,
-    qry_CELL_Playerhome_PackIn,
-    qry_CELL_Override_Playerhome_PackIn,
-    qry_CELL_Dungeon,
-    qry_CELL_Override_Dungeon,
-    qry_CELL_Dungeon_PackIn,
-    qry_CELL_Override_Dungeon_PackIn,
-    qry_CELL_Ship,
-    qry_CELL_Override_Ship,
-    qry_CELL_Ship_PackIn,
-    qry_CELL_Override_Ship_PackIn
-FROM View_Components_CELL_Typ;
+    l.ID,
+    l.Component_ID,
+    l.FormID_Local,
+    l.FormID_Keyword,
+    COALESCE(ef.EDID, sf.EDID) AS EDID
+FROM "Components_ESM_LCTN" l
+LEFT JOIN "Components_ESM_FormIDs" ef 
+    ON l.FormID_Local = ef.FormID_Local 
+   AND l.Component_ID = ef.Component_ID 
+   AND ef.Sig = 'LCTN'
+LEFT JOIN "Components_System_FormIDs" sf 
+    ON l.FormID_Local = sf.FormID_Local 
+   AND sf.Sig = 'LCTN';
 
-
-CREATE VIEW IF NOT EXISTS "View_Components_References_Calc" AS
-SELECT
-    ref.Component_ID,
-    
-    -- Hilfssummen für Overrides (inklusive logische Forms: AVIF, CONT, FLST, KYWD, MISC, SOUN, TERM, TXST, WTHS)
-    (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
-     COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
-     COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
-     COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
-     COALESCE(ref.CPTH, 0) + 
-     COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
-     COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
-     COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
-     COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
-     COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
-     COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
-     COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
-     COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
-     COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
-     COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
-     COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
-     COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
-     COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
-     COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
-     COALESCE(ref.WTHS, 0)) AS calc_Total_Base_Val,
-     
-    (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
-     COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
-     COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
-     COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
-     COALESCE(ref.CPTH_Override, 0) + 
-     COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
-     COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
-     COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
-     COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
-     COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
-     COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
-     COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
-     COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
-     COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
-     COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
-     COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
-     COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
-     COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
-     COALESCE(ref.WTHS_Override, 0)) AS calc_Total_Override_Val,
-
-    ((CASE WHEN ref.ALCH_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.AMMO_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.ARMO_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.AVIF_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.BIOM_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.BOOK_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.CAMS_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.CELL_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.CLMT_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.COBJ_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.CONT_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.CPTH_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.DIAL_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.EFSH_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.ENCH_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.FLOR_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.FLST_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.FURN_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.GLOB_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.GMST_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.IMAD_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.INFO_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.INNR_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.KEYM_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LCTN_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LIGH_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LMSW_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LVLI_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LVLN_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.LVLP_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.MGEF_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.MISC_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.MSTT_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.MUSC_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.NPC__Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.OMOD_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.PERK_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.QUST_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.RACE_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.REGN_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.RSPJ_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.SFBK_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.SPEL_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.STAT_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.STDT_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.TERM_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.WEAP_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.WRLD_Override > 0 THEN 1 ELSE 0 END) + 
-     (CASE WHEN ref.WTHS_Override > 0 THEN 1 ELSE 0 END)) AS calc_Num_Override_Categories,
-
-    -- Das Verhältnis (Ratio)
-    CAST(
-        (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
-         COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
-         COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
-         COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
-         COALESCE(ref.CPTH_Override, 0) + 
-         COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
-         COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
-         COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
-         COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
-         COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
-         COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
-         COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
-         COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
-         COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
-         COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
-         COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
-         COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
-         COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
-         COALESCE(ref.WTHS_Override, 0)) AS REAL
-    ) / NULLIF(
-        (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
-         COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
-         COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
-         COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
-         COALESCE(ref.CPTH, 0) + 
-         COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
-         COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
-         COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
-         COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
-         COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
-         COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
-         COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
-         COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
-         COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
-         COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
-         COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
-         COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
-         COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
-         COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
-         COALESCE(ref.WTHS, 0)), 0
-    ) AS calc_Override_Ratio,
-
-    -- Zähler der aktiven funktionalen Bereiche für Overhauls (World, Actors, Effects, Items, Systems)
-    (CASE WHEN (COALESCE(ref.CELL_Override, 0) + COALESCE(ref.STAT_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
-                COALESCE(ref.WTHS_Override, 0) + COALESCE(ref.WRLD_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
-                COALESCE(ref.STDT_Override, 0)) > 0 THEN 1 ELSE 0 END) +
-    (CASE WHEN (COALESCE(ref.NPC__Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.AVIF_Override, 0)) > 0 THEN 1 ELSE 0 END) +
-    (CASE WHEN (COALESCE(ref.SPEL_Override, 0) + COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.ENCH_Override, 0) + COALESCE(ref.ALCH_Override, 0)) > 0 THEN 1 ELSE 0 END) +
-    (CASE WHEN (COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.CONT_Override, 0) + COALESCE(ref.MISC_Override, 0)) > 0 THEN 1 ELSE 0 END) +
-    (CASE WHEN (COALESCE(ref.GMST_Override, 0) + COALESCE(ref.QUST_Override, 0) + COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.INFO_Override, 0) + COALESCE(ref.TERM_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CPTH_Override, 0)) > 0 THEN 1 ELSE 0 END) AS calc_Overhaul_Active_Areas,
-
-    -- Die bisherigen calc_ Spalten
-    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)) AS calc_CELL_real,
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)) AS calc_CELL_Override_real,
-    
-    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)
-        - COALESCE(qry.qry_CELL_City, 0)
-        - COALESCE(qry.qry_CELL_Settlement, 0)
-        - COALESCE(qry.qry_CELL_Playerhome, 0)
-        - COALESCE(qry.qry_CELL_Dungeon, 0)
-        - COALESCE(qry.qry_CELL_Ship, 0)
-    ) AS calc_CELL_Environment,
-    
-    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)
-        - COALESCE(qry.qry_CELL_Override_City, 0)
-        - COALESCE(qry.qry_CELL_Override_Settlement, 0)
-        - COALESCE(qry.qry_CELL_Override_Playerhome, 0)
-        - COALESCE(qry.qry_CELL_Override_Dungeon, 0)
-        - COALESCE(qry.qry_CELL_Override_Ship, 0)
-    ) AS calc_CELL_Override_Environment,
-    
-    COALESCE(helper.calc_Helper_Objects, 0) AS calc_Helper_Objects,
-    CAST(COALESCE(helper.calc_Helper_Objects, 0) AS REAL) / MAX(1, COALESCE(helper.calc_Helper_Refs_Netto, 0)) AS calc_Helper_Objects_Ratio
-
-FROM Components_ESM_References ref
-LEFT JOIN (
-    SELECT 
-        Component_ID,
-        SUM(calc_Helper_Objects) AS calc_Helper_Objects,
-        SUM(calc_CELL_Refs - calc_Deko_Objects) AS calc_Helper_Refs_Netto
-    FROM View_Components_CELL_Helper_Objects
-    GROUP BY Component_ID
-) helper ON ref.Component_ID = helper.Component_ID
-LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
--- Join für die BGS-Klassifizierung:
-LEFT JOIN Components c ON ref.Component_ID = c.ID
-LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
-LEFT JOIN Mods m ON mc.Mod_ID = m.ID
-LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID;
-
-
-CREATE TABLE IF NOT EXISTS "Components_References_Base" (
-    "Component_ID" INTEGER PRIMARY KEY,
-    
-    -- Berechnungsspalten für Dimensionen
-    "dim_calc_inner_Bugfix" REAL,
-    "dim_calc_outer_Bugfix" REAL,
-    "dim_calc_inner_Overhaul" INTEGER,
-    "dim_calc_outer_Overhaul" INTEGER,
-    "dim_calc_inner_Quest" REAL,
-    "dim_calc_outer_Quest" INTEGER,
-    "dim_calc_inner_Umgebung" REAL,
-    "dim_calc_outer_Umgebung" REAL,
-    "dim_calc_inner_Städte" REAL,
-    "dim_calc_outer_Städte" REAL,
-    "dim_calc_inner_Gebäude" REAL,
-    "dim_calc_outer_Gebäude" REAL,
-    "dim_calc_inner_Spielerheime" REAL,
-    "dim_calc_outer_Spielerheime" REAL,
-    "dim_calc_inner_Außenposten" REAL,
-    "dim_calc_outer_Außenposten" REAL,
-    "dim_calc_inner_Einrichtung" REAL,
-    "dim_calc_outer_Einrichtung" REAL,
-    "dim_calc_inner_POIs" REAL,
-    "dim_calc_outer_POIs" REAL,
-    "dim_calc_inner_Pflanzen" REAL,
-    "dim_calc_outer_Pflanzen" REAL,
-    "dim_calc_inner_Gameplay" REAL,
-    "dim_calc_outer_Gameplay" REAL,
-    "dim_calc_inner_NPCs" REAL,
-    "dim_calc_outer_NPCs" REAL,
-    "dim_calc_inner_Begleiter" REAL,
-    "dim_calc_outer_Begleiter" REAL,
-    "dim_calc_inner_Kreaturen" REAL,
-    "dim_calc_outer_Kreaturen" REAL,
-    "dim_calc_inner_Texturen" REAL,
-    "dim_calc_outer_Texturen" REAL,
-    "dim_calc_inner_Licht" REAL,
-    "dim_calc_outer_Licht" REAL,
-    "dim_calc_inner_Effekte" REAL,
-    "dim_calc_outer_Effekte" REAL,
-    "dim_calc_inner_Sound" REAL,
-    "dim_calc_outer_Sound" REAL,
-    "dim_calc_inner_Interface" REAL,
-    "dim_calc_outer_Interface" REAL,
-    "dim_calc_inner_Sortierung" REAL,
-    "dim_calc_outer_Sortierung" REAL,
-    "dim_calc_inner_Tweaks" REAL,
-    "dim_calc_outer_Tweaks" REAL,
-    "dim_calc_inner_Charakter" REAL,
-    "dim_calc_outer_Charakter" REAL,
-    "dim_calc_inner_Kleidung" REAL,
-    "dim_calc_outer_Kleidung" REAL,
-    "dim_calc_inner_Waffen" REAL,
-    "dim_calc_outer_Waffen" REAL,
-    "dim_calc_inner_Crafting" REAL,
-    "dim_calc_outer_Crafting" REAL,
-    "dim_calc_inner_Schiffe" REAL,
-    "dim_calc_outer_Schiffe" REAL,
-    "dim_calc_inner_Fahrzeuge" REAL,
-    "dim_calc_outer_Fahrzeuge" REAL,
-    "dim_calc_inner_Items" REAL,
-    "dim_calc_outer_Items" REAL,
-    "dim_calc_inner_Skins" REAL,
-    "dim_calc_outer_Skins" REAL,
-    "dim_calc_inner_Remove" REAL,
-    "dim_calc_outer_Remove" REAL,
-    
-    -- Dynamisch ermittelte Zellen
-    "qry_CELL_City" INTEGER,
-    "qry_CELL_Override_City" INTEGER,
-    "qry_CELL_City_PackIn" INTEGER,
-    "qry_CELL_Override_City_PackIn" INTEGER,
-    "qry_CELL_Settlement" INTEGER,
-    "qry_CELL_Override_Settlement" INTEGER,
-    "qry_CELL_Settlement_PackIn" INTEGER,
-    "qry_CELL_Override_Settlement_PackIn" INTEGER,
-    "qry_CELL_Playerhome" INTEGER,
-    "qry_CELL_Override_Playerhome" INTEGER,
-    "qry_CELL_Playerhome_PackIn" INTEGER,
-    "qry_CELL_Override_Playerhome_PackIn" INTEGER,
-    "qry_CELL_Dungeon" INTEGER,
-    "qry_CELL_Override_Dungeon" INTEGER,
-    "qry_CELL_Dungeon_PackIn" INTEGER,
-    "qry_CELL_Override_Dungeon_PackIn" INTEGER,
-    "qry_CELL_Ship" INTEGER,
-    "qry_CELL_Override_Ship" INTEGER,
-    "qry_CELL_Ship_PackIn" INTEGER,
-    "qry_CELL_Override_Ship_PackIn" INTEGER,
-    
-    -- Berechnete Werte
-    "calc_Total_Base_Val" INTEGER,
-    "calc_Total_Override_Val" INTEGER,
-    "calc_Num_Override_Categories" INTEGER,
-    "calc_Overhaul_Active_Areas" INTEGER,
-    "calc_CELL_real" INTEGER,
-    "calc_CELL_Override_real" INTEGER,
-    "calc_CELL_Environment" INTEGER,
-    "calc_CELL_Override_Environment" INTEGER,
-    "calc_Helper_Objects" INTEGER,
-    "calc_Helper_Objects_Ratio" REAL,
-    "calc_Override_Ratio" REAL,
-    
-    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
-);
-
-CREATE VIEW IF NOT EXISTS "View_Components_References_Base" AS
+CREATE VIEW "View_Components_References_Base" AS
 SELECT
     ref.Component_ID,
     
@@ -1570,6 +840,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_CrowdRegion_Override, 0) - 
            COALESCE(ref.GBFM_EDID_Vehicle_Override, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship_Override, 0) + 
+    COALESCE(ref.CLFM_KYWD_Ship_Override, 0) + 
     COALESCE(ref.STMP_Override, 0) + 
     COALESCE(ref.STND_Override, 0) + 
     COALESCE(ref.STBH_Override, 0) + 
@@ -1581,6 +852,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_CrowdRegion, 0) - 
            COALESCE(ref.GBFM_EDID_Vehicle, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship, 0) + 
+    COALESCE(ref.CLFM_KYWD_Ship, 0) + 
     COALESCE(ref.STMP, 0) + 
     COALESCE(ref.STND, 0) + 
     COALESCE(ref.STBH, 0) + 
@@ -1611,14 +883,14 @@ SELECT
     COALESCE(ref.OMOD_Override, 0) + 
     COALESCE(ref.LMSW_Override, 0) + 
     COALESCE(ref.TXST_Override, 0) + 
-    COALESCE(ref.CLFM_Override, 0) + 
+    COALESCE(ref.CLFM_KYWD_Skin_Override, 0) + 
     COALESCE(ref.ARMO_Override, 0) + 
     COALESCE(ref.WEAP_Override, 0) AS dim_calc_inner_Skins,
     
     COALESCE(ref.OMOD, 0) + 
     COALESCE(ref.LMSW, 0) + 
     COALESCE(ref.TXST, 0) + 
-    COALESCE(ref.CLFM, 0) + 
+    COALESCE(ref.CLFM_KYWD_Skin, 0) + 
     COALESCE(ref.ARMO_Override, 0) + 
     COALESCE(ref.WEAP_Override, 0) AS dim_calc_outer_Skins,
     COALESCE(ref.REFR_Deleted, 0) + 
@@ -1687,10 +959,196 @@ SELECT
 FROM Components_ESM_References ref
 LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
 LEFT JOIN View_Components_References_Calc calc ON ref.Component_ID = calc.Component_ID;
-;
 
+CREATE VIEW "View_Components_References_Calc" AS
+SELECT
+    ref.Component_ID,
+    
+    -- Hilfssummen für Overrides (inklusive logische Forms: AVIF, CONT, FLST, KYWD, MISC, SOUN, TERM, TXST, WTHS)
+    (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
+     COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
+     COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
+     COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
+     COALESCE(ref.CPTH, 0) + 
+     COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
+     COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
+     COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
+     COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
+     COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
+     COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
+     COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
+     COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
+     COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
+     COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
+     COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
+     COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
+     COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
+     COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
+     COALESCE(ref.WTHS, 0)) AS calc_Total_Base_Val,
+     
+    (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+     COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
+     COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
+     COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
+     COALESCE(ref.CPTH_Override, 0) + 
+     COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
+     COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+     COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
+     COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
+     COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
+     COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
+     COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
+     COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
+     COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
+     COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+     COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
+     COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
+     COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
+     COALESCE(ref.WTHS_Override, 0)) AS calc_Total_Override_Val,
 
-CREATE VIEW IF NOT EXISTS "View_Components_References_Matrix" AS
+    ((CASE WHEN ref.ALCH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.AMMO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.ARMO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.AVIF_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.BIOM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.BOOK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CAMS_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CELL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CLMT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.COBJ_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CONT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.CPTH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.DIAL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.EFSH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.ENCH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FLOR_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FLST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.FURN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.GLOB_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.GMST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.IMAD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.INFO_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.INNR_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.KEYM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LCTN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LIGH_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LMSW_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLI_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.LVLP_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MGEF_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MISC_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MSTT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.MUSC_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.NPC__Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.OMOD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.PERK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.QUST_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.RACE_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.REGN_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.RSPJ_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.SFBK_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.SPEL_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.STAT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.STDT_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.TERM_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WEAP_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WRLD_Override > 0 THEN 1 ELSE 0 END) + 
+     (CASE WHEN ref.WTHS_Override > 0 THEN 1 ELSE 0 END)) AS calc_Num_Override_Categories,
+
+    -- Das Verhältnis (Ratio)
+    CAST(
+        (COALESCE(ref.ALCH_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.ARMO_Override, 0) + 
+         COALESCE(ref.AVIF_Override, 0) + COALESCE(ref.BIOM_Override, 0) + COALESCE(ref.BOOK_Override, 0) + 
+         COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CELL_Override, 0) + 
+         COALESCE(ref.CLMT_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.CONT_Override, 0) + 
+         COALESCE(ref.CPTH_Override, 0) + 
+         COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.EFSH_Override, 0) + COALESCE(ref.ENCH_Override, 0) + 
+         COALESCE(ref.FLOR_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+         COALESCE(ref.GLOB_Override, 0) + COALESCE(ref.GMST_Override, 0) + COALESCE(ref.IMAD_Override, 0) + 
+         COALESCE(ref.INFO_Override, 0) + COALESCE(ref.INNR_Override, 0) + COALESCE(ref.KEYM_Override, 0) + 
+         COALESCE(ref.LCTN_Override, 0) + COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.LMSW_Override, 0) + 
+         COALESCE(ref.LVLI_Override, 0) + COALESCE(ref.LVLN_Override, 0) + COALESCE(ref.LVLP_Override, 0) + 
+         COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.MISC_Override, 0) + COALESCE(ref.MSTT_Override, 0) + 
+         COALESCE(ref.MUSC_Override, 0) + COALESCE(ref.NPC__Override, 0) + 
+         COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.QUST_Override, 0) + 
+         COALESCE(ref.RACE_Override, 0) + COALESCE(ref.REGN_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+         COALESCE(ref.SFBK_Override, 0) + COALESCE(ref.SPEL_Override, 0) + 
+         COALESCE(ref.STAT_Override, 0) + COALESCE(ref.STDT_Override, 0) + COALESCE(ref.TERM_Override, 0) + 
+         COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.WRLD_Override, 0) + 
+         COALESCE(ref.WTHS_Override, 0)) AS REAL
+    ) / NULLIF(
+        (COALESCE(ref.ALCH, 0) + COALESCE(ref.AMMO, 0) + COALESCE(ref.ARMO, 0) + 
+         COALESCE(ref.AVIF, 0) + COALESCE(ref.BIOM, 0) + COALESCE(ref.BOOK, 0) + 
+         COALESCE(ref.CAMS, 0) + COALESCE(ref.CELL, 0) + 
+         COALESCE(ref.CLMT, 0) + COALESCE(ref.COBJ, 0) + COALESCE(ref.CONT, 0) + 
+         COALESCE(ref.CPTH, 0) + 
+         COALESCE(ref.DIAL, 0) + COALESCE(ref.EFSH, 0) + COALESCE(ref.ENCH, 0) + 
+         COALESCE(ref.FLOR, 0) + COALESCE(ref.FLST, 0) + COALESCE(ref.FURN, 0) + 
+         COALESCE(ref.GBFM, 0) + COALESCE(ref.GLOB, 0) + COALESCE(ref.GMST, 0) + COALESCE(ref.IMAD, 0) + 
+         COALESCE(ref.INFO, 0) + COALESCE(ref.INNR, 0) + COALESCE(ref.KEYM, 0) + 
+         COALESCE(ref.KYWD, 0) + COALESCE(ref.LCTN, 0) + COALESCE(ref.LIGH, 0) + 
+         COALESCE(ref.LMSW, 0) + COALESCE(ref.LVLI, 0) + COALESCE(ref.LVLN, 0) + 
+         COALESCE(ref.LVLP, 0) + COALESCE(ref.MGEF, 0) + COALESCE(ref.MISC, 0) + 
+         COALESCE(ref.MSTT, 0) + COALESCE(ref.MUSC, 0) + 
+         COALESCE(ref.NAVM, 0) + COALESCE(ref.NPC_, 0) + COALESCE(ref.OMOD, 0) + COALESCE(ref.PERK, 0) + 
+         COALESCE(ref.PKIN, 0) + COALESCE(ref.QUST, 0) + COALESCE(ref.RACE, 0) + COALESCE(ref.REGN, 0) + 
+         COALESCE(ref.RSPJ, 0) + COALESCE(ref.SFBK, 0) + COALESCE(ref.SOUN, 0) + 
+         COALESCE(ref.SPEL, 0) + COALESCE(ref.STAT, 0) + 
+         COALESCE(ref.STDT, 0) + COALESCE(ref.TERM, 0) + 
+         COALESCE(ref.TXST, 0) + COALESCE(ref.WEAP, 0) + COALESCE(ref.WRLD, 0) + 
+         COALESCE(ref.WTHS, 0)), 0
+    ) AS calc_Override_Ratio,
+
+    -- Zähler der aktiven funktionalen Bereiche für Overhauls (World, Actors, Effects, Items, Systems)
+    (CASE WHEN (COALESCE(ref.CELL_Override, 0) + COALESCE(ref.STAT_Override, 0) + COALESCE(ref.FURN_Override, 0) + 
+                COALESCE(ref.WTHS_Override, 0) + COALESCE(ref.WRLD_Override, 0) + COALESCE(ref.RSPJ_Override, 0) + 
+                COALESCE(ref.STDT_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.NPC__Override, 0) + COALESCE(ref.PERK_Override, 0) + COALESCE(ref.AVIF_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.SPEL_Override, 0) + COALESCE(ref.MGEF_Override, 0) + COALESCE(ref.ENCH_Override, 0) + COALESCE(ref.ALCH_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.WEAP_Override, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.COBJ_Override, 0) + COALESCE(ref.AMMO_Override, 0) + COALESCE(ref.CONT_Override, 0) + COALESCE(ref.MISC_Override, 0)) > 0 THEN 1 ELSE 0 END) +
+    (CASE WHEN (COALESCE(ref.GMST_Override, 0) + COALESCE(ref.QUST_Override, 0) + COALESCE(ref.DIAL_Override, 0) + COALESCE(ref.INFO_Override, 0) + COALESCE(ref.TERM_Override, 0) + COALESCE(ref.FLST_Override, 0) + COALESCE(ref.CAMS_Override, 0) + COALESCE(ref.CPTH_Override, 0)) > 0 THEN 1 ELSE 0 END) AS calc_Overhaul_Active_Areas,
+
+    -- Die bisherigen calc_ Spalten
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)) AS calc_CELL_real,
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)) AS calc_CELL_Override_real,
+    
+    MAX(0, ref.CELL - ref.CELL_PackIn - COALESCE(ref.CELL_Dummy, 0)
+        - COALESCE(qry.qry_CELL_City, 0)
+        - COALESCE(qry.qry_CELL_Settlement, 0)
+        - COALESCE(qry.qry_CELL_Playerhome, 0)
+        - COALESCE(qry.qry_CELL_Dungeon, 0)
+        - COALESCE(qry.qry_CELL_Ship, 0)
+    ) AS calc_CELL_Environment,
+    
+    MAX(0, ref.CELL_Override - ref.CELL_Override_PackIn - COALESCE(ref.CELL_Override_Dummy, 0)
+        - COALESCE(qry.qry_CELL_Override_City, 0)
+        - COALESCE(qry.qry_CELL_Override_Settlement, 0)
+        - COALESCE(qry.qry_CELL_Override_Playerhome, 0)
+        - COALESCE(qry.qry_CELL_Override_Dungeon, 0)
+        - COALESCE(qry.qry_CELL_Override_Ship, 0)
+    ) AS calc_CELL_Override_Environment,
+    
+    COALESCE(helper.calc_Helper_Objects, 0) AS calc_Helper_Objects,
+    CAST(COALESCE(helper.calc_Helper_Objects, 0) AS REAL) / MAX(1, COALESCE(helper.calc_Helper_Refs_Netto, 0)) AS calc_Helper_Objects_Ratio
+
+FROM Components_ESM_References ref
+LEFT JOIN (
+    SELECT 
+        Component_ID,
+        SUM(calc_Helper_Objects) AS calc_Helper_Objects,
+        SUM(calc_CELL_Refs - calc_Deko_Objects) AS calc_Helper_Refs_Netto
+    FROM View_Components_CELL_Helper_Objects
+    GROUP BY Component_ID
+) helper ON ref.Component_ID = helper.Component_ID
+LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
+-- Join für die BGS-Klassifizierung:
+LEFT JOIN Components c ON ref.Component_ID = c.ID
+LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID;
+
+CREATE VIEW "View_Components_References_Matrix" AS
 SELECT 
     m.Name_Online AS Mod_Name,
     c.File AS Component_File,
@@ -1792,4 +1250,596 @@ LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
 LEFT JOIN LoadOrder_Classifier_Matrix mat ON m.ID = mat.Mod_ID AND c.ID = mat.Component_ID
 LEFT JOIN Components_References_Base base ON ref.Component_ID = base.Component_ID
 WHERE c.Is_Blueprint = 0 AND c.Is_Masterfile > 0;
-;
+
+CREATE VIEW "View_Components_References_Qry" AS
+SELECT 
+    Component_ID,
+    qry_CELL_City,
+    qry_CELL_Override_City,
+    qry_CELL_City_PackIn,
+    qry_CELL_Override_City_PackIn,
+    qry_CELL_Settlement,
+    qry_CELL_Override_Settlement,
+    qry_CELL_Settlement_PackIn,
+    qry_CELL_Override_Settlement_PackIn,
+    qry_CELL_Playerhome,
+    qry_CELL_Override_Playerhome,
+    qry_CELL_Playerhome_PackIn,
+    qry_CELL_Override_Playerhome_PackIn,
+    qry_CELL_Dungeon,
+    qry_CELL_Override_Dungeon,
+    qry_CELL_Dungeon_PackIn,
+    qry_CELL_Override_Dungeon_PackIn,
+    qry_CELL_Ship,
+    qry_CELL_Override_Ship,
+    qry_CELL_Ship_PackIn,
+    qry_CELL_Override_Ship_PackIn
+FROM View_Components_CELL_Typ;
+
+CREATE VIEW "View_Components_System_CELL_Ship" AS
+SELECT 
+    Component_ID,
+    FormID_Local AS Cell_FormID,
+    CASE WHEN LOWER(EDID) LIKE '%packin%' THEN 1 ELSE 0 END AS Is_PackIn
+FROM Components_System_FormIDs
+WHERE Sig = 'CELL' 
+  AND (LOWER(EDID) LIKE '%ship%' 
+       OR LOWER(EDID) LIKE '%station%' 
+       OR LOWER(EDID) LIKE '%spaceship%'
+       OR LOWER(EDID) LIKE 'ss%');
+
+CREATE VIEW "View_Components_System_LCTN" AS
+SELECT 
+    l.ID,
+    l.Component_ID,
+    l.FormID_Local,
+    l.FormID_Keyword,
+    f.EDID
+FROM "Components_System_LCTN" l
+LEFT JOIN "Components_System_FormIDs" f 
+    ON l.FormID_Local = f.FormID_Local 
+   AND f.Sig = 'LCTN';
+
+CREATE TABLE "Assessments" (
+	"ID"	INTEGER NOT NULL,
+	"Description"	TEXT NOT NULL,
+	"Number_of_Stars"	INTEGER,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE "Categories_Creations" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	"ID_Category_LOH"	INTEGER,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("ID_Category_LOH") REFERENCES "Categories_LOH"("ID")
+);
+
+CREATE TABLE "Categories_LOH" (
+	"ID"	INTEGER NOT NULL,
+	"Position"	INTEGER NOT NULL UNIQUE,
+	"Name"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE "Components" (
+	"ID"	INTEGER NOT NULL,
+	"File"	TEXT NOT NULL,
+	"Is_Masterfile"	INTEGER DEFAULT 0,
+	"Is_Blueprint"	INTEGER DEFAULT 0, Filedate_Last_Check TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE Components_ESM_CELL_LCTN (
+            ID INTEGER NOT NULL,
+            Component_ID INTEGER NOT NULL,
+            Cell_FormID INTEGER NOT NULL,
+            FormID_LCTN INTEGER NOT NULL, Is_PackIn INTEGER DEFAULT 0,
+            PRIMARY KEY (ID AUTOINCREMENT),
+            FOREIGN KEY (Component_ID) REFERENCES Components(ID) ON DELETE CASCADE
+        );
+
+CREATE TABLE Components_ESM_FormIDs (
+        Component_ID INTEGER,
+        FormID_Local INTEGER,
+        Sig TEXT,
+        Is_Override INTEGER,
+        Master_Component_ID INTEGER,
+        Master_Is_System INTEGER,
+        Cell_FormID INTEGER,
+        EDID TEXT,
+        Base_FormID INTEGER,
+        PRIMARY KEY (Component_ID, FormID_Local, Is_Override)
+    );
+
+CREATE TABLE "Components_ESM_LCTN" (
+	"ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"FormID_Local"	INTEGER NOT NULL,
+	"FormID_Keyword"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE TABLE "Components_ESM_References" (
+    "Component_ID" INTEGER NOT NULL,
+    "ACHR" INTEGER DEFAULT 0,
+    "ALCH" INTEGER DEFAULT 0,
+    "ALCH_Override" INTEGER DEFAULT 0,
+    "ALCH_Remove" INTEGER DEFAULT 0,
+    "AMMO" INTEGER DEFAULT 0,
+    "AMMO_Override" INTEGER DEFAULT 0,
+    "ARMO" INTEGER DEFAULT 0,
+    "ARMO_Override" INTEGER DEFAULT 0,
+    "AVIF" INTEGER DEFAULT 0,
+    "AVIF_Override" INTEGER DEFAULT 0,
+    "BIOM" INTEGER DEFAULT 0,
+    "BIOM_Override" INTEGER DEFAULT 0,
+    "BOOK" INTEGER DEFAULT 0,
+    "BOOK_Override" INTEGER DEFAULT 0,
+    "CAMS" INTEGER DEFAULT 0,
+    "CAMS_Override" INTEGER DEFAULT 0,
+    "CELL" INTEGER DEFAULT 0,
+    "CELL_Dummy" INTEGER DEFAULT 0,
+    "CELL_Override" INTEGER DEFAULT 0,
+    "CELL_Override_Dummy" INTEGER DEFAULT 0,
+    "CELL_Override_PackIn" INTEGER DEFAULT 0,
+    "CELL_PackIn" INTEGER DEFAULT 0,
+    "CLFM" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Character" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Character_Override" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Ship" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Ship_Override" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Skin" INTEGER DEFAULT 0,
+    "CLFM_KYWD_Skin_Override" INTEGER DEFAULT 0,
+    "CLFM_Override" INTEGER DEFAULT 0,
+    "CLMT" INTEGER DEFAULT 0,
+    "CLMT_Override" INTEGER DEFAULT 0,
+    "COBJ" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Outpost_Heavy" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Outpost_Heavy_Override" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Outpost_Soft" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Outpost_Soft_Override" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Ship" INTEGER DEFAULT 0,
+    "COBJ_BNAM_Ship_Override" INTEGER DEFAULT 0,
+    "COBJ_Override" INTEGER DEFAULT 0,
+    "CONT" INTEGER DEFAULT 0,
+    "CONT_Override" INTEGER DEFAULT 0,
+    "CPTH" INTEGER DEFAULT 0,
+    "CPTH_Override" INTEGER DEFAULT 0,
+    "DIAL" INTEGER DEFAULT 0,
+    "DIAL_Override" INTEGER DEFAULT 0,
+    "EFSH" INTEGER DEFAULT 0,
+    "EFSH_Override" INTEGER DEFAULT 0,
+    "EFSH_Remove" INTEGER DEFAULT 0,
+    "ENCH" INTEGER DEFAULT 0,
+    "ENCH_Override" INTEGER DEFAULT 0,
+    "ENCH_Remove" INTEGER DEFAULT 0,
+    "FLOR" INTEGER DEFAULT 0,
+    "FLOR_Override" INTEGER DEFAULT 0,
+    "FLOR_Remove" INTEGER DEFAULT 0,
+    "FLST" INTEGER DEFAULT 0,
+    "FLST_Override" INTEGER DEFAULT 0,
+    "FURN" INTEGER DEFAULT 0,
+    "FURN_Override" INTEGER DEFAULT 0,
+    "FURN_VCMT" INTEGER DEFAULT 0,
+    "FURN_VCMT_Override" INTEGER DEFAULT 0,
+    "FURN_VCTT" INTEGER DEFAULT 0,
+    "FURN_VCTT_Override" INTEGER DEFAULT 0,
+    "FURN_VMRT" INTEGER DEFAULT 0,
+    "FURN_VMRT_Override" INTEGER DEFAULT 0,
+    "FURN_VWWD" INTEGER DEFAULT 0,
+    "FURN_VWWD_Override" INTEGER DEFAULT 0,
+    "GBFM" INTEGER DEFAULT 0,
+    "GBFM_EDID_CrowdRegion" INTEGER DEFAULT 0,
+    "GBFM_EDID_CrowdRegion_Override" INTEGER DEFAULT 0,
+    "GBFM_EDID_Vehicle" INTEGER DEFAULT 0,
+    "GBFM_EDID_Vehicle_Override" INTEGER DEFAULT 0,
+    "GBFM_Override" INTEGER DEFAULT 0,
+    "GLOB" INTEGER DEFAULT 0,
+    "GLOB_Override" INTEGER DEFAULT 0,
+    "GMST" INTEGER DEFAULT 0,
+    "GMST_Override" INTEGER DEFAULT 0,
+    "HDPT" INTEGER DEFAULT 0,
+    "HDPT_Override" INTEGER DEFAULT 0,
+    "IMAD" INTEGER DEFAULT 0,
+    "IMAD_Override" INTEGER DEFAULT 0,
+    "INFO" INTEGER DEFAULT 0,
+    "INFO_Override" INTEGER DEFAULT 0,
+    "INNR" INTEGER DEFAULT 0,
+    "INNR_Override" INTEGER DEFAULT 0,
+    "KEYM" INTEGER DEFAULT 0,
+    "KEYM_Override" INTEGER DEFAULT 0,
+    "KYWD" INTEGER DEFAULT 0,
+    "LCTN" INTEGER DEFAULT 0,
+    "LCTN_KYWD_City" INTEGER DEFAULT 0,
+    "LCTN_KYWD_City_Override" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Dungeon" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Dungeon_Override" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Playerhome" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Playerhome_Override" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Settlement" INTEGER DEFAULT 0,
+    "LCTN_KYWD_Settlement_Override" INTEGER DEFAULT 0,
+    "LCTN_Override" INTEGER DEFAULT 0,
+    "LIGH" INTEGER DEFAULT 0,
+    "LIGH_FNAM" INTEGER DEFAULT 0,
+    "LIGH_Override" INTEGER DEFAULT 0,
+    "LMSW" INTEGER DEFAULT 0,
+    "LMSW_Override" INTEGER DEFAULT 0,
+    "LVLI" INTEGER DEFAULT 0,
+    "LVLI_Override" INTEGER DEFAULT 0,
+    "LVLN" INTEGER DEFAULT 0,
+    "LVLN_Override" INTEGER DEFAULT 0,
+    "LVLP" INTEGER DEFAULT 0,
+    "LVLP_Override" INTEGER DEFAULT 0,
+    "MGEF" INTEGER DEFAULT 0,
+    "MGEF_Override" INTEGER DEFAULT 0,
+    "MGEF_Remove" INTEGER DEFAULT 0,
+    "MISC" INTEGER DEFAULT 0,
+    "MISC_Override" INTEGER DEFAULT 0,
+    "MOVT" INTEGER DEFAULT 0,
+    "MOVT_Override" INTEGER DEFAULT 0,
+    "MSTT" INTEGER DEFAULT 0,
+    "MSTT_Override" INTEGER DEFAULT 0,
+    "MUSC" INTEGER DEFAULT 0,
+    "MUSC_Override" INTEGER DEFAULT 0,
+    "NAVM" INTEGER DEFAULT 0,
+    "NPC_" INTEGER DEFAULT 0,
+    "NPC_KYWD_Companion" INTEGER DEFAULT 0,
+    "NPC_KYWD_Companion_Override" INTEGER DEFAULT 0,
+    "NPC_KYWD_Creature" INTEGER DEFAULT 0,
+    "NPC_KYWD_Creature_Override" INTEGER DEFAULT 0,
+    "NPC_KYWD_Ship" INTEGER DEFAULT 0,
+    "NPC_KYWD_Ship_Override" INTEGER DEFAULT 0,
+    "NPC_KYWD_Shop" INTEGER DEFAULT 0,
+    "NPC_KYWD_Shop_Override" INTEGER DEFAULT 0,
+    "NPC__Override" INTEGER DEFAULT 0,
+    "OMOD" INTEGER DEFAULT 0,
+    "OMOD_Override" INTEGER DEFAULT 0,
+    "PCBN" INTEGER DEFAULT 0,
+    "PCCN" INTEGER DEFAULT 0,
+    "PERK" INTEGER DEFAULT 0,
+    "PERK_Override" INTEGER DEFAULT 0,
+    "PERK_Remove" INTEGER DEFAULT 0,
+    "PKIN" INTEGER DEFAULT 0,
+    "QUST" INTEGER DEFAULT 0,
+    "QUST_FULL" INTEGER DEFAULT 0,
+    "QUST_INDX" INTEGER DEFAULT 0,
+    "QUST_Override" INTEGER DEFAULT 0,
+    "QUST_QOBJ" INTEGER DEFAULT 0,
+    "QUST_QTYP_0" INTEGER DEFAULT 0,
+    "QUST_QTYP_1" INTEGER DEFAULT 0,
+    "QUST_QTYP_2" INTEGER DEFAULT 0,
+    "QUST_QTYP_3" INTEGER DEFAULT 0,
+    "QUST_QTYP_4" INTEGER DEFAULT 0,
+    "QUST_QTYP_5" INTEGER DEFAULT 0,
+    "RACE" INTEGER DEFAULT 0,
+    "RACE_Override" INTEGER DEFAULT 0,
+    "REFR" INTEGER DEFAULT 0,
+    "REFR_Buried" INTEGER DEFAULT 0,
+    "REFR_Deleted" INTEGER DEFAULT 0,
+    "REFR_Disabled" INTEGER DEFAULT 0,
+    "REGN" INTEGER DEFAULT 0,
+    "REGN_Override" INTEGER DEFAULT 0,
+    "RSPJ" INTEGER DEFAULT 0,
+    "RSPJ_Override" INTEGER DEFAULT 0,
+    "SFBK" INTEGER DEFAULT 0,
+    "SFBK_Override" INTEGER DEFAULT 0,
+    "SOUN" INTEGER DEFAULT 0,
+    "SOUN_Override" INTEGER DEFAULT 0,
+    "SPEL" INTEGER DEFAULT 0,
+    "SPEL_Override" INTEGER DEFAULT 0,
+    "SPEL_Remove" INTEGER DEFAULT 0,
+    "STAT" INTEGER DEFAULT 0,
+    "STAT_Override" INTEGER DEFAULT 0,
+    "STBH" INTEGER DEFAULT 0,
+    "STBH_Override" INTEGER DEFAULT 0,
+    "STDT" INTEGER DEFAULT 0,
+    "STDT_Override" INTEGER DEFAULT 0,
+    "STMP" INTEGER DEFAULT 0,
+    "STMP_Override" INTEGER DEFAULT 0,
+    "STND" INTEGER DEFAULT 0,
+    "STND_Override" INTEGER DEFAULT 0,
+    "Shifter_Quest_Chest" REAL DEFAULT 0.0,
+    "Shifter_Quest_Ship" REAL DEFAULT 0.0,
+    "Shifter_Quest_Starter" REAL DEFAULT 0.0,
+    "Shifter_Quest_Trader" REAL DEFAULT 0.0,
+    "TERM" INTEGER DEFAULT 0,
+    "TERM_Override" INTEGER DEFAULT 0,
+    "TXST" INTEGER DEFAULT 0,
+    "TXST_Override" INTEGER DEFAULT 0,
+    "WEAP" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Helper" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Helper_Override" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Ship" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Ship_Override" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Vehicle" INTEGER DEFAULT 0,
+    "WEAP_KWDA_Vehicle_Override" INTEGER DEFAULT 0,
+    "WEAP_Override" INTEGER DEFAULT 0,
+    "WRLD" INTEGER DEFAULT 0,
+    "WRLD_Override" INTEGER DEFAULT 0,
+    "WTHS" INTEGER DEFAULT 0,
+    "WTHS_Override" INTEGER DEFAULT 0,
+    PRIMARY KEY("Component_ID"),
+    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE TABLE "Components_References_Base" (
+    "Component_ID" INTEGER PRIMARY KEY,
+    
+    -- Berechnungsspalten für Dimensionen
+    "dim_calc_inner_Bugfix" REAL,
+    "dim_calc_outer_Bugfix" REAL,
+    "dim_calc_inner_Overhaul" INTEGER,
+    "dim_calc_outer_Overhaul" INTEGER,
+    "dim_calc_inner_Quest" REAL,
+    "dim_calc_outer_Quest" INTEGER,
+    "dim_calc_inner_Umgebung" REAL,
+    "dim_calc_outer_Umgebung" REAL,
+    "dim_calc_inner_Städte" REAL,
+    "dim_calc_outer_Städte" REAL,
+    "dim_calc_inner_Gebäude" REAL,
+    "dim_calc_outer_Gebäude" REAL,
+    "dim_calc_inner_Spielerheime" REAL,
+    "dim_calc_outer_Spielerheime" REAL,
+    "dim_calc_inner_Außenposten" REAL,
+    "dim_calc_outer_Außenposten" REAL,
+    "dim_calc_inner_Einrichtung" REAL,
+    "dim_calc_outer_Einrichtung" REAL,
+    "dim_calc_inner_POIs" REAL,
+    "dim_calc_outer_POIs" REAL,
+    "dim_calc_inner_Pflanzen" REAL,
+    "dim_calc_outer_Pflanzen" REAL,
+    "dim_calc_inner_Gameplay" REAL,
+    "dim_calc_outer_Gameplay" REAL,
+    "dim_calc_inner_NPCs" REAL,
+    "dim_calc_outer_NPCs" REAL,
+    "dim_calc_inner_Begleiter" REAL,
+    "dim_calc_outer_Begleiter" REAL,
+    "dim_calc_inner_Kreaturen" REAL,
+    "dim_calc_outer_Kreaturen" REAL,
+    "dim_calc_inner_Texturen" REAL,
+    "dim_calc_outer_Texturen" REAL,
+    "dim_calc_inner_Licht" REAL,
+    "dim_calc_outer_Licht" REAL,
+    "dim_calc_inner_Effekte" REAL,
+    "dim_calc_outer_Effekte" REAL,
+    "dim_calc_inner_Sound" REAL,
+    "dim_calc_outer_Sound" REAL,
+    "dim_calc_inner_Interface" REAL,
+    "dim_calc_outer_Interface" REAL,
+    "dim_calc_inner_Sortierung" REAL,
+    "dim_calc_outer_Sortierung" REAL,
+    "dim_calc_inner_Tweaks" REAL,
+    "dim_calc_outer_Tweaks" REAL,
+    "dim_calc_inner_Charakter" REAL,
+    "dim_calc_outer_Charakter" REAL,
+    "dim_calc_inner_Kleidung" REAL,
+    "dim_calc_outer_Kleidung" REAL,
+    "dim_calc_inner_Waffen" REAL,
+    "dim_calc_outer_Waffen" REAL,
+    "dim_calc_inner_Crafting" REAL,
+    "dim_calc_outer_Crafting" REAL,
+    "dim_calc_inner_Schiffe" REAL,
+    "dim_calc_outer_Schiffe" REAL,
+    "dim_calc_inner_Fahrzeuge" REAL,
+    "dim_calc_outer_Fahrzeuge" REAL,
+    "dim_calc_inner_Items" REAL,
+    "dim_calc_outer_Items" REAL,
+    "dim_calc_inner_Skins" REAL,
+    "dim_calc_outer_Skins" REAL,
+    "dim_calc_inner_Remove" REAL,
+    "dim_calc_outer_Remove" REAL,
+    
+    -- Dynamisch ermittelte Zellen
+    "qry_CELL_City" INTEGER,
+    "qry_CELL_Override_City" INTEGER,
+    "qry_CELL_City_PackIn" INTEGER,
+    "qry_CELL_Override_City_PackIn" INTEGER,
+    "qry_CELL_Settlement" INTEGER,
+    "qry_CELL_Override_Settlement" INTEGER,
+    "qry_CELL_Settlement_PackIn" INTEGER,
+    "qry_CELL_Override_Settlement_PackIn" INTEGER,
+    "qry_CELL_Playerhome" INTEGER,
+    "qry_CELL_Override_Playerhome" INTEGER,
+    "qry_CELL_Playerhome_PackIn" INTEGER,
+    "qry_CELL_Override_Playerhome_PackIn" INTEGER,
+    "qry_CELL_Dungeon" INTEGER,
+    "qry_CELL_Override_Dungeon" INTEGER,
+    "qry_CELL_Dungeon_PackIn" INTEGER,
+    "qry_CELL_Override_Dungeon_PackIn" INTEGER,
+    "qry_CELL_Ship" INTEGER,
+    "qry_CELL_Override_Ship" INTEGER,
+    "qry_CELL_Ship_PackIn" INTEGER,
+    "qry_CELL_Override_Ship_PackIn" INTEGER,
+    
+    -- Berechnete Werte
+    "calc_Total_Base_Val" INTEGER,
+    "calc_Total_Override_Val" INTEGER,
+    "calc_Num_Override_Categories" INTEGER,
+    "calc_Overhaul_Active_Areas" INTEGER,
+    "calc_CELL_real" INTEGER,
+    "calc_CELL_Override_real" INTEGER,
+    "calc_CELL_Environment" INTEGER,
+    "calc_CELL_Override_Environment" INTEGER,
+    "calc_Helper_Objects" INTEGER,
+    "calc_Helper_Objects_Ratio" REAL,
+    "calc_Override_Ratio" REAL,
+    
+    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE TABLE "Components_System" (
+            "ID" INTEGER NOT NULL,
+            "File" TEXT NOT NULL UNIQUE,
+            "Friendly_Name" TEXT,
+            "Author" TEXT,
+            "Description" TEXT,
+            "REFR" INTEGER DEFAULT 0,
+            "ACHR" INTEGER DEFAULT 0,
+            "PKIN" INTEGER DEFAULT 0,
+            "Filedate_Last_Check" TEXT,
+            PRIMARY KEY("ID" AUTOINCREMENT)
+        );
+
+CREATE TABLE Components_System_CELL_LCTN (
+            ID INTEGER NOT NULL,
+            Component_ID INTEGER NOT NULL,
+            Cell_FormID INTEGER NOT NULL,
+            FormID_LCTN INTEGER NOT NULL, Is_PackIn INTEGER DEFAULT 0,
+            PRIMARY KEY (ID AUTOINCREMENT),
+            FOREIGN KEY (Component_ID) REFERENCES Components_System(ID) ON DELETE CASCADE
+        );
+
+CREATE TABLE Components_System_FormIDs (
+        Component_ID INTEGER,
+        FormID_Local INTEGER,
+        Sig TEXT,
+        Is_Override INTEGER,
+        Master_Component_ID INTEGER,
+        Master_Is_System INTEGER,
+        Cell_FormID INTEGER,
+        EDID TEXT,
+        Base_FormID INTEGER,
+        PRIMARY KEY (Component_ID, FormID_Local, Is_Override)
+    );
+
+CREATE TABLE "Components_System_LCTN" (
+	"ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"FormID_Local"	INTEGER NOT NULL,
+	"FormID_Keyword"	INTEGER NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("Component_ID") REFERENCES "Components_System"("ID") ON DELETE CASCADE
+);
+
+CREATE TABLE "LoadOrder" (
+	"ID_Profile"	INTEGER NOT NULL,
+	"ID_Component"	INTEGER NOT NULL,
+	"Position"	INTEGER NOT NULL,
+	"Is_Active"	INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY("ID_Component","ID_Profile"),
+	UNIQUE("ID_Profile","Position"),
+	FOREIGN KEY("ID_Component") REFERENCES "Components"("ID") ON DELETE CASCADE
+);
+
+CREATE TABLE LoadOrder_Classifier_Matrix (
+                Mod_ID INTEGER,
+                Component_ID INTEGER,
+                "1" INTEGER DEFAULT 1, "2" INTEGER DEFAULT 1, "3" INTEGER DEFAULT 1, "4" INTEGER DEFAULT 1, "5" INTEGER DEFAULT 1, "6" INTEGER DEFAULT 1, "7" INTEGER DEFAULT 1, "8" INTEGER DEFAULT 1, "30" INTEGER DEFAULT 1, "31" INTEGER DEFAULT 1, "9" INTEGER DEFAULT 1, "10" INTEGER DEFAULT 1, "11" INTEGER DEFAULT 1, "12" INTEGER DEFAULT 1, "32" INTEGER DEFAULT 1, "33" INTEGER DEFAULT 1, "13" INTEGER DEFAULT 1, "14" INTEGER DEFAULT 1, "15" INTEGER DEFAULT 1, "16" INTEGER DEFAULT 1, "17" INTEGER DEFAULT 1, "18" INTEGER DEFAULT 1, "19" INTEGER DEFAULT 1, "20" INTEGER DEFAULT 1, "21" INTEGER DEFAULT 1, "22" INTEGER DEFAULT 1, "23" INTEGER DEFAULT 1, "24" INTEGER DEFAULT 1, "25" INTEGER DEFAULT 1, "26" INTEGER DEFAULT 1, "27" INTEGER DEFAULT 1, "28" INTEGER DEFAULT 1,
+                PRIMARY KEY (Mod_ID, Component_ID),
+                FOREIGN KEY(Mod_ID) REFERENCES Mods(ID) ON DELETE CASCADE,
+                FOREIGN KEY(Component_ID) REFERENCES Components(ID) ON DELETE CASCADE
+            );
+
+CREATE TABLE "Mods" (
+                "ID"    INTEGER NOT NULL,
+                "Platform"    INTEGER NOT NULL,
+                "URL"    TEXT,
+                "ID_ContentCatalog"    TEXT,
+                "Name_ContentCatalog"    TEXT,
+                "Name_Online"    TEXT,
+                "Author"    TEXT,
+                "Description"    TEXT,
+                "Image"    BLOB,
+                "Category_LOH"    INTEGER,
+                "Category_LOH_Classifier"    INTEGER,
+                "Assessment"    INTEGER DEFAULT 4,
+                "Note"    TEXT,
+                "Date_installed"    TEXT,
+                "Version_installed"    TEXT,
+                "Date_available"    TEXT,
+                "Version_available"    TEXT,
+                "Version_Descriptiopn"    TEXT,
+                "State"    INTEGER NOT NULL,
+                PRIMARY KEY("ID" AUTOINCREMENT),
+                FOREIGN KEY("Assessment") REFERENCES "Assessments"("ID"),
+                FOREIGN KEY("Category_LOH") REFERENCES "Categories_LOH"("ID"),
+                FOREIGN KEY("Category_LOH_Classifier") REFERENCES "Categories_LOH"("ID"),
+                FOREIGN KEY("Platform") REFERENCES "Platforms"("ID"),
+                FOREIGN KEY("State") REFERENCES "Mods_State"("ID")
+            );
+
+CREATE TABLE "Mods_Category_Creations" (
+                    "ID_Mod" INTEGER NOT NULL,
+                    "ID_Category_Creations" INTEGER NOT NULL,
+                    PRIMARY KEY("ID_Mod", "ID_Category_Creations"),
+                    FOREIGN KEY("ID_Category_Creations") REFERENCES "Categories_Creations"("ID") ON DELETE CASCADE,
+                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
+                );
+
+CREATE TABLE "Mods_Components" (
+                    "Mod_ID" INTEGER NOT NULL,
+                    "Component_ID" INTEGER NOT NULL,
+                    PRIMARY KEY("Mod_ID", "Component_ID"),
+                    FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+                    FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
+                );
+
+CREATE TABLE "Mods_Requirements" (
+                    "ID_Mod"	INTEGER NOT NULL,
+                    "ID_Mod_Requirement"	INTEGER NOT NULL, "Header_Detection" INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY("ID_Mod","ID_Mod_Requirement"),
+                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+                    FOREIGN KEY("ID_Mod_Requirement") REFERENCES "Mods"("ID") ON DELETE CASCADE
+                );
+
+CREATE TABLE "Mods_Requirements_Masterfile_List" (
+            "ID_Mod"     INTEGER NOT NULL,
+            "Masterfile" TEXT NOT NULL,
+            PRIMARY KEY("ID_Mod", "Masterfile"),
+            FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
+        );
+
+CREATE TABLE "Mods_State" (
+	"ID"	INTEGER NOT NULL,
+	"State"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE "Platforms" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE "Profiles" (
+	"ID"	INTEGER NOT NULL,
+	"Name"	TEXT,
+	"Description"	TEXT,
+	PRIMARY KEY("ID" AUTOINCREMENT)
+);
+
+CREATE TABLE sqlite_sequence(name,seq);
+
+CREATE UNIQUE INDEX idx_comp_ref_base_id ON Components_References_Base (Component_ID);
+
+CREATE INDEX idx_esm_cell_lctn_lookup 
+        ON Components_ESM_CELL_LCTN (Cell_FormID, FormID_LCTN);
+
+CREATE UNIQUE INDEX idx_esm_cell_lctn_unique 
+        ON Components_ESM_CELL_LCTN (Component_ID, Cell_FormID);
+
+CREATE INDEX idx_esm_formids ON Components_ESM_FormIDs (FormID_Local, Is_Override);
+
+CREATE INDEX idx_esm_formids_base ON Components_ESM_FormIDs(Base_FormID);
+
+CREATE INDEX idx_esm_formids_comp_sig ON Components_ESM_FormIDs(Component_ID, Sig);
+
+CREATE INDEX "idx_mods_category_creations_id_mod" ON "Mods_Category_Creations" ("ID_Mod");
+
+CREATE INDEX "idx_mods_components_mod_id" ON "Mods_Components" ("Mod_ID");
+
+CREATE INDEX "idx_mods_req_masterfile" ON "Mods_Requirements_Masterfile_List" ("Masterfile");
+
+CREATE INDEX "idx_mods_requirements_id_mod" ON "Mods_Requirements" ("ID_Mod");
+
+CREATE INDEX "idx_mods_requirements_id_mod_requirement" ON "Mods_Requirements" ("ID_Mod_Requirement");
+
+CREATE INDEX idx_sys_cell_lctn_lookup 
+        ON Components_System_CELL_LCTN (Cell_FormID, FormID_LCTN);
+
+CREATE UNIQUE INDEX idx_sys_cell_lctn_unique 
+        ON Components_System_CELL_LCTN (Component_ID, Cell_FormID);
+
+CREATE INDEX idx_sys_formids ON Components_System_FormIDs (FormID_Local, Is_Override);

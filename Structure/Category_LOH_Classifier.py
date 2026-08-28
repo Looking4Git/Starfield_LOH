@@ -1170,6 +1170,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
     stmp = row.get('STMP') or 0
     stnd = row.get('STND') or 0
     stbh = row.get('STBH') or 0
+    ship_npc = row.get('NPC_KYWD_Ship') or 0
     
     # Echte Schiffskonfigurationen (GBFM abzüglich Crowd- und Fahrzeug-Blaupausen)
     ship_gbfm = gbfm - gbfm_crowd - gbfm_vehicle
@@ -1177,7 +1178,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
     # Prüfe Schiffs-Zellen-Eingriffe
     is_ship = _has_ship_cells(row, cursor, component_id)
     
-    if (ship_gbfm <= 0 and weap_ship == 0 and clfm_ship == 0 and cobj_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0 and not is_ship):
+    if (ship_gbfm <= 0 and weap_ship == 0 and clfm_ship == 0 and cobj_ship == 0 and stmp == 0 and stnd == 0 and stbh == 0 and ship_npc == 0 and not is_ship):
         
         cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Schiffe'")
         s_row = cursor.fetchone()
@@ -2826,12 +2827,14 @@ def _step_11_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
 
             cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
             cobj_op_soft = urow.get('COBJ_BNAM_Outpost_Soft') or 0
-            ship_cells = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+            stbh = urow.get('STBH') or 0
+            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
             vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
-            gbfm = urow.get('GBFM') or 0
 
-            # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft (COBJ_Ship > 0 oder GBFM > 0) und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
-            is_ship_hab_package = (cobj_ship > 0 or gbfm > 0 or ship_cells > 0 or vehicle_gbfm > 0) and cobj_op_soft == 0
+            has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+            # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
+            is_ship_hab_package = (has_ship_builder or vehicle_gbfm > 0) and cobj_op_soft == 0
 
             winner_cid = None
             # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
@@ -2939,11 +2942,22 @@ def _step_12_transport_vs_character(cursor, cat_map, cat_ids, log_msg):
 
         if active_trans_cids and active_char_cids:
             t_cid = active_trans_cids[0]
+            c_cid = active_char_cids[0]
             t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
 
-            # KO-Regel: Transport siegt über Charakter (Engine-Hierarchie & LLO Ladeorder-Priorität)
-            winner_cid = t_cid
-            _log_result(cursor, 12, mid, cid, active_char_cids[0], t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Charakter-Styling per LLO-Ladeordnung und Architektur aus.")
+            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+            stbh = urow.get('STBH') or 0
+            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+            vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+            has_real_transport = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0)
+
+            if has_real_transport:
+                winner_cid = t_cid
+                _log_result(cursor, 12, mid, cid, c_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Charakter-Styling per LLO-Ladeordnung und Architektur aus.")
+            else:
+                winner_cid = c_cid
+                _log_result(cursor, 12, mid, cid, t_cid, c_cid, 3, "Charakter-Styling sticht reine Vanilla-Zellenübersteuerungen ohne Schiffsbaukomponenten per Architektur aus.")
 
             set_clauses = [f'"{winner_cid}" = 12']
             for non_id in non_duel_ids_12:
@@ -3042,14 +3056,24 @@ def _step_13_transport_vs_systems(cursor, cat_map, cat_ids, log_msg):
             if s_name in ('Tweaks', 'Sortierung', 'Interface'):
                 winner_cid = t_cid
                 _log_result(cursor, 13, mid, cid, s_cid, t_cid, 3, f"Schiffs- und Fahrzeugkomponenten ('{t_name}') stechen Hilfs- und Einstellungs-Systeme ('{s_name}') per Architektur aus.")
-            # Regel B: Transport vs. Gameplay per relationalem Massenvergleich
+            # Regel B: Transport vs. Gameplay
             elif s_name == 'Gameplay':
-                if val_t >= val_s:
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                cell_ship = urow.get('qry_CELL_Ship') or 0
+                gbfm_veh = urow.get('GBFM_EDID_Vehicle') or 0
+
+                has_hard_transport = (stbh > 0 or weap_ship > 0 or cell_ship > 0 or gbfm_veh > 0)
+
+                if has_hard_transport:
                     winner_cid = t_cid
-                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. Gameplay: '{t_name}' ({val_t:.1f}) übertrifft '{s_name}' ({val_s:.1f}).")
+                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 3, f"Echte Transport-Hardware/Snap-Nodes ('{t_name}') stechen Gameplay-Mechaniken per Architektur aus.")
+                elif val_t >= (3 * val_s):
+                    winner_cid = t_cid
+                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. Gameplay: Dominante Schiffs-/Fahrzeugmodule ('{t_name}', Wert: {val_t:.1f}) übertreffen Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}).")
                 else:
                     winner_cid = s_cid
-                    _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich Gameplay vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                    _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich Gameplay vs. Transport: Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}) übertreffen Träger-Module ('{t_name}', Wert: {val_t:.1f}).")
             else:
                 if val_t >= val_s:
                     winner_cid = t_cid
@@ -3176,11 +3200,12 @@ def _step_14_transport_vs_actors(cursor, cat_map, cat_ids, log_msg):
             elif a_cid == cat_map.get('Begleiter'):
                 cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
                 stbh = urow.get('STBH') or 0
-                ship_cells = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
                 vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
                 v_furn = (urow.get('FURN_VMRT') or 0) + (urow.get('FURN_VCMT') or 0) + (urow.get('FURN_VWWD') or 0) + (urow.get('FURN_VCTT') or 0)
 
-                has_transport_structures = (cobj_ship > 0 or stbh > 0 or ship_cells > 0 or vehicle_gbfm > 0 or v_furn > 0)
+                has_transport_structures = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0 or v_furn > 0)
 
                 if has_transport_structures:
                     # Mod bringt eigene Schiffs-/Fahrzeugbauten mit -> Transport gewinnt (Block 5)
@@ -3324,8 +3349,15 @@ def _step_15_transport_vs_world(cursor, cat_map, cat_ids, log_msg):
             elif w_cid == cat_map.get('Städte'):
                 lctn_city = urow.get('LCTN_KYWD_City') or 0
                 refr = urow.get('REFR') or 0
-                is_real_city_mod = (lctn_city > 0) or (cell_city > 0 and refr > 500)
-                if is_real_city_mod:
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+
+                if not has_ship_builder and (cell_city > 0 or wrld > 0):
+                    winner_cid = w_cid
+                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Städtisches Nahverkehrs-/Infrastruktursystem ohne Schiffsbau-Komponenten sticht Transport per Raum-Architektur aus.")
+                elif (lctn_city > 0) or (cell_city > 0 and refr > 500):
                     winner_cid = w_cid
                     _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Reale Stadt-Locations / urbane Großstrukturen mit NavMesh stechen Schiffskomponenten aus.")
                 else:
@@ -3349,10 +3381,15 @@ def _step_15_transport_vs_world(cursor, cat_map, cat_ids, log_msg):
                         _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
             # 5. Gebäude:
             elif w_cid == cat_map.get('Gebäude'):
-                if (wrld > 0 or navm > 0) and cobj_ship == 0 and cell_ship == 0:
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+
+                if not has_ship_builder and (wrld > 0 or navm > 0 or (urow.get('calc_CELL_Environment') or 0) > 0 or (urow.get('LCTN_KYWD_Dungeon') or 0) > 0):
                     winner_cid = w_cid
                     _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Echte Welt- und NavMesh-Gebäude stechen Transport per Raum-Architektur aus.")
-                elif (cobj_ship > 0 or cell_ship > 0):
+                elif has_ship_builder:
                     winner_cid = t_cid
                     _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Schiffsinnenräume (Habs) und Schiffsbaukomponenten stechen statische Gebäudehüllen aus.")
                 else:

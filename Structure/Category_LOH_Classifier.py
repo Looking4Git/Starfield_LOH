@@ -13,6 +13,29 @@ import logging
 from Structure.Database import get_db_connection
 
 
+def _log_result(cursor, step_id, mod_id, component_id, looser_id, winner_id, type_id, reason):
+    """
+    Trägt eine Ausschluss- oder Duellentscheidung in die Tabelle LoadOrder_Classifier_Results ein.
+    Wurde diese Kategorie für diese Mod/Komponente bereits in einem früheren Schritt ausgeschlossen,
+    wird der Eintrag ignoriert (jede Kategorie scheidet pro Mod/Komponente genau einmal aus).
+    """
+    if looser_id is None or cursor is None:
+        return
+        
+    cursor.execute("""
+        SELECT 1 FROM LoadOrder_Classifier_Results 
+        WHERE Mod_ID = ? AND Component_ID = ? AND CategoryLOH_ID_Looser = ?
+    """, (mod_id, component_id, looser_id))
+    if cursor.fetchone():
+        return
+        
+    cursor.execute("""
+        INSERT INTO LoadOrder_Classifier_Results 
+        (Step_ID, Mod_ID, Component_ID, CategoryLOH_ID_Looser, CategoryLOH_ID_Winner, Type_ID, Reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (step_id, mod_id, component_id, looser_id, winner_id, type_id, reason))
+
+
 def _exclude_non_bgs(row, cursor, cat_ids):
     """
     Prüft auf den Autor BGS. Ist dies NICHT der Fall, wird die 
@@ -34,7 +57,9 @@ def _exclude_non_bgs(row, cursor, cat_ids):
                 SET "{bgs_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'BGS' ausgeschlossen (Autor ist nicht Bethesda)."
+            reason = "Der Autor der Mod ist nicht Bethesda Game Studios."
+            _log_result(cursor, 1, mod_id, component_id, bgs_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_skin(row, cursor, cat_ids):
@@ -64,7 +89,9 @@ def _exclude_non_skin(row, cursor, cat_ids):
                 SET "{skins_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Skins' ausgeschlossen (keine TXST/CLFM_KYWD_Skin/ARMO_Override/WEAP_Override/OMOD/LMSW-Referenzen)."
+            reason = "Keine Textur-Sets (TXST), Skin-Keywords oder Farbmodifikationen (CLFM/OMOD/LMSW) für bestehende Rüstungen oder Waffen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, skins_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_item(row, cursor, cat_ids):
@@ -91,7 +118,9 @@ def _exclude_non_item(row, cursor, cat_ids):
                 SET "{items_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Items' ausgeschlossen (keine MISC/LVLI/BOOK/KEYM-Referenzen)."
+            reason = "Keine eigenständigen Gegenstände wie Sammelobjekte (MISC), Beutelisten (LVLI), Bücher/Notizen (BOOK) oder Schlüssel (KEYM) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, items_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_weapon(row, cursor, cat_ids):
@@ -123,7 +152,9 @@ def _exclude_non_weapon(row, cursor, cat_ids):
                 SET "{waffen_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Waffen' ausgeschlossen (keine tragbaren WEAP/AMMO-Referenzen)."
+            reason = "Keine tragbaren Handfeuerwaffen (WEAP) oder Munitionstypen (AMMO) für den Charakter definiert."
+            _log_result(cursor, 1, mod_id, component_id, waffen_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_clothing(row, cursor, cat_ids):
@@ -147,7 +178,9 @@ def _exclude_non_clothing(row, cursor, cat_ids):
                 SET "{clothing_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Kleidung' ausgeschlossen (keine ARMO-Referenzen)."
+            reason = "Keine tragbaren Kleidungsstücke, Raumanzüge, Helme oder Rüstungen (ARMO) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, clothing_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_crafting(row, cursor, cat_ids):
@@ -176,7 +209,9 @@ def _exclude_non_crafting(row, cursor, cat_ids):
                 SET "{crafting_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Crafting' ausgeschlossen (keine reinen Werkbank-COBJ-Referenzen)."
+            reason = "Keine Herstellungsrezepte für Werkbänke oder Forschungsstationen (COBJ) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, crafting_id, None, 1, reason)
+            return reason
     return None
 
 def _check_has_sound(cursor, mod_id):
@@ -233,7 +268,9 @@ def _exclude_non_sound(row, cursor, cat_ids):
                 SET "{sound_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Sound' ausgeschlossen (keine SOUN/MUSC/BA2-Sound-Referenzen)."
+            reason = "Keine Sound-Effekte (SOUN), Musikstücke (MUSC) oder Audio-Dateien in den BA2-Archiven vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, sound_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_effects(row, cursor, cat_ids):
@@ -259,7 +296,9 @@ def _exclude_non_effects(row, cursor, cat_ids):
                 SET "{effects_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Effekte' ausgeschlossen (keine EFSH/IMAD-Referenzen)."
+            reason = "Keine visuellen Shader-Effekte (EFSH) oder Bildraum-Anpassungen (IMAD) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, effects_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_light(row, cursor, cat_ids):
@@ -284,7 +323,9 @@ def _exclude_non_light(row, cursor, cat_ids):
                 SET "{light_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Licht' ausgeschlossen (keine LIGH/STDT-Referenzen)."
+            reason = "Keine Lichtquellen (LIGH) oder Licht-Vorlagendatensätze (STDT) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, light_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_textures(row, cursor, cat_ids):
@@ -309,7 +350,9 @@ def _exclude_non_textures(row, cursor, cat_ids):
                 SET "{textures_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Texturen' ausgeschlossen (keine TXST/BA2-Textur-Referenzen)."
+            reason = "Keine Textur-Sets (TXST) oder Textur-Dateien in den BA2-Archiven vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, textures_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_interface(row, cursor, cat_ids):
@@ -337,7 +380,9 @@ def _exclude_non_interface(row, cursor, cat_ids):
                 SET "{interface_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Interface' ausgeschlossen (keine Interface-Assets in BA2-Archiven gefunden)."
+            reason = "Keine Menü-, HUD- oder Interface-Dateien (SWF/GFX/Fonts) in den BA2-Archiven vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, interface_id, None, 1, reason)
+            return reason
             
     return None
 
@@ -363,7 +408,9 @@ def _exclude_non_plants(row, cursor, cat_ids):
                 SET "{plants_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Pflanzen' ausgeschlossen (keine FLOR-Referenzen)."
+            reason = "Keine Pflanzen-, Flora- oder Ernteobjekte (FLOR) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, plants_id, None, 1, reason)
+            return reason
     return None
 
 
@@ -394,7 +441,10 @@ def _exclude_non_poi(row, cursor, cat_ids):
                 SET "{poi_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'POIs' ausgeschlossen (keine passenden LCTN + SFBK + PCBN/PCCN Referenzen vorhanden)."
+            reason = "Keine dynamische POI-Registrierung über Planet Content Manager (PCBN/PCCN) mit Location und Oberflächen-Block (SFBK) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, poi_id, None, 1, reason)
+            return reason
+    return None
     return None
 
 
@@ -546,7 +596,9 @@ def _exclude_non_city(row, cursor, cat_ids):
                 SET "{city_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Städte' ausgeschlossen (keine Stadt-Locations, Stadt-Zellen oder CrowdRegion Referenzen vorhanden)."
+            reason = "Keine Stadt-Locations, urbanen Siedlungszellen oder Passanten-Zonen (CrowdRegion) mit baulichen Strukturen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, city_id, None, 1, reason)
+            return reason
     return None
 
 
@@ -616,7 +668,9 @@ def _exclude_non_building(row, cursor, cat_ids):
                 SET "{bld_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gebäude' ausgeschlossen (keine statische Gebäude- oder Dungeon-Struktur außerhalb von Städten, Spielerheimen oder Schiffen)."
+            reason = "Keine statischen Gebäude-, Außenposten- oder Dungeon-Strukturen (STAT/FURN) außerhalb von Städten, Spielerheimen oder Schiffen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, bld_id, None, 1, reason)
+            return reason
             
     return None
 
@@ -642,7 +696,9 @@ def _exclude_non_playerhome(row, cursor, cat_ids):
                 SET "{ph_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Spielerheime' ausgeschlossen (keine Spielerheim-Locations oder Spielerheim-Zellen mit strukturellen Objekten vorhanden)."
+            reason = "Keine Spielerheim-Locations oder bewohnbaren Domizil-Zellen mit Einrichtungsstrukturen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, ph_id, None, 1, reason)
+            return reason
     return None
 
 
@@ -669,7 +725,9 @@ def _exclude_non_creature(row, cursor, cat_ids):
                 SET "{creature_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Kreaturen' ausgeschlossen (keine Kreaturen-NPCs/RACE-Referenzen)."
+            reason = "Keine Kreaturen-NPCs oder nicht-humanoiden Rassen (RACE) definiert."
+            _log_result(cursor, 1, mod_id, component_id, creature_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_companion(row, cursor, cat_ids):
@@ -693,7 +751,9 @@ def _exclude_non_companion(row, cursor, cat_ids):
                 SET "{companion_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Begleiter' ausgeschlossen (keine Begleiter-NPC-Referenzen)."
+            reason = "Keine Begleiter- oder Crew-NPCs mit Begleiter-Keywords vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, companion_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_npc(row, cursor, cat_ids):
@@ -722,7 +782,9 @@ def _exclude_non_npc(row, cursor, cat_ids):
                 SET "{npcs_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'NPCs' ausgeschlossen (keine allgemeinen humanoiden NPC-Referenzen)."
+            reason = "Keine eigenständigen humanoiden Nicht-Spieler-Charaktere (NPCs) außerhalb von Begleitern oder Kreaturen definiert."
+            _log_result(cursor, 1, mod_id, component_id, npcs_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_character(row, cursor, cat_ids):
@@ -748,7 +810,9 @@ def _exclude_non_character(row, cursor, cat_ids):
                 SET "{char_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Charakter' ausgeschlossen (keine CLFM_KYWD_Character/HDPT/RACE-Referenzen)."
+            reason = "Keine Charakter-Anpassungen wie Frisuren, Kopfteile (HDPT), Farbvarianten (CLFM) oder Charakter-Rassen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, char_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_gameplay(row, cursor, cat_ids):
@@ -788,7 +852,9 @@ def _exclude_non_gameplay(row, cursor, cat_ids):
                 SET "{gameplay_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Gameplay' ausgeschlossen (keine Gameplay-bezogenen Referenzen vorhanden)."
+            reason = "Keine Gameplay-Mechaniken wie Perks, Zauber/Fähigkeiten (SPEL), Magie-Effekte (MGEF), Verzauberungen (ENCH) oder Tränke/Chems (ALCH) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, gameplay_id, None, 1, reason)
+            return reason
     return None
 
 
@@ -818,7 +884,9 @@ def _exclude_non_tweaks(row, cursor, cat_ids):
                 SET "{tweaks_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Tweaks' ausgeschlossen (keine GMST/MOVT/GLOB/CAMS/CPTH-Referenzen)."
+            reason = "Keine Spieleinstellungen (GMST), globale Variablen (GLOB), Bewegungs- (MOVT) oder Kamera-Anpassungen (CAMS) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, tweaks_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_sorting(row, cursor, cat_ids):
@@ -878,7 +946,9 @@ def _exclude_non_sorting(row, cursor, cat_ids):
                     SET "{sorting_id}" = 0
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mod_id, component_id))
-                return "Kategorie 'Sortierung' ausgeschlossen (Mod besitzt strukturelle oder andere Inhalts-Datensätze und keine INNR)."
+                reason = "Modifikation enthält strukturelle Inhalts-Datensätze und besitzt keine Instanz-Benennungsregeln (INNR) zur Gegenstandssortierung."
+                _log_result(cursor, 1, mod_id, component_id, sorting_id, None, 1, reason)
+                return reason
 
     if (weap_o == 0 and armo_o == 0 and ammo_o == 0 and alch_o == 0 and 
         cobj_o == 0 and misc_o == 0 and keym_o == 0 and book_o == 0 and innr == 0):
@@ -889,7 +959,9 @@ def _exclude_non_sorting(row, cursor, cat_ids):
                 SET "{sorting_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Sortierung' ausgeschlossen (keine Gegenstands-Overrides oder INNR vorhanden)."
+            reason = "Keine Umbenennungs-Overrides für Gegenstände oder Instanz-Benennungsregeln (INNR) vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, sorting_id, None, 1, reason)
+            return reason
     return None
 
 def _get_vehicle_furniture_count(row):
@@ -946,7 +1018,9 @@ def _exclude_non_furnishing(row, cursor, cat_ids):
                 SET "{furnishing_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Einrichtung' ausgeschlossen (keine passenden Möbel-, STAT-, MSTT-, PKIN- oder GBFM-Referenzen)."
+            reason = "Keine platzierbaren Möbel (FURN), Dekorationsobjekte (STAT/MSTT) oder Pack-In-Möbelsets vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, furnishing_id, None, 1, reason)
+            return reason
             
     # Ergänzender Ausschluss bei reinen Welteingriffen ohne Rezept
     refr = row.get('REFR') or 0
@@ -964,7 +1038,9 @@ def _exclude_non_furnishing(row, cursor, cat_ids):
                 SET "{furnishing_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Einrichtung' ausgeschlossen (Welteingriffe vorhanden, aber keine Rezepte zur eigenständigen Herstellung)."
+            reason = "Feste Platzierungen in der Spielwelt vorhanden, jedoch keine Herstellungsrezepte (COBJ) für das eigene Baumodul."
+            _log_result(cursor, 1, mod_id, component_id, furnishing_id, None, 1, reason)
+            return reason
             
     return None
 
@@ -990,7 +1066,9 @@ def _exclude_non_outpost(row, cursor, cat_ids):
                 SET "{outpost_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Außenposten' ausgeschlossen (keine Außenposten-Rezepte)."
+            reason = "Keine Herstellungsrezepte für Außenposten-Module, Generatoren, Extraktoren oder Baumodus-Objekte vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, outpost_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_environment(row, cursor, cat_ids):
@@ -1034,7 +1112,12 @@ def _exclude_non_environment(row, cursor, cat_ids):
                 SET "{env_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return f"Kategorie 'Umgebung' ausgeschlossen (Wildnis-Zellen: {wilderness_cells}, Stadt-Zellen: {city_cells}, Schiffs-Zellen: {ship_cells})."
+            if city_cells > 0 or ship_cells > 0:
+                reason = f"Keine Wildnis-Zellen oder Landschafts-Eingriffe vorhanden (Zellen liegen ausschließlich in Städten: {city_cells} oder Schiffen: {ship_cells})."
+            else:
+                reason = "Keine Eingriffe in Weltkarten (WRLD), Wildnis-Zellen, Wetter (WTHS), Klimazonen (CLMT) oder Biome vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, env_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_vehicle(row, cursor, cat_ids):
@@ -1065,7 +1148,9 @@ def _exclude_non_vehicle(row, cursor, cat_ids):
                 SET "{vehicle_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Fahrzeuge' ausgeschlossen (keine GBFM/WEAP/FURN-Fahrzeugreferenzen)."
+            reason = "Keine Bodenfahrzeug-Blaupausen (GBFM), Fahrzeugsitze oder Fahrzeugbewaffnungen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, vehicle_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_ship(row, cursor, cat_ids):
@@ -1108,7 +1193,9 @@ def _exclude_non_ship(row, cursor, cat_ids):
                 SET "{ship_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Schiffe' ausgeschlossen (keine Schiffs-GBFM/COBJ/WEAP_KWDA_Ship/CLFM_KYWD_Ship/STMP/STND/STBH-Referenzen oder Schiffs-Zellen vorhanden)."
+            reason = "Keine Schiffsbau-Komponenten (COBJ/GBFM), Schiffsinnenräume (Habs), Schiffsfarben oder Schiffswaffen vorhanden."
+            _log_result(cursor, 1, mod_id, component_id, ship_id, None, 1, reason)
+            return reason
     return None
 
 def _exclude_non_remover(row, cursor, cat_ids):
@@ -1204,7 +1291,9 @@ def _exclude_non_remover(row, cursor, cat_ids):
                 SET "{remove_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            return "Kategorie 'Remove' ausgeschlossen (keine Remover-Kriterien erfüllt)."
+            reason = "Erfüllt keine Kriterien einer reinen Deaktivierungs-Mod (weder massenhaftes Ausblenden von Objekten noch isolierte Löschung von Zaubern/Effekten)."
+            _log_result(cursor, 1, mod_id, component_id, remove_id, None, 1, reason)
+            return reason
     return None
 
 def _detect_no_pointers_by_components(row, cursor, cat_ids):
@@ -1305,6 +1394,9 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
             SET {set_clause}
             WHERE Mod_ID = ? AND Component_ID = ?
         """, (mod_id, component_id))
+        for col in cat_ids:
+            if col not in keep_ids:
+                _log_result(cursor, 1, mod_id, component_id, col, None, 1, "Reine Datei-Erweiterung (Asset-Mod in BA2) ohne Masterfile-Einträge; diese Kategorie erfordert konkrete Datensätze im Masterfile.")
         return reason
         
     return None
@@ -1328,7 +1420,10 @@ def _exclude_non_overhaul(row, cursor, cat_ids):
     if is_master <= 0:
         if overhaul_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Overhaul' ausgeschlossen (kein Masterfile)."
+            reason = "Kein ESM-Masterfile vorhanden (Overhauls erfordern ein vollständiges ESM-Masterfile als Basis)."
+            _log_result(cursor, 1, mod_id, component_id, overhaul_id, None, 1, reason)
+            return reason
+        return None
         
     # Einteilung in funktionale Hauptbereiche
     # (Wir nutzen nun die berechneten Werte aus View_Components_References_Calc)
@@ -1347,7 +1442,10 @@ def _exclude_non_overhaul(row, cursor, cat_ids):
     if not (is_massive or is_systemic):
         if overhaul_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{overhaul_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return f"Kategorie 'Overhaul' ausgeschlossen (Overrides: {total_override}, Quote: {ratio:.1f}%, Bereiche: {active_areas})."
+            reason = f"Insgesamt {total_override} Overrides bei einem Anteil von {ratio:.1f}% über {active_areas} aktive Inhaltsbereiche reichen für einen Total Overhaul nicht aus (Mindestens 250 Overrides mit einem Anteil von 40% über 2 aktive Inhaltsbereiche erforderlich)."
+            _log_result(cursor, 1, mod_id, component_id, overhaul_id, None, 1, reason)
+            return reason
+        return None
         
     return None
 
@@ -1375,12 +1473,22 @@ def _exclude_non_bugfix(row, cursor, cat_ids):
     if total_base_val < 20:
         if bugfix_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Bugfix' ausgeschlossen (zu wenige Basis-Datensätze)."
+            reason = f"Mit nur {total_base_val} geänderten Basis-Datensätze liegt ein zu geringer Umfang für einen globalen Bugfix-Patch vor (Minimum 20 erforderlich)."
+            _log_result(cursor, 1, mod_id, component_id, bugfix_id, None, 1, reason)
+            return reason
+        return None
 
     if not (override_ratio >= 0.95 and num_override_categories >= 4):
+        if override_ratio < 0.95:
+            reason = f"Der Anteil von {override_ratio:.1%} Overrides über {num_override_categories} betroffene Kategorien ist zu gering für einen globalen Bugfix-Patch (mindestens 95.0% Overrides über 4 betroffene Kategorien erforderlich)."
+        else:
+            reason = f"Die Breite der Overrides mit nur {num_override_categories} betroffenen Kategorien ist zu spezifisch für einen globalen Bugfix-Patch (mindestens 4 betroffene Kategorien erforderlich)."
+            
         if bugfix_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bugfix_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return f"Kategorie 'Bugfix' ausgeschlossen (Ratio: {override_ratio:.2%}, Kategorien: {num_override_categories})."
+            _log_result(cursor, 1, mod_id, component_id, bugfix_id, None, 1, reason)
+            return reason
+        return None
         
     return None
 
@@ -1401,7 +1509,10 @@ def _exclude_non_quest(row, cursor, cat_ids):
     if qust == 0:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Quest' ausgeschlossen (keine QUST-Referenzen)."
+            reason = "Keine Quest-Datensätze (QUST) im Masterfile definiert."
+            _log_result(cursor, 1, mod_id, component_id, quest_id, None, 1, reason)
+            return reason
+        return None
         
     full = row.get('QUST_FULL') or 0
     qobj = row.get('QUST_QOBJ') or 0
@@ -1409,7 +1520,10 @@ def _exclude_non_quest(row, cursor, cat_ids):
         # Keine Quest mit Name im Logbuch vorhanden
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Quest' ausgeschlossen (keine benannten Quests)."
+            reason = "Quests besitzen keine sichtbaren Namen (FULL) für das Missions-Tagebuch (dienen nur als interne Systemsteuerungen)."
+            _log_result(cursor, 1, mod_id, component_id, quest_id, None, 1, reason)
+            return reason
+        return None
         
     dial = row.get('DIAL') or 0
     # Wenn die Mod nur eine einzige Quest registriert, aber sehr viele Dialoge besitzt,
@@ -1417,7 +1531,10 @@ def _exclude_non_quest(row, cursor, cat_ids):
     if qust == 1 and dial >= 50:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Quest' ausgeschlossen (Service-NPC/Terminal Heuristik)."
+            reason = "Einzelne Steuerungs-Quest dient ausschließlich als technischer Dialog- oder Terminal-Dienst (Service-NPC/Menüführung)."
+            _log_result(cursor, 1, mod_id, component_id, quest_id, None, 1, reason)
+            return reason
+        return None
         
     qtyp_0 = row.get('QUST_QTYP_0') or 0
     qtyp_1 = row.get('QUST_QTYP_1') or 0
@@ -1458,7 +1575,10 @@ def _exclude_non_quest(row, cursor, cat_ids):
     if not is_real_quest:
         if quest_id in cat_ids:
             cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{quest_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
-        return "Kategorie 'Quest' ausgeschlossen (keine Story- oder Abenteuer-Quest Kriterien erfüllt)."
+            reason = "Quest erfüllt weder die Kriterien einer Story-Quest mit neuen Dialogen noch einer umfangreichen Abenteuer-/Dungeon-Quest mit Zielen."
+            _log_result(cursor, 1, mod_id, component_id, quest_id, None, 1, reason)
+            return reason
+        return None
     return None
 
 
@@ -1524,7 +1644,7 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     return "Ausschlussmatrix angewendet (Klassifizierung ausstehend)."
 
 
-def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="", notes_cache=None):
+def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name=""):
     """
     Prüft die Matrix für bisher unbestimmte Mods, findet die Kategorie mit dem eindeutig
     höchsten Wert (> 0) und trägt diese in 'Mods.Category_LOH_Classifier' ein.
@@ -1581,10 +1701,7 @@ def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="",
             cat_name = cat_name_row[0] if cat_name_row else str(final_cat_id)
             
             success_count += 1
-            note_str = ""
-            if notes_cache and (mod_id, component_id) in notes_cache:
-                note_str = f", Hinweis: {notes_cache[(mod_id, component_id)]}"
-            log_msg(f"  [KLASSIFIZIERT - {step_name}] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} (Wert: {max_val}{note_str})")
+            log_msg(f"  [KLASSIFIZIERT - {step_name}] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} (Wert: {max_val})")
             
     # Zähle verbleibende unbestimmte Mods
     cursor.execute("""
@@ -1632,6 +1749,10 @@ def run_classifier(log_signal=None):
         cursor.execute("DELETE FROM Components_References_Base;")
         cursor.execute("INSERT INTO Components_References_Base SELECT * FROM View_Components_References_Base;")
         
+        # 1c. Ergebnistabelle LoadOrder_Classifier_Results leeren
+        log_msg("-> Leere Tabelle 'LoadOrder_Classifier_Results'...")
+        cursor.execute("DELETE FROM LoadOrder_Classifier_Results;")
+        
         # 2. Löschen und Neu-Erstellen der Tabelle LoadOrder_Classifier_Matrix
         log_msg("-> Erstelle Tabelle LoadOrder_Classifier_Matrix neu...")
         cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix")
@@ -1676,7 +1797,6 @@ def run_classifier(log_signal=None):
         log_msg(f"-> Gefundene installierte Mod-Komponenten zur Analyse: {len(rows)}")
         
         success_count = 0
-        notes_cache = {}
         
         col_names = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
         placeholders = ", ".join(["?"] * (len(cat_ids) + 2))
@@ -1693,13 +1813,12 @@ def run_classifier(log_signal=None):
             log_msg(f"  [INITIALISIERT] '{mod_name}' ({masterfile_name}) -> Matrix-Zeile mit Standardwert 1 angelegt.")
             
             # Schritt 1: Ausschlussregeln anwenden
-            note = apply_exclusion_rules(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
-            notes_cache[(mod_id, component_id)] = note
+            apply_exclusion_rules(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
             
         # Erste Auswertung nach Schritt 1
         log_msg("\n-> Führe Auswertung nach Schritt 1 (Ausschlüsse) durch...")
         newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-            cursor, cat_ids, log_msg, step_name="Schritt 1: Ausschlüsse", notes_cache=notes_cache
+            cursor, cat_ids, log_msg, step_name="Schritt 1: Ausschlüsse"
         )
         success_count += newly_assigned
         
@@ -1710,6 +1829,22 @@ def run_classifier(log_signal=None):
             bgs_row = cursor.fetchone()
             bgs_id = bgs_row[0] if bgs_row else 1
             
+            # Protokolliere Verlierer für Mods, bei denen BGS aktiv ist
+            cursor.execute(f"""
+                SELECT Mod_ID, Component_ID 
+                FROM LoadOrder_Classifier_Matrix
+                WHERE "{bgs_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            bgs_candidates = cursor.fetchall()
+            for b_row in bgs_candidates:
+                b_mid = b_row[0]
+                b_cid = b_row[1]
+                for other_cid in cat_ids:
+                    if other_cid != bgs_id:
+                        _log_result(cursor, 2, b_mid, b_cid, other_cid, bgs_id, 2, "Zwingende System-Priorität: Offizielle Bethesda-Modifikation (BGS besitzt zwingenden Vorrang).")
+            
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
                 SET "{bgs_id}" = 2
@@ -1718,7 +1853,7 @@ def run_classifier(log_signal=None):
                 )
             """)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 2a: BGS", notes_cache=notes_cache
+                cursor, cat_ids, log_msg, step_name="Schritt 2a: BGS"
             )
             success_count += newly_assigned
 
@@ -1730,6 +1865,21 @@ def run_classifier(log_signal=None):
             bugfix_id = bugfix_row[0] if bugfix_row else 2
             
             cursor.execute(f"""
+                SELECT Mod_ID, Component_ID 
+                FROM LoadOrder_Classifier_Matrix
+                WHERE "{bugfix_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            bugfix_candidates = cursor.fetchall()
+            for b_row in bugfix_candidates:
+                b_mid = b_row[0]
+                b_cid = b_row[1]
+                for other_cid in cat_ids:
+                    if other_cid != bugfix_id:
+                        _log_result(cursor, 2, b_mid, b_cid, other_cid, bugfix_id, 2, "Zwingende System-Priorität: Reiner Bugfix-Patch (hohe Override-Quote und Bereichsdiversität).")
+            
+            cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
                 SET "{bugfix_id}" = 2
                 WHERE "{bugfix_id}" = 1 AND Mod_ID IN (
@@ -1737,7 +1887,7 @@ def run_classifier(log_signal=None):
                 )
             """)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 2b: Bugfix", notes_cache=notes_cache
+                cursor, cat_ids, log_msg, step_name="Schritt 2b: Bugfix"
             )
             success_count += newly_assigned
 
@@ -1749,6 +1899,21 @@ def run_classifier(log_signal=None):
             overhaul_id = overhaul_row[0] if overhaul_row else 3
             
             cursor.execute(f"""
+                SELECT Mod_ID, Component_ID 
+                FROM LoadOrder_Classifier_Matrix
+                WHERE "{overhaul_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            overhaul_candidates = cursor.fetchall()
+            for o_row in overhaul_candidates:
+                o_mid = o_row[0]
+                o_cid = o_row[1]
+                for other_cid in cat_ids:
+                    if other_cid != overhaul_id:
+                        _log_result(cursor, 2, o_mid, o_cid, other_cid, overhaul_id, 2, "Zwingende System-Priorität: Umfassendes Total Overhaul über mehrere Kernbereiche der Spielbasis.")
+            
+            cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
                 SET "{overhaul_id}" = 2
                 WHERE "{overhaul_id}" = 1 AND Mod_ID IN (
@@ -1756,7 +1921,7 @@ def run_classifier(log_signal=None):
                 )
             """)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 2c: Overhaul", notes_cache=notes_cache
+                cursor, cat_ids, log_msg, step_name="Schritt 2c: Overhaul"
             )
             success_count += newly_assigned
 
@@ -1768,6 +1933,21 @@ def run_classifier(log_signal=None):
             quest_id = quest_row[0] if quest_row else 4
             
             cursor.execute(f"""
+                SELECT Mod_ID, Component_ID 
+                FROM LoadOrder_Classifier_Matrix
+                WHERE "{quest_id}" = 1 AND Mod_ID IN (
+                    SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+                )
+            """)
+            quest_candidates = cursor.fetchall()
+            for q_row in quest_candidates:
+                q_mid = q_row[0]
+                q_cid = q_row[1]
+                for other_cid in cat_ids:
+                    if other_cid != quest_id:
+                        _log_result(cursor, 2, q_mid, q_cid, other_cid, quest_id, 2, "Zwingende System-Priorität: Echte Quest-Struktur und Missionssteuerung (QUST) deklariert.")
+            
+            cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
                 SET "{quest_id}" = 2
                 WHERE "{quest_id}" = 1 AND Mod_ID IN (
@@ -1775,7 +1955,7 @@ def run_classifier(log_signal=None):
                 )
             """)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 2d: Quest", notes_cache=notes_cache
+                cursor, cat_ids, log_msg, step_name="Schritt 2d: Quest"
             )
             success_count += newly_assigned
 
@@ -1828,6 +2008,13 @@ def run_classifier(log_signal=None):
                     selected_cat = env_id
                 
                 if selected_cat is not None:
+                    selected_name = [name for name, c_id in cat_map.items() if c_id == selected_cat][0]
+                    # Protokolliere alle anderen Welt-Kandidaten, die aktiv waren und ausgestochen wurden
+                    for other_w_id in cell_cat_ids:
+                        if other_w_id != selected_cat and (urow.get(str(other_w_id)) or 0) >= 1:
+                            other_w_name = [name for name, c_id in cat_map.items() if c_id == other_w_id][0]
+                            _log_result(cursor, 3, mid, cid, other_w_id, selected_cat, 3, f"Kaskadierende Welt-Priorisierung: '{selected_name}' sticht '{other_w_name}' per LLO-Kaskade aus.")
+                            
                     set_clauses = [f'"{selected_cat}" = 3']
                     
                     # Andere (Nicht-Welt) Kategorien auf 3 anheben, falls aktiv (sonst unverändert lassen)
@@ -1864,8 +2051,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
             
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 3: Kaskadierende Priorisierung Welt-Mods", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 3: Kaskadierende Priorisierung Welt-Mods")
             success_count += newly_assigned
 
         # Schritt 4: Objekt-Mods (Massevergleich & KO-Regeln)
@@ -1927,27 +2113,41 @@ def run_classifier(log_signal=None):
                     # 2. Harte KO-Kriterien anwenden (LLO-Hierarchie)
                     # KO 1: Waffen schlägt Skins, Crafting, Items und Einrichtung (Deko-Ständer)
                     if "Waffen" in active_obj_scores and active_obj_scores["Waffen"] > 0:
-                        active_obj_scores.pop("Skins", None)
-                        active_obj_scores.pop("Crafting", None)
-                        active_obj_scores.pop("Items", None)
-                        active_obj_scores.pop("Einrichtung", None)
+                        w_id = cat_map["Waffen"]
+                        for ko_name in ["Skins", "Crafting", "Items", "Einrichtung"]:
+                            if ko_name in active_obj_scores:
+                                ko_id = cat_map[ko_name]
+                                active_obj_scores.pop(ko_name, None)
+                                _log_result(cursor, 4, mid, cid, ko_id, w_id, 3, f"Waffen sticht {ko_name} per Architektur aus (Eigene Waffen-Definitionen WEAP > 0 schlagen {ko_name}).")
                         
                     # KO 2: Kleidung schlägt Items, Crafting, Skins und Einrichtung (Schaufensterpuppen/Deko)
                     if "Kleidung" in active_obj_scores and active_obj_scores["Kleidung"] > 0:
-                        active_obj_scores.pop("Items", None)
-                        active_obj_scores.pop("Crafting", None)
-                        active_obj_scores.pop("Skins", None)
-                        active_obj_scores.pop("Einrichtung", None)
+                        k_id = cat_map["Kleidung"]
+                        for ko_name in ["Items", "Crafting", "Skins", "Einrichtung"]:
+                            if ko_name in active_obj_scores:
+                                ko_id = cat_map[ko_name]
+                                active_obj_scores.pop(ko_name, None)
+                                _log_result(cursor, 4, mid, cid, ko_id, k_id, 3, f"Kleidung sticht {ko_name} per Architektur aus (Eigene Rüstungs-/Kleidungs-Definitionen ARMO > 0 schlagen {ko_name}).")
                         
                     # KO 3: Crafting schlägt Items (Rohstoffe/Materialien dienen der Werkbank)
                     if "Crafting" in active_obj_scores and active_obj_scores["Crafting"] > 0:
-                        active_obj_scores.pop("Items", None)
+                        c_id = cat_map["Crafting"]
+                        if "Items" in active_obj_scores:
+                            i_id = cat_map["Items"]
+                            active_obj_scores.pop("Items", None)
+                            _log_result(cursor, 4, mid, cid, i_id, c_id, 3, "Crafting sticht Items per Architektur aus (Werkbank-Rohstoffe und Rezepte COBJ dienen dem Handwerk).")
                         
                     if active_obj_scores:
                         # 3. Gewinner nach Masse ermitteln
                         sorted_obj = sorted(active_obj_scores.items(), key=lambda x: x[1], reverse=True)
                         winner_cname = sorted_obj[0][0]
                         winner_cid = cat_map[winner_cname]
+                        winner_score = sorted_obj[0][1]
+                        
+                        # Verlierer im Massevergleich protokollieren
+                        for looser_cname, looser_score in sorted_obj[1:]:
+                            looser_cid = cat_map[looser_cname]
+                            _log_result(cursor, 4, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Objekt-Kandidaten: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
                         
                         # Gewinner auf 4 setzen, und alle Nicht-Objekt-Kategorien mit 3 auf 4 anheben
                         set_clauses = [f'"{winner_cid}" = 4']
@@ -1984,8 +2184,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 4: Objekt-Mods", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 4: Objekt-Mods")
             success_count += newly_assigned
 
         # Schritt 5: Sensorik- & Atmosphären-Mods (Licht, Effekte, Texturen, Sound)
@@ -2044,20 +2243,32 @@ def run_classifier(log_signal=None):
                     # 2. KO-Kriterien anwenden (LLO-Kaskade)
                     # KO 1: Licht schlägt Effekte, Texturen und Sound (Beleuchtung ist empfindlichste Render-Ebene)
                     if "Licht" in active_sensor_scores and active_sensor_scores["Licht"] > 0:
-                        active_sensor_scores.pop("Effekte", None)
-                        active_sensor_scores.pop("Texturen", None)
-                        active_sensor_scores.pop("Sound", None)
+                        l_id = cat_map["Licht"]
+                        for ko_name in ["Effekte", "Texturen", "Sound"]:
+                            if ko_name in active_sensor_scores:
+                                ko_id = cat_map[ko_name]
+                                active_sensor_scores.pop(ko_name, None)
+                                _log_result(cursor, 5, mid, cid, ko_id, l_id, 3, f"Licht sticht {ko_name} per Rendering-Architektur aus (Beleuchtungsquellen greifen tiefer als {ko_name}).")
                         
                     # KO 2: Effekte schlägt Texturen und Sound (Shader/Post-Processing greift tiefer als Texturen/Audio)
                     elif "Effekte" in active_sensor_scores and active_sensor_scores["Effekte"] > 0:
-                        active_sensor_scores.pop("Texturen", None)
-                        active_sensor_scores.pop("Sound", None)
+                        e_id = cat_map["Effekte"]
+                        for ko_name in ["Texturen", "Sound"]:
+                            if ko_name in active_sensor_scores:
+                                ko_id = cat_map[ko_name]
+                                active_sensor_scores.pop(ko_name, None)
+                                _log_result(cursor, 5, mid, cid, ko_id, e_id, 3, f"Effekte sticht {ko_name} per Rendering-Architektur aus (Shader/Post-Processing greift tiefer als {ko_name}).")
                         
                     if active_sensor_scores:
                         # 3. Gewinner nach Masse ermitteln (z. B. Texturen vs. Sound)
                         sorted_sensor = sorted(active_sensor_scores.items(), key=lambda x: x[1], reverse=True)
                         winner_cname = sorted_sensor[0][0]
                         winner_cid = cat_map[winner_cname]
+                        winner_score = sorted_sensor[0][1]
+                        
+                        for looser_cname, looser_score in sorted_sensor[1:]:
+                            looser_cid = cat_map[looser_cname]
+                            _log_result(cursor, 5, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Sensorik & Atmosphäre: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
                         
                         # Gewinner auf 5 setzen, und alle Nicht-Sensorik-Kategorien mit 4 auf 5 anheben
                         set_clauses = [f'"{winner_cid}" = 5']
@@ -2094,8 +2305,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 5: Sensorik & Atmosphäre", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 5: Sensorik & Atmosphäre")
             success_count += newly_assigned
 
         # Schritt 6: Lebendige Akteure (NPCs, Begleiter, Kreaturen)
@@ -2152,15 +2362,28 @@ def run_classifier(log_signal=None):
                 if active_actor_scores:
                     # 2. KO-Kriterien anwenden (LLO-Kaskade)
                     # KO: Spezialisierte Akteure (Begleiter & Kreaturen) stechen allgemeine humanoide NPCs aus
-                    if ("Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0) or \
-                       ("Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0):
+                    winner_ko_name = None
+                    if "Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0:
+                        winner_ko_name = "Begleiter"
+                    elif "Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0:
+                        winner_ko_name = "Kreaturen"
+                        
+                    if winner_ko_name and "NPCs" in active_actor_scores:
+                        w_id = cat_map[winner_ko_name]
+                        npc_id = cat_map["NPCs"]
                         active_actor_scores.pop("NPCs", None)
+                        _log_result(cursor, 6, mid, cid, npc_id, w_id, 3, f"Spezialisierte Akteure ({winner_ko_name}) stechen allgemeine humanoide NPCs per KI-Architektur aus.")
                         
                     if active_actor_scores:
                         # 3. Gewinner nach Masse ermitteln (z. B. Begleiter vs. Kreaturen oder verbleibende reine NPCs)
                         sorted_actors = sorted(active_actor_scores.items(), key=lambda x: x[1], reverse=True)
                         winner_cname = sorted_actors[0][0]
                         winner_cid = cat_map[winner_cname]
+                        winner_score = sorted_actors[0][1]
+                        
+                        for looser_cname, looser_score in sorted_actors[1:]:
+                            looser_cid = cat_map[looser_cname]
+                            _log_result(cursor, 6, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Akteure: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
                         
                         # Gewinner auf 6 setzen, und alle Nicht-Akteurs-Kategorien mit 5 auf 6 anheben
                         set_clauses = [f'"{winner_cid}" = 6']
@@ -2197,8 +2420,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 6: Lebendige Akteure", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 6: Lebendige Akteure")
             success_count += newly_assigned
 
         # Schritt 7: Systeme, Mechaniken & QoL (Gameplay, Interface, Sortierung, Tweaks)
@@ -2257,16 +2479,28 @@ def run_classifier(log_signal=None):
                     # 2. KO-Kriterien anwenden:
                     # Sobald Gameplay (Zauber/Perks), Sortierung (INNR/Namens-Overrides) oder Interface (UI-Dateien)
                     # aktiv sind, scheidet Tweaks per KO aus
-                    if ("Gameplay" in active_sys_scores and active_sys_scores["Gameplay"] > 0) or \
-                       ("Sortierung" in active_sys_scores and active_sys_scores["Sortierung"] > 0) or \
-                       ("Interface" in active_sys_scores and active_sys_scores["Interface"] > 0):
+                    winner_sys_name = None
+                    for check_name in ["Gameplay", "Sortierung", "Interface"]:
+                        if check_name in active_sys_scores and active_sys_scores[check_name] > 0:
+                            winner_sys_name = check_name
+                            break
+                            
+                    if winner_sys_name and "Tweaks" in active_sys_scores:
+                        w_id = cat_map[winner_sys_name]
+                        t_id = cat_map["Tweaks"]
                         active_sys_scores.pop("Tweaks", None)
+                        _log_result(cursor, 7, mid, cid, t_id, w_id, 3, f"Inhaltliche Spielmechanik ({winner_sys_name}) sticht reine Einstellungs-Tweaks per Architektur aus.")
                         
                     if active_sys_scores:
                         # 3. Gewinner nach Masse ermitteln (z. B. Gameplay vs. Sortierung vs. Interface oder reiner Tweak)
                         sorted_sys = sorted(active_sys_scores.items(), key=lambda x: x[1], reverse=True)
                         winner_cname = sorted_sys[0][0]
                         winner_cid = cat_map[winner_cname]
+                        winner_score = sorted_sys[0][1]
+                        
+                        for looser_cname, looser_score in sorted_sys[1:]:
+                            looser_cid = cat_map[looser_cname]
+                            _log_result(cursor, 7, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Systeme & QoL: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
                         
                         # Gewinner auf 7 setzen, und alle Nicht-System-Kategorien mit 6 auf 7 anheben
                         set_clauses = [f'"{winner_cid}" = 7']
@@ -2303,8 +2537,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 7: Systeme, Mechaniken & QoL", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 7: Systeme, Mechaniken & QoL")
             success_count += newly_assigned
 
         # Schritt 8: Transport & Vehikel (Schiffe vs. Fahrzeuge)
@@ -2362,6 +2595,11 @@ def run_classifier(log_signal=None):
                     sorted_trans = sorted(active_trans_scores.items(), key=lambda x: x[1], reverse=True)
                     winner_cname = sorted_trans[0][0]
                     winner_cid = cat_map[winner_cname]
+                    winner_score = sorted_trans[0][1]
+                    
+                    for looser_cname, looser_score in sorted_trans[1:]:
+                        looser_cid = cat_map[looser_cname]
+                        _log_result(cursor, 8, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Transport: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
                     
                     # Gewinner auf 8 setzen, und alle Nicht-Transport-Kategorien mit 7 auf 8 anheben
                     set_clauses = [f'"{winner_cid}" = 8']
@@ -2398,8 +2636,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 8: Transport & Vehikel", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 8: Transport & Vehikel")
             success_count += newly_assigned
 
         # Schritt 9: Lösch- & Deaktivierungs-Mods (Remover)
@@ -2467,6 +2704,9 @@ def run_classifier(log_signal=None):
                     set_clauses = []
                     if active_content_cids:
                         # Inhalts-Kandidaten schlagen Remover per KO (Remover scheidet aus)
+                        primary_w_id = active_content_cids[0]
+                        primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                        _log_result(cursor, 9, mid, cid, remove_id, primary_w_id, 3, f"Inhalts-Definitionen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) per Architektur aus.")
                         for c in active_content_cids:
                             set_clauses.append(f'"{c}" = 9')
                         for c in active_world_cids:
@@ -2474,10 +2714,16 @@ def run_classifier(log_signal=None):
                     elif active_world_cids:
                         if has_new_structures:
                             # Welt-Mod gewinnt per KO (Löschung diente nur dem Bauplatz für neue Strukturen)
+                            primary_w_id = active_world_cids[0]
+                            primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                            _log_result(cursor, 9, mid, cid, remove_id, primary_w_id, 3, f"Echte Neubauten/Strukturen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) aus (Löschung diente als Bauplatz).")
                             for c in active_world_cids:
                                 set_clauses.append(f'"{c}" = 9')
                         else:
                             # Reiner Remover gewinnt (keine neuen Strukturen, reine Deaktivierungen)
+                            for w_cid in active_world_cids:
+                                w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                                _log_result(cursor, 9, mid, cid, w_cid, remove_id, 3, f"Reine Deaktivierungs-Operation (Remove) sticht '{w_name}' aus (keine neuen Strukturen deklariert).")
                             set_clauses.append(f'"{remove_id}" = 9')
                     else:
                         # Reiner Remover ohne Konkurrenz
@@ -2514,8 +2760,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 9: Lösch- & Deaktivierungs-Mods", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 9: Lösch- & Deaktivierungs-Mods")
             success_count += newly_assigned
 
         # Schritt 10: Inhalts-Vorrang über Sensorik (Texturen, Sound, Licht, Effekte)
@@ -2589,10 +2834,20 @@ def run_classifier(log_signal=None):
                     
                     if has_active_render and not has_passive_sensor and not has_primary_content and active_worlds and not has_new_structures:
                         # Reines Licht/Effekt-Overhaul ohne neue Strukturen in bestehenden Welt-Zellen (z.B. ELFX) -> Licht gewinnt!
+                        winner_s_id = active_sensors[0]
+                        winner_s_name = [name for name, c_id in cat_map.items() if c_id == winner_s_id][0]
+                        for w_cid in active_worlds:
+                            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                            _log_result(cursor, 10, mid, cid, w_cid, winner_s_id, 3, f"Reines Beleuchtungs-/Shader-Overhaul ('{winner_s_name}') sticht '{w_name}' ohne Neubauten per Render-Architektur aus.")
                         for scid in active_sensors:
                             set_clauses.append(f'"{scid}" = 10')
                     else:
                         # In allen anderen Fällen schlägt Inhalt die Sensorik (Texturen/Sound verlieren immer; Licht/Effekte verlieren bei Objekten/Neubauten)
+                        primary_w_id = active_non_sensors[0]
+                        primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                        for scid in active_sensors:
+                            s_name = [name for name, c_id in cat_map.items() if c_id == scid][0]
+                            _log_result(cursor, 10, mid, cid, scid, primary_w_id, 3, f"Inhalts-Trägerobjekte / Weltbauten ('{primary_w_name}') stechen passive Medien/Beleuchtung ('{s_name}') per Architektur aus.")
                         for ncid in active_non_sensors:
                             set_clauses.append(f'"{ncid}" = 10')
                             
@@ -2627,8 +2882,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 10: Inhalts-Vorrang über Sensorik", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 10: Inhalts-Vorrang über Sensorik")
             success_count += newly_assigned
 
         # ==============================================================================
@@ -2711,19 +2965,25 @@ def run_classifier(log_signal=None):
                     # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
                     if o_cid == cat_map.get('Skins') and is_ship_hab_package:
                         winner_cid = t_cid
+                        _log_result(cursor, 11, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Skin-Zuweisungen per Zell-Architektur aus.")
                     elif o_cid == cat_map.get('Einrichtung'):
                         if is_ship_hab_package:
                             winner_cid = t_cid
+                            _log_result(cursor, 11, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen abgeleitete Einrichtungs-Zuweisungen per Zell-Architektur aus.")
                         elif val_o >= val_t:
                             winner_cid = o_cid
+                            _log_result(cursor, 11, mid, cid, t_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Transport: 'Einrichtung' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                         else:
                             winner_cid = t_cid
+                            _log_result(cursor, 11, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. Einrichtung: '{t_name}' ({val_t:.1f}) übertrifft 'Einrichtung' ({val_o:.1f}).")
                     else:
                         # Regel C: Direkter relationaler Massenvergleich für alle unabhängigen Objekte (Waffen, Kleidung, Crafting, Items, freie Deko)
                         if val_t >= val_o:
                             winner_cid = t_cid
+                            _log_result(cursor, 11, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. {o_name}: '{t_name}' ({val_t:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
                         else:
                             winner_cid = o_cid
+                            _log_result(cursor, 11, mid, cid, t_cid, o_cid, 4, f"Massevergleich {o_name} vs. Transport: '{o_name}' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                             
                     if winner_cid is not None:
                         set_clauses = [f'"{winner_cid}" = 11']
@@ -2760,8 +3020,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 11: Transport vs. Objekte", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 11: Transport vs. Objekte")
             success_count += newly_assigned
 
         # Schritt 12: Transport vs. Charakter (Schiffe/Fahrzeuge vs. Charakter-Styling)
@@ -2813,8 +3072,11 @@ def run_classifier(log_signal=None):
                 
                 if active_trans_cids and active_char_cids:
                     t_cid = active_trans_cids[0]
+                    t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+                    
                     # KO-Regel: Transport siegt über Charakter (Engine-Hierarchie & LLO Ladeorder-Priorität)
                     winner_cid = t_cid
+                    _log_result(cursor, 12, mid, cid, active_char_cids[0], t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Charakter-Styling per LLO-Ladeordnung und Architektur aus.")
                     
                     set_clauses = [f'"{winner_cid}" = 12']
                     for non_id in non_duel_ids_12:
@@ -2850,8 +3112,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 12: Transport vs. Charakter", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 12: Transport vs. Charakter")
             success_count += newly_assigned
 
         # Schritt 13: Transport vs. Systeme (Schiffe/Fahrzeuge vs. Gameplay/Sortierung/Interface/Tweaks)
@@ -2918,17 +3179,22 @@ def run_classifier(log_signal=None):
                     # Regel A: Transport schlägt reine Hilfssysteme (Tweaks, Sortierung, Interface) per KO
                     if s_name in ('Tweaks', 'Sortierung', 'Interface'):
                         winner_cid = t_cid
+                        _log_result(cursor, 13, mid, cid, s_cid, t_cid, 3, f"Schiffs- und Fahrzeugkomponenten ('{t_name}') stechen Hilfs- und Einstellungs-Systeme ('{s_name}') per Architektur aus.")
                     # Regel B: Transport vs. Gameplay per relationalem Massenvergleich
                     elif s_name == 'Gameplay':
                         if val_t >= val_s:
                             winner_cid = t_cid
+                            _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. Gameplay: '{t_name}' ({val_t:.1f}) übertrifft '{s_name}' ({val_s:.1f}).")
                         else:
                             winner_cid = s_cid
+                            _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich Gameplay vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                     else:
                         if val_t >= val_s:
                             winner_cid = t_cid
+                            _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. {s_name}: '{t_name}' ({val_t:.1f}) übertrifft '{s_name}' ({val_s:.1f}).")
                         else:
                             winner_cid = s_cid
+                            _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich {s_name} vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                             
                     if winner_cid is not None:
                         set_clauses = [f'"{winner_cid}" = 13']
@@ -2965,8 +3231,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 13: Transport vs. Systeme", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 13: Transport vs. Systeme")
             success_count += newly_assigned
 
         # Schritt 14: Transport vs. Akteure (Schiffe/Fahrzeuge vs. NPCs/Begleiter/Kreaturen)
@@ -3041,11 +3306,14 @@ def run_classifier(log_signal=None):
                         if netto_npc == 0:
                             # Reine Schiffstechniker / Landepad-Händler -> KO-Sieg für Transport
                             winner_cid = t_cid
+                            _log_result(cursor, 14, mid, cid, a_cid, t_cid, 3, f"Schiffskomponenten ('{t_name}') stechen reine Schiffstechniker und Crew-Statisten per Architektur aus.")
                         elif netto_npc >= (2 * val_t):
                             # Nur wenn der NPC-Anteil mindestens doppelt so hoch ist wie der Transport-Anteil
                             winner_cid = a_cid
+                            _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Übergroße NPC-Anzahl ({netto_npc}) übertrifft Schiffskomponenten ({val_t:.1f}).")
                         else:
                             winner_cid = t_cid
+                            _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Begleit-NPCs ({netto_npc}).")
                             
                     # Regel B: Transport vs. Begleiter (Companions)
                     elif a_cid == cat_map.get('Begleiter'):
@@ -3060,22 +3328,28 @@ def run_classifier(log_signal=None):
                         if has_transport_structures:
                             # Mod bringt eigene Schiffs-/Fahrzeugbauten mit -> Transport gewinnt (Block 5)
                             winner_cid = t_cid
+                            _log_result(cursor, 14, mid, cid, a_cid, t_cid, 3, "Mod deklariert eigene Schiffs-/Fahrzeugstrukturen; Begleiter tritt hinter Transport zurück.")
                         else:
                             # Reiner Begleiter mit bestehendem Schiff/Fahrzeug -> Begleiter gewinnt (Block 4)
                             winner_cid = a_cid
+                            _log_result(cursor, 14, mid, cid, t_cid, a_cid, 3, "Begleiter mit Vanilla-Schiff/Fahrzeug: Begleiter-KI besitzt Vorrang vor der Transport-Zuweisung.")
                             
                     # Regel C: Transport vs. Kreaturen
                     elif a_cid == cat_map.get('Kreaturen'):
                         outer_creat = urow.get('dim_calc_outer_Kreaturen') or 0
                         if outer_creat >= (2 * val_t):
                             winner_cid = a_cid
+                            _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Kreaturen-Anteil ({outer_creat:.1f}) übertrifft Schiffskomponenten ({val_t:.1f}).")
                         else:
                             winner_cid = t_cid
+                            _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Kreaturen ({outer_creat:.1f}).")
                     else:
                         if (urow.get(f'dim_calc_outer_{a_name}') or 0) >= (2 * val_t):
                             winner_cid = a_cid
+                            _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: {a_name} übertrifft Schiffskomponenten ({val_t:.1f}).")
                         else:
                             winner_cid = t_cid
+                            _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber {a_name}.")
                             
                     if winner_cid is not None:
                         set_clauses = [f'"{winner_cid}" = 14']
@@ -3112,8 +3386,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 14: Transport vs. Akteure", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 14: Transport vs. Akteure")
             success_count += newly_assigned
 
         # Schritt 15: Transport vs. Welt (Schiffe/Fahrzeuge vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
@@ -3190,9 +3463,11 @@ def run_classifier(log_signal=None):
                     # 1. POIs: Dynamische POI-Systeme siegen per KO
                     if w_cid == cat_map.get('POIs'):
                         winner_cid = w_cid
+                        _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Dynamische POI-Systeme und Planeten-Verteilung (SFBK) stechen Transport-Bauteile per Raum-Architektur aus.")
                     # 2. Spielerheime: Feste Wohndomizile siegen per KO
                     elif w_cid == cat_map.get('Spielerheime'):
                         winner_cid = w_cid
+                        _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Feste Spielerheime und Residenzen stechen mobile Transportmittel per Raum-Architektur aus.")
                     # 3. Städte: Direkte Städteklassifizierung (Echte Stadt-Locations oder reale Stadt-Umbauten)
                     elif w_cid == cat_map.get('Städte'):
                         lctn_city = urow.get('LCTN_KYWD_City') or 0
@@ -3200,32 +3475,58 @@ def run_classifier(log_signal=None):
                         is_real_city_mod = (lctn_city > 0) or (cell_city > 0 and refr > 500)
                         if is_real_city_mod:
                             winner_cid = w_cid
+                            _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Reale Stadt-Locations / urbane Großstrukturen mit NavMesh stechen Schiffskomponenten aus.")
                         else:
                             winner_cid = t_cid
+                            _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Schiffskomponenten stechen isolierte Raumhafen-Platzierungen ohne echte Stadtbauten aus.")
                     # 4. Außenposten:
                     elif w_cid == cat_map.get('Außenposten'):
                         if cobj_op > 0 and cobj_ship == 0:
                             winner_cid = w_cid
+                            _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Reine Außenposten-Rezepte ohne Schiffsbau: Außenposten gewinnt per Architektur.")
                         elif cobj_ship > 0 and cobj_op == 0:
                             winner_cid = t_cid
+                            _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Reine Schiffsbau-Komponenten ohne Außenposten-Objekte: Transport gewinnt per Architektur.")
                         else:
                             val_op = urow.get('dim_calc_outer_Außenposten') or 0
-                            winner_cid = w_cid if val_op >= val_t else t_cid
+                            if val_op >= val_t:
+                                winner_cid = w_cid
+                                _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                            else:
+                                winner_cid = t_cid
+                                _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
                     # 5. Gebäude:
                     elif w_cid == cat_map.get('Gebäude'):
                         if (wrld > 0 or navm > 0) and cobj_ship == 0 and cell_ship == 0:
                             winner_cid = w_cid
+                            _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Echte Welt- und NavMesh-Gebäude stechen Transport per Raum-Architektur aus.")
                         elif (cobj_ship > 0 or cell_ship > 0):
                             winner_cid = t_cid
+                            _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Schiffsinnenräume (Habs) und Schiffsbaukomponenten stechen statische Gebäudehüllen aus.")
                         else:
                             val_b = urow.get('dim_calc_outer_Gebäude') or 0
-                            winner_cid = w_cid if val_b >= val_t else t_cid
+                            if val_b >= val_t:
+                                winner_cid = w_cid
+                                _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Gebäude vs. Transport: 'Gebäude' ({val_b:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                            else:
+                                winner_cid = t_cid
+                                _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Gebäude: '{t_name}' ({val_t:.1f}) übertrifft 'Gebäude' ({val_b:.1f}).")
                     # 6. Umgebung:
                     elif w_cid == cat_map.get('Umgebung'):
                         val_u = urow.get('dim_calc_outer_Umgebung') or 0
-                        winner_cid = w_cid if val_u >= val_t else t_cid
+                        if val_u >= val_t:
+                            winner_cid = w_cid
+                            _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Umgebung vs. Transport: 'Umgebung' ({val_u:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                        else:
+                            winner_cid = t_cid
+                            _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Umgebung: '{t_name}' ({val_t:.1f}) übertrifft 'Umgebung' ({val_u:.1f}).")
                     else:
-                        winner_cid = t_cid if val_t >= val_w else w_cid
+                        if val_t >= val_w:
+                            winner_cid = t_cid
+                            _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. {w_name}: '{t_name}' ({val_t:.1f}) übertrifft '{w_name}' ({val_w:.1f}).")
+                        else:
+                            winner_cid = w_cid
+                            _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich {w_name} vs. Transport: '{w_name}' ({val_w:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                         
                     if winner_cid is not None:
                         set_clauses = [f'"{winner_cid}" = 15']
@@ -3262,8 +3563,7 @@ def run_classifier(log_signal=None):
                     """, (mid, cid))
 
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 15: Transport vs. Welt", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 15: Transport vs. Welt")
             success_count += newly_assigned
 
         # ==============================================================================
@@ -3275,8 +3575,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 21: Objekte vs. Charakter ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Objekte vs. Charakter implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 21: Objekte vs. Charakter", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 21: Objekte vs. Charakter")
             success_count += newly_assigned
 
         # Schritt 22: Objekte vs. Systeme (Objekte vs. Gameplay/Sortierung/Interface/Tweaks)
@@ -3284,8 +3583,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 22: Objekte vs. Systeme ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Objekte vs. Systeme implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 22: Objekte vs. Systeme", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 22: Objekte vs. Systeme")
             success_count += newly_assigned
 
         # Schritt 23: Objekte vs. Akteure (Objekte vs. NPCs/Begleiter/Kreaturen)
@@ -3293,8 +3591,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 23: Objekte vs. Akteure ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Objekte vs. Akteure implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 23: Objekte vs. Akteure", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 23: Objekte vs. Akteure")
             success_count += newly_assigned
 
         # Schritt 24: Objekte vs. Welt (Objekte vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
@@ -3302,8 +3599,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 24: Objekte vs. Welt ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Objekte vs. Welt implementieren (Helper-Objects-Ratio vs. Weltbauten)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 24: Objekte vs. Welt", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 24: Objekte vs. Welt")
             success_count += newly_assigned
 
         # ==============================================================================
@@ -3315,8 +3611,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 31: Charakter vs. Systeme ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Charakter vs. Systeme implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 31: Charakter vs. Systeme", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 31: Charakter vs. Systeme")
             success_count += newly_assigned
 
         # Schritt 32: Charakter vs. Akteure (Charakter-Styling vs. NPCs/Begleiter/Kreaturen)
@@ -3324,8 +3619,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 32: Charakter vs. Akteure ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Charakter vs. Akteure implementieren (KO: HDPT/RACE gehören zum NPC)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 32: Charakter vs. Akteure", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 32: Charakter vs. Akteure")
             success_count += newly_assigned
 
         # Schritt 33: Charakter vs. Welt (Charakter-Styling vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
@@ -3333,8 +3627,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 33: Charakter vs. Welt ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Charakter vs. Welt implementieren (KO: Echte Weltbauten schlagen Styling)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 33: Charakter vs. Welt", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 33: Charakter vs. Welt")
             success_count += newly_assigned
 
         # ==============================================================================
@@ -3346,8 +3639,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 41: Akteure vs. Systeme ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Akteure vs. Systeme implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 41: Akteure vs. Systeme", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 41: Akteure vs. Systeme")
             success_count += newly_assigned
 
         # Schritt 42: Akteure vs. Welt (NPCs/Begleiter/Kreaturen vs. Städte/POIs/Gebäude/Spielerheime/Außenposten/Umgebung)
@@ -3355,8 +3647,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 42: Akteure vs. Welt ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Akteure vs. Welt implementieren (Platzierter Bar-NPC vs. Neuer Dungeon)
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 42: Akteure vs. Welt", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 42: Akteure vs. Welt")
             success_count += newly_assigned
 
         # ==============================================================================
@@ -3368,8 +3659,7 @@ def run_classifier(log_signal=None):
             log_msg(f"\n-> Schritt 51: Systeme vs. Welt ({unresolved_count})...")
             # TODO: Detaillierte Duell-Regeln Systeme vs. Welt implementieren
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
-                cursor, cat_ids, log_msg, step_name="Schritt 51: Systeme vs. Welt", notes_cache=notes_cache
-            )
+                cursor, cat_ids, log_msg, step_name="Schritt 51: Systeme vs. Welt")
             success_count += newly_assigned
             
         # Ergebnistabelle Components_References_Matrix einfrieren (Statische Tabelle aus View erstellen)

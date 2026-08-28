@@ -36,7 +36,9 @@ def reset_database(log_signal=None):
             "Mods_Requirements_Masterfile_List",
             "LoadOrder",
             "Mods",
-            "Profiles"
+            "Profiles",
+            "LoadOrder_Classifier_Results",
+            "LoadOrder_Classifier_Matrix"
         ]
         
         for table in tables_to_clear:
@@ -56,13 +58,14 @@ def reset_database(log_signal=None):
             log("-> Verzeichnis 'Data\\Mod_Images' geleert.")
             
         # sqlite_sequence zurücksetzen (außer für Stammdaten)
-        master_tables = ["Assessments", "Categories_LOH", "Platforms", "Mods_State", "Categories_Creations"]
+        master_tables = ["Assessments", "Categories_LOH", "Platforms", "Mods_State", "Categories_Creations", "Classifier_Result_Types"]
         placeholders = ", ".join("?" for _ in master_tables)
         cursor.execute(f"DELETE FROM sqlite_sequence WHERE name NOT IN ({placeholders});", master_tables)
         log("-> Autoincrement-Zähler für Bewegungstabellen zurückgesetzt.")
         
         # Temporäre Klassifizierungs- und Ergebnistabellen löschen/leeren
         cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix;")
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Results;")
         cursor.execute("DELETE FROM Components_References_Base;")
         cursor.execute("DROP TABLE IF EXISTS Components_References_Matrix;")
         log("-> Temporäre Klassifizierungs- und Ergebnistabellen gelöscht.")

@@ -1810,7 +1810,53 @@ CREATE TABLE "Profiles" (
 	PRIMARY KEY("ID" AUTOINCREMENT)
 );
 
+CREATE TABLE "Classifier_Result_Types" (
+	"ID"	INTEGER NOT NULL,
+	"Type"	TEXT NOT NULL,
+	PRIMARY KEY("ID")
+);
+
+CREATE TABLE "LoadOrder_Classifier_Results" (
+	"Step_ID"	INTEGER NOT NULL,
+	"Mod_ID"	INTEGER NOT NULL,
+	"Component_ID"	INTEGER NOT NULL,
+	"CategoryLOH_ID_Looser"	INTEGER NOT NULL,
+	"CategoryLOH_ID_Winner"	INTEGER,
+	"Type_ID"	INTEGER NOT NULL,
+	"Reason"	TEXT NOT NULL,
+	PRIMARY KEY("Step_ID","Mod_ID","Component_ID","CategoryLOH_ID_Looser"),
+	FOREIGN KEY("CategoryLOH_ID_Looser") REFERENCES "Categories_LOH"("ID"),
+	FOREIGN KEY("CategoryLOH_ID_Winner") REFERENCES "Categories_LOH"("ID"),
+	FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+	FOREIGN KEY("Type_ID") REFERENCES "Classifier_Result_Types"("ID")
+);
+
+CREATE VIEW View_LoadOrder_Classifier_Results AS
+SELECT 
+    r.Mod_ID,
+    COALESCE(m.Name_Online, m.Name_ContentCatalog) AS Mod_Name,
+    r.Component_ID,
+    c.File AS Component_File,
+    r.Step_ID,
+    cl.Position AS CategoryLOH_Position_Looser,
+    cl.Name AS CategoryLOH_Looser,
+    cw.Name AS CategoryLOH_Winner,
+    crt.Type AS Type,
+    r.Reason
+FROM LoadOrder_Classifier_Results r
+JOIN Mods m ON r.Mod_ID = m.ID
+JOIN Components c ON r.Component_ID = c.ID
+JOIN Categories_LOH cl ON r.CategoryLOH_ID_Looser = cl.ID
+LEFT JOIN Categories_LOH cw ON r.CategoryLOH_ID_Winner = cw.ID
+JOIN Classifier_Result_Types crt ON r.Type_ID = crt.ID
+ORDER BY r.Mod_ID, r.Component_ID, r.Step_ID, cl.Position;
+
 CREATE TABLE sqlite_sequence(name,seq);
+
+CREATE INDEX "idx_classifier_res_mod" ON "LoadOrder_Classifier_Results" ("Mod_ID", "Component_ID");
+
+CREATE INDEX "idx_classifier_res_step" ON "LoadOrder_Classifier_Results" ("Step_ID");
 
 CREATE UNIQUE INDEX idx_comp_ref_base_id ON Components_References_Base (Component_ID);
 

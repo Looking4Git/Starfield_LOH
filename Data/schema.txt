@@ -841,6 +841,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_Vehicle_Override, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship_Override, 0) + 
     COALESCE(ref.CLFM_KYWD_Ship_Override, 0) + 
+    COALESCE(ref.NPC_KYWD_Ship_Override, 0) + 
     COALESCE(ref.STMP_Override, 0) + 
     COALESCE(ref.STND_Override, 0) + 
     COALESCE(ref.STBH_Override, 0) + 
@@ -853,6 +854,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_Vehicle, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship, 0) + 
     COALESCE(ref.CLFM_KYWD_Ship, 0) + 
+    COALESCE(ref.NPC_KYWD_Ship, 0) + 
     COALESCE(ref.STMP, 0) + 
     COALESCE(ref.STND, 0) + 
     COALESCE(ref.STBH, 0) + 

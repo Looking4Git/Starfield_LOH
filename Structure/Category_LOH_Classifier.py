@@ -3602,9 +3602,242 @@ def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
 
 
 def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
-    # TODO: Detaillierte Duell-Regeln Objekte vs. Systeme implementieren
 
-    pass
+    object_cat_tuples = [
+        ("Waffen", "dim_calc_outer_Waffen"),
+        ("Kleidung", "dim_calc_outer_Kleidung"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
+        ("Crafting", "dim_calc_outer_Crafting"),
+        ("Einrichtung", "dim_calc_outer_Einrichtung"),
+        ("Items", "dim_calc_outer_Items"),
+        ("Skins", "dim_calc_outer_Skins"),
+    ]
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+
+    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    non_duel_ids_22 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in sys_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_22 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_22:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Objekt- und Systeme-Kandidaten auf Stufe 21
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 21]
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 21]
+
+        if active_obj_cids and active_sys_cids:
+            o_cid = active_obj_cids[0]
+            s_cid = active_sys_cids[0]
+
+            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+
+            val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+            val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
+
+            # Ermittlung von neuen Objekten vs. reinen Overrides
+            weap = urow.get('WEAP') or 0
+            weap_o = urow.get('WEAP_Override') or 0
+            weap_kwda_helper = urow.get('WEAP_KWDA_Helper') or 0
+            netto_weap = max(0, weap - (urow.get('WEAP_KWDA_Vehicle') or 0) - (urow.get('WEAP_KWDA_Ship') or 0) - weap_kwda_helper)
+            new_weap = max(0, weap - weap_o)
+
+            armo = urow.get('ARMO') or 0
+            armo_o = urow.get('ARMO_Override') or 0
+            new_armo = max(0, armo - armo_o)
+
+            misc = urow.get('MISC') or 0
+            misc_o = urow.get('MISC_Override') or 0
+            new_misc = max(0, misc - misc_o)
+
+            book = urow.get('BOOK') or 0
+            book_o = urow.get('BOOK_Override') or 0
+            new_book = max(0, book - book_o)
+
+            keym = urow.get('KEYM') or 0
+            keym_o = urow.get('KEYM_Override') or 0
+            new_keym = max(0, keym - keym_o)
+
+            cobj = urow.get('COBJ') or 0
+            cobj_o = urow.get('COBJ_Override') or 0
+            new_cobj = max(0, cobj - cobj_o)
+
+            ammo = urow.get('AMMO') or 0
+            ammo_o = urow.get('AMMO_Override') or 0
+            new_ammo = max(0, ammo - ammo_o)
+
+            flor = urow.get('FLOR') or 0
+            flor_o = urow.get('FLOR_Override') or 0
+            new_flor = max(0, flor - flor_o)
+
+            furn = urow.get('FURN') or 0
+            furn_o = urow.get('FURN_Override') or 0
+            new_furn = max(0, furn - furn_o)
+
+            has_new_objects = (
+                new_weap > 0 or new_armo > 0 or new_misc > 0 or 
+                new_book > 0 or new_keym > 0 or new_cobj > 0 or 
+                new_ammo > 0 or new_flor > 0 or new_furn > 0
+            )
+
+            has_new_equipment = (
+                new_weap > 0 or new_armo > 0 or new_cobj > 0 or 
+                new_furn > 0 or new_flor > 0
+            )
+
+            winner_cid = None
+
+            # --- BLOCK A: DUELLE GEGEN HILFSSYSTEME & EINSTELLUNGEN (REINE ARCHITEKTUR-KOS / TYP 3) ---
+            if s_name == 'Tweaks':
+                # Physische Objekte stechen reine Einstellungs-Tweaks per Architektur-KO aus
+                winner_cid = o_cid
+                _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Physische Inhalts-Objekte ('{o_name}') besitzen funktionale Priorität vor reinen Systemeinstellungen und Variablen-Tweaks ('Tweaks').")
+
+            elif s_name == 'Sortierung':
+                if has_new_objects:
+                    # Neue eigenständige Objekte schlagen Sortierung per Architektur-KO
+                    winner_cid = o_cid
+                    _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Eigenständige neue Inhalts-Objekte ('{o_name}') besitzen Priorität vor reinen Sortierungs- und Namensregeln.")
+                else:
+                    # Reine Overrides / INNR zur Sortierung
+                    winner_cid = s_cid
+                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Modifikation deklariert keine neuen Gegenstände; Namens-Overrides und Instanz-Regeln dienen ausschließlich der Inventar- und Gegenstandssortierung.")
+
+            elif s_name == 'Interface':
+                if has_new_equipment:
+                    # Echte Ausrüstungs-/Möbel-Objekte besitzen Vorrang; UI-Datei dient als Visier/Icon
+                    winner_cid = o_cid
+                    _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Echte Inhalts- und Ausrüstungsobjekte ('{o_name}') besitzen Priorität; Interface-Dateien dienen als untergeordnete Icons oder Visieranzeigen.")
+                else:
+                    # Reine UI-Mod mit Beigabe-Items (Notizen/Slates) oder Skins
+                    winner_cid = s_cid
+                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, f"Benutzeroberflächen-Dateien (SWF/GFX) definieren die Hauptfunktion; Beigabe-Notizen und Hilfs-Items ('{o_name}') treten per Architektur zurück.")
+
+            # --- BLOCK B: DUELLE GEGEN GAMEPLAY ---
+            elif s_name == 'Gameplay':
+                if o_name == 'Items':
+                    # Gameplay schlägt Beiwerk-Items (Bücher, Notizen, Trigger-Slates) per KO
+                    if val_o >= (3 * val_s) and val_s < 5:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Items vs. Gameplay: Dominante Beute-/Item-Sammlung ('Items': {val_o:.1f}) übertrifft minimale Gameplay-Zusätze ('Gameplay': {val_s:.1f}).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Gameplay-Mechaniken (Zauber, Perks, Alchemie) besitzen funktionale Priorität vor Beiwerk- und Trigger-Items (Bücher/Slates/Notizen).")
+
+                elif o_name == 'Skins':
+                    # Gameplay schlägt reine kosmetische Skins per KO
+                    winner_cid = s_cid
+                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Spiellogik, Magie und Perks ('Gameplay') greifen tiefer in das Regelsystem als oberflächliche Ausrüstungs-Skins.")
+
+                elif o_name == 'Crafting':
+                    # Reiner Massevergleich Werkbankrezepte vs. Gameplay-Mechaniken
+                    if val_o >= val_s:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Crafting vs. Gameplay: Werkbank- und Herstellungsrezepte ('Crafting': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Crafting: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Herstellungsrezepte ('Crafting': {val_o:.1f}).")
+
+                elif o_name == 'Waffen':
+                    if val_s >= (3 * val_o):
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Waffen ('Waffen': {val_o:.1f} x 3 = {3*val_o:.1f}).")
+                    elif netto_weap > 0 or val_o > 0:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, "Eigenständige Handfeuerwaffen ('Waffen') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Slot-Sicherheit).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: 'Gameplay' ({val_s:.1f}) übertrifft 'Waffen' ({val_o:.1f}).")
+
+                elif o_name == 'Kleidung':
+                    if val_s >= (3 * val_o):
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Kleidung ('Kleidung': {val_o:.1f} x 3 = {3*val_o:.1f}).")
+                    elif new_armo > 0 or armo > 0:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, "Eigenständige Kleidungs- und Rüstungssets ('Kleidung') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Nahtbindung).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: 'Gameplay' ({val_s:.1f}) übertrifft 'Kleidung' ({val_o:.1f}).")
+
+                elif o_name == 'Einrichtung':
+                    if val_o >= val_s:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Gameplay: Einrichtungs- und Möbelobjekte ('Einrichtung': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Einrichtung: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Möbelobjekte ('Einrichtung': {val_o:.1f}).")
+
+                elif o_name == 'Pflanzen':
+                    if val_o >= val_s:
+                        winner_cid = o_cid
+                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Pflanzen vs. Gameplay: Flora-Objekte ('Pflanzen': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                    else:
+                        winner_cid = s_cid
+                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Pflanzen: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Flora-Objekte ('Pflanzen': {val_o:.1f}).")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 22']
+                for non_id in non_duel_ids_22:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 21 THEN 22 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 22: Alle Zeilen ohne Objekt/Systeme-Kollision heben alle 21er auf 22 an
+    col_cases_22 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 21 THEN 22 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check22 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check22:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 21:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_22}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
 
 
 def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):

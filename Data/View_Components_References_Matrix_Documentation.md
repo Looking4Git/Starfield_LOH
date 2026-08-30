@@ -187,8 +187,8 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl überschriebener allgemeiner/humanoiden Vanilla-NPCs (bereinigt um Begleiter- und Kreaturen-Overrides: `MAX(0, NPC__Override - NPC__KYWD_Companion_Override - NPC__KYWD_Creature_Override)`).
     *   **Wert:** `MAX(0, NPC__Override - NPC__KYWD_Companion_Override - NPC__KYWD_Creature_Override)`.
 *   **`dim_calc_outer_NPCs`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller allgemeinen/humanoiden Charaktere der Mod (bereinigt um Begleiter und Kreaturen: `MAX(0, NPC_ - NPC__KYWD_Companion - NPC__KYWD_Creature)`).
-    *   **Wert:** `MAX(0, NPC_ - NPC__KYWD_Companion - NPC__KYWD_Creature)`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller echten allgemeinen/humanoiden Charaktere der Mod (bereinigt um Dummies, Begleiter und Kreaturen: `MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion - NPC__KYWD_Creature)`).
+    *   **Wert:** `MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion - NPC__KYWD_Creature)`.
 *   **`dim_calc_inner_Begleiter`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC__KYWD_Companion_Override`).
     *   **Wert:** `NPC__KYWD_Companion_Override`.
@@ -199,8 +199,8 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Kreaturen und -Rassen (`NPC__KYWD_Creature_Override + RACE_Override`).
     *   **Wert:** `NPC__KYWD_Creature_Override + RACE_Override`.
 *   **`dim_calc_outer_Kreaturen`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC__KYWD_Creature + RACE`, 1:1 gleichberechtigt).
-    *   **Wert:** `NPC__KYWD_Creature + RACE`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`).
+    *   **Wert:** `NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`.
 *   **`dim_calc_inner_Texturen`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
     *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s) END`.
@@ -253,8 +253,8 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Kleidung, Raumanzüge und Helme (`ARMO_Override`).
     *   **Wert:** `ARMO_Override`.
 *   **`dim_calc_outer_Kleidung`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Kleidungsstücke, Raumanzüge, Helme, Boostpacks und tragbaren Accessoires der Mod (`ARMO`, Neu + Overrides 1:1).
-    *   **Wert:** `ARMO`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller echten Kleidungsstücke, Raumanzüge, Helme, Boostpacks und tragbaren Accessoires der Mod (`MAX(0, ARMO - ARMO_Dummy)`, bereinigt um technische Shader-Masken und Mannequin-Dummies).
+    *   **Wert:** `MAX(0, ARMO - ARMO_Dummy)`.
 *   **`dim_calc_inner_Waffen`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Handwaffen und -Munition (`MAX(0, WEAP_Override - WEAP_KWDA_Vehicle_Override - WEAP_KWDA_Ship_Override - WEAP_KWDA_Helper_Override) + AMMO_Override`).
     *   **Wert:** `MAX(0, WEAP_Override - WEAP_KWDA_Vehicle_Override - WEAP_KWDA_Ship_Override - WEAP_KWDA_Helper_Override) + AMMO_Override`.

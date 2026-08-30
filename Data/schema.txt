@@ -722,11 +722,22 @@ SELECT
     COALESCE(ref.ALCH, 0) + COALESCE(ref.ALCH_Remove, 0) + 
     COALESCE(ref.MGEF, 0) + COALESCE(ref.MGEF_Remove, 0) AS dim_calc_outer_Gameplay,
     MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC__KYWD_Companion_Override, 0) - COALESCE(ref.NPC__KYWD_Creature_Override, 0)) AS dim_calc_inner_NPCs,
-    MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__KYWD_Companion, 0) - COALESCE(ref.NPC__KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
+    MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__Dummy, 0) - COALESCE(ref.NPC__KYWD_Companion, 0) - COALESCE(ref.NPC__KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
     COALESCE(ref.NPC__KYWD_Companion_Override, 0) AS dim_calc_inner_Begleiter,
     COALESCE(ref.NPC__KYWD_Companion, 0) AS dim_calc_outer_Begleiter,
-    COALESCE(ref.NPC__KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) AS dim_calc_inner_Kreaturen,
-    COALESCE(ref.NPC__KYWD_Creature, 0) + COALESCE(ref.RACE, 0) AS dim_calc_outer_Kreaturen,
+    COALESCE(ref.NPC__KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) + 
+    CASE 
+        WHEN (COALESCE(ref.RACE_Override, 0) > 0 OR COALESCE(ref.NPC__KYWD_Creature_Override, 0) > 0)
+        THEN MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC__KYWD_Companion_Override, 0))
+        ELSE 0 
+    END AS dim_calc_inner_Kreaturen,
+    
+    COALESCE(ref.NPC__KYWD_Creature, 0) + COALESCE(ref.RACE, 0) + 
+    CASE 
+        WHEN (COALESCE(ref.RACE, 0) > 0 OR COALESCE(ref.NPC__KYWD_Creature, 0) > 0)
+        THEN MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__Dummy, 0) - COALESCE(ref.NPC__KYWD_Companion, 0))
+        ELSE 0 
+    END AS dim_calc_outer_Kreaturen,
     CASE 
         WHEN COALESCE(ref.TXST, 0) > 0 THEN COALESCE(ref.TXST_Override, 0)
         ELSE COALESCE((
@@ -825,7 +836,7 @@ SELECT
     COALESCE(ref.CLFM, 0) + COALESCE(ref.HDPT, 0) + 
     COALESCE(ref.RACE, 0) AS dim_calc_outer_Charakter,
     COALESCE(ref.ARMO_Override, 0) AS dim_calc_inner_Kleidung,
-    COALESCE(ref.ARMO, 0) AS dim_calc_outer_Kleidung,
+    MAX(0, COALESCE(ref.ARMO, 0) - COALESCE(ref.ARMO_Dummy, 0)) AS dim_calc_outer_Kleidung,
     MAX(0, COALESCE(ref.WEAP_Override, 0) - 
            COALESCE(ref.WEAP_KWDA_Vehicle_Override, 0) - 
            COALESCE(ref.WEAP_KWDA_Ship_Override, 0) - 
@@ -1384,6 +1395,7 @@ CREATE TABLE "Components_ESM_References" (
     "AMMO" INTEGER DEFAULT 0,
     "AMMO_Override" INTEGER DEFAULT 0,
     "ARMO" INTEGER DEFAULT 0,
+    "ARMO_Dummy" INTEGER DEFAULT 0,
     "ARMO_Override" INTEGER DEFAULT 0,
     "AVIF" INTEGER DEFAULT 0,
     "AVIF_Override" INTEGER DEFAULT 0,

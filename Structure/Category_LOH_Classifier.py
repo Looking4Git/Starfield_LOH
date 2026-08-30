@@ -1761,7 +1761,105 @@ def _step_01_exclusions(cursor, cat_map, cat_ids, log_msg):
         apply_exclusion_rules(row, cursor=cursor, log_msg=log_msg, cat_ids=cat_ids)
 
 
-def _step_02a_bgs(cursor, cat_map, cat_ids, log_msg):
+def _step_02_dummy_exclusions(cursor, cat_map, cat_ids, log_msg):
+    """
+    Schritt 2: Qualitativer Dummy- & Netto-Ausschluss.
+    Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies, 
+    Script-Helpern und abgeleiteten Modulen noch echte Netto-Inhalte (> 0) vorliegen.
+    Kategorien mit Netto == 0 werden in der Matrix auf 0 gesetzt (ausgeschlossen).
+    Alle verbleibenden aktiven Kategorien (Wert == 1) werden auf 2 angehoben.
+    """
+    col_select = ", ".join([f'"{c}"' for c in cat_ids])
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows = [dict(r) for r in cursor.fetchall()]
+
+    clothing_id = cat_map.get('Kleidung')
+    npcs_id = cat_map.get('NPCs')
+    waffen_id = cat_map.get('Waffen')
+    crafting_id = cat_map.get('Crafting')
+    furn_id = cat_map.get('Einrichtung')
+
+    for urow in unresolved_rows:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Kleidung prüfen
+        if clothing_id and (mat_row.get(str(clothing_id)) or 0) == 1:
+            val_out = urow.get('dim_calc_outer_Kleidung') or 0
+            val_in = urow.get('dim_calc_inner_Kleidung') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{clothing_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                armo = urow.get('ARMO') or 0
+                armo_dummy = urow.get('ARMO_Dummy') or 0
+                _log_result(cursor, 2, mid, cid, clothing_id, None, 1, f"Alle {armo} Rüstungs-/Kleidungs-Datensätze sind interne Dummies oder Shader-Masken ('ARMO_Dummy': {armo_dummy}); keine tragbare Ausrüstung vorhanden.")
+
+        # 2. NPCs prüfen
+        if npcs_id and (mat_row.get(str(npcs_id)) or 0) == 1:
+            val_out = urow.get('dim_calc_outer_NPCs') or 0
+            val_in = urow.get('dim_calc_inner_NPCs') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{npcs_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                npc = urow.get('NPC_') or 0
+                npc_dummy = urow.get('NPC__Dummy') or 0
+                _log_result(cursor, 2, mid, cid, npcs_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen, Steuerungs-Dummies ('NPC__Dummy': {npc_dummy}) oder gehören zu Begleitern/Kreaturen; keine eigenständigen humanoiden NPCs vorhanden.")
+
+        # 3. Waffen prüfen
+        if waffen_id and (mat_row.get(str(waffen_id)) or 0) == 1:
+            val_out = urow.get('dim_calc_outer_Waffen') or 0
+            val_in = urow.get('dim_calc_inner_Waffen') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{waffen_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                weap = urow.get('WEAP') or 0
+                weap_helper = urow.get('WEAP_KWDA_Helper') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                weap_veh = urow.get('WEAP_KWDA_Vehicle') or 0
+                _log_result(cursor, 2, mid, cid, waffen_id, None, 1, f"Alle {weap} Waffen-Datensätze dienen als Script-Helper ({weap_helper}), Schiffs- ({weap_ship}) oder Fahrzeugwaffen ({weap_veh}); keine tragbaren Handfeuerwaffen vorhanden.")
+
+        # 4. Crafting prüfen
+        if crafting_id and (mat_row.get(str(crafting_id)) or 0) == 1:
+            val_out = urow.get('dim_calc_outer_Crafting') or 0
+            val_in = urow.get('dim_calc_inner_Crafting') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{crafting_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cobj = urow.get('COBJ') or 0
+                _log_result(cursor, 2, mid, cid, crafting_id, None, 1, f"Alle {cobj} Herstellungsrezepte (COBJ) sind Schiffs- oder Außenposten-Module; keine eigenständigen Werkbank-Rezepte vorhanden.")
+
+        # 5. Einrichtung prüfen
+        if furn_id and (mat_row.get(str(furn_id)) or 0) == 1:
+            val_out = urow.get('dim_calc_outer_Einrichtung') or 0
+            val_in = urow.get('dim_calc_inner_Einrichtung') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{furn_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                furn = urow.get('FURN') or 0
+                _log_result(cursor, 2, mid, cid, furn_id, None, 1, f"Alle {furn} Möbel-Datensätze (FURN) dienen als Fahrzeug-Steuersitze; keine Einrichtungs- oder Deko-Möbel vorhanden.")
+
+        # Hebe alle verbleibenden aktiven Kategorien auf Stufe 2 an
+        set_clauses_2 = [f'"{c}" = CASE WHEN "{c}" = 1 THEN 2 ELSE "{c}" END' for c in cat_ids]
+        cursor.execute(f"""
+            UPDATE LoadOrder_Classifier_Matrix
+            SET {", ".join(set_clauses_2)}
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+
+
+def _step_03a_bgs(cursor, cat_map, cat_ids, log_msg):
     cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'BGS'")
     bgs_row = cursor.fetchone()
     bgs_id = bgs_row[0] if bgs_row else 1
@@ -1770,7 +1868,7 @@ def _step_02a_bgs(cursor, cat_map, cat_ids, log_msg):
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
         FROM LoadOrder_Classifier_Matrix
-        WHERE "{bgs_id}" = 1 AND Mod_ID IN (
+        WHERE "{bgs_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
@@ -1780,18 +1878,18 @@ def _step_02a_bgs(cursor, cat_map, cat_ids, log_msg):
         b_cid = b_row[1]
         for other_cid in cat_ids:
             if other_cid != bgs_id:
-                _log_result(cursor, 2, b_mid, b_cid, other_cid, bgs_id, 2, "Zwingende System-Priorität: Offizielle Bethesda-Modifikation (BGS besitzt zwingenden Vorrang).")
+                _log_result(cursor, 3, b_mid, b_cid, other_cid, bgs_id, 2, "Zwingende System-Priorität: Offizielle Bethesda-Modifikation (BGS besitzt zwingenden Vorrang).")
 
     cursor.execute(f"""
         UPDATE LoadOrder_Classifier_Matrix
-        SET "{bgs_id}" = 2
-        WHERE "{bgs_id}" = 1 AND Mod_ID IN (
+        SET "{bgs_id}" = 3
+        WHERE "{bgs_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
 
 
-def _step_02b_bugfix(cursor, cat_map, cat_ids, log_msg):
+def _step_03b_bugfix(cursor, cat_map, cat_ids, log_msg):
     cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Bugfix'")
     bugfix_row = cursor.fetchone()
     bugfix_id = bugfix_row[0] if bugfix_row else 2
@@ -1799,7 +1897,7 @@ def _step_02b_bugfix(cursor, cat_map, cat_ids, log_msg):
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
         FROM LoadOrder_Classifier_Matrix
-        WHERE "{bugfix_id}" = 1 AND Mod_ID IN (
+        WHERE "{bugfix_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
@@ -1809,18 +1907,18 @@ def _step_02b_bugfix(cursor, cat_map, cat_ids, log_msg):
         b_cid = b_row[1]
         for other_cid in cat_ids:
             if other_cid != bugfix_id:
-                _log_result(cursor, 2, b_mid, b_cid, other_cid, bugfix_id, 2, "Zwingende System-Priorität: Reiner Bugfix-Patch (hohe Override-Quote und Bereichsdiversität).")
+                _log_result(cursor, 3, b_mid, b_cid, other_cid, bugfix_id, 2, "Zwingende System-Priorität: Reiner Bugfix-Patch (hohe Override-Quote und Bereichsdiversität).")
 
     cursor.execute(f"""
         UPDATE LoadOrder_Classifier_Matrix
-        SET "{bugfix_id}" = 2
-        WHERE "{bugfix_id}" = 1 AND Mod_ID IN (
+        SET "{bugfix_id}" = 3
+        WHERE "{bugfix_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
 
 
-def _step_02c_overhaul(cursor, cat_map, cat_ids, log_msg):
+def _step_03c_overhaul(cursor, cat_map, cat_ids, log_msg):
     cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Overhaul'")
     overhaul_row = cursor.fetchone()
     overhaul_id = overhaul_row[0] if overhaul_row else 3
@@ -1828,7 +1926,7 @@ def _step_02c_overhaul(cursor, cat_map, cat_ids, log_msg):
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
         FROM LoadOrder_Classifier_Matrix
-        WHERE "{overhaul_id}" = 1 AND Mod_ID IN (
+        WHERE "{overhaul_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
@@ -1838,18 +1936,18 @@ def _step_02c_overhaul(cursor, cat_map, cat_ids, log_msg):
         o_cid = o_row[1]
         for other_cid in cat_ids:
             if other_cid != overhaul_id:
-                _log_result(cursor, 2, o_mid, o_cid, other_cid, overhaul_id, 2, "Zwingende System-Priorität: Umfassendes Total Overhaul über mehrere Kernbereiche der Spielbasis.")
+                _log_result(cursor, 3, o_mid, o_cid, other_cid, overhaul_id, 2, "Zwingende System-Priorität: Umfassendes Total Overhaul über mehrere Kernbereiche der Spielbasis.")
 
     cursor.execute(f"""
         UPDATE LoadOrder_Classifier_Matrix
-        SET "{overhaul_id}" = 2
-        WHERE "{overhaul_id}" = 1 AND Mod_ID IN (
+        SET "{overhaul_id}" = 3
+        WHERE "{overhaul_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
 
 
-def _step_02d_quest(cursor, cat_map, cat_ids, log_msg):
+def _step_03d_quest(cursor, cat_map, cat_ids, log_msg):
     cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Quest'")
     quest_row = cursor.fetchone()
     quest_id = quest_row[0] if quest_row else 4
@@ -1857,7 +1955,7 @@ def _step_02d_quest(cursor, cat_map, cat_ids, log_msg):
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
         FROM LoadOrder_Classifier_Matrix
-        WHERE "{quest_id}" = 1 AND Mod_ID IN (
+        WHERE "{quest_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
@@ -1867,18 +1965,18 @@ def _step_02d_quest(cursor, cat_map, cat_ids, log_msg):
         q_cid = q_row[1]
         for other_cid in cat_ids:
             if other_cid != quest_id:
-                _log_result(cursor, 2, q_mid, q_cid, other_cid, quest_id, 2, "Zwingende System-Priorität: Echte Quest-Struktur und Missionssteuerung (QUST) deklariert.")
+                _log_result(cursor, 3, q_mid, q_cid, other_cid, quest_id, 2, "Zwingende System-Priorität: Echte Quest-Struktur und Missionssteuerung (QUST) deklariert.")
 
     cursor.execute(f"""
         UPDATE LoadOrder_Classifier_Matrix
-        SET "{quest_id}" = 2
-        WHERE "{quest_id}" = 1 AND Mod_ID IN (
+        SET "{quest_id}" = 3
+        WHERE "{quest_id}" = 2 AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
 
 
-def _step_03_world_cascade(cursor, cat_map, cat_ids, log_msg):
+def _step_04_world_cascade(cursor, cat_map, cat_ids, log_msg):
 
     # Kategorie-IDs ermitteln
     cursor.execute("SELECT ID, Name FROM Categories_LOH")
@@ -1911,32 +2009,32 @@ def _step_03_world_cascade(cursor, cat_map, cat_ids, log_msg):
 
         # Sequentielle Case-Hierarchie: Erstes aktives Weltkriterium auswählen
         selected_cat = None
-        if poi_id and (urow.get(str(poi_id)) or 0) >= 1:
+        if poi_id and (urow.get(str(poi_id)) or 0) >= 2:
             selected_cat = poi_id
-        elif city_id and (urow.get(str(city_id)) or 0) >= 1:
+        elif city_id and (urow.get(str(city_id)) or 0) >= 2:
             selected_cat = city_id
-        elif playerhome_id and (urow.get(str(playerhome_id)) or 0) >= 1:
+        elif playerhome_id and (urow.get(str(playerhome_id)) or 0) >= 2:
             selected_cat = playerhome_id
-        elif building_id and (urow.get(str(building_id)) or 0) >= 1:
+        elif building_id and (urow.get(str(building_id)) or 0) >= 2:
             selected_cat = building_id
-        elif outpost_id and (urow.get(str(outpost_id)) or 0) >= 1:
+        elif outpost_id and (urow.get(str(outpost_id)) or 0) >= 2:
             selected_cat = outpost_id
-        elif env_id and (urow.get(str(env_id)) or 0) >= 1:
+        elif env_id and (urow.get(str(env_id)) or 0) >= 2:
             selected_cat = env_id
 
         if selected_cat is not None:
             selected_name = [name for name, c_id in cat_map.items() if c_id == selected_cat][0]
             # Protokolliere alle anderen Welt-Kandidaten, die aktiv waren und ausgestochen wurden
             for other_w_id in cell_cat_ids:
-                if other_w_id != selected_cat and (urow.get(str(other_w_id)) or 0) >= 1:
+                if other_w_id != selected_cat and (urow.get(str(other_w_id)) or 0) >= 2:
                     other_w_name = [name for name, c_id in cat_map.items() if c_id == other_w_id][0]
-                    _log_result(cursor, 3, mid, cid, other_w_id, selected_cat, 3, f"Kaskadierende Welt-Priorisierung: '{selected_name}' sticht '{other_w_name}' per LLO-Kaskade aus.")
+                    _log_result(cursor, 4, mid, cid, other_w_id, selected_cat, 3, f"Kaskadierende Welt-Priorisierung: '{selected_name}' sticht '{other_w_name}' per LLO-Kaskade aus.")
 
-            set_clauses = [f'"{selected_cat}" = 3']
+            set_clauses = [f'"{selected_cat}" = 4']
 
             # Andere (Nicht-Welt) Kategorien auf 3 anheben, falls aktiv (sonst unverändert lassen)
             for nc_id in non_cell_ids:
-                set_clauses.append(f'"{nc_id}" = CASE WHEN "{nc_id}" >= 1 THEN 3 ELSE "{nc_id}" END')
+                set_clauses.append(f'"{nc_id}" = CASE WHEN "{nc_id}" >= 2 THEN 4 ELSE "{nc_id}" END')
 
             set_sql = ", ".join(set_clauses)
             cursor.execute(f"""
@@ -1946,7 +2044,7 @@ def _step_03_world_cascade(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
     # Endschritt Schritt 3: Alle Zeilen, die nur 0 und 1 enthalten (keine Weltmods), heben 1er auf 3 an
-    col_cases_3 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 1 THEN 3 ELSE "{cid}" END' for cid in cat_ids])
+    col_cases_4 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 2 THEN 4 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select}
         FROM LoadOrder_Classifier_Matrix
@@ -1954,21 +2052,21 @@ def _step_03_world_cascade(cursor, cat_map, cat_ids, log_msg):
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    rows_check3 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check3:
+    rows_check4 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check4:
         mid = r['Mod_ID']
         cid = r['Component_ID']
         vals = [r[str(c)] or 0 for c in cat_ids]
         max_v = max(vals) if vals else 0
-        if max_v == 1:
+        if max_v == 2:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_3}
+                SET {col_cases_4}
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mid, cid))
 
 
-def _step_04_objects(cursor, cat_map, cat_ids, log_msg):
+def _step_05_objects(cursor, cat_map, cat_ids, log_msg):
 
     # Die 7 Objekt-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     object_cat_tuples = [
@@ -1982,131 +2080,6 @@ def _step_04_objects(cursor, cat_map, cat_ids, log_msg):
     ]
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     non_obj_ids = [cid for cid in cat_ids if cid not in obj_cat_ids]
-
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_4 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
-
-    for urow in unresolved_rows_4:
-        mid = urow['Mod_ID']
-        cid = urow['Component_ID']
-
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
-        # 1. Ermittle aktive Objekt-Kategorien auf Stufe 3
-        active_obj_scores = {}
-        for cname, dim_col in object_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == 3:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_obj_scores[cname] = score
-
-        if active_obj_scores:
-            # 2. Harte KO-Kriterien anwenden (LLO-Hierarchie)
-            # KO 1: Waffen schlägt Skins, Crafting, Items und Einrichtung (Deko-Ständer)
-            if "Waffen" in active_obj_scores and active_obj_scores["Waffen"] > 0:
-                w_id = cat_map["Waffen"]
-                for ko_name in ["Skins", "Crafting", "Items", "Einrichtung"]:
-                    if ko_name in active_obj_scores:
-                        ko_id = cat_map[ko_name]
-                        active_obj_scores.pop(ko_name, None)
-                        _log_result(cursor, 4, mid, cid, ko_id, w_id, 3, f"Waffen sticht {ko_name} per Architektur aus (Eigene Waffen-Definitionen WEAP > 0 schlagen {ko_name}).")
-
-            # KO 2: Kleidung schlägt Items, Crafting, Skins und Einrichtung (Schaufensterpuppen/Deko)
-            if "Kleidung" in active_obj_scores and active_obj_scores["Kleidung"] > 0:
-                k_id = cat_map["Kleidung"]
-                for ko_name in ["Items", "Crafting", "Skins", "Einrichtung"]:
-                    if ko_name in active_obj_scores:
-                        ko_id = cat_map[ko_name]
-                        active_obj_scores.pop(ko_name, None)
-                        _log_result(cursor, 4, mid, cid, ko_id, k_id, 3, f"Kleidung sticht {ko_name} per Architektur aus (Eigene Rüstungs-/Kleidungs-Definitionen ARMO > 0 schlagen {ko_name}).")
-
-            # KO 3: Crafting schlägt Items (Rohstoffe/Materialien dienen der Werkbank)
-            if "Crafting" in active_obj_scores and active_obj_scores["Crafting"] > 0:
-                c_id = cat_map["Crafting"]
-                if "Items" in active_obj_scores:
-                    i_id = cat_map["Items"]
-                    active_obj_scores.pop("Items", None)
-                    _log_result(cursor, 4, mid, cid, i_id, c_id, 3, "Crafting sticht Items per Architektur aus (Werkbank-Rohstoffe und Rezepte COBJ dienen dem Handwerk).")
-
-            if active_obj_scores:
-                # 3. Gewinner nach Masse ermitteln
-                sorted_obj = sorted(active_obj_scores.items(), key=lambda x: x[1], reverse=True)
-                winner_cname = sorted_obj[0][0]
-                winner_cid = cat_map[winner_cname]
-                winner_score = sorted_obj[0][1]
-
-                # Verlierer im Massevergleich protokollieren
-                for looser_cname, looser_score in sorted_obj[1:]:
-                    looser_cid = cat_map[looser_cname]
-                    _log_result(cursor, 4, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Objekt-Kandidaten: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
-
-                # Gewinner auf 4 setzen, und alle Nicht-Objekt-Kategorien mit 3 auf 4 anheben
-                set_clauses = [f'"{winner_cid}" = 4']
-                for non_obj_id in non_obj_ids:
-                    set_clauses.append(f'"{non_obj_id}" = CASE WHEN "{non_obj_id}" = 3 THEN 4 ELSE "{non_obj_id}" END')
-
-                set_sql = ", ".join(set_clauses)
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE Mod_ID = ? AND Component_ID = ?
-                """, (mid, cid))
-
-    # Endschritt Schritt 4: Alle Zeilen, die mehrere 3er und noch keinen Wert 4 enthalten (keine Objekt-Kandidaten hatten), heben alle 3er auf 4 an
-    col_cases_4 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 3 THEN 4 ELSE "{cid}" END' for cid in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select_quotes}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    rows_check4 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check4:
-        mid = r['Mod_ID']
-        cid = r['Component_ID']
-        vals = [r[str(c)] or 0 for c in cat_ids]
-        max_v = max(vals) if vals else 0
-        if max_v == 3:
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_4}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-
-def _step_05_sensory(cursor, cat_map, cat_ids, log_msg):
-
-    # Die 4 Sensorik-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
-    sensor_cat_tuples = [
-        ("Licht", "dim_calc_outer_Licht"),
-        ("Effekte", "dim_calc_outer_Effekte"),
-        ("Texturen", "dim_calc_outer_Texturen"),
-        ("Sound", "dim_calc_outer_Sound"),
-    ]
-    sensor_cat_ids = [cat_map[name] for name, _ in sensor_cat_tuples if name in cat_map]
-    non_sensor_ids = [cid for cid in cat_ids if cid not in sensor_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2135,52 +2108,61 @@ def _step_05_sensory(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive Sensorik-Kategorien auf Stufe 4
-        active_sensor_scores = {}
-        for cname, dim_col in sensor_cat_tuples:
+        # 1. Ermittle aktive Objekt-Kategorien auf Stufe 3
+        active_obj_scores = {}
+        for cname, dim_col in object_cat_tuples:
             cid_val = cat_map.get(cname)
             if cid_val is not None:
                 val = mat_row.get(str(cid_val)) or 0
                 if val == 4:
                     score = urow.get(dim_col) or 0
                     if score > 0:
-                        active_sensor_scores[cname] = score
+                        active_obj_scores[cname] = score
 
-        if active_sensor_scores:
-            # 2. KO-Kriterien anwenden (LLO-Kaskade)
-            # KO 1: Licht schlägt Effekte, Texturen und Sound (Beleuchtung ist empfindlichste Render-Ebene)
-            if "Licht" in active_sensor_scores and active_sensor_scores["Licht"] > 0:
-                l_id = cat_map["Licht"]
-                for ko_name in ["Effekte", "Texturen", "Sound"]:
-                    if ko_name in active_sensor_scores:
+        if active_obj_scores:
+            # 2. Harte KO-Kriterien anwenden (LLO-Hierarchie)
+            # KO 1: Waffen schlägt Skins, Crafting, Items und Einrichtung (Deko-Ständer)
+            if "Waffen" in active_obj_scores and active_obj_scores["Waffen"] > 0:
+                w_id = cat_map["Waffen"]
+                for ko_name in ["Skins", "Crafting", "Items", "Einrichtung"]:
+                    if ko_name in active_obj_scores:
                         ko_id = cat_map[ko_name]
-                        active_sensor_scores.pop(ko_name, None)
-                        _log_result(cursor, 5, mid, cid, ko_id, l_id, 3, f"Licht sticht {ko_name} per Rendering-Architektur aus (Beleuchtungsquellen greifen tiefer als {ko_name}).")
+                        active_obj_scores.pop(ko_name, None)
+                        _log_result(cursor, 5, mid, cid, ko_id, w_id, 3, f"Waffen sticht {ko_name} per Architektur aus (Eigene Waffen-Definitionen WEAP > 0 schlagen {ko_name}).")
 
-            # KO 2: Effekte schlägt Texturen und Sound (Shader/Post-Processing greift tiefer als Texturen/Audio)
-            elif "Effekte" in active_sensor_scores and active_sensor_scores["Effekte"] > 0:
-                e_id = cat_map["Effekte"]
-                for ko_name in ["Texturen", "Sound"]:
-                    if ko_name in active_sensor_scores:
+            # KO 2: Kleidung schlägt Items, Crafting, Skins und Einrichtung (Schaufensterpuppen/Deko)
+            if "Kleidung" in active_obj_scores and active_obj_scores["Kleidung"] > 0:
+                k_id = cat_map["Kleidung"]
+                for ko_name in ["Items", "Crafting", "Skins", "Einrichtung"]:
+                    if ko_name in active_obj_scores:
                         ko_id = cat_map[ko_name]
-                        active_sensor_scores.pop(ko_name, None)
-                        _log_result(cursor, 5, mid, cid, ko_id, e_id, 3, f"Effekte sticht {ko_name} per Rendering-Architektur aus (Shader/Post-Processing greift tiefer als {ko_name}).")
+                        active_obj_scores.pop(ko_name, None)
+                        _log_result(cursor, 5, mid, cid, ko_id, k_id, 3, f"Kleidung sticht {ko_name} per Architektur aus (Eigene Rüstungs-/Kleidungs-Definitionen ARMO > 0 schlagen {ko_name}).")
 
-            if active_sensor_scores:
-                # 3. Gewinner nach Masse ermitteln (z. B. Texturen vs. Sound)
-                sorted_sensor = sorted(active_sensor_scores.items(), key=lambda x: x[1], reverse=True)
-                winner_cname = sorted_sensor[0][0]
+            # KO 3: Crafting schlägt Items (Rohstoffe/Materialien dienen der Werkbank)
+            if "Crafting" in active_obj_scores and active_obj_scores["Crafting"] > 0:
+                c_id = cat_map["Crafting"]
+                if "Items" in active_obj_scores:
+                    i_id = cat_map["Items"]
+                    active_obj_scores.pop("Items", None)
+                    _log_result(cursor, 5, mid, cid, i_id, c_id, 3, "Crafting sticht Items per Architektur aus (Werkbank-Rohstoffe und Rezepte COBJ dienen dem Handwerk).")
+
+            if active_obj_scores:
+                # 3. Gewinner nach Masse ermitteln
+                sorted_obj = sorted(active_obj_scores.items(), key=lambda x: x[1], reverse=True)
+                winner_cname = sorted_obj[0][0]
                 winner_cid = cat_map[winner_cname]
-                winner_score = sorted_sensor[0][1]
+                winner_score = sorted_obj[0][1]
 
-                for looser_cname, looser_score in sorted_sensor[1:]:
+                # Verlierer im Massevergleich protokollieren
+                for looser_cname, looser_score in sorted_obj[1:]:
                     looser_cid = cat_map[looser_cname]
-                    _log_result(cursor, 5, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Sensorik & Atmosphäre: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
+                    _log_result(cursor, 5, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Objekt-Kandidaten: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
 
-                # Gewinner auf 5 setzen, und alle Nicht-Sensorik-Kategorien mit 4 auf 5 anheben
+                # Gewinner auf 4 setzen, und alle Nicht-Objekt-Kategorien mit 3 auf 4 anheben
                 set_clauses = [f'"{winner_cid}" = 5']
-                for non_sensor_id in non_sensor_ids:
-                    set_clauses.append(f'"{non_sensor_id}" = CASE WHEN "{non_sensor_id}" = 4 THEN 5 ELSE "{non_sensor_id}" END')
+                for non_obj_id in non_obj_ids:
+                    set_clauses.append(f'"{non_obj_id}" = CASE WHEN "{non_obj_id}" = 4 THEN 5 ELSE "{non_obj_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -2189,7 +2171,7 @@ def _step_05_sensory(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 5: Alle Zeilen, die mehrere 4er und noch keinen Wert 5 enthalten (keine Sensorik-Kandidaten hatten), heben alle 4er auf 5 an
+    # Endschritt Schritt 4: Alle Zeilen, die mehrere 3er und noch keinen Wert 4 enthalten (keine Objekt-Kandidaten hatten), heben alle 3er auf 4 an
     col_cases_5 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 4 THEN 5 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2212,16 +2194,17 @@ def _step_05_sensory(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_06_actors(cursor, cat_map, cat_ids, log_msg):
+def _step_06_sensory(cursor, cat_map, cat_ids, log_msg):
 
-    # Die 3 Akteurs-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
-    actor_cat_tuples = [
-        ("Begleiter", "dim_calc_outer_Begleiter"),
-        ("Kreaturen", "dim_calc_outer_Kreaturen"),
-        ("NPCs", "dim_calc_outer_NPCs"),
+    # Die 4 Sensorik-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+    sensor_cat_tuples = [
+        ("Licht", "dim_calc_outer_Licht"),
+        ("Effekte", "dim_calc_outer_Effekte"),
+        ("Texturen", "dim_calc_outer_Texturen"),
+        ("Sound", "dim_calc_outer_Sound"),
     ]
-    actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_actor_ids = [cid for cid in cat_ids if cid not in actor_cat_ids]
+    sensor_cat_ids = [cat_map[name] for name, _ in sensor_cat_tuples if name in cat_map]
+    non_sensor_ids = [cid for cid in cat_ids if cid not in sensor_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2250,47 +2233,52 @@ def _step_06_actors(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive Akteurs-Kategorien auf Stufe 5
-        active_actor_scores = {}
-        for cname, dim_col in actor_cat_tuples:
+        # 1. Ermittle aktive Sensorik-Kategorien auf Stufe 4
+        active_sensor_scores = {}
+        for cname, dim_col in sensor_cat_tuples:
             cid_val = cat_map.get(cname)
             if cid_val is not None:
                 val = mat_row.get(str(cid_val)) or 0
                 if val == 5:
                     score = urow.get(dim_col) or 0
                     if score > 0:
-                        active_actor_scores[cname] = score
+                        active_sensor_scores[cname] = score
 
-        if active_actor_scores:
+        if active_sensor_scores:
             # 2. KO-Kriterien anwenden (LLO-Kaskade)
-            # KO: Spezialisierte Akteure (Begleiter & Kreaturen) stechen allgemeine humanoide NPCs aus
-            winner_ko_name = None
-            if "Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0:
-                winner_ko_name = "Begleiter"
-            elif "Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0:
-                winner_ko_name = "Kreaturen"
+            # KO 1: Licht schlägt Effekte, Texturen und Sound (Beleuchtung ist empfindlichste Render-Ebene)
+            if "Licht" in active_sensor_scores and active_sensor_scores["Licht"] > 0:
+                l_id = cat_map["Licht"]
+                for ko_name in ["Effekte", "Texturen", "Sound"]:
+                    if ko_name in active_sensor_scores:
+                        ko_id = cat_map[ko_name]
+                        active_sensor_scores.pop(ko_name, None)
+                        _log_result(cursor, 6, mid, cid, ko_id, l_id, 3, f"Licht sticht {ko_name} per Rendering-Architektur aus (Beleuchtungsquellen greifen tiefer als {ko_name}).")
 
-            if winner_ko_name and "NPCs" in active_actor_scores:
-                w_id = cat_map[winner_ko_name]
-                npc_id = cat_map["NPCs"]
-                active_actor_scores.pop("NPCs", None)
-                _log_result(cursor, 6, mid, cid, npc_id, w_id, 3, f"Spezialisierte Akteure ({winner_ko_name}) stechen allgemeine humanoide NPCs per KI-Architektur aus.")
+            # KO 2: Effekte schlägt Texturen und Sound (Shader/Post-Processing greift tiefer als Texturen/Audio)
+            elif "Effekte" in active_sensor_scores and active_sensor_scores["Effekte"] > 0:
+                e_id = cat_map["Effekte"]
+                for ko_name in ["Texturen", "Sound"]:
+                    if ko_name in active_sensor_scores:
+                        ko_id = cat_map[ko_name]
+                        active_sensor_scores.pop(ko_name, None)
+                        _log_result(cursor, 6, mid, cid, ko_id, e_id, 3, f"Effekte sticht {ko_name} per Rendering-Architektur aus (Shader/Post-Processing greift tiefer als {ko_name}).")
 
-            if active_actor_scores:
-                # 3. Gewinner nach Masse ermitteln (z. B. Begleiter vs. Kreaturen oder verbleibende reine NPCs)
-                sorted_actors = sorted(active_actor_scores.items(), key=lambda x: x[1], reverse=True)
-                winner_cname = sorted_actors[0][0]
+            if active_sensor_scores:
+                # 3. Gewinner nach Masse ermitteln (z. B. Texturen vs. Sound)
+                sorted_sensor = sorted(active_sensor_scores.items(), key=lambda x: x[1], reverse=True)
+                winner_cname = sorted_sensor[0][0]
                 winner_cid = cat_map[winner_cname]
-                winner_score = sorted_actors[0][1]
+                winner_score = sorted_sensor[0][1]
 
-                for looser_cname, looser_score in sorted_actors[1:]:
+                for looser_cname, looser_score in sorted_sensor[1:]:
                     looser_cid = cat_map[looser_cname]
-                    _log_result(cursor, 6, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Akteure: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
+                    _log_result(cursor, 6, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Sensorik & Atmosphäre: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
 
-                # Gewinner auf 6 setzen, und alle Nicht-Akteurs-Kategorien mit 5 auf 6 anheben
+                # Gewinner auf 5 setzen, und alle Nicht-Sensorik-Kategorien mit 4 auf 5 anheben
                 set_clauses = [f'"{winner_cid}" = 6']
-                for non_actor_id in non_actor_ids:
-                    set_clauses.append(f'"{non_actor_id}" = CASE WHEN "{non_actor_id}" = 5 THEN 6 ELSE "{non_actor_id}" END')
+                for non_sensor_id in non_sensor_ids:
+                    set_clauses.append(f'"{non_sensor_id}" = CASE WHEN "{non_sensor_id}" = 5 THEN 6 ELSE "{non_sensor_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -2299,7 +2287,7 @@ def _step_06_actors(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 6: Alle Zeilen, die mehrere 5er und noch keinen Wert 6 enthalten (keine Akteurs-Kandidaten hatten), heben alle 5er auf 6 an
+    # Endschritt Schritt 5: Alle Zeilen, die mehrere 4er und noch keinen Wert 5 enthalten (keine Sensorik-Kandidaten hatten), heben alle 4er auf 5 an
     col_cases_6 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 5 THEN 6 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2322,17 +2310,16 @@ def _step_06_actors(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_07_systems(cursor, cat_map, cat_ids, log_msg):
+def _step_07_actors(cursor, cat_map, cat_ids, log_msg):
 
-    # Die 4 System-/QoL-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
-    sys_cat_tuples = [
-        ("Gameplay", "dim_calc_outer_Gameplay"),
-        ("Interface", "dim_calc_outer_Interface"),
-        ("Sortierung", "dim_calc_outer_Sortierung"),
-        ("Tweaks", "dim_calc_outer_Tweaks"),
+    # Die 3 Akteurs-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+    actor_cat_tuples = [
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+        ("NPCs", "dim_calc_outer_NPCs"),
     ]
-    sys_cat_ids = [cat_map[name] for name, _ in sys_cat_tuples if name in cat_map]
-    non_sys_ids = [cid for cid in cat_ids if cid not in sys_cat_ids]
+    actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    non_actor_ids = [cid for cid in cat_ids if cid not in actor_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2361,48 +2348,47 @@ def _step_07_systems(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive System-/QoL-Kategorien auf Stufe 6
-        active_sys_scores = {}
-        for cname, dim_col in sys_cat_tuples:
+        # 1. Ermittle aktive Akteurs-Kategorien auf Stufe 5
+        active_actor_scores = {}
+        for cname, dim_col in actor_cat_tuples:
             cid_val = cat_map.get(cname)
             if cid_val is not None:
                 val = mat_row.get(str(cid_val)) or 0
                 if val == 6:
                     score = urow.get(dim_col) or 0
                     if score > 0:
-                        active_sys_scores[cname] = score
+                        active_actor_scores[cname] = score
 
-        if active_sys_scores:
-            # 2. KO-Kriterien anwenden:
-            # Sobald Gameplay (Zauber/Perks), Sortierung (INNR/Namens-Overrides) oder Interface (UI-Dateien)
-            # aktiv sind, scheidet Tweaks per KO aus
-            winner_sys_name = None
-            for check_name in ["Gameplay", "Sortierung", "Interface"]:
-                if check_name in active_sys_scores and active_sys_scores[check_name] > 0:
-                    winner_sys_name = check_name
-                    break
+        if active_actor_scores:
+            # 2. KO-Kriterien anwenden (LLO-Kaskade)
+            # KO: Spezialisierte Akteure (Begleiter & Kreaturen) stechen allgemeine humanoide NPCs aus
+            winner_ko_name = None
+            if "Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0:
+                winner_ko_name = "Begleiter"
+            elif "Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0:
+                winner_ko_name = "Kreaturen"
 
-            if winner_sys_name and "Tweaks" in active_sys_scores:
-                w_id = cat_map[winner_sys_name]
-                t_id = cat_map["Tweaks"]
-                active_sys_scores.pop("Tweaks", None)
-                _log_result(cursor, 7, mid, cid, t_id, w_id, 3, f"Inhaltliche Spielmechanik ({winner_sys_name}) sticht reine Einstellungs-Tweaks per Architektur aus.")
+            if winner_ko_name and "NPCs" in active_actor_scores:
+                w_id = cat_map[winner_ko_name]
+                npc_id = cat_map["NPCs"]
+                active_actor_scores.pop("NPCs", None)
+                _log_result(cursor, 7, mid, cid, npc_id, w_id, 3, f"Spezialisierte Akteure ({winner_ko_name}) stechen allgemeine humanoide NPCs per KI-Architektur aus.")
 
-            if active_sys_scores:
-                # 3. Gewinner nach Masse ermitteln (z. B. Gameplay vs. Sortierung vs. Interface oder reiner Tweak)
-                sorted_sys = sorted(active_sys_scores.items(), key=lambda x: x[1], reverse=True)
-                winner_cname = sorted_sys[0][0]
+            if active_actor_scores:
+                # 3. Gewinner nach Masse ermitteln (z. B. Begleiter vs. Kreaturen oder verbleibende reine NPCs)
+                sorted_actors = sorted(active_actor_scores.items(), key=lambda x: x[1], reverse=True)
+                winner_cname = sorted_actors[0][0]
                 winner_cid = cat_map[winner_cname]
-                winner_score = sorted_sys[0][1]
+                winner_score = sorted_actors[0][1]
 
-                for looser_cname, looser_score in sorted_sys[1:]:
+                for looser_cname, looser_score in sorted_actors[1:]:
                     looser_cid = cat_map[looser_cname]
-                    _log_result(cursor, 7, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Systeme & QoL: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
+                    _log_result(cursor, 7, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Akteure: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
 
-                # Gewinner auf 7 setzen, und alle Nicht-System-Kategorien mit 6 auf 7 anheben
+                # Gewinner auf 6 setzen, und alle Nicht-Akteurs-Kategorien mit 5 auf 6 anheben
                 set_clauses = [f'"{winner_cid}" = 7']
-                for non_sys_id in non_sys_ids:
-                    set_clauses.append(f'"{non_sys_id}" = CASE WHEN "{non_sys_id}" = 6 THEN 7 ELSE "{non_sys_id}" END')
+                for non_actor_id in non_actor_ids:
+                    set_clauses.append(f'"{non_actor_id}" = CASE WHEN "{non_actor_id}" = 6 THEN 7 ELSE "{non_actor_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -2411,7 +2397,7 @@ def _step_07_systems(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 7: Alle Zeilen, die mehrere 6er und noch keinen Wert 7 enthalten (keine System-/QoL-Kandidaten hatten), heben alle 6er auf 7 an
+    # Endschritt Schritt 6: Alle Zeilen, die mehrere 5er und noch keinen Wert 6 enthalten (keine Akteurs-Kandidaten hatten), heben alle 5er auf 6 an
     col_cases_7 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 6 THEN 7 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2434,15 +2420,17 @@ def _step_07_systems(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_08_transport(cursor, cat_map, cat_ids, log_msg):
+def _step_08_systems(cursor, cat_map, cat_ids, log_msg):
 
-    # Die 2 Transport-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
-    trans_cat_tuples = [
-        ("Schiffe", "dim_calc_outer_Schiffe"),
-        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+    # Die 4 System-/QoL-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+    sys_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
     ]
-    trans_cat_ids = [cat_map[name] for name, _ in trans_cat_tuples if name in cat_map]
-    non_trans_ids = [cid for cid in cat_ids if cid not in trans_cat_ids]
+    sys_cat_ids = [cat_map[name] for name, _ in sys_cat_tuples if name in cat_map]
+    non_sys_ids = [cid for cid in cat_ids if cid not in sys_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2471,41 +2459,57 @@ def _step_08_transport(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive Transport-Kategorien auf Stufe 7
-        active_trans_scores = {}
-        for cname, dim_col in trans_cat_tuples:
+        # 1. Ermittle aktive System-/QoL-Kategorien auf Stufe 6
+        active_sys_scores = {}
+        for cname, dim_col in sys_cat_tuples:
             cid_val = cat_map.get(cname)
             if cid_val is not None:
                 val = mat_row.get(str(cid_val)) or 0
                 if val == 7:
                     score = urow.get(dim_col) or 0
                     if score > 0:
-                        active_trans_scores[cname] = score
+                        active_sys_scores[cname] = score
 
-        if active_trans_scores:
-            # 2. Gewinner nach Masse ermitteln (Schiffe vs. Fahrzeuge)
-            sorted_trans = sorted(active_trans_scores.items(), key=lambda x: x[1], reverse=True)
-            winner_cname = sorted_trans[0][0]
-            winner_cid = cat_map[winner_cname]
-            winner_score = sorted_trans[0][1]
+        if active_sys_scores:
+            # 2. KO-Kriterien anwenden:
+            # Sobald Gameplay (Zauber/Perks), Sortierung (INNR/Namens-Overrides) oder Interface (UI-Dateien)
+            # aktiv sind, scheidet Tweaks per KO aus
+            winner_sys_name = None
+            for check_name in ["Gameplay", "Sortierung", "Interface"]:
+                if check_name in active_sys_scores and active_sys_scores[check_name] > 0:
+                    winner_sys_name = check_name
+                    break
 
-            for looser_cname, looser_score in sorted_trans[1:]:
-                looser_cid = cat_map[looser_cname]
-                _log_result(cursor, 8, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Transport: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
+            if winner_sys_name and "Tweaks" in active_sys_scores:
+                w_id = cat_map[winner_sys_name]
+                t_id = cat_map["Tweaks"]
+                active_sys_scores.pop("Tweaks", None)
+                _log_result(cursor, 8, mid, cid, t_id, w_id, 3, f"Inhaltliche Spielmechanik ({winner_sys_name}) sticht reine Einstellungs-Tweaks per Architektur aus.")
 
-            # Gewinner auf 8 setzen, und alle Nicht-Transport-Kategorien mit 7 auf 8 anheben
-            set_clauses = [f'"{winner_cid}" = 8']
-            for non_trans_id in non_trans_ids:
-                set_clauses.append(f'"{non_trans_id}" = CASE WHEN "{non_trans_id}" = 7 THEN 8 ELSE "{non_trans_id}" END')
+            if active_sys_scores:
+                # 3. Gewinner nach Masse ermitteln (z. B. Gameplay vs. Sortierung vs. Interface oder reiner Tweak)
+                sorted_sys = sorted(active_sys_scores.items(), key=lambda x: x[1], reverse=True)
+                winner_cname = sorted_sys[0][0]
+                winner_cid = cat_map[winner_cname]
+                winner_score = sorted_sys[0][1]
 
-            set_sql = ", ".join(set_clauses)
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {set_sql}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
+                for looser_cname, looser_score in sorted_sys[1:]:
+                    looser_cid = cat_map[looser_cname]
+                    _log_result(cursor, 8, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Systeme & QoL: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
 
-    # Endschritt Schritt 8: Alle Zeilen, die mehrere 7er und noch keinen Wert 8 enthalten (keine Transport-Kandidaten hatten), heben alle 7er auf 8 an
+                # Gewinner auf 7 setzen, und alle Nicht-System-Kategorien mit 6 auf 7 anheben
+                set_clauses = [f'"{winner_cid}" = 8']
+                for non_sys_id in non_sys_ids:
+                    set_clauses.append(f'"{non_sys_id}" = CASE WHEN "{non_sys_id}" = 7 THEN 8 ELSE "{non_sys_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 7: Alle Zeilen, die mehrere 6er und noch keinen Wert 7 enthalten (keine System-/QoL-Kandidaten hatten), heben alle 6er auf 7 an
     col_cases_8 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 7 THEN 8 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2528,11 +2532,15 @@ def _step_08_transport(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_09_remover(cursor, cat_map, cat_ids, log_msg):
+def _step_09_transport(cursor, cat_map, cat_ids, log_msg):
 
-    remove_id = cat_map.get('Remove') or cat_map.get('Remover') or 28
-    world_cat_ids = [cat_map[n] for n in ["POIs", "Städte", "Spielerheime", "Gebäude", "Außenposten", "Umgebung"] if n in cat_map]
-    content_cat_ids = [cid for cid in cat_ids if cid != remove_id and cid not in world_cat_ids]
+    # Die 2 Transport-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
+    trans_cat_tuples = [
+        ("Schiffe", "dim_calc_outer_Schiffe"),
+        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+    ]
+    trans_cat_ids = [cat_map[name] for name, _ in trans_cat_tuples if name in cat_map]
+    non_trans_ids = [cid for cid in cat_ids if cid not in trans_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2561,70 +2569,41 @@ def _step_09_remover(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # Prüfe, ob Remover auf Stufe 8 aktiv ist
-        remove_val = mat_row.get(str(remove_id)) or 0
-        remove_score = urow.get('dim_calc_outer_Remove') or 0
+        # 1. Ermittle aktive Transport-Kategorien auf Stufe 7
+        active_trans_scores = {}
+        for cname, dim_col in trans_cat_tuples:
+            cid_val = cat_map.get(cname)
+            if cid_val is not None:
+                val = mat_row.get(str(cid_val)) or 0
+                if val == 8:
+                    score = urow.get(dim_col) or 0
+                    if score > 0:
+                        active_trans_scores[cname] = score
 
-        if remove_val == 8 and remove_score > 0:
-            # 1. Prüfe, ob andere Inhalts-Kandidaten (Objekte, Akteure, Transport, Systeme, Sensorik, Charakter) auf Stufe 8 aktiv sind
-            active_content_cids = [
-                c for c in content_cat_ids 
-                if (mat_row.get(str(c)) or 0) == 8
-            ]
+        if active_trans_scores:
+            # 2. Gewinner nach Masse ermitteln (Schiffe vs. Fahrzeuge)
+            sorted_trans = sorted(active_trans_scores.items(), key=lambda x: x[1], reverse=True)
+            winner_cname = sorted_trans[0][0]
+            winner_cid = cat_map[winner_cname]
+            winner_score = sorted_trans[0][1]
 
-            # 2. Prüfe, ob Welt-Kandidaten auf Stufe 8 aktiv sind
-            active_world_cids = [
-                c for c in world_cat_ids 
-                if (mat_row.get(str(c)) or 0) == 8
-            ]
+            for looser_cname, looser_score in sorted_trans[1:]:
+                looser_cid = cat_map[looser_cname]
+                _log_result(cursor, 9, mid, cid, looser_cid, winner_cid, 4, f"Massevergleich Transport: '{winner_cname}' (Wert: {winner_score:.1f}) übertrifft '{looser_cname}' (Wert: {looser_score:.1f}).")
 
-            # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
-            stat = urow.get('STAT') or 0
-            stat_o = urow.get('STAT_Override') or 0
-            new_stat = max(0, stat - stat_o)
-            furn = urow.get('FURN') or 0
-            furn_o = urow.get('FURN_Override') or 0
-            new_furn = max(0, furn - furn_o)
-            pkin = urow.get('PKIN') or 0
-            has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
+            # Gewinner auf 8 setzen, und alle Nicht-Transport-Kategorien mit 7 auf 8 anheben
+            set_clauses = [f'"{winner_cid}" = 9']
+            for non_trans_id in non_trans_ids:
+                set_clauses.append(f'"{non_trans_id}" = CASE WHEN "{non_trans_id}" = 8 THEN 9 ELSE "{non_trans_id}" END')
 
-            set_clauses = []
-            if active_content_cids:
-                # Inhalts-Kandidaten schlagen Remover per KO (Remover scheidet aus)
-                primary_w_id = active_content_cids[0]
-                primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
-                _log_result(cursor, 9, mid, cid, remove_id, primary_w_id, 3, f"Inhalts-Definitionen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) per Architektur aus.")
-                for c in active_content_cids:
-                    set_clauses.append(f'"{c}" = 9')
-                for c in active_world_cids:
-                    set_clauses.append(f'"{c}" = 9')
-            elif active_world_cids:
-                if has_new_structures:
-                    # Welt-Mod gewinnt per KO (Löschung diente nur dem Bauplatz für neue Strukturen)
-                    primary_w_id = active_world_cids[0]
-                    primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
-                    _log_result(cursor, 9, mid, cid, remove_id, primary_w_id, 3, f"Echte Neubauten/Strukturen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) aus (Löschung diente als Bauplatz).")
-                    for c in active_world_cids:
-                        set_clauses.append(f'"{c}" = 9')
-                else:
-                    # Reiner Remover gewinnt (keine neuen Strukturen, reine Deaktivierungen)
-                    for w_cid in active_world_cids:
-                        w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
-                        _log_result(cursor, 9, mid, cid, w_cid, remove_id, 3, f"Reine Deaktivierungs-Operation (Remove) sticht '{w_name}' aus (keine neuen Strukturen deklariert).")
-                    set_clauses.append(f'"{remove_id}" = 9')
-            else:
-                # Reiner Remover ohne Konkurrenz
-                set_clauses.append(f'"{remove_id}" = 9')
+            set_sql = ", ".join(set_clauses)
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {set_sql}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
 
-            if set_clauses:
-                set_sql = ", ".join(set_clauses)
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE Mod_ID = ? AND Component_ID = ?
-                """, (mid, cid))
-
-    # Endschritt Schritt 9: Alle Zeilen, die mehrere 8er und noch keinen Wert 9 enthalten (keine Remover-Kandidaten hatten), heben alle 8er auf 9 an
+    # Endschritt Schritt 8: Alle Zeilen, die mehrere 7er und noch keinen Wert 8 enthalten (keine Transport-Kandidaten hatten), heben alle 7er auf 8 an
     col_cases_9 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 8 THEN 9 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2647,21 +2626,11 @@ def _step_09_remover(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_10_sensory_override(cursor, cat_map, cat_ids, log_msg):
+def _step_10_remover(cursor, cat_map, cat_ids, log_msg):
 
-    sensor_cat_ids = [cat_map[n] for n in ["Licht", "Effekte", "Texturen", "Sound"] if n in cat_map]
-    passive_sensor_ids = [cat_map[n] for n in ["Texturen", "Sound"] if n in cat_map]
-    active_render_ids = [cat_map[n] for n in ["Licht", "Effekte"] if n in cat_map]
-
-    object_cat_ids = [cat_map[n] for n in ["Waffen", "Kleidung", "Pflanzen", "Crafting", "Einrichtung", "Items", "Skins"] if n in cat_map]
-    actor_cat_ids = [cat_map[n] for n in ["NPCs", "Begleiter", "Kreaturen"] if n in cat_map]
-    transport_cat_ids = [cat_map[n] for n in ["Schiffe", "Fahrzeuge"] if n in cat_map]
-    system_cat_ids = [cat_map[n] for n in ["Gameplay", "Interface", "Sortierung", "Tweaks"] if n in cat_map]
-    char_cat_ids = [cat_map['Charakter']] if 'Charakter' in cat_map else []
-    world_cat_ids = [cat_map[n] for n in ["Umgebung", "Städte", "Gebäude", "Spielerheime", "POIs", "Außenposten"] if n in cat_map]
-
-    primary_content_ids = object_cat_ids + actor_cat_ids + transport_cat_ids + system_cat_ids + char_cat_ids
-    non_sensor_ids = primary_content_ids + world_cat_ids
+    remove_id = cat_map.get('Remove') or cat_map.get('Remover') or 28
+    world_cat_ids = [cat_map[n] for n in ["POIs", "Städte", "Spielerheime", "Gebäude", "Außenposten", "Umgebung"] if n in cat_map]
+    content_cat_ids = [cid for cid in cat_ids if cid != remove_id and cid not in world_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2690,17 +2659,22 @@ def _step_10_sensory_override(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # Prüfe aktive Kandidaten auf Stufe 9
-        active_sensors = [c for c in sensor_cat_ids if (mat_row.get(str(c)) or 0) == 9]
-        active_non_sensors = [c for c in non_sensor_ids if (mat_row.get(str(c)) or 0) == 9]
+        # Prüfe, ob Remover auf Stufe 8 aktiv ist
+        remove_val = mat_row.get(str(remove_id)) or 0
+        remove_score = urow.get('dim_calc_outer_Remove') or 0
 
-        if active_sensors and active_non_sensors:
-            # Sensorik trifft auf Inhalt
-            has_passive_sensor = any(c in passive_sensor_ids for c in active_sensors)
-            has_active_render = any(c in active_render_ids for c in active_sensors)
+        if remove_val == 9 and remove_score > 0:
+            # 1. Prüfe, ob andere Inhalts-Kandidaten (Objekte, Akteure, Transport, Systeme, Sensorik, Charakter) auf Stufe 8 aktiv sind
+            active_content_cids = [
+                c for c in content_cat_ids 
+                if (mat_row.get(str(c)) or 0) == 8
+            ]
 
-            has_primary_content = any(c in primary_content_ids for c in active_non_sensors)
-            active_worlds = [c for c in world_cat_ids if c in active_non_sensors]
+            # 2. Prüfe, ob Welt-Kandidaten auf Stufe 8 aktiv sind
+            active_world_cids = [
+                c for c in world_cat_ids 
+                if (mat_row.get(str(c)) or 0) == 8
+            ]
 
             # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
             stat = urow.get('STAT') or 0
@@ -2713,25 +2687,32 @@ def _step_10_sensory_override(cursor, cat_map, cat_ids, log_msg):
             has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
 
             set_clauses = []
-
-            if has_active_render and not has_passive_sensor and not has_primary_content and active_worlds and not has_new_structures:
-                # Reines Licht/Effekt-Overhaul ohne neue Strukturen in bestehenden Welt-Zellen (z.B. ELFX) -> Licht gewinnt!
-                winner_s_id = active_sensors[0]
-                winner_s_name = [name for name, c_id in cat_map.items() if c_id == winner_s_id][0]
-                for w_cid in active_worlds:
-                    w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
-                    _log_result(cursor, 10, mid, cid, w_cid, winner_s_id, 3, f"Reines Beleuchtungs-/Shader-Overhaul ('{winner_s_name}') sticht '{w_name}' ohne Neubauten per Render-Architektur aus.")
-                for scid in active_sensors:
-                    set_clauses.append(f'"{scid}" = 10')
-            else:
-                # In allen anderen Fällen schlägt Inhalt die Sensorik (Texturen/Sound verlieren immer; Licht/Effekte verlieren bei Objekten/Neubauten)
-                primary_w_id = active_non_sensors[0]
+            if active_content_cids:
+                # Inhalts-Kandidaten schlagen Remover per KO (Remover scheidet aus)
+                primary_w_id = active_content_cids[0]
                 primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
-                for scid in active_sensors:
-                    s_name = [name for name, c_id in cat_map.items() if c_id == scid][0]
-                    _log_result(cursor, 10, mid, cid, scid, primary_w_id, 3, f"Inhalts-Trägerobjekte / Weltbauten ('{primary_w_name}') stechen passive Medien/Beleuchtung ('{s_name}') per Architektur aus.")
-                for ncid in active_non_sensors:
-                    set_clauses.append(f'"{ncid}" = 10')
+                _log_result(cursor, 10, mid, cid, remove_id, primary_w_id, 3, f"Inhalts-Definitionen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) per Architektur aus.")
+                for c in active_content_cids:
+                    set_clauses.append(f'"{c}" = 9')
+                for c in active_world_cids:
+                    set_clauses.append(f'"{c}" = 9')
+            elif active_world_cids:
+                if has_new_structures:
+                    # Welt-Mod gewinnt per KO (Löschung diente nur dem Bauplatz für neue Strukturen)
+                    primary_w_id = active_world_cids[0]
+                    primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                    _log_result(cursor, 10, mid, cid, remove_id, primary_w_id, 3, f"Echte Neubauten/Strukturen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) aus (Löschung diente als Bauplatz).")
+                    for c in active_world_cids:
+                        set_clauses.append(f'"{c}" = 9')
+                else:
+                    # Reiner Remover gewinnt (keine neuen Strukturen, reine Deaktivierungen)
+                    for w_cid in active_world_cids:
+                        w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                        _log_result(cursor, 10, mid, cid, w_cid, remove_id, 3, f"Reine Deaktivierungs-Operation (Remove) sticht '{w_name}' aus (keine neuen Strukturen deklariert).")
+                    set_clauses.append(f'"{remove_id}" = 9')
+            else:
+                # Reiner Remover ohne Konkurrenz
+                set_clauses.append(f'"{remove_id}" = 9')
 
             if set_clauses:
                 set_sql = ", ".join(set_clauses)
@@ -2741,7 +2722,7 @@ def _step_10_sensory_override(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 10: Alle Zeilen, die mehrere 9er und noch keinen Wert 10 enthalten (keine Sensorik-Kollision hatten), heben alle 9er auf 10 an
+    # Endschritt Schritt 9: Alle Zeilen, die mehrere 8er und noch keinen Wert 9 enthalten (keine Remover-Kandidaten hatten), heben alle 8er auf 9 an
     col_cases_10 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 9 THEN 10 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2764,25 +2745,21 @@ def _step_10_sensory_override(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_11_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
+def _step_11_sensory_override(cursor, cat_map, cat_ids, log_msg):
 
-    transport_cat_tuples = [
-        ("Schiffe", "dim_calc_outer_Schiffe"),
-        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
-    ]
-    object_cat_tuples = [
-        ("Waffen", "dim_calc_outer_Waffen"),
-        ("Kleidung", "dim_calc_outer_Kleidung"),
-        ("Crafting", "dim_calc_outer_Crafting"),
-        ("Einrichtung", "dim_calc_outer_Einrichtung"),
-        ("Items", "dim_calc_outer_Items"),
-        ("Skins", "dim_calc_outer_Skins"),
-        ("Pflanzen", "dim_calc_outer_Pflanzen"),
-    ]
+    sensor_cat_ids = [cat_map[n] for n in ["Licht", "Effekte", "Texturen", "Sound"] if n in cat_map]
+    passive_sensor_ids = [cat_map[n] for n in ["Texturen", "Sound"] if n in cat_map]
+    active_render_ids = [cat_map[n] for n in ["Licht", "Effekte"] if n in cat_map]
 
-    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
-    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
-    non_duel_ids_11 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in obj_cat_ids]
+    object_cat_ids = [cat_map[n] for n in ["Waffen", "Kleidung", "Pflanzen", "Crafting", "Einrichtung", "Items", "Skins"] if n in cat_map]
+    actor_cat_ids = [cat_map[n] for n in ["NPCs", "Begleiter", "Kreaturen"] if n in cat_map]
+    transport_cat_ids = [cat_map[n] for n in ["Schiffe", "Fahrzeuge"] if n in cat_map]
+    system_cat_ids = [cat_map[n] for n in ["Gameplay", "Interface", "Sortierung", "Tweaks"] if n in cat_map]
+    char_cat_ids = [cat_map['Charakter']] if 'Charakter' in cat_map else []
+    world_cat_ids = [cat_map[n] for n in ["Umgebung", "Städte", "Gebäude", "Spielerheime", "POIs", "Außenposten"] if n in cat_map]
+
+    primary_content_ids = object_cat_ids + actor_cat_ids + transport_cat_ids + system_cat_ids + char_cat_ids
+    non_sensor_ids = primary_content_ids + world_cat_ids
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -2811,60 +2788,50 @@ def _step_11_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive Transport- und Objekt-Kandidaten auf Stufe 10
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 10]
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 10]
+        # Prüfe aktive Kandidaten auf Stufe 9
+        active_sensors = [c for c in sensor_cat_ids if (mat_row.get(str(c)) or 0) == 10]
+        active_non_sensors = [c for c in non_sensor_ids if (mat_row.get(str(c)) or 0) == 10]
 
-        if active_trans_cids and active_obj_cids:
-            t_cid = active_trans_cids[0]
-            o_cid = active_obj_cids[0]
+        if active_sensors and active_non_sensors:
+            # Sensorik trifft auf Inhalt
+            has_passive_sensor = any(c in passive_sensor_ids for c in active_sensors)
+            has_active_render = any(c in active_render_ids for c in active_sensors)
 
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+            has_primary_content = any(c in primary_content_ids for c in active_non_sensors)
+            active_worlds = [c for c in world_cat_ids if c in active_non_sensors]
 
-            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
-            val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+            # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
+            stat = urow.get('STAT') or 0
+            stat_o = urow.get('STAT_Override') or 0
+            new_stat = max(0, stat - stat_o)
+            furn = urow.get('FURN') or 0
+            furn_o = urow.get('FURN_Override') or 0
+            new_furn = max(0, furn - furn_o)
+            pkin = urow.get('PKIN') or 0
+            has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
 
-            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
-            cobj_op_soft = urow.get('COBJ_BNAM_Outpost_Soft') or 0
-            stbh = urow.get('STBH') or 0
-            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
-            vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+            set_clauses = []
 
-            has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
-            # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
-            is_ship_hab_package = (has_ship_builder or vehicle_gbfm > 0) and cobj_op_soft == 0
-
-            winner_cid = None
-            # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
-            if o_cid == cat_map.get('Skins') and is_ship_hab_package:
-                winner_cid = t_cid
-                _log_result(cursor, 11, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Skin-Zuweisungen per Zell-Architektur aus.")
-            elif o_cid == cat_map.get('Einrichtung'):
-                if is_ship_hab_package:
-                    winner_cid = t_cid
-                    _log_result(cursor, 11, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen abgeleitete Einrichtungs-Zuweisungen per Zell-Architektur aus.")
-                elif val_o >= val_t:
-                    winner_cid = o_cid
-                    _log_result(cursor, 11, mid, cid, t_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Transport: 'Einrichtung' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 11, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. Einrichtung: '{t_name}' ({val_t:.1f}) übertrifft 'Einrichtung' ({val_o:.1f}).")
+            if has_active_render and not has_passive_sensor and not has_primary_content and active_worlds and not has_new_structures:
+                # Reines Licht/Effekt-Overhaul ohne neue Strukturen in bestehenden Welt-Zellen (z.B. ELFX) -> Licht gewinnt!
+                winner_s_id = active_sensors[0]
+                winner_s_name = [name for name, c_id in cat_map.items() if c_id == winner_s_id][0]
+                for w_cid in active_worlds:
+                    w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                    _log_result(cursor, 11, mid, cid, w_cid, winner_s_id, 3, f"Reines Beleuchtungs-/Shader-Overhaul ('{winner_s_name}') sticht '{w_name}' ohne Neubauten per Render-Architektur aus.")
+                for scid in active_sensors:
+                    set_clauses.append(f'"{scid}" = 10')
             else:
-                # Regel C: Direkter relationaler Massenvergleich für alle unabhängigen Objekte (Waffen, Kleidung, Crafting, Items, freie Deko)
-                if val_t >= val_o:
-                    winner_cid = t_cid
-                    _log_result(cursor, 11, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. {o_name}: '{t_name}' ({val_t:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
-                else:
-                    winner_cid = o_cid
-                    _log_result(cursor, 11, mid, cid, t_cid, o_cid, 4, f"Massevergleich {o_name} vs. Transport: '{o_name}' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                # In allen anderen Fällen schlägt Inhalt die Sensorik (Texturen/Sound verlieren immer; Licht/Effekte verlieren bei Objekten/Neubauten)
+                primary_w_id = active_non_sensors[0]
+                primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                for scid in active_sensors:
+                    s_name = [name for name, c_id in cat_map.items() if c_id == scid][0]
+                    _log_result(cursor, 11, mid, cid, scid, primary_w_id, 3, f"Inhalts-Trägerobjekte / Weltbauten ('{primary_w_name}') stechen passive Medien/Beleuchtung ('{s_name}') per Architektur aus.")
+                for ncid in active_non_sensors:
+                    set_clauses.append(f'"{ncid}" = 11')
 
-            if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 11']
-                for non_id in non_duel_ids_11:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 10 THEN 11 ELSE "{non_id}" END')
-
+            if set_clauses:
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
                     UPDATE LoadOrder_Classifier_Matrix
@@ -2872,7 +2839,7 @@ def _step_11_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 11: Alle Zeilen ohne Transport/Objekt-Kollision heben alle 10er auf 11 an
+    # Endschritt Schritt 10: Alle Zeilen, die mehrere 9er und noch keinen Wert 10 enthalten (keine Sensorik-Kollision hatten), heben alle 9er auf 10 an
     col_cases_11 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 10 THEN 11 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
@@ -2895,581 +2862,25 @@ def _step_11_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_12_transport_vs_character(cursor, cat_map, cat_ids, log_msg):
+def _step_21_transport_vs_objects(cursor, cat_map, cat_ids, log_msg):
 
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
     ]
-    charakter_cat_tuples = [
-        ("Charakter", "dim_calc_outer_Charakter"),
-    ]
-
-    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
-    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
-    non_duel_ids_12 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in char_cat_ids]
-
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_12 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
-
-    for urow in unresolved_rows_12:
-        mid = urow['Mod_ID']
-        cid = urow['Component_ID']
-
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
-        # 1. Ermittle aktive Transport- und Charakter-Kandidaten auf Stufe 11
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 11]
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == 11]
-
-        if active_trans_cids and active_char_cids:
-            t_cid = active_trans_cids[0]
-            c_cid = active_char_cids[0]
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-
-            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
-            stbh = urow.get('STBH') or 0
-            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
-            vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
-            has_real_transport = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0)
-
-            if has_real_transport:
-                winner_cid = t_cid
-                _log_result(cursor, 12, mid, cid, c_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Charakter-Styling per LLO-Ladeordnung und Architektur aus.")
-            else:
-                winner_cid = c_cid
-                _log_result(cursor, 12, mid, cid, t_cid, c_cid, 3, "Charakter-Styling sticht reine Vanilla-Zellenübersteuerungen ohne Schiffsbaukomponenten per Architektur aus.")
-
-            set_clauses = [f'"{winner_cid}" = 12']
-            for non_id in non_duel_ids_12:
-                set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 11 THEN 12 ELSE "{non_id}" END')
-
-            set_sql = ", ".join(set_clauses)
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {set_sql}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-    # Endschritt Schritt 12: Alle Zeilen ohne Transport/Charakter-Kollision heben alle 11er auf 12 an
-    col_cases_12 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 11 THEN 12 ELSE "{cid}" END' for cid in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select_quotes}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    rows_check12 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check12:
-        mid = r['Mod_ID']
-        cid = r['Component_ID']
-        vals = [r[str(c)] or 0 for c in cat_ids]
-        max_v = max(vals) if vals else 0
-        if max_v == 11:
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_12}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-
-def _step_13_transport_vs_systems(cursor, cat_map, cat_ids, log_msg):
-
-    transport_cat_tuples = [
-        ("Schiffe", "dim_calc_outer_Schiffe"),
-        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
-    ]
-    system_cat_tuples = [
-        ("Gameplay", "dim_calc_outer_Gameplay"),
-        ("Sortierung", "dim_calc_outer_Sortierung"),
-        ("Interface", "dim_calc_outer_Interface"),
-        ("Tweaks", "dim_calc_outer_Tweaks"),
-    ]
-
-    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
-    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_13 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in sys_cat_ids]
-
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_13 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
-
-    for urow in unresolved_rows_13:
-        mid = urow['Mod_ID']
-        cid = urow['Component_ID']
-
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
-        # 1. Ermittle aktive Transport- und Systeme-Kandidaten auf Stufe 12
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 12]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 12]
-
-        if active_trans_cids and active_sys_cids:
-            t_cid = active_trans_cids[0]
-            s_cid = active_sys_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
-
-            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
-            val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
-
-            winner_cid = None
-            # Regel A: Transport schlägt reine Hilfssysteme (Tweaks, Sortierung, Interface) per KO
-            if s_name in ('Tweaks', 'Sortierung', 'Interface'):
-                winner_cid = t_cid
-                _log_result(cursor, 13, mid, cid, s_cid, t_cid, 3, f"Schiffs- und Fahrzeugkomponenten ('{t_name}') stechen Hilfs- und Einstellungs-Systeme ('{s_name}') per Architektur aus.")
-            # Regel B: Transport vs. Gameplay
-            elif s_name == 'Gameplay':
-                stbh = urow.get('STBH') or 0
-                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-                cell_ship = urow.get('qry_CELL_Ship') or 0
-                gbfm_veh = urow.get('GBFM_EDID_Vehicle') or 0
-
-                has_hard_transport = (stbh > 0 or weap_ship > 0 or cell_ship > 0 or gbfm_veh > 0)
-
-                if has_hard_transport:
-                    winner_cid = t_cid
-                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 3, f"Echte Transport-Hardware/Snap-Nodes ('{t_name}') stechen Gameplay-Mechaniken per Architektur aus.")
-                elif val_t >= (3 * val_s):
-                    winner_cid = t_cid
-                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. Gameplay: Dominante Schiffs-/Fahrzeugmodule ('{t_name}', Wert: {val_t:.1f}) übertreffen Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}).")
-                else:
-                    winner_cid = s_cid
-                    _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich Gameplay vs. Transport: Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}) übertreffen Träger-Module ('{t_name}', Wert: {val_t:.1f}).")
-            else:
-                if val_t >= val_s:
-                    winner_cid = t_cid
-                    _log_result(cursor, 13, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. {s_name}: '{t_name}' ({val_t:.1f}) übertrifft '{s_name}' ({val_s:.1f}).")
-                else:
-                    winner_cid = s_cid
-                    _log_result(cursor, 13, mid, cid, t_cid, s_cid, 4, f"Massevergleich {s_name} vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-
-            if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 13']
-                for non_id in non_duel_ids_13:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 12 THEN 13 ELSE "{non_id}" END')
-
-                set_sql = ", ".join(set_clauses)
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE Mod_ID = ? AND Component_ID = ?
-                """, (mid, cid))
-
-    # Endschritt Schritt 13: Alle Zeilen ohne Transport/Systeme-Kollision heben alle 12er auf 13 an
-    col_cases_13 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 12 THEN 13 ELSE "{cid}" END' for cid in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select_quotes}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    rows_check13 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check13:
-        mid = r['Mod_ID']
-        cid = r['Component_ID']
-        vals = [r[str(c)] or 0 for c in cat_ids]
-        max_v = max(vals) if vals else 0
-        if max_v == 12:
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_13}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-
-def _step_14_transport_vs_actors(cursor, cat_map, cat_ids, log_msg):
-
-    transport_cat_tuples = [
-        ("Schiffe", "dim_calc_outer_Schiffe"),
-        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
-    ]
-    actor_cat_tuples = [
-        ("NPCs", "dim_calc_outer_NPCs"),
-        ("Begleiter", "dim_calc_outer_Begleiter"),
-        ("Kreaturen", "dim_calc_outer_Kreaturen"),
-    ]
-
-    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
-    actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_duel_ids_14 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in actor_cat_ids]
-
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_14 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
-
-    for urow in unresolved_rows_14:
-        mid = urow['Mod_ID']
-        cid = urow['Component_ID']
-
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
-        # 1. Ermittle aktive Transport- und Akteure-Kandidaten auf Stufe 13
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 13]
-        active_actor_cids = [c for c in actor_cat_ids if (mat_row.get(str(c)) or 0) == 13]
-
-        if active_trans_cids and active_actor_cids:
-            t_cid = active_trans_cids[0]
-            a_cid = active_actor_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            a_name = [name for name, c_id in cat_map.items() if c_id == a_cid][0]
-
-            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
-
-            winner_cid = None
-
-            # Regel A: Transport vs. NPCs (Allgemeine humanoide NPCs / Schiffstechniker)
-            if a_cid == cat_map.get('NPCs'):
-                npc_total = urow.get('NPC_') or 0
-                comp_val = urow.get('NPC__KYWD_Companion') or 0
-                creat_val = urow.get('NPC__KYWD_Creature') or 0
-                ship_npc = urow.get('NPC__KYWD_Ship') or 0
-
-                netto_npc = max(0, npc_total - comp_val - creat_val - ship_npc)
-
-                if netto_npc == 0:
-                    # Reine Schiffstechniker / Landepad-Händler -> KO-Sieg für Transport
-                    winner_cid = t_cid
-                    _log_result(cursor, 14, mid, cid, a_cid, t_cid, 3, f"Schiffskomponenten ('{t_name}') stechen reine Schiffstechniker und Crew-Statisten per Architektur aus.")
-                elif netto_npc >= (2 * val_t):
-                    # Nur wenn der NPC-Anteil mindestens doppelt so hoch ist wie der Transport-Anteil
-                    winner_cid = a_cid
-                    _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Übergroße NPC-Anzahl ({netto_npc}) übertrifft Schiffskomponenten ({val_t:.1f}).")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Begleit-NPCs ({netto_npc}).")
-
-            # Regel B: Transport vs. Begleiter (Companions)
-            elif a_cid == cat_map.get('Begleiter'):
-                cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
-                stbh = urow.get('STBH') or 0
-                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
-                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-                vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
-                v_furn = (urow.get('FURN_VMRT') or 0) + (urow.get('FURN_VCMT') or 0) + (urow.get('FURN_VWWD') or 0) + (urow.get('FURN_VCTT') or 0)
-
-                has_transport_structures = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0 or v_furn > 0)
-
-                if has_transport_structures:
-                    # Mod bringt eigene Schiffs-/Fahrzeugbauten mit -> Transport gewinnt (Block 5)
-                    winner_cid = t_cid
-                    _log_result(cursor, 14, mid, cid, a_cid, t_cid, 3, "Mod deklariert eigene Schiffs-/Fahrzeugstrukturen; Begleiter tritt hinter Transport zurück.")
-                else:
-                    # Reiner Begleiter mit bestehendem Schiff/Fahrzeug -> Begleiter gewinnt (Block 4)
-                    winner_cid = a_cid
-                    _log_result(cursor, 14, mid, cid, t_cid, a_cid, 3, "Begleiter mit Vanilla-Schiff/Fahrzeug: Begleiter-KI besitzt Vorrang vor der Transport-Zuweisung.")
-
-            # Regel C: Transport vs. Kreaturen
-            elif a_cid == cat_map.get('Kreaturen'):
-                outer_creat = urow.get('dim_calc_outer_Kreaturen') or 0
-                if outer_creat >= (2 * val_t):
-                    winner_cid = a_cid
-                    _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Kreaturen-Anteil ({outer_creat:.1f}) übertrifft Schiffskomponenten ({val_t:.1f}).")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Kreaturen ({outer_creat:.1f}).")
-            else:
-                if (urow.get(f'dim_calc_outer_{a_name}') or 0) >= (2 * val_t):
-                    winner_cid = a_cid
-                    _log_result(cursor, 14, mid, cid, t_cid, a_cid, 4, f"Massevergleich: {a_name} übertrifft Schiffskomponenten ({val_t:.1f}).")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 14, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber {a_name}.")
-
-            if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 14']
-                for non_id in non_duel_ids_14:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 13 THEN 14 ELSE "{non_id}" END')
-
-                set_sql = ", ".join(set_clauses)
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE Mod_ID = ? AND Component_ID = ?
-                """, (mid, cid))
-
-    # Endschritt Schritt 14: Alle Zeilen ohne Transport/Akteure-Kollision heben alle 13er auf 14 an
-    col_cases_14 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 13 THEN 14 ELSE "{cid}" END' for cid in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select_quotes}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    rows_check14 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check14:
-        mid = r['Mod_ID']
-        cid = r['Component_ID']
-        vals = [r[str(c)] or 0 for c in cat_ids]
-        max_v = max(vals) if vals else 0
-        if max_v == 13:
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_14}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-
-def _step_15_transport_vs_world(cursor, cat_map, cat_ids, log_msg):
-
-    transport_cat_tuples = [
-        ("Schiffe", "dim_calc_outer_Schiffe"),
-        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
-    ]
-    world_cat_tuples = [
-        ("Städte", "dim_calc_outer_Städte"),
-        ("Gebäude", "dim_calc_outer_Gebäude"),
-        ("Spielerheime", "dim_calc_outer_Spielerheime"),
-        ("POIs", "dim_calc_outer_POIs"),
-        ("Außenposten", "dim_calc_outer_Außenposten"),
-        ("Umgebung", "dim_calc_outer_Umgebung"),
-    ]
-
-    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
-    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_15 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in world_cat_ids]
-
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_15 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
-
-    for urow in unresolved_rows_15:
-        mid = urow['Mod_ID']
-        cid = urow['Component_ID']
-
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
-        # 1. Ermittle aktive Transport- und Welt-Kandidaten auf Stufe 14
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 14]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == 14]
-
-        if active_trans_cids and active_world_cids:
-            t_cid = active_trans_cids[0]
-            w_cid = active_world_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
-
-            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
-            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
-
-            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
-            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
-            wrld = urow.get('WRLD') or 0
-            navm = urow.get('NAVM') or 0
-            cell_city = (urow.get('qry_CELL_City') or 0) + (urow.get('qry_CELL_Override_City') or 0)
-            cell_ship = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
-
-            winner_cid = None
-
-            # 1. POIs: Dynamische POI-Systeme siegen per KO
-            if w_cid == cat_map.get('POIs'):
-                winner_cid = w_cid
-                _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Dynamische POI-Systeme und Planeten-Verteilung (SFBK) stechen Transport-Bauteile per Raum-Architektur aus.")
-            # 2. Spielerheime: Feste Wohndomizile siegen per KO
-            elif w_cid == cat_map.get('Spielerheime'):
-                winner_cid = w_cid
-                _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Feste Spielerheime und Residenzen stechen mobile Transportmittel per Raum-Architektur aus.")
-            # 3. Städte: Direkte Städteklassifizierung (Echte Stadt-Locations oder reale Stadt-Umbauten)
-            elif w_cid == cat_map.get('Städte'):
-                lctn_city = urow.get('LCTN_KYWD_City') or 0
-                refr = urow.get('REFR') or 0
-                stbh = urow.get('STBH') or 0
-                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
-                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
-
-                if not has_ship_builder and (cell_city > 0 or wrld > 0):
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Städtisches Nahverkehrs-/Infrastruktursystem ohne Schiffsbau-Komponenten sticht Transport per Raum-Architektur aus.")
-                elif (lctn_city > 0) or (cell_city > 0 and refr > 500):
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Reale Stadt-Locations / urbane Großstrukturen mit NavMesh stechen Schiffskomponenten aus.")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Schiffskomponenten stechen isolierte Raumhafen-Platzierungen ohne echte Stadtbauten aus.")
-            # 4. Außenposten:
-            elif w_cid == cat_map.get('Außenposten'):
-                if cobj_op > 0 and cobj_ship == 0:
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Reine Außenposten-Rezepte ohne Schiffsbau: Außenposten gewinnt per Architektur.")
-                elif cobj_ship > 0 and cobj_op == 0:
-                    winner_cid = t_cid
-                    _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Reine Schiffsbau-Komponenten ohne Außenposten-Objekte: Transport gewinnt per Architektur.")
-                else:
-                    val_op = urow.get('dim_calc_outer_Außenposten') or 0
-                    if val_op >= val_t:
-                        winner_cid = w_cid
-                        _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-                    else:
-                        winner_cid = t_cid
-                        _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
-            # 5. Gebäude:
-            elif w_cid == cat_map.get('Gebäude'):
-                stbh = urow.get('STBH') or 0
-                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
-                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
-
-                if not has_ship_builder and (wrld > 0 or navm > 0 or (urow.get('calc_CELL_Environment') or 0) > 0 or (urow.get('LCTN_KYWD_Dungeon') or 0) > 0):
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 3, "Echte Welt- und NavMesh-Gebäude stechen Transport per Raum-Architektur aus.")
-                elif has_ship_builder:
-                    winner_cid = t_cid
-                    _log_result(cursor, 15, mid, cid, w_cid, t_cid, 3, "Schiffsinnenräume (Habs) und Schiffsbaukomponenten stechen statische Gebäudehüllen aus.")
-                else:
-                    val_b = urow.get('dim_calc_outer_Gebäude') or 0
-                    if val_b >= val_t:
-                        winner_cid = w_cid
-                        _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Gebäude vs. Transport: 'Gebäude' ({val_b:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-                    else:
-                        winner_cid = t_cid
-                        _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Gebäude: '{t_name}' ({val_t:.1f}) übertrifft 'Gebäude' ({val_b:.1f}).")
-            # 6. Umgebung:
-            elif w_cid == cat_map.get('Umgebung'):
-                val_u = urow.get('dim_calc_outer_Umgebung') or 0
-                if val_u >= val_t:
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich Umgebung vs. Transport: 'Umgebung' ({val_u:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-                else:
-                    winner_cid = t_cid
-                    _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Umgebung: '{t_name}' ({val_t:.1f}) übertrifft 'Umgebung' ({val_u:.1f}).")
-            else:
-                if val_t >= val_w:
-                    winner_cid = t_cid
-                    _log_result(cursor, 15, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. {w_name}: '{t_name}' ({val_t:.1f}) übertrifft '{w_name}' ({val_w:.1f}).")
-                else:
-                    winner_cid = w_cid
-                    _log_result(cursor, 15, mid, cid, t_cid, w_cid, 4, f"Massevergleich {w_name} vs. Transport: '{w_name}' ({val_w:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-
-            if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 15']
-                for non_id in non_duel_ids_15:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 14 THEN 15 ELSE "{non_id}" END')
-
-                set_sql = ", ".join(set_clauses)
-                cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
-                    SET {set_sql}
-                    WHERE Mod_ID = ? AND Component_ID = ?
-                """, (mid, cid))
-
-    # Endschritt Schritt 15: Alle Zeilen ohne Transport/Welt-Kollision heben alle 14er auf 15 an
-    col_cases_15 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 14 THEN 15 ELSE "{cid}" END' for cid in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select_quotes}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    rows_check15 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check15:
-        mid = r['Mod_ID']
-        cid = r['Component_ID']
-        vals = [r[str(c)] or 0 for c in cat_ids]
-        max_v = max(vals) if vals else 0
-        if max_v == 14:
-            cursor.execute(f"""
-                UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_15}
-                WHERE Mod_ID = ? AND Component_ID = ?
-            """, (mid, cid))
-
-
-def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
-
     object_cat_tuples = [
         ("Waffen", "dim_calc_outer_Waffen"),
         ("Kleidung", "dim_calc_outer_Kleidung"),
-        ("Pflanzen", "dim_calc_outer_Pflanzen"),
         ("Crafting", "dim_calc_outer_Crafting"),
         ("Einrichtung", "dim_calc_outer_Einrichtung"),
         ("Items", "dim_calc_outer_Items"),
         ("Skins", "dim_calc_outer_Skins"),
-    ]
-    charakter_cat_tuples = [
-        ("Charakter", "dim_calc_outer_Charakter"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
     ]
 
+    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
-    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
-    non_duel_ids_21 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in char_cat_ids]
+    non_duel_ids_21 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in obj_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -3498,78 +2909,59 @@ def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
-        # 1. Ermittle aktive Objekt- und Charakter-Kandidaten auf Stufe 15
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 15]
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == 15]
+        # 1. Ermittle aktive Transport- und Objekt-Kandidaten auf Stufe 10
+        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 11]
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 11]
 
-        if active_obj_cids and active_char_cids:
+        if active_trans_cids and active_obj_cids:
+            t_cid = active_trans_cids[0]
             o_cid = active_obj_cids[0]
-            c_cid = active_char_cids[0]
 
+            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
             o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
-            c_name = [name for name, c_id in cat_map.items() if c_id == c_cid][0]
 
+            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
-            val_c = urow.get(f'dim_calc_outer_{c_name}') or 0
 
-            weap = urow.get('WEAP') or 0
-            weap_kwda_helper = urow.get('WEAP_KWDA_Helper') or 0
-            netto_weap = max(0, weap - (urow.get('WEAP_KWDA_Vehicle') or 0) - (urow.get('WEAP_KWDA_Ship') or 0) - weap_kwda_helper)
+            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+            cobj_op_soft = urow.get('COBJ_BNAM_Outpost_Soft') or 0
+            stbh = urow.get('STBH') or 0
+            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+            vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
 
-            armo = urow.get('ARMO') or 0
-            hdpt = urow.get('HDPT') or 0
+            has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+            # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
+            is_ship_hab_package = (has_ship_builder or vehicle_gbfm > 0) and cobj_op_soft == 0
 
             winner_cid = None
-
-            # 1. Duell: Waffen vs. Charakter (KO für echte Handfeuerwaffen)
-            if o_name == 'Waffen':
-                if netto_weap > 0 or val_o > 0:
+            # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins
+            if o_cid == cat_map.get('Skins') and is_ship_hab_package:
+                winner_cid = t_cid
+                _log_result(cursor, 21, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Skin-Zuweisungen per Zell-Architektur aus.")
+            elif o_cid == cat_map.get('Einrichtung'):
+                if is_ship_hab_package:
+                    winner_cid = t_cid
+                    _log_result(cursor, 21, mid, cid, o_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen abgeleitete Einrichtungs-Zuweisungen per Zell-Architektur aus.")
+                elif val_o >= val_t:
                     winner_cid = o_cid
-                    _log_result(cursor, 21, mid, cid, c_cid, o_cid, 3, "Handfeuerwaffen und Kampfausrüstung ('Waffen') besitzen funktionale Priorität vor Charakter-Styling und Rassen-Gerüsten.")
+                    _log_result(cursor, 21, mid, cid, t_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Transport: 'Einrichtung' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                 else:
-                    if val_o >= (3 * val_c):
-                        winner_cid = o_cid
-                        _log_result(cursor, 21, mid, cid, c_cid, o_cid, 4, f"Massevergleich Waffen vs. Charakter: 'Waffen' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
-                    else:
-                        winner_cid = c_cid
-                        _log_result(cursor, 21, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. Waffen: 'Charakter' ({val_c:.1f}) behauptet sich gegen 'Waffen' ({val_o:.1f}) bei 3-facher Gewichtung.")
-
-            # 2. Duell: Skins vs. Charakter (KO für Charakter)
-            elif o_name == 'Skins':
-                winner_cid = c_cid
-                _log_result(cursor, 21, mid, cid, o_cid, c_cid, 3, "Charakter-Editor-Morphologien und Rassen ('HDPT'/'RACE') greifen tiefer in die Engine als bloße Objekt- und Rüstungs-Skins ('OMOD').")
-
-            # 3. Duell: Kleidung vs. Charakter (Hairpack-Schutz vs. LLO-Nahtbindung / Kleidung-KO)
-            elif o_name == 'Kleidung':
-                if hdpt > (2 * armo):
-                    # Reines Hair-Pack mit minimalem Haar-Accessoire
-                    winner_cid = c_cid
-                    _log_result(cursor, 21, mid, cid, o_cid, c_cid, 4, f"Massevergleich: Dominantes Hair-Pack ('HDPT': {hdpt}) übertrifft Beigabe-Kleidungsstücke ('ARMO': {armo}).")
-                elif armo > 0:
-                    # Echte Kleidung / Rüstung -> KO für Kleidung (LLO Ladeordnungs-Sicherheit und Nahtbindung)
-                    winner_cid = o_cid
-                    _log_result(cursor, 21, mid, cid, c_cid, o_cid, 3, f"Echte Kleidungs- und Rüstungssets ('ARMO': {armo}) besitzen Vorrang vor Charakter-Presets (LLO-Nahtbindung).")
-                else:
-                    if val_o >= (3 * val_c):
-                        winner_cid = o_cid
-                        _log_result(cursor, 21, mid, cid, c_cid, o_cid, 4, f"Massevergleich Kleidung vs. Charakter: 'Kleidung' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
-                    else:
-                        winner_cid = c_cid
-                        _log_result(cursor, 21, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. Kleidung: 'Charakter' ({val_c:.1f}) behauptet sich gegen 'Kleidung' ({val_o:.1f}) bei 3-facher Gewichtung.")
-
-            # 4. Duelle: Crafting, Einrichtung, Items, Pflanzen vs. Charakter (3x Gewichtung für Charakter)
+                    winner_cid = t_cid
+                    _log_result(cursor, 21, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. Einrichtung: '{t_name}' ({val_t:.1f}) übertrifft 'Einrichtung' ({val_o:.1f}).")
             else:
-                if val_o >= (3 * val_c):
-                    winner_cid = o_cid
-                    _log_result(cursor, 21, mid, cid, c_cid, o_cid, 4, f"Massevergleich {o_name} vs. Charakter: '{o_name}' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
+                # Regel C: Direkter relationaler Massenvergleich für alle unabhängigen Objekte (Waffen, Kleidung, Crafting, Items, freie Deko)
+                if val_t >= val_o:
+                    winner_cid = t_cid
+                    _log_result(cursor, 21, mid, cid, o_cid, t_cid, 4, f"Massevergleich Transport vs. {o_name}: '{t_name}' ({val_t:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
                 else:
-                    winner_cid = c_cid
-                    _log_result(cursor, 21, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. {o_name}: 'Charakter' ({val_c:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
+                    winner_cid = o_cid
+                    _log_result(cursor, 21, mid, cid, t_cid, o_cid, 4, f"Massevergleich {o_name} vs. Transport: '{o_name}' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
 
             if winner_cid is not None:
                 set_clauses = [f'"{winner_cid}" = 21']
                 for non_id in non_duel_ids_21:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 15 THEN 21 ELSE "{non_id}" END')
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 11 THEN 21 ELSE "{non_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -3578,8 +2970,8 @@ def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    # Endschritt Schritt 21: Alle Zeilen ohne Objekt/Charakter-Kollision heben alle 15er auf 21 an
-    col_cases_21 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 15 THEN 21 ELSE "{cid}" END' for cid in cat_ids])
+    # Endschritt Schritt 11: Alle Zeilen ohne Transport/Objekt-Kollision heben alle 10er auf 11 an
+    col_cases_21 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 11 THEN 21 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
         FROM LoadOrder_Classifier_Matrix
@@ -3593,7 +2985,7 @@ def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
         cid = r['Component_ID']
         vals = [r[str(c)] or 0 for c in cat_ids]
         max_v = max(vals) if vals else 0
-        if max_v == 15:
+        if max_v == 11:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
                 SET {col_cases_21}
@@ -3601,27 +2993,19 @@ def _step_21_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
             """, (mid, cid))
 
 
-def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
+def _step_22_transport_vs_character(cursor, cat_map, cat_ids, log_msg):
 
-    object_cat_tuples = [
-        ("Waffen", "dim_calc_outer_Waffen"),
-        ("Kleidung", "dim_calc_outer_Kleidung"),
-        ("Pflanzen", "dim_calc_outer_Pflanzen"),
-        ("Crafting", "dim_calc_outer_Crafting"),
-        ("Einrichtung", "dim_calc_outer_Einrichtung"),
-        ("Items", "dim_calc_outer_Items"),
-        ("Skins", "dim_calc_outer_Skins"),
+    transport_cat_tuples = [
+        ("Schiffe", "dim_calc_outer_Schiffe"),
+        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
     ]
-    system_cat_tuples = [
-        ("Gameplay", "dim_calc_outer_Gameplay"),
-        ("Sortierung", "dim_calc_outer_Sortierung"),
-        ("Interface", "dim_calc_outer_Interface"),
-        ("Tweaks", "dim_calc_outer_Tweaks"),
+    charakter_cat_tuples = [
+        ("Charakter", "dim_calc_outer_Charakter"),
     ]
 
-    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
-    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_22 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in sys_cat_ids]
+    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+    non_duel_ids_22 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in char_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -3650,9 +3034,723 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
         """, (mid, cid))
         mat_row = dict(cursor.fetchone())
 
+        # 1. Ermittle aktive Transport- und Charakter-Kandidaten auf Stufe 11
+        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 21]
+        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == 21]
+
+        if active_trans_cids and active_char_cids:
+            t_cid = active_trans_cids[0]
+            c_cid = active_char_cids[0]
+            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+
+            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+            stbh = urow.get('STBH') or 0
+            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+            ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+            vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+            has_real_transport = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0)
+
+            if has_real_transport:
+                winner_cid = t_cid
+                _log_result(cursor, 22, mid, cid, c_cid, t_cid, 3, f"Schiffs- und Fahrzeugbauteile ('{t_name}') stechen Charakter-Styling per LLO-Ladeordnung und Architektur aus.")
+            else:
+                winner_cid = c_cid
+                _log_result(cursor, 22, mid, cid, t_cid, c_cid, 3, "Charakter-Styling sticht reine Vanilla-Zellenübersteuerungen ohne Schiffsbaukomponenten per Architektur aus.")
+
+            set_clauses = [f'"{winner_cid}" = 22']
+            for non_id in non_duel_ids_22:
+                set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 21 THEN 22 ELSE "{non_id}" END')
+
+            set_sql = ", ".join(set_clauses)
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {set_sql}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+    # Endschritt Schritt 12: Alle Zeilen ohne Transport/Charakter-Kollision heben alle 11er auf 12 an
+    col_cases_22 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 21 THEN 22 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check22 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check22:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 21:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_22}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+
+def _step_23_transport_vs_systems(cursor, cat_map, cat_ids, log_msg):
+
+    transport_cat_tuples = [
+        ("Schiffe", "dim_calc_outer_Schiffe"),
+        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+    ]
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+
+    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    non_duel_ids_23 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in sys_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_23 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_23:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Transport- und Systeme-Kandidaten auf Stufe 12
+        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 22]
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 22]
+
+        if active_trans_cids and active_sys_cids:
+            t_cid = active_trans_cids[0]
+            s_cid = active_sys_cids[0]
+
+            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+
+            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+            val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
+
+            winner_cid = None
+            # Regel A: Transport schlägt reine Hilfssysteme (Tweaks, Sortierung, Interface) per KO
+            if s_name in ('Tweaks', 'Sortierung', 'Interface'):
+                winner_cid = t_cid
+                _log_result(cursor, 23, mid, cid, s_cid, t_cid, 3, f"Schiffs- und Fahrzeugkomponenten ('{t_name}') stechen Hilfs- und Einstellungs-Systeme ('{s_name}') per Architektur aus.")
+            # Regel B: Transport vs. Gameplay
+            elif s_name == 'Gameplay':
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                cell_ship = urow.get('qry_CELL_Ship') or 0
+                gbfm_veh = urow.get('GBFM_EDID_Vehicle') or 0
+
+                has_hard_transport = (stbh > 0 or weap_ship > 0 or cell_ship > 0 or gbfm_veh > 0)
+
+                if has_hard_transport:
+                    winner_cid = t_cid
+                    _log_result(cursor, 23, mid, cid, s_cid, t_cid, 3, f"Echte Transport-Hardware/Snap-Nodes ('{t_name}') stechen Gameplay-Mechaniken per Architektur aus.")
+                elif val_t >= (3 * val_s):
+                    winner_cid = t_cid
+                    _log_result(cursor, 23, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. Gameplay: Dominante Schiffs-/Fahrzeugmodule ('{t_name}', Wert: {val_t:.1f}) übertreffen Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}).")
+                else:
+                    winner_cid = s_cid
+                    _log_result(cursor, 23, mid, cid, t_cid, s_cid, 4, f"Massevergleich Gameplay vs. Transport: Gameplay-Mechaniken (Wert: {val_s:.1f} x 3 = {3*val_s:.1f}) übertreffen Träger-Module ('{t_name}', Wert: {val_t:.1f}).")
+            else:
+                if val_t >= val_s:
+                    winner_cid = t_cid
+                    _log_result(cursor, 23, mid, cid, s_cid, t_cid, 4, f"Massevergleich Transport vs. {s_name}: '{t_name}' ({val_t:.1f}) übertrifft '{s_name}' ({val_s:.1f}).")
+                else:
+                    winner_cid = s_cid
+                    _log_result(cursor, 23, mid, cid, t_cid, s_cid, 4, f"Massevergleich {s_name} vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 23']
+                for non_id in non_duel_ids_23:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 22 THEN 23 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 13: Alle Zeilen ohne Transport/Systeme-Kollision heben alle 12er auf 13 an
+    col_cases_23 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 22 THEN 23 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check23 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check23:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 22:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_23}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+
+def _step_24_transport_vs_actors(cursor, cat_map, cat_ids, log_msg):
+
+    transport_cat_tuples = [
+        ("Schiffe", "dim_calc_outer_Schiffe"),
+        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+    ]
+    actor_cat_tuples = [
+        ("NPCs", "dim_calc_outer_NPCs"),
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+    ]
+
+    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+    actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    non_duel_ids_24 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in actor_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_24 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_24:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Transport- und Akteure-Kandidaten auf Stufe 13
+        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 23]
+        active_actor_cids = [c for c in actor_cat_ids if (mat_row.get(str(c)) or 0) == 23]
+
+        if active_trans_cids and active_actor_cids:
+            t_cid = active_trans_cids[0]
+            a_cid = active_actor_cids[0]
+
+            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+            a_name = [name for name, c_id in cat_map.items() if c_id == a_cid][0]
+
+            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+
+            winner_cid = None
+
+            # Regel A: Transport vs. NPCs (Allgemeine humanoide NPCs / Schiffstechniker)
+            if a_cid == cat_map.get('NPCs'):
+                npc_total = urow.get('NPC_') or 0
+                comp_val = urow.get('NPC__KYWD_Companion') or 0
+                creat_val = urow.get('NPC__KYWD_Creature') or 0
+                ship_npc = urow.get('NPC__KYWD_Ship') or 0
+
+                netto_npc = max(0, npc_total - comp_val - creat_val - ship_npc)
+
+                if netto_npc == 0:
+                    # Reine Schiffstechniker / Landepad-Händler -> KO-Sieg für Transport
+                    winner_cid = t_cid
+                    _log_result(cursor, 24, mid, cid, a_cid, t_cid, 3, f"Schiffskomponenten ('{t_name}') stechen reine Schiffstechniker und Crew-Statisten per Architektur aus.")
+                elif netto_npc >= (2 * val_t):
+                    # Nur wenn der NPC-Anteil mindestens doppelt so hoch ist wie der Transport-Anteil
+                    winner_cid = a_cid
+                    _log_result(cursor, 24, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Übergroße NPC-Anzahl ({netto_npc}) übertrifft Schiffskomponenten ({val_t:.1f}).")
+                else:
+                    winner_cid = t_cid
+                    _log_result(cursor, 24, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Begleit-NPCs ({netto_npc}).")
+
+            # Regel B: Transport vs. Begleiter (Companions)
+            elif a_cid == cat_map.get('Begleiter'):
+                cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+                stbh = urow.get('STBH') or 0
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+                v_furn = (urow.get('FURN_VMRT') or 0) + (urow.get('FURN_VCMT') or 0) + (urow.get('FURN_VWWD') or 0) + (urow.get('FURN_VCTT') or 0)
+
+                has_transport_structures = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0 or vehicle_gbfm > 0 or v_furn > 0)
+
+                if has_transport_structures:
+                    # Mod bringt eigene Schiffs-/Fahrzeugbauten mit -> Transport gewinnt (Block 5)
+                    winner_cid = t_cid
+                    _log_result(cursor, 24, mid, cid, a_cid, t_cid, 3, "Mod deklariert eigene Schiffs-/Fahrzeugstrukturen; Begleiter tritt hinter Transport zurück.")
+                else:
+                    # Reiner Begleiter mit bestehendem Schiff/Fahrzeug -> Begleiter gewinnt (Block 4)
+                    winner_cid = a_cid
+                    _log_result(cursor, 24, mid, cid, t_cid, a_cid, 3, "Begleiter mit Vanilla-Schiff/Fahrzeug: Begleiter-KI besitzt Vorrang vor der Transport-Zuweisung.")
+
+            # Regel C: Transport vs. Kreaturen
+            elif a_cid == cat_map.get('Kreaturen'):
+                outer_creat = urow.get('dim_calc_outer_Kreaturen') or 0
+                if outer_creat >= (2 * val_t):
+                    winner_cid = a_cid
+                    _log_result(cursor, 24, mid, cid, t_cid, a_cid, 4, f"Massevergleich: Kreaturen-Anteil ({outer_creat:.1f}) übertrifft Schiffskomponenten ({val_t:.1f}).")
+                else:
+                    winner_cid = t_cid
+                    _log_result(cursor, 24, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber Kreaturen ({outer_creat:.1f}).")
+            else:
+                if (urow.get(f'dim_calc_outer_{a_name}') or 0) >= (2 * val_t):
+                    winner_cid = a_cid
+                    _log_result(cursor, 24, mid, cid, t_cid, a_cid, 4, f"Massevergleich: {a_name} übertrifft Schiffskomponenten ({val_t:.1f}).")
+                else:
+                    winner_cid = t_cid
+                    _log_result(cursor, 24, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber {a_name}.")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 24']
+                for non_id in non_duel_ids_24:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 23 THEN 24 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 14: Alle Zeilen ohne Transport/Akteure-Kollision heben alle 13er auf 14 an
+    col_cases_24 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 23 THEN 24 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check24 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check24:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 23:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_24}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+
+def _step_25_transport_vs_world(cursor, cat_map, cat_ids, log_msg):
+
+    transport_cat_tuples = [
+        ("Schiffe", "dim_calc_outer_Schiffe"),
+        ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
+    ]
+    world_cat_tuples = [
+        ("Städte", "dim_calc_outer_Städte"),
+        ("Gebäude", "dim_calc_outer_Gebäude"),
+        ("Spielerheime", "dim_calc_outer_Spielerheime"),
+        ("POIs", "dim_calc_outer_POIs"),
+        ("Außenposten", "dim_calc_outer_Außenposten"),
+        ("Umgebung", "dim_calc_outer_Umgebung"),
+    ]
+
+    trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
+    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+    non_duel_ids_25 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in world_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_25 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_25:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Transport- und Welt-Kandidaten auf Stufe 14
+        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == 24]
+        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == 24]
+
+        if active_trans_cids and active_world_cids:
+            t_cid = active_trans_cids[0]
+            w_cid = active_world_cids[0]
+
+            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+
+            val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
+            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
+
+            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
+            wrld = urow.get('WRLD') or 0
+            navm = urow.get('NAVM') or 0
+            cell_city = (urow.get('qry_CELL_City') or 0) + (urow.get('qry_CELL_Override_City') or 0)
+            cell_ship = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+
+            winner_cid = None
+
+            # 1. POIs: Dynamische POI-Systeme siegen per KO
+            if w_cid == cat_map.get('POIs'):
+                winner_cid = w_cid
+                _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Dynamische POI-Systeme und Planeten-Verteilung (SFBK) stechen Transport-Bauteile per Raum-Architektur aus.")
+            # 2. Spielerheime: Feste Wohndomizile siegen per KO
+            elif w_cid == cat_map.get('Spielerheime'):
+                winner_cid = w_cid
+                _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Feste Spielerheime und Residenzen stechen mobile Transportmittel per Raum-Architektur aus.")
+            # 3. Städte: Direkte Städteklassifizierung (Echte Stadt-Locations oder reale Stadt-Umbauten)
+            elif w_cid == cat_map.get('Städte'):
+                lctn_city = urow.get('LCTN_KYWD_City') or 0
+                refr = urow.get('REFR') or 0
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+
+                if not has_ship_builder and (cell_city > 0 or wrld > 0):
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Städtisches Nahverkehrs-/Infrastruktursystem ohne Schiffsbau-Komponenten sticht Transport per Raum-Architektur aus.")
+                elif (lctn_city > 0) or (cell_city > 0 and refr > 500):
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Reale Stadt-Locations / urbane Großstrukturen mit NavMesh stechen Schiffskomponenten aus.")
+                else:
+                    winner_cid = t_cid
+                    _log_result(cursor, 25, mid, cid, w_cid, t_cid, 3, "Schiffskomponenten stechen isolierte Raumhafen-Platzierungen ohne echte Stadtbauten aus.")
+            # 4. Außenposten:
+            elif w_cid == cat_map.get('Außenposten'):
+                if cobj_op > 0 and cobj_ship == 0:
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Reine Außenposten-Rezepte ohne Schiffsbau: Außenposten gewinnt per Architektur.")
+                elif cobj_ship > 0 and cobj_op == 0:
+                    winner_cid = t_cid
+                    _log_result(cursor, 25, mid, cid, w_cid, t_cid, 3, "Reine Schiffsbau-Komponenten ohne Außenposten-Objekte: Transport gewinnt per Architektur.")
+                else:
+                    val_op = urow.get('dim_calc_outer_Außenposten') or 0
+                    if val_op >= val_t:
+                        winner_cid = w_cid
+                        _log_result(cursor, 25, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                    else:
+                        winner_cid = t_cid
+                        _log_result(cursor, 25, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
+            # 5. Gebäude:
+            elif w_cid == cat_map.get('Gebäude'):
+                stbh = urow.get('STBH') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
+                has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
+
+                if not has_ship_builder and (wrld > 0 or navm > 0 or (urow.get('calc_CELL_Environment') or 0) > 0 or (urow.get('LCTN_KYWD_Dungeon') or 0) > 0):
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 3, "Echte Welt- und NavMesh-Gebäude stechen Transport per Raum-Architektur aus.")
+                elif has_ship_builder:
+                    winner_cid = t_cid
+                    _log_result(cursor, 25, mid, cid, w_cid, t_cid, 3, "Schiffsinnenräume (Habs) und Schiffsbaukomponenten stechen statische Gebäudehüllen aus.")
+                else:
+                    val_b = urow.get('dim_calc_outer_Gebäude') or 0
+                    if val_b >= val_t:
+                        winner_cid = w_cid
+                        _log_result(cursor, 25, mid, cid, t_cid, w_cid, 4, f"Massevergleich Gebäude vs. Transport: 'Gebäude' ({val_b:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                    else:
+                        winner_cid = t_cid
+                        _log_result(cursor, 25, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Gebäude: '{t_name}' ({val_t:.1f}) übertrifft 'Gebäude' ({val_b:.1f}).")
+            # 6. Umgebung:
+            elif w_cid == cat_map.get('Umgebung'):
+                val_u = urow.get('dim_calc_outer_Umgebung') or 0
+                if val_u >= val_t:
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 4, f"Massevergleich Umgebung vs. Transport: 'Umgebung' ({val_u:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+                else:
+                    winner_cid = t_cid
+                    _log_result(cursor, 25, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Umgebung: '{t_name}' ({val_t:.1f}) übertrifft 'Umgebung' ({val_u:.1f}).")
+            else:
+                if val_t >= val_w:
+                    winner_cid = t_cid
+                    _log_result(cursor, 25, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. {w_name}: '{t_name}' ({val_t:.1f}) übertrifft '{w_name}' ({val_w:.1f}).")
+                else:
+                    winner_cid = w_cid
+                    _log_result(cursor, 25, mid, cid, t_cid, w_cid, 4, f"Massevergleich {w_name} vs. Transport: '{w_name}' ({val_w:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 25']
+                for non_id in non_duel_ids_25:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 24 THEN 25 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 15: Alle Zeilen ohne Transport/Welt-Kollision heben alle 14er auf 15 an
+    col_cases_25 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 24 THEN 25 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check25 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check25:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 24:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_25}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+
+def _step_31_objects_vs_character(cursor, cat_map, cat_ids, log_msg):
+
+    object_cat_tuples = [
+        ("Waffen", "dim_calc_outer_Waffen"),
+        ("Kleidung", "dim_calc_outer_Kleidung"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
+        ("Crafting", "dim_calc_outer_Crafting"),
+        ("Einrichtung", "dim_calc_outer_Einrichtung"),
+        ("Items", "dim_calc_outer_Items"),
+        ("Skins", "dim_calc_outer_Skins"),
+    ]
+    charakter_cat_tuples = [
+        ("Charakter", "dim_calc_outer_Charakter"),
+    ]
+
+    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+    non_duel_ids_31 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in char_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_31 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_31:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Objekt- und Charakter-Kandidaten auf Stufe 15
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 25]
+        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == 25]
+
+        if active_obj_cids and active_char_cids:
+            o_cid = active_obj_cids[0]
+            c_cid = active_char_cids[0]
+
+            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+            c_name = [name for name, c_id in cat_map.items() if c_id == c_cid][0]
+
+            val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+            val_c = urow.get(f'dim_calc_outer_{c_name}') or 0
+
+            weap = urow.get('WEAP') or 0
+            weap_kwda_helper = urow.get('WEAP_KWDA_Helper') or 0
+            netto_weap = max(0, weap - (urow.get('WEAP_KWDA_Vehicle') or 0) - (urow.get('WEAP_KWDA_Ship') or 0) - weap_kwda_helper)
+
+            armo = urow.get('ARMO') or 0
+            hdpt = urow.get('HDPT') or 0
+
+            winner_cid = None
+
+            # 1. Duell: Waffen vs. Charakter (KO für echte Handfeuerwaffen)
+            if o_name == 'Waffen':
+                if netto_weap > 0 or val_o > 0:
+                    winner_cid = o_cid
+                    _log_result(cursor, 31, mid, cid, c_cid, o_cid, 3, "Handfeuerwaffen und Kampfausrüstung ('Waffen') besitzen funktionale Priorität vor Charakter-Styling und Rassen-Gerüsten.")
+                else:
+                    if val_o >= (3 * val_c):
+                        winner_cid = o_cid
+                        _log_result(cursor, 31, mid, cid, c_cid, o_cid, 4, f"Massevergleich Waffen vs. Charakter: 'Waffen' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
+                    else:
+                        winner_cid = c_cid
+                        _log_result(cursor, 31, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. Waffen: 'Charakter' ({val_c:.1f}) behauptet sich gegen 'Waffen' ({val_o:.1f}) bei 3-facher Gewichtung.")
+
+            # 2. Duell: Skins vs. Charakter (KO für Charakter)
+            elif o_name == 'Skins':
+                winner_cid = c_cid
+                _log_result(cursor, 31, mid, cid, o_cid, c_cid, 3, "Charakter-Editor-Morphologien und Rassen ('HDPT'/'RACE') greifen tiefer in die Engine als bloße Objekt- und Rüstungs-Skins ('OMOD').")
+
+            # 3. Duell: Kleidung vs. Charakter (Hairpack-Schutz vs. LLO-Nahtbindung / Kleidung-KO)
+            elif o_name == 'Kleidung':
+                if hdpt > (2 * armo):
+                    # Reines Hair-Pack mit minimalem Haar-Accessoire
+                    winner_cid = c_cid
+                    _log_result(cursor, 31, mid, cid, o_cid, c_cid, 4, f"Massevergleich: Dominantes Hair-Pack ('HDPT': {hdpt}) übertrifft Beigabe-Kleidungsstücke ('ARMO': {armo}).")
+                elif armo > 0:
+                    # Echte Kleidung / Rüstung -> KO für Kleidung (LLO Ladeordnungs-Sicherheit und Nahtbindung)
+                    winner_cid = o_cid
+                    _log_result(cursor, 31, mid, cid, c_cid, o_cid, 3, f"Echte Kleidungs- und Rüstungssets ('ARMO': {armo}) besitzen Vorrang vor Charakter-Presets (LLO-Nahtbindung).")
+                else:
+                    if val_o >= (3 * val_c):
+                        winner_cid = o_cid
+                        _log_result(cursor, 31, mid, cid, c_cid, o_cid, 4, f"Massevergleich Kleidung vs. Charakter: 'Kleidung' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
+                    else:
+                        winner_cid = c_cid
+                        _log_result(cursor, 31, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. Kleidung: 'Charakter' ({val_c:.1f}) behauptet sich gegen 'Kleidung' ({val_o:.1f}) bei 3-facher Gewichtung.")
+
+            # 4. Duelle: Crafting, Einrichtung, Items, Pflanzen vs. Charakter (3x Gewichtung für Charakter)
+            else:
+                if val_o >= (3 * val_c):
+                    winner_cid = o_cid
+                    _log_result(cursor, 31, mid, cid, c_cid, o_cid, 4, f"Massevergleich {o_name} vs. Charakter: '{o_name}' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
+                else:
+                    winner_cid = c_cid
+                    _log_result(cursor, 31, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. {o_name}: 'Charakter' ({val_c:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 31']
+                for non_id in non_duel_ids_31:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 25 THEN 31 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 21: Alle Zeilen ohne Objekt/Charakter-Kollision heben alle 15er auf 21 an
+    col_cases_31 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 25 THEN 31 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check31 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check31:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 25:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_31}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
+
+
+def _step_32_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
+
+    object_cat_tuples = [
+        ("Waffen", "dim_calc_outer_Waffen"),
+        ("Kleidung", "dim_calc_outer_Kleidung"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
+        ("Crafting", "dim_calc_outer_Crafting"),
+        ("Einrichtung", "dim_calc_outer_Einrichtung"),
+        ("Items", "dim_calc_outer_Items"),
+        ("Skins", "dim_calc_outer_Skins"),
+    ]
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+
+    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    non_duel_ids_32 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in sys_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_32 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_32:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
         # 1. Ermittle aktive Objekt- und Systeme-Kandidaten auf Stufe 21
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 21]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 21]
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 31]
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == 31]
 
         if active_obj_cids and active_sys_cids:
             o_cid = active_obj_cids[0]
@@ -3720,27 +3818,27 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
             if s_name == 'Tweaks':
                 # Physische Objekte stechen reine Einstellungs-Tweaks per Architektur-KO aus
                 winner_cid = o_cid
-                _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Physische Inhalts-Objekte ('{o_name}') besitzen funktionale Priorität vor reinen Systemeinstellungen und Variablen-Tweaks ('Tweaks').")
+                _log_result(cursor, 32, mid, cid, s_cid, o_cid, 3, f"Physische Inhalts-Objekte ('{o_name}') besitzen funktionale Priorität vor reinen Systemeinstellungen und Variablen-Tweaks ('Tweaks').")
 
             elif s_name == 'Sortierung':
                 if has_new_objects:
                     # Neue eigenständige Objekte schlagen Sortierung per Architektur-KO
                     winner_cid = o_cid
-                    _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Eigenständige neue Inhalts-Objekte ('{o_name}') besitzen Priorität vor reinen Sortierungs- und Namensregeln.")
+                    _log_result(cursor, 32, mid, cid, s_cid, o_cid, 3, f"Eigenständige neue Inhalts-Objekte ('{o_name}') besitzen Priorität vor reinen Sortierungs- und Namensregeln.")
                 else:
                     # Reine Overrides / INNR zur Sortierung
                     winner_cid = s_cid
-                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Modifikation deklariert keine neuen Gegenstände; Namens-Overrides und Instanz-Regeln dienen ausschließlich der Inventar- und Gegenstandssortierung.")
+                    _log_result(cursor, 32, mid, cid, o_cid, s_cid, 3, "Modifikation deklariert keine neuen Gegenstände; Namens-Overrides und Instanz-Regeln dienen ausschließlich der Inventar- und Gegenstandssortierung.")
 
             elif s_name == 'Interface':
                 if has_new_equipment:
                     # Echte Ausrüstungs-/Möbel-Objekte besitzen Vorrang; UI-Datei dient als Visier/Icon
                     winner_cid = o_cid
-                    _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, f"Echte Inhalts- und Ausrüstungsobjekte ('{o_name}') besitzen Priorität; Interface-Dateien dienen als untergeordnete Icons oder Visieranzeigen.")
+                    _log_result(cursor, 32, mid, cid, s_cid, o_cid, 3, f"Echte Inhalts- und Ausrüstungsobjekte ('{o_name}') besitzen Priorität; Interface-Dateien dienen als untergeordnete Icons oder Visieranzeigen.")
                 else:
                     # Reine UI-Mod mit Beigabe-Items (Notizen/Slates) oder Skins
                     winner_cid = s_cid
-                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, f"Benutzeroberflächen-Dateien (SWF/GFX) definieren die Hauptfunktion; Beigabe-Notizen und Hilfs-Items ('{o_name}') treten per Architektur zurück.")
+                    _log_result(cursor, 32, mid, cid, o_cid, s_cid, 3, f"Benutzeroberflächen-Dateien (SWF/GFX) definieren die Hauptfunktion; Beigabe-Notizen und Hilfs-Items ('{o_name}') treten per Architektur zurück.")
 
             # --- BLOCK B: DUELLE GEGEN GAMEPLAY ---
             elif s_name == 'Gameplay':
@@ -3748,67 +3846,67 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
                     # Gameplay schlägt Beiwerk-Items (Bücher, Notizen, Trigger-Slates) per KO
                     if val_o >= (3 * val_s) and val_s < 5:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Items vs. Gameplay: Dominante Beute-/Item-Sammlung ('Items': {val_o:.1f}) übertrifft minimale Gameplay-Zusätze ('Gameplay': {val_s:.1f}).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 4, f"Massevergleich Items vs. Gameplay: Dominante Beute-/Item-Sammlung ('Items': {val_o:.1f}) übertrifft minimale Gameplay-Zusätze ('Gameplay': {val_s:.1f}).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Gameplay-Mechaniken (Zauber, Perks, Alchemie) besitzen funktionale Priorität vor Beiwerk- und Trigger-Items (Bücher/Slates/Notizen).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 3, "Gameplay-Mechaniken (Zauber, Perks, Alchemie) besitzen funktionale Priorität vor Beiwerk- und Trigger-Items (Bücher/Slates/Notizen).")
 
                 elif o_name == 'Skins':
                     # Gameplay schlägt reine kosmetische Skins per KO
                     winner_cid = s_cid
-                    _log_result(cursor, 22, mid, cid, o_cid, s_cid, 3, "Spiellogik, Magie und Perks ('Gameplay') greifen tiefer in das Regelsystem als oberflächliche Ausrüstungs-Skins.")
+                    _log_result(cursor, 32, mid, cid, o_cid, s_cid, 3, "Spiellogik, Magie und Perks ('Gameplay') greifen tiefer in das Regelsystem als oberflächliche Ausrüstungs-Skins.")
 
                 elif o_name == 'Crafting':
                     # Reiner Massevergleich Werkbankrezepte vs. Gameplay-Mechaniken
                     if val_o >= val_s:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Crafting vs. Gameplay: Werkbank- und Herstellungsrezepte ('Crafting': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 4, f"Massevergleich Crafting vs. Gameplay: Werkbank- und Herstellungsrezepte ('Crafting': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Crafting: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Herstellungsrezepte ('Crafting': {val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Crafting: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Herstellungsrezepte ('Crafting': {val_o:.1f}).")
 
                 elif o_name == 'Waffen':
                     if val_s >= (3 * val_o):
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Waffen ('Waffen': {val_o:.1f} x 3 = {3*val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Waffen ('Waffen': {val_o:.1f} x 3 = {3*val_o:.1f}).")
                     elif netto_weap > 0 or val_o > 0:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, "Eigenständige Handfeuerwaffen ('Waffen') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Slot-Sicherheit).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 3, "Eigenständige Handfeuerwaffen ('Waffen') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Slot-Sicherheit).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: 'Gameplay' ({val_s:.1f}) übertrifft 'Waffen' ({val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: 'Gameplay' ({val_s:.1f}) übertrifft 'Waffen' ({val_o:.1f}).")
 
                 elif o_name == 'Kleidung':
                     if val_s >= (3 * val_o):
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Kleidung ('Kleidung': {val_o:.1f} x 3 = {3*val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Kleidung ('Kleidung': {val_o:.1f} x 3 = {3*val_o:.1f}).")
                     elif new_armo > 0 or armo > 0:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 3, "Eigenständige Kleidungs- und Rüstungssets ('Kleidung') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Nahtbindung).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 3, "Eigenständige Kleidungs- und Rüstungssets ('Kleidung') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Nahtbindung).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: 'Gameplay' ({val_s:.1f}) übertrifft 'Kleidung' ({val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Kleidung: 'Gameplay' ({val_s:.1f}) übertrifft 'Kleidung' ({val_o:.1f}).")
 
                 elif o_name == 'Einrichtung':
                     if val_o >= val_s:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Gameplay: Einrichtungs- und Möbelobjekte ('Einrichtung': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 4, f"Massevergleich Einrichtung vs. Gameplay: Einrichtungs- und Möbelobjekte ('Einrichtung': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Einrichtung: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Möbelobjekte ('Einrichtung': {val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Einrichtung: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Möbelobjekte ('Einrichtung': {val_o:.1f}).")
 
                 elif o_name == 'Pflanzen':
                     if val_o >= val_s:
                         winner_cid = o_cid
-                        _log_result(cursor, 22, mid, cid, s_cid, o_cid, 4, f"Massevergleich Pflanzen vs. Gameplay: Flora-Objekte ('Pflanzen': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
+                        _log_result(cursor, 32, mid, cid, s_cid, o_cid, 4, f"Massevergleich Pflanzen vs. Gameplay: Flora-Objekte ('Pflanzen': {val_o:.1f}) übertreffen Gameplay-Mechaniken ('Gameplay': {val_s:.1f}).")
                     else:
                         winner_cid = s_cid
-                        _log_result(cursor, 22, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Pflanzen: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Flora-Objekte ('Pflanzen': {val_o:.1f}).")
+                        _log_result(cursor, 32, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Pflanzen: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Flora-Objekte ('Pflanzen': {val_o:.1f}).")
 
             if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 22']
-                for non_id in non_duel_ids_22:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 21 THEN 22 ELSE "{non_id}" END')
+                set_clauses = [f'"{winner_cid}" = 32']
+                for non_id in non_duel_ids_32:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 31 THEN 32 ELSE "{non_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -3818,7 +3916,7 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
                 """, (mid, cid))
 
     # Endschritt Schritt 22: Alle Zeilen ohne Objekt/Systeme-Kollision heben alle 21er auf 22 an
-    col_cases_22 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 21 THEN 22 ELSE "{cid}" END' for cid in cat_ids])
+    col_cases_32 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 31 THEN 32 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
         FROM LoadOrder_Classifier_Matrix
@@ -3826,21 +3924,21 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    rows_check22 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check22:
+    rows_check32 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check32:
         mid = r['Mod_ID']
         cid = r['Component_ID']
         vals = [r[str(c)] or 0 for c in cat_ids]
         max_v = max(vals) if vals else 0
-        if max_v == 21:
+        if max_v == 31:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_22}
+                SET {col_cases_32}
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mid, cid))
 
 
-def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
+def _step_33_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
     """
     Schritt 23: Duell-Entscheidungen zwischen Objekt-Kategorien und Akteur-Kategorien.
     Akteure: 'NPCs', 'Begleiter', 'Kreaturen'
@@ -3868,7 +3966,7 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
 
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_duel_ids_23 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in act_cat_ids]
+    non_duel_ids_33 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in act_cat_ids]
 
     # Lade unklassifizierte Mods mit ihren View-Referenzen
     cursor.execute(f"""
@@ -3882,10 +3980,10 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    unresolved_rows_23 = [dict(r) for r in cursor.fetchall()]
+    unresolved_rows_33 = [dict(r) for r in cursor.fetchall()]
     col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
 
-    for urow in unresolved_rows_23:
+    for urow in unresolved_rows_33:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
@@ -3898,8 +3996,8 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
         mat_row = dict(cursor.fetchone())
 
         # 1. Ermittle aktive Objekt- und Akteur-Kandidaten auf Stufe 22
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 22]
-        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == 22]
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 32]
+        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == 32]
 
         if active_obj_cids and active_act_cids:
             o_cid = active_obj_cids[0]
@@ -3933,53 +4031,53 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
             if a_name == 'Begleiter':
                 if comp > 0 and armo < 10:
                     winner_cid = a_cid
-                    _log_result(cursor, 23, mid, cid, o_cid, a_cid, 3, f"Echter Begleiter ('NPC__KYWD_Companion': {comp}) sticht Beigabe-Objekte ('{o_name}': {val_o:.1f}) per Architektur-KO aus.")
+                    _log_result(cursor, 33, mid, cid, o_cid, a_cid, 3, f"Echter Begleiter ('NPC__KYWD_Companion': {comp}) sticht Beigabe-Objekte ('{o_name}': {val_o:.1f}) per Architektur-KO aus.")
                 else:
                     if val_o >= (3 * val_a):
                         winner_cid = o_cid
-                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Begleiter: Dominante Objekt-Sammlung ('{o_name}': {val_o:.1f}) übertrifft Begleiter ('Begleiter': {val_a:.1f}) um mindestens das 3-Fache.")
+                        _log_result(cursor, 33, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Begleiter: Dominante Objekt-Sammlung ('{o_name}': {val_o:.1f}) übertrifft Begleiter ('Begleiter': {val_a:.1f}) um mindestens das 3-Fache.")
                     else:
                         winner_cid = a_cid
-                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich Begleiter vs. {o_name}: 'Begleiter' ({val_a:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
+                        _log_result(cursor, 33, mid, cid, o_cid, a_cid, 4, f"Massevergleich Begleiter vs. {o_name}: 'Begleiter' ({val_a:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
 
             # --- BLOCK B: NPCS (HUMANOIDEN) VS. OBJEKTE ---
             elif a_name == 'NPCs':
                 if real_npcs == 0:
                     # 100% aller NPCs sind Schaufensterpuppen / Terminal-Dummies
                     winner_cid = o_cid
-                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Alle {npc_total} NPC-Einträge sind leblos identifizierte Schaufensterpuppen oder Terminal-Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Akteure vorhanden. '{o_name}' siegt per Architektur-KO.")
+                    _log_result(cursor, 33, mid, cid, a_cid, o_cid, 3, f"Alle {npc_total} NPC-Einträge sind leblos identifizierte Schaufensterpuppen oder Terminal-Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Akteure vorhanden. '{o_name}' siegt per Architektur-KO.")
                 elif (armo > 0 or weap > 0 or cobj > 0 or furn > 0) and (armo + weap + cobj + furn) >= (3 * real_npcs):
                     # Echte Kleidung / Ausrüstung / Einrichtung übertrifft echte NPCs deutlich (Shop-Mannequins / Händler-Begleitung)
                     winner_cid = o_cid
-                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Objekt-Kollektion ('{o_name}': {val_o:.1f}, ARMO: {armo}, COBJ: {cobj}, FURN: {furn}) übertrifft echte NPCs ({real_npcs} bereinigt) um mehr als das 3-Fache. Shop- und Mannequin-Dummies treten zurück.")
+                    _log_result(cursor, 33, mid, cid, a_cid, o_cid, 3, f"Objekt-Kollektion ('{o_name}': {val_o:.1f}, ARMO: {armo}, COBJ: {cobj}, FURN: {furn}) übertrifft echte NPCs ({real_npcs} bereinigt) um mehr als das 3-Fache. Shop- und Mannequin-Dummies treten zurück.")
                 else:
                     if val_a >= val_o:
                         winner_cid = a_cid
-                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich NPCs vs. {o_name}: Echte NPC-Bevölkerung ('NPCs': {val_a:.1f}, {real_npcs} bereinigt) übertrifft '{o_name}' ({val_o:.1f}).")
+                        _log_result(cursor, 33, mid, cid, o_cid, a_cid, 4, f"Massevergleich NPCs vs. {o_name}: Echte NPC-Bevölkerung ('NPCs': {val_a:.1f}, {real_npcs} bereinigt) übertrifft '{o_name}' ({val_o:.1f}).")
                     else:
                         winner_cid = o_cid
-                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. NPCs: '{o_name}' ({val_o:.1f}) übertrifft 'NPCs' ({val_a:.1f}).")
+                        _log_result(cursor, 33, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. NPCs: '{o_name}' ({val_o:.1f}) übertrifft 'NPCs' ({val_a:.1f}).")
 
             # --- BLOCK C: KREATUREN VS. OBJEKTE ---
             elif a_name == 'Kreaturen':
                 if creat == 0 and real_npcs == 0:
                     winner_cid = o_cid
-                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Keine echten Kreaturen vorhanden ('NPC__Dummy': {npc_dummy}); '{o_name}' siegt per Architektur-KO.")
+                    _log_result(cursor, 33, mid, cid, a_cid, o_cid, 3, f"Keine echten Kreaturen vorhanden ('NPC__Dummy': {npc_dummy}); '{o_name}' siegt per Architektur-KO.")
                 elif (furn > 0 or cobj > 10) and (furn + cobj) >= (5 * max(1, creat)):
                     winner_cid = o_cid
-                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Einrichtungs- und Werkbank-Strukturen ('{o_name}': {val_o:.1f}, FURN: {furn}, COBJ: {cobj}) übertreffen untergeordnete Hilfs-Kreaturen ('Kreaturen': {creat}).")
+                    _log_result(cursor, 33, mid, cid, a_cid, o_cid, 3, f"Einrichtungs- und Werkbank-Strukturen ('{o_name}': {val_o:.1f}, FURN: {furn}, COBJ: {cobj}) übertreffen untergeordnete Hilfs-Kreaturen ('Kreaturen': {creat}).")
                 else:
                     if val_a >= val_o:
                         winner_cid = a_cid
-                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich Kreaturen vs. {o_name}: 'Kreaturen' ({val_a:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
+                        _log_result(cursor, 33, mid, cid, o_cid, a_cid, 4, f"Massevergleich Kreaturen vs. {o_name}: 'Kreaturen' ({val_a:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
                     else:
                         winner_cid = o_cid
-                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Kreaturen: '{o_name}' ({val_o:.1f}) übertrifft 'Kreaturen' ({val_a:.1f}).")
+                        _log_result(cursor, 33, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Kreaturen: '{o_name}' ({val_o:.1f}) übertrifft 'Kreaturen' ({val_a:.1f}).")
 
             if winner_cid is not None:
-                set_clauses = [f'"{winner_cid}" = 23']
-                for non_id in non_duel_ids_23:
-                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 22 THEN 23 ELSE "{non_id}" END')
+                set_clauses = [f'"{winner_cid}" = 33']
+                for non_id in non_duel_ids_33:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 32 THEN 33 ELSE "{non_id}" END')
 
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
@@ -3989,7 +4087,7 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
                 """, (mid, cid))
 
     # Endschritt Schritt 23: Alle Zeilen ohne Objekt/Akteur-Kollision heben alle 22er auf 23 an
-    col_cases_23 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 22 THEN 23 ELSE "{cid}" END' for cid in cat_ids])
+    col_cases_33 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 32 THEN 33 ELSE "{cid}" END' for cid in cat_ids])
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID, {col_select_quotes}
         FROM LoadOrder_Classifier_Matrix
@@ -3997,60 +4095,60 @@ def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    rows_check23 = [dict(r) for r in cursor.fetchall()]
-    for r in rows_check23:
+    rows_check33 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check33:
         mid = r['Mod_ID']
         cid = r['Component_ID']
         vals = [r[str(c)] or 0 for c in cat_ids]
         max_v = max(vals) if vals else 0
-        if max_v == 22:
+        if max_v == 32:
             cursor.execute(f"""
                 UPDATE LoadOrder_Classifier_Matrix
-                SET {col_cases_23}
+                SET {col_cases_33}
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mid, cid))
 
 
-def _step_24_objects_vs_world(cursor, cat_map, cat_ids, log_msg):
+def _step_34_objects_vs_world(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Objekte vs. Welt implementieren (Helper-Objects-Ratio vs. Weltbauten)
 
 
     pass
 
 
-def _step_31_character_vs_systems(cursor, cat_map, cat_ids, log_msg):
+def _step_41_character_vs_systems(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Charakter vs. Systeme implementieren
 
     pass
 
 
-def _step_32_character_vs_actors(cursor, cat_map, cat_ids, log_msg):
+def _step_42_character_vs_actors(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Charakter vs. Akteure implementieren (KO: HDPT/RACE gehören zum NPC)
 
     pass
 
 
-def _step_33_character_vs_world(cursor, cat_map, cat_ids, log_msg):
+def _step_43_character_vs_world(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Charakter vs. Welt implementieren (KO: Echte Weltbauten schlagen Styling)
 
 
     pass
 
 
-def _step_41_actors_vs_systems(cursor, cat_map, cat_ids, log_msg):
+def _step_51_actors_vs_systems(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Akteure vs. Systeme implementieren
 
     pass
 
 
-def _step_42_actors_vs_world(cursor, cat_map, cat_ids, log_msg):
+def _step_52_actors_vs_world(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Akteure vs. Welt implementieren (Platzierter Bar-NPC vs. Neuer Dungeon)
 
 
     pass
 
 
-def _step_51_systems_vs_world(cursor, cat_map, cat_ids, log_msg):
+def _step_61_systems_vs_world(cursor, cat_map, cat_ids, log_msg):
     # TODO: Detaillierte Duell-Regeln Systeme vs. Welt implementieren
 
     pass
@@ -4120,34 +4218,35 @@ def run_classifier(log_signal=None):
         
         # 3. Pipeline-Definition aller modularisierten Prüfschritte
         pipeline_steps = [
-            ("Schritt 1: Ausschlussregeln", _step_01_exclusions),
-            ("Schritt 2a: BGS", _step_02a_bgs),
-            ("Schritt 2b: Bugfix", _step_02b_bugfix),
-            ("Schritt 2c: Overhaul", _step_02c_overhaul),
-            ("Schritt 2d: Quest", _step_02d_quest),
-            ("Schritt 3: Kaskadierende Priorisierung Welt-Mods", _step_03_world_cascade),
-            ("Schritt 4: Objekt-Mods", _step_04_objects),
-            ("Schritt 5: Sensorik & Atmosphäre", _step_05_sensory),
-            ("Schritt 6: Lebendige Akteure", _step_06_actors),
-            ("Schritt 7: Systeme, Mechaniken & QoL", _step_07_systems),
-            ("Schritt 8: Transport & Vehikel", _step_08_transport),
-            ("Schritt 9: Lösch- & Deaktivierungs-Mods", _step_09_remover),
-            ("Schritt 10: Inhalts-Vorrang über Sensorik", _step_10_sensory_override),
-            ("Schritt 11: Transport vs. Objekte", _step_11_transport_vs_objects),
-            ("Schritt 12: Transport vs. Charakter", _step_12_transport_vs_character),
-            ("Schritt 13: Transport vs. Systeme", _step_13_transport_vs_systems),
-            ("Schritt 14: Transport vs. Akteure", _step_14_transport_vs_actors),
-            ("Schritt 15: Transport vs. Welt", _step_15_transport_vs_world),
-            ("Schritt 21: Objekte vs. Charakter", _step_21_objects_vs_character),
-            ("Schritt 22: Objekte vs. Systeme", _step_22_objects_vs_systems),
-            ("Schritt 23: Objekte vs. Akteure", _step_23_objects_vs_actors),
-            ("Schritt 24: Objekte vs. Welt", _step_24_objects_vs_world),
-            ("Schritt 31: Charakter vs. Systeme", _step_31_character_vs_systems),
-            ("Schritt 32: Charakter vs. Akteure", _step_32_character_vs_actors),
-            ("Schritt 33: Charakter vs. Welt", _step_33_character_vs_world),
-            ("Schritt 41: Akteure vs. Systeme", _step_41_actors_vs_systems),
-            ("Schritt 42: Akteure vs. Welt", _step_42_actors_vs_world),
-            ("Schritt 51: Systeme vs. Welt", _step_51_systems_vs_world),
+            ("Schritt 1: Ausschlussregeln (Rohdaten)", _step_01_exclusions),
+            ("Schritt 2: Ausschlussregeln (Dummies & Hilfsobjekte)", _step_02_dummy_exclusions),
+            ("Schritt 3a: BGS", _step_03a_bgs),
+            ("Schritt 3b: Bugfix", _step_03b_bugfix),
+            ("Schritt 3c: Overhaul", _step_03c_overhaul),
+            ("Schritt 3d: Quest", _step_03d_quest),
+            ("Schritt 4: Kaskadierende Priorisierung Welt-Mods", _step_04_world_cascade),
+            ("Schritt 5: Objekt-Mods", _step_05_objects),
+            ("Schritt 6: Sensorik & Atmosphäre", _step_06_sensory),
+            ("Schritt 7: Lebendige Akteure", _step_07_actors),
+            ("Schritt 8: Systeme, Mechaniken & QoL", _step_08_systems),
+            ("Schritt 9: Transport & Vehikel", _step_09_transport),
+            ("Schritt 10: Lösch- & Deaktivierungs-Mods", _step_10_remover),
+            ("Schritt 11: Inhalts-Vorrang über Sensorik", _step_11_sensory_override),
+            ("Schritt 21: Transport vs. Objekte", _step_21_transport_vs_objects),
+            ("Schritt 22: Transport vs. Charakter", _step_22_transport_vs_character),
+            ("Schritt 23: Transport vs. Systeme", _step_23_transport_vs_systems),
+            ("Schritt 24: Transport vs. Akteure", _step_24_transport_vs_actors),
+            ("Schritt 25: Transport vs. Welt", _step_25_transport_vs_world),
+            ("Schritt 31: Objekte vs. Charakter", _step_31_objects_vs_character),
+            ("Schritt 32: Objekte vs. Systeme", _step_32_objects_vs_systems),
+            ("Schritt 33: Objekte vs. Akteure", _step_33_objects_vs_actors),
+            ("Schritt 34: Objekte vs. Welt", _step_34_objects_vs_world),
+            ("Schritt 41: Charakter vs. Systeme", _step_41_character_vs_systems),
+            ("Schritt 42: Charakter vs. Akteure", _step_42_character_vs_actors),
+            ("Schritt 43: Charakter vs. Welt", _step_43_character_vs_world),
+            ("Schritt 51: Akteure vs. Systeme", _step_51_actors_vs_systems),
+            ("Schritt 52: Akteure vs. Welt", _step_52_actors_vs_world),
+            ("Schritt 61: Systeme vs. Welt", _step_61_systems_vs_world),
         ]
         
         # 4. Pipeline sequentiell durchlaufen

@@ -13,7 +13,7 @@ CORE_POINTER_COLS = ['REFR', 'ACHR', 'PKIN']
 
 MOD_POINTER_COLS = [
     'ACHR', 'ALCH', 'ALCH_Override', 'ALCH_Remove', 'AMMO',
-    'AMMO_Override', 'ARMO', 'ARMO_Override', 'AVIF', 'AVIF_Override',
+    'AMMO_Override', 'ARMO', 'ARMO_Dummy', 'ARMO_Override', 'AVIF', 'AVIF_Override',
     'BIOM', 'BIOM_Override', 'BOOK', 'BOOK_Override', 'CAMS',
     'CAMS_Override', 'CELL', 'CELL_Dummy', 'CELL_Override', 'CELL_Override_Dummy',
     'CELL_Override_PackIn', 'CELL_PackIn', 'CLFM', 'CLFM_KYWD_Character', 'CLFM_KYWD_Character_Override',
@@ -106,6 +106,11 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
 
     current_cell_id = None
     local_signatures = {} # Speichert (sig, is_override, cell_form_id) für alle Mod-Records
+    armo_formids = set()
+    cobj_cnam_fids = set()
+    armo_no_full_count = 0
+    arma_count = 0
+    mrph_count = 0
 
     # Iteriere über alle Records in der Datei mittels der Kern-Bibliothek
     for sig, data_size, flags, form_id, f, is_medium_master, is_small_master in iter_esm_records(file_path):
@@ -152,8 +157,29 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                 base_fid
             )
 
+        if sig == b'ARMA':
+            arma_count += 1
+        elif sig == b'MRPH':
+            mrph_count += 1
+
         if sig in targets:
             sig_str = sig.decode('utf-8', errors='ignore')
+            
+            # ARMO-Tracking für strukturelle Dummy-Erfassung
+            if sig == b'ARMO':
+                armo_formids.add(form_id & 0x00FFFFFF)
+                if not is_core:
+                    decompressed_data = get_decompressed()
+                    has_full = False
+                    if decompressed_data:
+                        for sub_sig, sub_data in iter_subrecords(decompressed_data):
+                            if sub_sig == b'FULL':
+                                val = sub_data.split(b'\x00')[0].strip()
+                                if len(val) > 0:
+                                    has_full = True
+                                    break
+                    if not has_full:
+                        armo_no_full_count += 1
             
             # 1. Spezialfall: GBFM
             if not is_core and sig == b'GBFM':
@@ -413,18 +439,18 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                                 local_counts['COBJ_BNAM_Outpost_Heavy'] += 1
                                 if is_override:
                                     local_counts['COBJ_BNAM_Outpost_Heavy_Override'] += 1
-                                break
                             # Soft: Strukturen, Diverses, Roboter, Storage, Crafting
                             elif masked_bnam in {0x0006D72D, 0x000E6A3E, 0x001D9F5F, 0x0027319A, 0x002A7578, 0x002CFDE6}:
                                 local_counts['COBJ_BNAM_Outpost_Soft'] += 1
                                 if is_override:
                                     local_counts['COBJ_BNAM_Outpost_Soft_Override'] += 1
-                                break
                             elif masked_bnam == 0x0029C480:
                                 local_counts['COBJ_BNAM_Ship'] += 1
                                 if is_override:
                                     local_counts['COBJ_BNAM_Ship_Override'] += 1
-                                break
+                        elif sub_sig == b'CNAM' and len(sub_data) >= 4:
+                            cnam_val = struct.unpack('<I', sub_data[:4])[0]
+                            cobj_cnam_fids.add(cnam_val & 0x00FFFFFF)
                 continue
 
             # 10. Spezialfall: LIGH
@@ -502,5 +528,36 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                         if is_override:
                             local_counts['CLFM_KYWD_Character_Override'] += 1
                 continue
+
+    # 14. Nachbearbeitung NPC__Dummy:
+    # Wenn eine Mod neue NPCs deklariert (NPC_ > 0), diese aber weder in der Welt platziert (ACHR == 0),
+    # noch in Leveled-Listen / Spawns einträgt (LVLN == 0), noch ein Vanilla-Override sind (NPC__Override == 0):
+    # Dann sind 100% dieser NPCs unplatzierte Daten-Presets / Script-Dummies / Autopiloten / Mannequins.
+    npc_total = local_counts.get('NPC_', 0)
+    npc_override = local_counts.get('NPC__Override', 0)
+    achr_total = local_counts.get('ACHR', 0)
+    lvln_total = local_counts.get('LVLN', 0)
+
+    if npc_total > 0 and npc_override == 0 and achr_total == 0 and lvln_total == 0:
+        local_counts['NPC__Dummy'] = max(local_counts.get('NPC__Dummy', 0), npc_total)
+
+    # 15. Nachbearbeitung ARMO_Dummy:
+    # Ein ARMO gilt als Dummy, wenn:
+    # 1. Der Datensatz keinen Anzeigenamen (FULL) besitzt, ODER
+    # 2. Die Mod ARMO deklariert, aber diese weder im Loot (LVLI == 0), noch in der Welt platziert (REFR == 0),
+    #    noch an Rüstungswerkbänken herstellbar (kein COBJ-Output auf ARMO), noch eine dedizierte Mesh-Mod ist (MRPH/ARMA),
+    #    noch von lebendigen NPCs getragen wird (real_npc == 0):
+    #    Dann sind 100% dieser ARMO reine Dummy-Kostüme / Script-Shader (wie bei Changeling).
+    armo_total = local_counts.get('ARMO', 0)
+    lvli_total = local_counts.get('LVLI', 0)
+    refr_total = local_counts.get('REFR', 0)
+    real_npc = max(0, npc_total - local_counts.get('NPC__Dummy', 0))
+    has_armo_cobj = bool(armo_formids.intersection(cobj_cnam_fids))
+    is_dedicated_mesh_mod = (mrph_count > 0) or (arma_count >= armo_total and arma_count > 1)
+
+    if armo_total > 0 and not is_dedicated_mesh_mod and not has_armo_cobj and lvli_total == 0 and refr_total == 0 and real_npc == 0:
+        local_counts['ARMO_Dummy'] = max(local_counts.get('ARMO_Dummy', 0), armo_total)
+    else:
+        local_counts['ARMO_Dummy'] = max(local_counts.get('ARMO_Dummy', 0), armo_no_full_count)
 
     return local_counts, local_signatures

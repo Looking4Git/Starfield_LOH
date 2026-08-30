@@ -21,7 +21,8 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **ACHR**: *Actor Reference*. Platzierte Instanz eines NPCs in der Spielwelt.
 *   **ALCH / ALCH_Override / ALCH_Remove**: *Alchemy*. Chemikalien, Nahrungsmittel, Medizin und Tränke. `Remove` markiert deinstallierte/entfernte Rezepte.
 *   **AMMO / AMMO_Override**: *Ammunition*. Munition für Schusswaffen.
-*   **ARMO / ARMO_Override**: *Armor*. Raumanzüge, Helme, Rucksäcke und normale Kleidung.
+*   **ARMO / ARMO_Dummy / ARMO_Override**: *Armor*. Raumanzüge, Helme, Rucksäcke und normale Kleidung.
+    *   `ARMO_Dummy`: Erfasst rein technische Hilfs-Rüstungen, transparente Shader-Masken, Skript-Puffer und Mannequin-Kostüme ohne eigene 3D-Armor-Addons (`ARMA`/`MRPH`), Crafting-Rezepte (`COBJ`), Beute-Listen (`LVLI`), physische Weltplatzierungen (`REFR`) oder lebendige NPC-Träger.
 *   **AVIF / AVIF_Override**: *Actor Value Information*. Attribute, Fraktionsbeziehungen und Statuswerte (z. B. Gesundheit, Tragekapazität).
 *   **BOOK / BOOK_Override**: *Book*. Bücher, Notizen, Slates und Datenpads.
 *   **BIOM / BIOM_Override**: *Biome*. Biom-Definitionsdatensätze. Bestimmen die Verteilung von Flora, Fauna, Texturen und Landschafts-Features.

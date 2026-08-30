@@ -438,7 +438,7 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.TXST, em.LIGH, em.LIGH_Override,
             em.SOUN,
             em.WEAP, em.WEAP_Override, em.WEAP_KWDA_Vehicle, em.WEAP_KWDA_Ship, em.WEAP_KWDA_Helper, em.AMMO, em.AMMO_Override,
-            em.ARMO, em.ARMO_Override, 
+            em.ARMO, em.ARMO_Dummy, em.ARMO_Override, 
             em.COBJ, em.COBJ_BNAM_Outpost_Heavy, em.COBJ_BNAM_Outpost_Heavy_Override, em.COBJ_BNAM_Outpost_Soft, em.COBJ_BNAM_Outpost_Soft_Override, em.COBJ_BNAM_Ship, em.COBJ_BNAM_Ship_Override, em.COBJ_Override,
             em.GBFM, em.GBFM_EDID_CrowdRegion, em.GBFM_EDID_Vehicle, em.SFBK, em.SFBK_Override, em.STMP, em.STND, em.STBH, em.STDT,
             em.RSPJ, em.KYWD, em.CLFM, em.CLFM_KYWD_Character, em.CLFM_KYWD_Skin, em.CLFM_KYWD_Ship, em.HDPT,

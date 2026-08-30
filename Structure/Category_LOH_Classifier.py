@@ -705,10 +705,10 @@ def _exclude_non_playerhome(row, cursor, cat_ids):
 
 def _exclude_non_creature(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Kreaturenmod (NPC_KYWD_Creature oder RACE) vorliegen.
+    Prüft, ob Referenzen für eine Kreaturenmod (NPC__KYWD_Creature oder RACE) vorliegen.
     Wenn nicht, wird die Kategorie 'Kreaturen' (33) in der Ausschlussmatrix auf 0 gesetzt.
     """
-    creature_kywd = row.get('NPC_KYWD_Creature') or 0
+    creature_kywd = row.get('NPC__KYWD_Creature') or 0
     race = row.get('RACE') or 0
     
     if creature_kywd == 0 and race == 0:
@@ -732,10 +732,10 @@ def _exclude_non_creature(row, cursor, cat_ids):
 
 def _exclude_non_companion(row, cursor, cat_ids):
     """
-    Prüft, ob Referenzen für eine Begleiter-Mod (NPC_KYWD_Companion) vorliegen.
+    Prüft, ob Referenzen für eine Begleiter-Mod (NPC__KYWD_Companion) vorliegen.
     Wenn nicht, wird die Kategorie 'Begleiter' (32) in der Ausschlussmatrix auf 0 gesetzt.
     """
-    companion_kywd = row.get('NPC_KYWD_Companion') or 0
+    companion_kywd = row.get('NPC__KYWD_Companion') or 0
     
     if companion_kywd == 0:
         mod_id = row.get('Mod_ID') or row.get('ID')
@@ -763,8 +763,8 @@ def _exclude_non_npc(row, cursor, cat_ids):
     Wenn nicht, wird die Kategorie 'NPCs' (12) in der Ausschlussmatrix auf 0 gesetzt.
     """
     npc = row.get('NPC_') or 0
-    comp = row.get('NPC_KYWD_Companion') or 0
-    creat = row.get('NPC_KYWD_Creature') or 0
+    comp = row.get('NPC__KYWD_Companion') or 0
+    creat = row.get('NPC__KYWD_Creature') or 0
     
     pure_npc = max(0, npc - comp - creat)
     
@@ -1170,7 +1170,7 @@ def _exclude_non_ship(row, cursor, cat_ids):
     stmp = row.get('STMP') or 0
     stnd = row.get('STND') or 0
     stbh = row.get('STBH') or 0
-    ship_npc = row.get('NPC_KYWD_Ship') or 0
+    ship_npc = row.get('NPC__KYWD_Ship') or 0
     
     # Echte Schiffskonfigurationen (GBFM abzüglich Crowd- und Fahrzeug-Blaupausen)
     ship_gbfm = gbfm - gbfm_crowd - gbfm_vehicle
@@ -3178,9 +3178,9 @@ def _step_14_transport_vs_actors(cursor, cat_map, cat_ids, log_msg):
             # Regel A: Transport vs. NPCs (Allgemeine humanoide NPCs / Schiffstechniker)
             if a_cid == cat_map.get('NPCs'):
                 npc_total = urow.get('NPC_') or 0
-                comp_val = urow.get('NPC_KYWD_Companion') or 0
-                creat_val = urow.get('NPC_KYWD_Creature') or 0
-                ship_npc = urow.get('NPC_KYWD_Ship') or 0
+                comp_val = urow.get('NPC__KYWD_Companion') or 0
+                creat_val = urow.get('NPC__KYWD_Creature') or 0
+                ship_npc = urow.get('NPC__KYWD_Ship') or 0
 
                 netto_npc = max(0, npc_total - comp_val - creat_val - ship_npc)
 
@@ -3841,9 +3841,174 @@ def _step_22_objects_vs_systems(cursor, cat_map, cat_ids, log_msg):
 
 
 def _step_23_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
-    # TODO: Detaillierte Duell-Regeln Objekte vs. Akteure implementieren
+    """
+    Schritt 23: Duell-Entscheidungen zwischen Objekt-Kategorien und Akteur-Kategorien.
+    Akteure: 'NPCs', 'Begleiter', 'Kreaturen'
+    Objekte: 'Waffen', 'Kleidung', 'Crafting', 'Einrichtung', 'Items', 'Skins', 'Pflanzen'
+    
+    Nutzt den binären Zähler NPC__Dummy zur sicheren Unterscheidung echter Akteure
+    von leblosen Schaufensterpuppen, Terminal-Händlern und Steuerungs-Dummies.
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
 
-    pass
+    object_cat_tuples = [
+        ("Waffen", "dim_calc_outer_Waffen"),
+        ("Kleidung", "dim_calc_outer_Kleidung"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
+        ("Crafting", "dim_calc_outer_Crafting"),
+        ("Einrichtung", "dim_calc_outer_Einrichtung"),
+        ("Items", "dim_calc_outer_Items"),
+        ("Skins", "dim_calc_outer_Skins"),
+    ]
+    actor_cat_tuples = [
+        ("NPCs", "dim_calc_outer_NPCs"),
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+    ]
+
+    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+    act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    non_duel_ids_23 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in act_cat_ids]
+
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_23 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_23:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Objekt- und Akteur-Kandidaten auf Stufe 22
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 22]
+        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == 22]
+
+        if active_obj_cids and active_act_cids:
+            o_cid = active_obj_cids[0]
+            a_cid = active_act_cids[0]
+
+            o_name = id_to_name.get(o_cid, "")
+            a_name = id_to_name.get(a_cid, "")
+
+            val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+            val_a = urow.get(f'dim_calc_outer_{a_name}') or 0
+
+            # Spezifische Kennzahlen
+            npc_total = urow.get('NPC_') or 0
+            npc_dummy = urow.get('NPC__Dummy') or 0
+            npc_override = urow.get('NPC__Override') or 0
+            comp = urow.get('NPC__KYWD_Companion') or 0
+            creat = urow.get('NPC__KYWD_Creature') or 0
+
+            armo = urow.get('ARMO') or 0
+            weap = urow.get('WEAP') or 0
+            cobj = urow.get('COBJ') or 0
+            furn = urow.get('FURN') or 0
+            misc = urow.get('MISC') or 0
+
+            # Bereinigte echte NPCs (unter Ausschluss von Dummies, Begleitern und Kreaturen)
+            real_npcs = max(0, npc_total - npc_dummy - comp - creat)
+
+            winner_cid = None
+
+            # --- BLOCK A: BEGLEITER VS. OBJEKTE ---
+            if a_name == 'Begleiter':
+                if comp > 0 and armo < 10:
+                    winner_cid = a_cid
+                    _log_result(cursor, 23, mid, cid, o_cid, a_cid, 3, f"Echter Begleiter ('NPC__KYWD_Companion': {comp}) sticht Beigabe-Objekte ('{o_name}': {val_o:.1f}) per Architektur-KO aus.")
+                else:
+                    if val_o >= (3 * val_a):
+                        winner_cid = o_cid
+                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Begleiter: Dominante Objekt-Sammlung ('{o_name}': {val_o:.1f}) übertrifft Begleiter ('Begleiter': {val_a:.1f}) um mindestens das 3-Fache.")
+                    else:
+                        winner_cid = a_cid
+                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich Begleiter vs. {o_name}: 'Begleiter' ({val_a:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
+
+            # --- BLOCK B: NPCS (HUMANOIDEN) VS. OBJEKTE ---
+            elif a_name == 'NPCs':
+                if real_npcs == 0:
+                    # 100% aller NPCs sind Schaufensterpuppen / Terminal-Dummies
+                    winner_cid = o_cid
+                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Alle {npc_total} NPC-Einträge sind leblos identifizierte Schaufensterpuppen oder Terminal-Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Akteure vorhanden. '{o_name}' siegt per Architektur-KO.")
+                elif (armo > 0 or weap > 0 or cobj > 0 or furn > 0) and (armo + weap + cobj + furn) >= (3 * real_npcs):
+                    # Echte Kleidung / Ausrüstung / Einrichtung übertrifft echte NPCs deutlich (Shop-Mannequins / Händler-Begleitung)
+                    winner_cid = o_cid
+                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Objekt-Kollektion ('{o_name}': {val_o:.1f}, ARMO: {armo}, COBJ: {cobj}, FURN: {furn}) übertrifft echte NPCs ({real_npcs} bereinigt) um mehr als das 3-Fache. Shop- und Mannequin-Dummies treten zurück.")
+                else:
+                    if val_a >= val_o:
+                        winner_cid = a_cid
+                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich NPCs vs. {o_name}: Echte NPC-Bevölkerung ('NPCs': {val_a:.1f}, {real_npcs} bereinigt) übertrifft '{o_name}' ({val_o:.1f}).")
+                    else:
+                        winner_cid = o_cid
+                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. NPCs: '{o_name}' ({val_o:.1f}) übertrifft 'NPCs' ({val_a:.1f}).")
+
+            # --- BLOCK C: KREATUREN VS. OBJEKTE ---
+            elif a_name == 'Kreaturen':
+                if creat == 0 and real_npcs == 0:
+                    winner_cid = o_cid
+                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Keine echten Kreaturen vorhanden ('NPC__Dummy': {npc_dummy}); '{o_name}' siegt per Architektur-KO.")
+                elif (furn > 0 or cobj > 10) and (furn + cobj) >= (5 * max(1, creat)):
+                    winner_cid = o_cid
+                    _log_result(cursor, 23, mid, cid, a_cid, o_cid, 3, f"Einrichtungs- und Werkbank-Strukturen ('{o_name}': {val_o:.1f}, FURN: {furn}, COBJ: {cobj}) übertreffen untergeordnete Hilfs-Kreaturen ('Kreaturen': {creat}).")
+                else:
+                    if val_a >= val_o:
+                        winner_cid = a_cid
+                        _log_result(cursor, 23, mid, cid, o_cid, a_cid, 4, f"Massevergleich Kreaturen vs. {o_name}: 'Kreaturen' ({val_a:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
+                    else:
+                        winner_cid = o_cid
+                        _log_result(cursor, 23, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Kreaturen: '{o_name}' ({val_o:.1f}) übertrifft 'Kreaturen' ({val_a:.1f}).")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 23']
+                for non_id in non_duel_ids_23:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 22 THEN 23 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 23: Alle Zeilen ohne Objekt/Akteur-Kollision heben alle 22er auf 23 an
+    col_cases_23 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 22 THEN 23 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check23 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check23:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 22:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_23}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
 
 
 def _step_24_objects_vs_world(cursor, cat_map, cat_ids, log_msg):

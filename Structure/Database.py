@@ -433,7 +433,7 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.STAT, em.STAT_Override, em.FURN, em.FURN_Override,
             em.FURN_VMRT, em.FURN_VCMT, em.FURN_VWWD, em.FURN_VCTT,
             em.TERM, em.LCTN, em.LCTN_Override, em.LCTN_KYWD_City, em.LCTN_KYWD_Settlement, em.LCTN_KYWD_Playerhome, em.LCTN_KYWD_Dungeon,
-            em.NPC_, em.NPC__Override, em.ACHR, em.PKIN,
+            em.NPC_, em.NPC__Dummy, em.NPC__Override, em.ACHR, em.PKIN,
             em.PERK, em.PERK_Override, em.AVIF, em.AVIF_Override,
             em.TXST, em.LIGH, em.LIGH_Override,
             em.SOUN,

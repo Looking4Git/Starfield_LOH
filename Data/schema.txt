@@ -56,11 +56,15 @@ SELECT
         Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
     ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_FURN,
     
-    SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-        Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-        Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-        Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-        Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+    SUM(CASE WHEN Ref_Sig = 'ACHR' AND (
+        (esm_base_local IS NOT NULL AND Base_Sig = 'NPC_' AND (
+            EXISTS (
+                SELECT 1 FROM Components_ESM_References r 
+                WHERE r.Component_ID = Computed_Refs.Component_ID AND r.NPC__Dummy > 0
+            )
+            OR Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'
+        ))
+        OR (Base_Sig = 'NPC_' AND (Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'))
     ) THEN 1 ELSE 0 END) AS calc_Helper_Objects_Custom_ACHR,
     
     (
@@ -71,11 +75,15 @@ SELECT
         SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
             Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
         ) THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-            Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-            Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-            Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-            Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+        SUM(CASE WHEN Ref_Sig = 'ACHR' AND (
+            (esm_base_local IS NOT NULL AND Base_Sig = 'NPC_' AND (
+                EXISTS (
+                    SELECT 1 FROM Components_ESM_References r 
+                    WHERE r.Component_ID = Computed_Refs.Component_ID AND r.NPC__Dummy > 0
+                )
+                OR Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'
+            ))
+            OR (Base_Sig = 'NPC_' AND (Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'))
         ) THEN 1 ELSE 0 END)
     ) AS calc_Helper_Objects,
     
@@ -100,11 +108,15 @@ SELECT
             SUM(CASE WHEN Base_Sig = 'FURN' AND esm_base_local IS NOT NULL AND (
                 Base_EDID LIKE '%workbench%' OR Base_EDID LIKE '%crafting%' OR Base_EDID LIKE '%cooking%'
             ) THEN 1 ELSE 0 END) +
-            SUM(CASE WHEN Ref_Sig = 'ACHR' AND esm_base_local IS NOT NULL AND (
-                Base_EDID LIKE '%vendor%' OR Base_EDID LIKE '%merchant%' OR Base_EDID LIKE '%trader%' OR
-                Base_EDID LIKE '%dealer%' OR Base_EDID LIKE '%shop%' OR Base_EDID LIKE '%technician%' OR
-                Base_EDID LIKE '%shipwright%' OR Base_EDID LIKE '%services%' OR Base_EDID LIKE '%doctor%' OR
-                Base_EDID LIKE '%med%' OR Base_EDID LIKE '%healer%' OR Base_EDID LIKE '%bartender%'
+            SUM(CASE WHEN Ref_Sig = 'ACHR' AND (
+                (esm_base_local IS NOT NULL AND Base_Sig = 'NPC_' AND (
+                    EXISTS (
+                        SELECT 1 FROM Components_ESM_References r 
+                        WHERE r.Component_ID = Computed_Refs.Component_ID AND r.NPC__Dummy > 0
+                    )
+                    OR Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'
+                ))
+                OR (Base_Sig = 'NPC_' AND (Base_EDID LIKE '%mannequin%' OR Base_EDID LIKE '%dummy%'))
             ) THEN 1 ELSE 0 END)
         ) AS REAL
     ) / MAX(1, COUNT(FormID_Local) - SUM(is_deco)) AS calc_Helper_Objects_Ratio
@@ -709,12 +721,12 @@ SELECT
     COALESCE(ref.ENCH, 0) + COALESCE(ref.ENCH_Remove, 0) + 
     COALESCE(ref.ALCH, 0) + COALESCE(ref.ALCH_Remove, 0) + 
     COALESCE(ref.MGEF, 0) + COALESCE(ref.MGEF_Remove, 0) AS dim_calc_outer_Gameplay,
-    MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC_KYWD_Companion_Override, 0) - COALESCE(ref.NPC_KYWD_Creature_Override, 0)) AS dim_calc_inner_NPCs,
-    MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC_KYWD_Companion, 0) - COALESCE(ref.NPC_KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
-    COALESCE(ref.NPC_KYWD_Companion_Override, 0) AS dim_calc_inner_Begleiter,
-    COALESCE(ref.NPC_KYWD_Companion, 0) AS dim_calc_outer_Begleiter,
-    COALESCE(ref.NPC_KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) AS dim_calc_inner_Kreaturen,
-    COALESCE(ref.NPC_KYWD_Creature, 0) + COALESCE(ref.RACE, 0) AS dim_calc_outer_Kreaturen,
+    MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC__KYWD_Companion_Override, 0) - COALESCE(ref.NPC__KYWD_Creature_Override, 0)) AS dim_calc_inner_NPCs,
+    MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__KYWD_Companion, 0) - COALESCE(ref.NPC__KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
+    COALESCE(ref.NPC__KYWD_Companion_Override, 0) AS dim_calc_inner_Begleiter,
+    COALESCE(ref.NPC__KYWD_Companion, 0) AS dim_calc_outer_Begleiter,
+    COALESCE(ref.NPC__KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) AS dim_calc_inner_Kreaturen,
+    COALESCE(ref.NPC__KYWD_Creature, 0) + COALESCE(ref.RACE, 0) AS dim_calc_outer_Kreaturen,
     CASE 
         WHEN COALESCE(ref.TXST, 0) > 0 THEN COALESCE(ref.TXST_Override, 0)
         ELSE COALESCE((
@@ -841,7 +853,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_Vehicle_Override, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship_Override, 0) + 
     COALESCE(ref.CLFM_KYWD_Ship_Override, 0) + 
-    COALESCE(ref.NPC_KYWD_Ship_Override, 0) + 
+    COALESCE(ref.NPC__KYWD_Ship_Override, 0) + 
     COALESCE(ref.STMP_Override, 0) + 
     COALESCE(ref.STND_Override, 0) + 
     COALESCE(ref.STBH_Override, 0) + 
@@ -854,7 +866,7 @@ SELECT
            COALESCE(ref.GBFM_EDID_Vehicle, 0)) + 
     COALESCE(ref.WEAP_KWDA_Ship, 0) + 
     COALESCE(ref.CLFM_KYWD_Ship, 0) + 
-    COALESCE(ref.NPC_KYWD_Ship, 0) + 
+    COALESCE(ref.NPC__KYWD_Ship, 0) + 
     COALESCE(ref.STMP, 0) + 
     COALESCE(ref.STND, 0) + 
     COALESCE(ref.STBH, 0) + 
@@ -1487,14 +1499,15 @@ CREATE TABLE "Components_ESM_References" (
     "MUSC_Override" INTEGER DEFAULT 0,
     "NAVM" INTEGER DEFAULT 0,
     "NPC_" INTEGER DEFAULT 0,
-    "NPC_KYWD_Companion" INTEGER DEFAULT 0,
-    "NPC_KYWD_Companion_Override" INTEGER DEFAULT 0,
-    "NPC_KYWD_Creature" INTEGER DEFAULT 0,
-    "NPC_KYWD_Creature_Override" INTEGER DEFAULT 0,
-    "NPC_KYWD_Ship" INTEGER DEFAULT 0,
-    "NPC_KYWD_Ship_Override" INTEGER DEFAULT 0,
-    "NPC_KYWD_Shop" INTEGER DEFAULT 0,
-    "NPC_KYWD_Shop_Override" INTEGER DEFAULT 0,
+    "NPC__Dummy" INTEGER DEFAULT 0,
+    "NPC__KYWD_Companion" INTEGER DEFAULT 0,
+    "NPC__KYWD_Companion_Override" INTEGER DEFAULT 0,
+    "NPC__KYWD_Creature" INTEGER DEFAULT 0,
+    "NPC__KYWD_Creature_Override" INTEGER DEFAULT 0,
+    "NPC__KYWD_Ship" INTEGER DEFAULT 0,
+    "NPC__KYWD_Ship_Override" INTEGER DEFAULT 0,
+    "NPC__KYWD_Shop" INTEGER DEFAULT 0,
+    "NPC__KYWD_Shop_Override" INTEGER DEFAULT 0,
     "NPC__Override" INTEGER DEFAULT 0,
     "OMOD" INTEGER DEFAULT 0,
     "OMOD_Override" INTEGER DEFAULT 0,

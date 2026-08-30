@@ -48,7 +48,7 @@ def calculate_shifters(counts):
         weap = counts.get('WEAP', 0)
         armo = counts.get('ARMO', 0)
         ammo = counts.get('AMMO', 0)
-        kywd_shop = counts.get('NPC_KYWD_Shop', 0)
+        kywd_shop = counts.get('NPC__KYWD_Shop', 0)
         if cobj > 0 or weap > 0 or armo > 0 or ammo > 0 or kywd_shop > 0:
             shifter_trader = 1.0
         else:
@@ -66,7 +66,7 @@ def calculate_shifters(counts):
         term = counts.get('TERM', 0)
         smod = counts.get('SMOD', 0)
         spac = counts.get('SPAC', 0)
-        kywd_ship = counts.get('NPC_KYWD_Ship', 0)
+        kywd_ship = counts.get('NPC__KYWD_Ship', 0)
         if term > 0 or smod > 0 or spac > 0 or kywd_ship > 0:
             shifter_ship = 1.0
         else:
@@ -1020,3 +1020,9 @@ def run_local_check(log_signal):
     finally:
         if conn:
             conn.close()
+
+if __name__ == '__main__':
+    class ConsoleSignal:
+        def emit(self, msg):
+            print(msg)
+    run_local_check(ConsoleSignal())

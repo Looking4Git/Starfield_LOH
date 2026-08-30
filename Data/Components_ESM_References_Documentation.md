@@ -73,7 +73,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **MSTT / MSTT_Override**: *Movable Static*. Bewegliche statische Objekte (z. B. Becher, physikalisch bewegliche Dekorationsgegenstände).
 *   **MUSC / MUSC_Override**: *Music Type*. Musik-Wiedergabelisten und -Zuweisungen.
 *   **NAVM**: *NavMesh*. Top-Level-Datensätze für Navigationsnetze pro Zelle.
-*   **NPC_ / NPC__Override / NPC_KYWD_Companion / NPC_KYWD_Companion_Override / NPC_KYWD_Creature / NPC_KYWD_Creature_Override / NPC_KYWD_Ship / NPC_KYWD_Ship_Override / NPC_KYWD_Shop / NPC_KYWD_Shop_Override**: *Non-Player Character / Actor*. Charakter-Definitionen (Gegner, Begleiter, Händler, Kreaturen) sowie deren spezifische Override-Anteile.
+*   **NPC_ / NPC__Dummy / NPC__Override / NPC__KYWD_Companion / NPC__KYWD_Companion_Override / NPC__KYWD_Creature / NPC__KYWD_Creature_Override / NPC__KYWD_Ship / NPC__KYWD_Ship_Override / NPC__KYWD_Shop / NPC__KYWD_Shop_Override**: *Non-Player Character / Actor*. Charakter-Definitionen (Gegner, Begleiter, Händler, Kreaturen) sowie deren spezifische Override-Anteile. `NPC__Dummy` erfasst rein technisch identifizierte Schaufensterpuppen, Terminal-Händler und leblose Display-Dummies (Fehlen von Voice-Type `VTCK`, KI-Paketen `PKID` und Fraktionen `SNAM` im Binärkörper).
 *   **OMOD / OMOD_Override**: *Object Modification*. Modifikationen für Waffen und Rüstungen.
 *   **PCBN**: *Planet Content Block Node*. Knotenpunkte zur prozeduralen Verteilung von POIs.
 *   **PCCN**: *Planet Content Connection*. Verknüpfungen zur Einspeisung von Custom-POIs in das Spawnsystem.

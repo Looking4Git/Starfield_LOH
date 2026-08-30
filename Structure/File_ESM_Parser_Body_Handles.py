@@ -36,8 +36,8 @@ MOD_POINTER_COLS = [
     'LVLN', 'LVLN_Override', 'LVLP', 'LVLP_Override', 'MGEF',
     'MGEF_Override', 'MGEF_Remove', 'MISC', 'MISC_Override', 'MOVT',
     'MOVT_Override', 'MSTT', 'MSTT_Override', 'MUSC', 'MUSC_Override',
-    'NAVM', 'NPC_', 'NPC_KYWD_Companion', 'NPC_KYWD_Companion_Override', 'NPC_KYWD_Creature',
-    'NPC_KYWD_Creature_Override', 'NPC_KYWD_Ship', 'NPC_KYWD_Ship_Override', 'NPC_KYWD_Shop', 'NPC_KYWD_Shop_Override',
+    'NAVM', 'NPC_', 'NPC__Dummy', 'NPC__KYWD_Companion', 'NPC__KYWD_Companion_Override', 'NPC__KYWD_Creature',
+    'NPC__KYWD_Creature_Override', 'NPC__KYWD_Ship', 'NPC__KYWD_Ship_Override', 'NPC__KYWD_Shop', 'NPC__KYWD_Shop_Override',
     'NPC__Override', 'OMOD', 'OMOD_Override', 'PCBN', 'PCCN',
     'PERK', 'PERK_Override', 'PERK_Remove', 'PKIN', 'QUST',
     'QUST_FULL', 'QUST_INDX', 'QUST_Override', 'QUST_QOBJ', 'QUST_QTYP_0',
@@ -60,6 +60,8 @@ def _get_sig_from_col(col):
     name = col
     if name.endswith("_Override"):
         name = name[:-9]
+    if name.startswith("NPC__"):
+        name = "NPC_"
     return name
 
 def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid_to_sig=None):
@@ -338,29 +340,41 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                 continue
 
             # 8. Spezialfall: NPC_
-            if sig == b'NPC_' and 'NPC_KYWD_Ship' in local_counts:
+            if sig == b'NPC_' and 'NPC__KYWD_Ship' in local_counts:
                 decompressed_data = get_decompressed()
                 if decompressed_data:
+                    has_vtck = False
+                    has_pkid = False
+                    has_snam = False
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
-                        if sub_sig == b'EDID':
+                        if sub_sig == b'VTCK':
+                            has_vtck = True
+                        elif sub_sig == b'PKID':
+                            has_pkid = True
+                        elif sub_sig == b'SNAM':
+                            has_snam = True
+                        elif sub_sig == b'EDID':
                             edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
                             if "shipbuilder" in edid_str or "shipservices" in edid_str:
-                                local_counts['NPC_KYWD_Ship'] += 1
+                                local_counts['NPC__KYWD_Ship'] += 1
                                 if is_override:
-                                    local_counts['NPC_KYWD_Ship_Override'] += 1
+                                    local_counts['NPC__KYWD_Ship_Override'] += 1
                             elif any(k in edid_str for k in ["companion", "follower", "sarah", "andreja", "barrett", "samcoe", "vasco"]):
-                                local_counts['NPC_KYWD_Companion'] += 1
+                                local_counts['NPC__KYWD_Companion'] += 1
                                 if is_override:
-                                    local_counts['NPC_KYWD_Companion_Override'] += 1
+                                    local_counts['NPC__KYWD_Companion_Override'] += 1
                             elif any(k in edid_str for k in ["robot", "sentry", "ashta", "terrormorph", "heatleech", "creature", "animal", "critter", "fauna", "alien", "dog"]):
-                                local_counts['NPC_KYWD_Creature'] += 1
+                                local_counts['NPC__KYWD_Creature'] += 1
                                 if is_override:
-                                    local_counts['NPC_KYWD_Creature_Override'] += 1
+                                    local_counts['NPC__KYWD_Creature_Override'] += 1
                             elif any(k in edid_str for k in ["vendor_", "merchant_", "storeowner", "tradeauthority", "shopkeeper"]):
-                                local_counts['NPC_KYWD_Shop'] += 1
+                                local_counts['NPC__KYWD_Shop'] += 1
                                 if is_override:
-                                    local_counts['NPC_KYWD_Shop_Override'] += 1
-                            break
+                                    local_counts['NPC__KYWD_Shop_Override'] += 1
+
+                    # Rein technische Erfassung: Fehlen alle Lebensmerkmale (Stimme, KI-Pakete, Fraktion) -> Dummy/Mannequin
+                    if not has_vtck and not has_pkid and not has_snam:
+                        local_counts['NPC__Dummy'] += 1
                 continue
 
             # 9. Spezialfall: FURN

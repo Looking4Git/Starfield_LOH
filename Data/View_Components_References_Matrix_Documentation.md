@@ -79,7 +79,7 @@ Diese Spalten führen mathematische Berechnungen direkt in SQL aus, um bereinigt
     *   **Bedeutung:** Die Anzahl der verbleibenden überschriebenen Wildnis-/Umgebungsweltzellen.
     *   **Berechnung:** `MAX(0, CELL_Override - CELL_Override_PackIn - CELL_Override_Dummy - qry_CELL_Override_City - qry_CELL_Override_Settlement - qry_CELL_Override_Playerhome - qry_CELL_Override_Dungeon - qry_CELL_Override_Ship)`.
 *   **`calc_Helper_Objects`**:
-    *   **Bedeutung:** Die Gesamtsumme aller mod-eigenen Hilfsobjekte über alle bearbeiteten Zellen hinweg.
+    *   **Bedeutung:** Die Gesamtsumme aller mod-eigenen Hilfsobjekte (Custom Container, Terminals, Notizen, Schlüssel, Werkbänke sowie platzierte Mannequins und `NPC__Dummy`-Akteure) über alle bearbeiteten Zellen hinweg (vollständig frei von semantischer Wortfilterung).
     *   **Ermittlung:** Subquery-Summe der Spalte `calc_Helper_Objects` aus `View_Components_CELL_Helper_Objects` für die entsprechende Mod.
 *   **`calc_Helper_Objects_Ratio`**:
     *   **Bedeutung:** Das Verhältnis der mod-eigenen Hilfsobjekte zur bereinigten Gesamtzahl aller platzierten Weltreferenzen (Gesamtsumme Helpers / (Gesamtsumme Refs - Gesamtsumme Dekorationen)).
@@ -184,23 +184,23 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller deklarierten oder entfernten Gameplay-Inhalte der Mod (`PERK + PERK_Remove + SPEL + SPEL_Remove + AVIF + ENCH + ENCH_Remove + ALCH + ALCH_Remove + MGEF + MGEF_Remove` 1:1 gleichberechtigt).
     *   **Wert:** `PERK + PERK_Remove + SPEL + SPEL_Remove + AVIF + ENCH + ENCH_Remove + ALCH + ALCH_Remove + MGEF + MGEF_Remove`.
 *   **`dim_calc_inner_NPCs`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl überschriebener allgemeiner/humanoiden Vanilla-NPCs (bereinigt um Begleiter- und Kreaturen-Overrides: `MAX(0, NPC__Override - NPC_KYWD_Companion_Override - NPC_KYWD_Creature_Override)`).
-    *   **Wert:** `MAX(0, NPC__Override - NPC_KYWD_Companion_Override - NPC_KYWD_Creature_Override)`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl überschriebener allgemeiner/humanoiden Vanilla-NPCs (bereinigt um Begleiter- und Kreaturen-Overrides: `MAX(0, NPC__Override - NPC__KYWD_Companion_Override - NPC__KYWD_Creature_Override)`).
+    *   **Wert:** `MAX(0, NPC__Override - NPC__KYWD_Companion_Override - NPC__KYWD_Creature_Override)`.
 *   **`dim_calc_outer_NPCs`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller allgemeinen/humanoiden Charaktere der Mod (bereinigt um Begleiter und Kreaturen: `MAX(0, NPC_ - NPC_KYWD_Companion - NPC_KYWD_Creature)`).
-    *   **Wert:** `MAX(0, NPC_ - NPC_KYWD_Companion - NPC_KYWD_Creature)`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller allgemeinen/humanoiden Charaktere der Mod (bereinigt um Begleiter und Kreaturen: `MAX(0, NPC_ - NPC__KYWD_Companion - NPC__KYWD_Creature)`).
+    *   **Wert:** `MAX(0, NPC_ - NPC__KYWD_Companion - NPC__KYWD_Creature)`.
 *   **`dim_calc_inner_Begleiter`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC_KYWD_Companion_Override`).
-    *   **Wert:** `NPC_KYWD_Companion_Override`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC__KYWD_Companion_Override`).
+    *   **Wert:** `NPC__KYWD_Companion_Override`.
 *   **`dim_calc_outer_Begleiter`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Begleiter-Charaktere der Mod (`NPC_KYWD_Companion`, Neu + Overrides 1:1).
-    *   **Wert:** `NPC_KYWD_Companion`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Begleiter-Charaktere der Mod (`NPC__KYWD_Companion`, Neu + Overrides 1:1).
+    *   **Wert:** `NPC__KYWD_Companion`.
 *   **`dim_calc_inner_Kreaturen`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Kreaturen und -Rassen (`NPC_KYWD_Creature_Override + RACE_Override`).
-    *   **Wert:** `NPC_KYWD_Creature_Override + RACE_Override`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Kreaturen und -Rassen (`NPC__KYWD_Creature_Override + RACE_Override`).
+    *   **Wert:** `NPC__KYWD_Creature_Override + RACE_Override`.
 *   **`dim_calc_outer_Kreaturen`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC_KYWD_Creature + RACE`, 1:1 gleichberechtigt).
-    *   **Wert:** `NPC_KYWD_Creature + RACE`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC__KYWD_Creature + RACE`, 1:1 gleichberechtigt).
+    *   **Wert:** `NPC__KYWD_Creature + RACE`.
 *   **`dim_calc_inner_Texturen`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
     *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s) END`.
@@ -268,11 +268,11 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller reinen Werkbank-Herstellungsrezepte der Mod (`MAX(0, COBJ - COBJ_BNAM_Outpost_Heavy - COBJ_BNAM_Outpost_Soft - COBJ_BNAM_Ship)`, 1:1 gleichberechtigt).
     *   **Wert:** `MAX(0, COBJ - COBJ_BNAM_Outpost_Heavy - COBJ_BNAM_Outpost_Soft - COBJ_BNAM_Ship)`.
 *   **`dim_calc_inner_Schiffe`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Schiffskomponenten, Netto-Blaupausen, Bordwaffen, Schiffslackierungen, Schiffstechniker/Crew, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen (`COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + CLFM_KYWD_Ship_Override + NPC_KYWD_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`).
-    *   **Wert:** `COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + CLFM_KYWD_Ship_Override + NPC_KYWD_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Schiffskomponenten, Netto-Blaupausen, Bordwaffen, Schiffslackierungen, Schiffstechniker/Crew, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen (`COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + CLFM_KYWD_Ship_Override + NPC__KYWD_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`).
+    *   **Wert:** `COBJ_BNAM_Ship_Override + MAX(0, GBFM_Override - GBFM_EDID_CrowdRegion_Override - GBFM_EDID_Vehicle_Override) + WEAP_KWDA_Ship_Override + CLFM_KYWD_Ship_Override + NPC__KYWD_Ship_Override + STMP_Override + STND_Override + STBH_Override + qry_CELL_Override_Ship + qry_CELL_Override_Ship_PackIn`.
 *   **`dim_calc_outer_Schiffe`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Schiffsbau-Rezepte, Netto-Blaupausen, Bordwaffen, Schiffslackierungen, Schiffstechniker/Crew, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen der Mod (`COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + CLFM_KYWD_Ship + NPC_KYWD_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`, 1:1 gleichberechtigt).
-    *   **Wert:** `COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + CLFM_KYWD_Ship + NPC_KYWD_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Schiffsbau-Rezepte, Netto-Blaupausen, Bordwaffen, Schiffslackierungen, Schiffstechniker/Crew, Schablonen, Nodes, Verhaltensregeln und Schiffs-Zellen der Mod (`COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + CLFM_KYWD_Ship + NPC__KYWD_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`, 1:1 gleichberechtigt).
+    *   **Wert:** `COBJ_BNAM_Ship + MAX(0, GBFM - GBFM_EDID_CrowdRegion - GBFM_EDID_Vehicle) + WEAP_KWDA_Ship + CLFM_KYWD_Ship + NPC__KYWD_Ship + STMP + STND + STBH + qry_CELL_Ship + qry_CELL_Ship_PackIn`.
 *   **`dim_calc_inner_Fahrzeuge`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Landfahrzeuge, Fahrzeuggeschütze, Sitze, Kameras, Räder und Steuerungen (`GBFM_EDID_Vehicle_Override + WEAP_KWDA_Vehicle_Override + FURN_VMRT_Override + FURN_VCMT_Override + FURN_VWWD_Override + FURN_VCTT_Override`).
     *   **Wert:** `GBFM_EDID_Vehicle_Override + WEAP_KWDA_Vehicle_Override + FURN_VMRT_Override + FURN_VCMT_Override + FURN_VWWD_Override + FURN_VCTT_Override`.

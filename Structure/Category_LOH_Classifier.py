@@ -3833,8 +3833,76 @@ def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_character_vs_systems(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Charakter vs. Systeme implementieren
-    pass
+    """
+    Schritt 24: Gruppenduell Charakter vs. Systeme.
+    - Gameplay gewinnt per Architektur-KO (Typ 3) vor Charakter (Funktionale Spiellogik/Zauber/Tränke vor Aussehen).
+    - Charakter gewinnt per Architektur-KO (Typ 3) vor Tweaks, Sortierung und Interface (Morphologien/Presets vor Einstellungen/Namen/Menüs).
+    """
+    charakter_cat_tuples = [
+        ("Charakter", "dim_calc_outer_Charakter"),
+    ]
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+
+    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    non_duel_ids_24 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in sys_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_24 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_24:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_char_cids and active_sys_cids:
+            c_cid = active_char_cids[0]
+            s_cid = active_sys_cids[0]
+
+            c_name = [name for name, c_id in cat_map.items() if c_id == c_cid][0]
+            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+
+            winner_cid = None
+
+            # 1. Gameplay vs. Charakter -> Gameplay gewinnt per Architektur-KO (Typ 3)
+            if s_cid == cat_map.get('Gameplay'):
+                winner_cid = s_cid
+                ctx.log_result(cursor, mid, cid, c_cid, s_cid, 3, "Aktive Gameplay-Mechaniken (Fähigkeiten, Verzauberungen, Tränke/Chems oder Spielregeln) besitzen Vorrang vor reinem Charakter-Styling.")
+
+            # 2. Tweaks, Sortierung, Interface vs. Charakter -> Charakter gewinnt per Architektur-KO (Typ 3)
+            else:
+                winner_cid = c_cid
+                ctx.log_result(cursor, mid, cid, s_cid, c_cid, 3, f"Physische und visuelle Charakter-Morphologien ('{c_name}') besitzen Vorrang vor reinen Hilfssystemen ('{s_name}').")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_24)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):

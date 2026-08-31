@@ -587,21 +587,24 @@ def _has_city_cells(row, cursor=None, component_id=None):
     if has_own_city_lctn:
         return True
         
-    crowd_region = (row.get('GBFM_EDID_CrowdRegion') or 0) > 0
-    if crowd_region:
-        return True
-        
     # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
     cell_city = (row.get('qry_CELL_City') or 0) + (row.get('qry_CELL_Settlement') or 0)
-    if cell_city == 0:
-        return False
-        
-    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN)
+    
+    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN, WRLD)
     stat = row.get('STAT') or 0
     furn = row.get('FURN') or 0
     pkin = row.get('PKIN') or 0
-    has_structural_objects = (stat > 0 or furn > 0 or pkin > 0)
+    wrld = row.get('WRLD') or 0
+    has_structural_objects = (stat > 0 or furn > 0 or pkin > 0 or wrld > 0)
     
+    # Reine CrowdRegion-NPC-Zuweisungen ohne Stadt-Zellen und ohne Strukturen sind keine Städte-Mods
+    crowd_region = (row.get('GBFM_EDID_CrowdRegion') or 0) > 0
+    if crowd_region and not (cell_city > 0 or has_structural_objects):
+        return False
+
+    if cell_city == 0 and not crowd_region:
+        return False
+        
     if not has_structural_objects:
         return False
         
@@ -611,7 +614,7 @@ def _has_city_cells(row, cursor=None, component_id=None):
     ship_cells = (row.get('qry_CELL_Ship') or 0) + (row.get('qry_CELL_Ship_PackIn') or 0)
     stbh = row.get('STBH') or 0
     
-    is_ship_vendor_only = (cobj_ship > 0 or ship_cells > 0 or stbh > 0) and cell_city <= 2 and (row.get('WRLD') or 0) <= 1
+    is_ship_vendor_only = (cobj_ship > 0 or ship_cells > 0 or stbh > 0) and cell_city <= 2 and wrld <= 1
     # Ausnahme: Falkland Systems baut einen ganzen Plaza (WRLD=1, aber REFR=91.278)
     if is_ship_vendor_only and (row.get('REFR') or 0) < 500:
         return False

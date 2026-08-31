@@ -2780,10 +2780,17 @@ def _step_transport_vs_objects(cursor, cat_map, cat_ids, ctx):
             weap_ship = urow.get('WEAP_KWDA_Ship') or 0
             ship_packin = urow.get('qry_CELL_Ship_PackIn') or 0
             vehicle_gbfm = urow.get('GBFM_EDID_Vehicle') or 0
+            gbfm = urow.get('GBFM') or 0
 
-            has_ship_builder = (cobj_ship > 0 or stbh > 0 or ship_packin > 0 or weap_ship > 0)
-            # Echte Schiffs-Hab-Pakete werden im Shipbuilder gekauft und haben keine Deko-Menü-Rezepte (COBJ_OP_Soft == 0)
-            is_ship_hab_package = (has_ship_builder or vehicle_gbfm > 0) and cobj_op_soft == 0
+            # Echte Schiffs- und Fahrzeugbauteile (mit Shipbuilder-Rezepten, Schiffs-PackIns, Snap-Nodes oder Schiffs-Waffen)
+            is_ship_hab_package = (
+                (cobj_ship > 0 and cobj_ship >= cobj_op_soft) or
+                (stbh > 0 and cobj_op_soft == 0) or
+                (weap_ship > 0) or
+                (vehicle_gbfm > 0) or
+                (ship_packin > 0 and gbfm > 0 and cobj_ship >= cobj_op_soft) or
+                (ship_packin > 0 and cobj_op_soft == 0)
+            )
 
             winner_cid = None
             # Regel A & B: Schiffs-Habs & Fahrzeugteile schlagen abgeleitete Einrichtung und Skins

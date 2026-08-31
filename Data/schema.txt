@@ -1845,6 +1845,7 @@ CREATE TABLE "Classifier_Result_Types" (
 
 CREATE TABLE "LoadOrder_Classifier_Results" (
 	"Step_ID"	INTEGER NOT NULL,
+	"Step_Description"	TEXT,
 	"Mod_ID"	INTEGER NOT NULL,
 	"Component_ID"	INTEGER NOT NULL,
 	"CategoryLOH_ID_Looser"	INTEGER NOT NULL,
@@ -1866,6 +1867,7 @@ SELECT
     r.Component_ID,
     c.File AS Component_File,
     r.Step_ID,
+    r.Step_Description,
     cl.Position AS CategoryLOH_Position_Looser,
     cl.Name AS CategoryLOH_Looser,
     cw.Name AS CategoryLOH_Winner,

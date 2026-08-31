@@ -638,8 +638,9 @@ def _has_playerhome_cells(row, cursor=None, component_id=None):
 
 def _has_ship_cells(row, cursor=None, component_id=None):
     """Prüft, ob die Komponente Schiffs-Zell-Merkmale besitzt."""
-    # Prüfen, ob die Mod Schiffs-Zellen verändert
-    return (row.get('qry_CELL_Ship') or 0) > 0
+    # Prüfen, ob die Mod Schiffs-Zellen oder Schiffs-PackIns verändert
+    ship_cells = (row.get('qry_CELL_Ship') or 0) + (row.get('qry_CELL_Ship_PackIn') or 0)
+    return ship_cells > 0
 
 
 def _exclude_non_city(row, cursor, cat_ids):
@@ -3205,15 +3206,25 @@ def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, w_cid, t_cid, 3, "Schiffskomponenten stechen isolierte Raumhafen-Platzierungen ohne echte Stadtbauten aus.")
             # 4. Außenposten:
             elif w_cid == cat_map.get('Außenposten'):
-                if cobj_op > 0 and cobj_ship == 0:
+                override_ship_packin = urow.get('qry_CELL_Override_Ship_PackIn') or 0
+                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+                has_real_ship_hardware = (
+                    cobj_ship > 0 or 
+                    weap_ship > 0 or 
+                    (urow.get('qry_CELL_Ship') or 0) > 0 or 
+                    override_ship_packin >= 5 or 
+                    (cobj_ship >= cobj_op and cell_ship > 0)
+                )
+
+                if cobj_op > 0 and not has_real_ship_hardware:
                     winner_cid = w_cid
-                    ctx.log_result(cursor, mid, cid, t_cid, w_cid, 3, "Reine Außenposten-Rezepte ohne Schiffsbau: Außenposten gewinnt per Architektur.")
-                elif cobj_ship > 0 and cobj_op == 0:
+                    ctx.log_result(cursor, mid, cid, t_cid, w_cid, 3, "Modulare Außenposten- und Werkbank-Strukturen besitzen Vorrang vor abgeleiteten Snap-Nodes.")
+                elif has_real_ship_hardware and cobj_op == 0:
                     winner_cid = t_cid
                     ctx.log_result(cursor, mid, cid, w_cid, t_cid, 3, "Reine Schiffsbau-Komponenten ohne Außenposten-Objekte: Transport gewinnt per Architektur.")
                 else:
                     val_op = urow.get('dim_calc_outer_Außenposten') or 0
-                    if val_op >= val_t:
+                    if val_op > val_t:
                         winner_cid = w_cid
                         ctx.log_result(cursor, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                     else:

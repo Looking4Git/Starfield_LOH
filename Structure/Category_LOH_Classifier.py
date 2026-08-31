@@ -1854,6 +1854,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
     waffen_id = cat_map.get('Waffen')
     crafting_id = cat_map.get('Crafting')
     furn_id = cat_map.get('Einrichtung')
+    bld_id = cat_map.get('Gebäude')
 
     for urow in unresolved_rows:
         mid = urow['Mod_ID']
@@ -1915,6 +1916,25 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{furn_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 furn = urow.get('FURN') or 0
                 ctx.log_result(cursor, mid, cid, furn_id, None, 1, f"Alle {furn} Möbel-Datensätze (FURN) dienen als Fahrzeug-Steuersitze; keine Einrichtungs- oder Deko-Möbel vorhanden.")
+
+        # 6. Gebäude prüfen (Dummy- & Workshop-Netto-Ausschluss)
+        if bld_id and (mat_row.get(str(bld_id)) or 0) == ctx.prev_level:
+            cobj = urow.get('COBJ') or 0
+            pkin = urow.get('PKIN') or 0
+            cobj_outpost = urow.get('COBJ_BNAM_Outpost_Soft') or 0
+            wrld = urow.get('WRLD') or 0
+            sfbk = urow.get('SFBK') or 0
+            dungeon = urow.get('LCTN_KYWD_Dungeon') or 0
+            
+            is_workshop_decor_only = (
+                dungeon == 0 and 
+                wrld == 0 and 
+                sfbk == 0 and 
+                (cobj > 0 or pkin > 0 or cobj_outpost > 0)
+            )
+            if is_workshop_decor_only:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bld_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                ctx.log_result(cursor, mid, cid, bld_id, None, 1, f"Vorhandene Zellen sind reine Workshop-PackIns ({pkin}) oder Testräume zur Bereitstellung von Bauplänen ({cobj}); keine eigenständigen Gebäude oder Dungeons in der Spielwelt errichtet.")
 
         # Hebe alle verbleibenden aktiven Kategorien auf Stufe curr_level an
         set_clauses_2 = [f'"{c}" = CASE WHEN "{c}" = {ctx.prev_level} THEN {ctx.curr_level} ELSE "{c}" END' for c in cat_ids]

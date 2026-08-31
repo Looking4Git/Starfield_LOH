@@ -4110,10 +4110,156 @@ def _step_33_objects_vs_actors(cursor, cat_map, cat_ids, log_msg):
 
 
 def _step_34_objects_vs_world(cursor, cat_map, cat_ids, log_msg):
-    # TODO: Detaillierte Duell-Regeln Objekte vs. Welt implementieren (Helper-Objects-Ratio vs. Weltbauten)
+    """
+    Schritt 34: Duell-Entscheidungen zwischen Objekt-Kategorien und Welt-Kategorien.
+    Objekte: 'Waffen', 'Kleidung', 'Crafting', 'Einrichtung', 'Items', 'Skins', 'Pflanzen'
+    Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
+    
+    Nutzt calc_Helper_Objects_Ratio und bauliche Kennzahlen (new_stat, wrld, navm),
+    um reine Item-Übergabekisten/Werkbänke in bestehenden Zellen von echten Raumbauten zu trennen.
+    """
+    object_cat_tuples = [
+        ("Waffen", "dim_calc_outer_Waffen"),
+        ("Kleidung", "dim_calc_outer_Kleidung"),
+        ("Pflanzen", "dim_calc_outer_Pflanzen"),
+        ("Crafting", "dim_calc_outer_Crafting"),
+        ("Einrichtung", "dim_calc_outer_Einrichtung"),
+        ("Items", "dim_calc_outer_Items"),
+        ("Skins", "dim_calc_outer_Skins"),
+    ]
+    world_cat_tuples = [
+        ("Städte", "dim_calc_outer_Städte"),
+        ("Gebäude", "dim_calc_outer_Gebäude"),
+        ("Spielerheime", "dim_calc_outer_Spielerheime"),
+        ("POIs", "dim_calc_outer_POIs"),
+        ("Außenposten", "dim_calc_outer_Außenposten"),
+        ("Umgebung", "dim_calc_outer_Umgebung"),
+    ]
 
+    obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
+    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+    non_duel_ids_34 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in world_cat_ids]
 
-    pass
+    # Lade unklassifizierte Mods mit ihren View-Referenzen
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_34 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_34:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        # Hole Matrix-Zeile für diesen Mod
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        # 1. Ermittle aktive Objekt- und Welt-Kandidaten auf Stufe 33
+        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == 33]
+        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == 33]
+
+        if active_obj_cids and active_world_cids:
+            o_cid = active_obj_cids[0]
+            w_cid = active_world_cids[0]
+
+            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+
+            val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
+            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
+
+            # Relevante Kennzahlen
+            helper_ratio = urow.get('calc_Helper_Objects_Ratio') or 0.0
+            helpers = urow.get('calc_Helper_Objects') or 0
+            refr = urow.get('REFR') or 0
+            stat = urow.get('STAT') or 0
+            stat_o = urow.get('STAT_Override') or 0
+            new_stat = max(0, stat - stat_o)
+            wrld = urow.get('WRLD') or 0
+            wrld_o = urow.get('WRLD_Override') or 0
+            new_wrld = max(0, wrld - wrld_o)
+            navm = urow.get('NAVM') or 0
+            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
+
+            winner_cid = None
+
+            # --- BLOCK 1: POIs ---
+            if w_cid == cat_map.get('POIs'):
+                winner_cid = w_cid
+                _log_result(cursor, 34, mid, cid, o_cid, w_cid, 3, "Dynamische POI-Systeme und Planeten-Verteilung besitzen Priorität vor Objekt-Inhalten.")
+
+            # --- BLOCK 2: AUSSENPOSTEN ---
+            elif w_cid == cat_map.get('Außenposten'):
+                if cobj_op > 0 and o_name in ('Crafting', 'Einrichtung', 'Items', 'Pflanzen'):
+                    winner_cid = w_cid
+                    _log_result(cursor, 34, mid, cid, o_cid, w_cid, 3, "Außenposten-Module und Werkbank-Strukturen besitzen Vorrang vor allgemeiner Einrichtung.")
+                elif val_o >= (3 * val_w):
+                    winner_cid = o_cid
+                    _log_result(cursor, 34, mid, cid, w_cid, o_cid, 4, f"Massevergleich {o_name} vs. Außenposten: Dominante Ausrüstung ('{o_name}': {val_o:.1f}) übertrifft Außenposten-Rezepte ({val_w:.1f}).")
+                else:
+                    winner_cid = w_cid
+                    _log_result(cursor, 34, mid, cid, o_cid, w_cid, 4, f"Massevergleich Außenposten vs. {o_name}: Außenposten ({val_w:.1f}) übertrifft '{o_name}' ({val_o:.1f}).")
+
+            # --- BLOCK 3: RÄUMLICHE WELTKATEGORIEN (SPIELERHEIME, STÄDTE, GEBÄUDE, UMGEBUNG) ---
+            else:
+                is_pure_helper = (
+                    (helper_ratio >= 0.13 or (helpers > 0 and refr < 100)) and
+                    new_stat <= 2 and new_wrld == 0 and navm == 0
+                )
+
+                if is_pure_helper:
+                    winner_cid = o_cid
+                    _log_result(cursor, 34, mid, cid, w_cid, o_cid, 3, f"Mod-eigene Hilfsobjekte (Kisten/Werkbänke/Dummies, Helper-Ratio: {helper_ratio:.2f}) dienen rein der Übergabe von '{o_name}'. '{w_name}' tritt per Architektur-KO zurück.")
+                else:
+                    winner_cid = w_cid
+                    _log_result(cursor, 34, mid, cid, o_cid, w_cid, 3, f"Echter baulicher/landschaftlicher Raumeingriff ('{w_name}') besitzt Vorrang vor Beigabe-Objekten ('{o_name}').")
+
+            if winner_cid is not None:
+                set_clauses = [f'"{winner_cid}" = 34']
+                for non_id in non_duel_ids_34:
+                    set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = 33 THEN 34 ELSE "{non_id}" END')
+
+                set_sql = ", ".join(set_clauses)
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET {set_sql}
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (mid, cid))
+
+    # Endschritt Schritt 34: Alle Zeilen ohne Objekt/Welt-Kollision heben alle 33er auf 34 an
+    col_cases_34 = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = 33 THEN 34 ELSE "{cid}" END' for cid in cat_ids])
+    cursor.execute(f"""
+        SELECT Mod_ID, Component_ID, {col_select_quotes}
+        FROM LoadOrder_Classifier_Matrix
+        WHERE Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    rows_check34 = [dict(r) for r in cursor.fetchall()]
+    for r in rows_check34:
+        mid = r['Mod_ID']
+        cid = r['Component_ID']
+        vals = [r[str(c)] or 0 for c in cat_ids]
+        max_v = max(vals) if vals else 0
+        if max_v == 33:
+            cursor.execute(f"""
+                UPDATE LoadOrder_Classifier_Matrix
+                SET {col_cases_34}
+                WHERE Mod_ID = ? AND Component_ID = ?
+            """, (mid, cid))
 
 
 def _step_41_character_vs_systems(cursor, cat_map, cat_ids, log_msg):

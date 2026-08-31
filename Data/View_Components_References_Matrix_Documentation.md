@@ -286,11 +286,11 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller Sonstiges-Objekte, Ressourcen, Beutetabellen, Bücher/Slates und Schlüssel der Mod (`MISC + LVLI + BOOK + KEYM`, 1:1 gleichberechtigt).
     *   **Wert:** `MISC + LVLI + BOOK + KEYM`.
 *   **`dim_calc_inner_Skins`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Skins, Material-Swaps, Textursätze, Farbvarianten und Ausrüstungs-Skin-Slots (`OMOD_Override + LMSW_Override + TXST_Override + CLFM_KYWD_Skin_Override + ARMO_Override + WEAP_Override`).
-    *   **Wert:** `OMOD_Override + LMSW_Override + TXST_Override + CLFM_KYWD_Skin_Override + ARMO_Override + WEAP_Override`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Skins, Textursätze, Farbvarianten und Ausrüstungs-Skin-Slots. Wird nur berechnet, wenn echte Ausrüstungs-Träger (`OMOD_Override`, `TXST_Override`, `CLFM_KYWD_Skin_Override`, `ARMO_Override`, `WEAP_Override`) vorhanden sind. Isolierte Mesh-Material-Swaps ohne Ausrüstungsbezug ergeben 0.
+    *   **Wert:** `CASE WHEN (OMOD_Override + TXST_Override + CLFM_KYWD_Skin_Override + ARMO_Override + WEAP_Override) > 0 THEN OMOD_Override + LMSW_Override + TXST_Override + CLFM_KYWD_Skin_Override + ARMO_Override + WEAP_Override ELSE 0 END`.
 *   **`dim_calc_outer_Skins`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Waffen- und Rüstungsmodifikationen/Skins, Material-Swaps, Textursätze, Farbvarianten und Ausrüstungs-Overrides der Mod (`OMOD + LMSW + TXST + CLFM_KYWD_Skin + ARMO_Override + WEAP_Override`, 1:1 gleichberechtigt).
-    *   **Wert:** `OMOD + LMSW + TXST + CLFM_KYWD_Skin + ARMO_Override + WEAP_Override`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Waffen- und Rüstungsmodifikationen/Skins, Material-Swaps, Textursätze, Farbvarianten und Ausrüstungs-Overrides der Mod. Wird nur berechnet, wenn echte Ausrüstungs-Träger (`OMOD`, `TXST`, `CLFM_KYWD_Skin`, `ARMO_Override`, `WEAP_Override`) vorhanden sind. Isolierte Mesh-Material-Swaps ohne Ausrüstungsbezug ergeben 0.
+    *   **Wert:** `CASE WHEN (OMOD + TXST + CLFM_KYWD_Skin + ARMO_Override + WEAP_Override) > 0 THEN OMOD + LMSW + TXST + CLFM_KYWD_Skin + ARMO_Override + WEAP_Override ELSE 0 END`.
 *   **`dim_calc_inner_Remove`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Objekte durch Entfernungen, Deaktivierungen, Versenkungen, Pflanzenlöschungen und gedämpfte Zauber-/Effekt-Removals (`REFR_Deleted + REFR_Disabled + REFR_Buried + FLOR_Remove + log10(SPEL_Remove + MGEF_Remove + EFSH_Remove + ENCH_Remove + ALCH_Remove + PERK_Remove) * 2`).
     *   **Wert:** `REFR_Deleted + REFR_Disabled + REFR_Buried + FLOR_Remove + CASE WHEN (SPEL_Remove + MGEF_Remove + EFSH_Remove + ENCH_Remove + ALCH_Remove + PERK_Remove) > 0 THEN LOG10(Summe)*2 ELSE 0 END`.

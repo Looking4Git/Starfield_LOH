@@ -905,19 +905,17 @@ SELECT
     COALESCE(ref.LVLI, 0) + 
     COALESCE(ref.BOOK, 0) + 
     COALESCE(ref.KEYM, 0) AS dim_calc_outer_Items,
-    COALESCE(ref.OMOD_Override, 0) + 
-    COALESCE(ref.LMSW_Override, 0) + 
-    COALESCE(ref.TXST_Override, 0) + 
-    COALESCE(ref.CLFM_KYWD_Skin_Override, 0) + 
-    COALESCE(ref.ARMO_Override, 0) + 
-    COALESCE(ref.WEAP_Override, 0) AS dim_calc_inner_Skins,
+    CASE 
+        WHEN (COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.TXST_Override, 0) + COALESCE(ref.CLFM_KYWD_Skin_Override, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.WEAP_Override, 0)) > 0
+        THEN COALESCE(ref.OMOD_Override, 0) + COALESCE(ref.LMSW_Override, 0) + COALESCE(ref.TXST_Override, 0) + COALESCE(ref.CLFM_KYWD_Skin_Override, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.WEAP_Override, 0)
+        ELSE 0
+    END AS dim_calc_inner_Skins,
     
-    COALESCE(ref.OMOD, 0) + 
-    COALESCE(ref.LMSW, 0) + 
-    COALESCE(ref.TXST, 0) + 
-    COALESCE(ref.CLFM_KYWD_Skin, 0) + 
-    COALESCE(ref.ARMO_Override, 0) + 
-    COALESCE(ref.WEAP_Override, 0) AS dim_calc_outer_Skins,
+    CASE 
+        WHEN (COALESCE(ref.OMOD, 0) + COALESCE(ref.TXST, 0) + COALESCE(ref.CLFM_KYWD_Skin, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.WEAP_Override, 0)) > 0
+        THEN COALESCE(ref.OMOD, 0) + COALESCE(ref.LMSW, 0) + COALESCE(ref.TXST, 0) + COALESCE(ref.CLFM_KYWD_Skin, 0) + COALESCE(ref.ARMO_Override, 0) + COALESCE(ref.WEAP_Override, 0)
+        ELSE 0
+    END AS dim_calc_outer_Skins,
     COALESCE(ref.REFR_Deleted, 0) + 
     COALESCE(ref.REFR_Disabled, 0) + 
     COALESCE(ref.REFR_Buried, 0) + 

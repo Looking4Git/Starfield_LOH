@@ -131,17 +131,16 @@ def _exclude_non_bgs(row, cursor, cat_ids):
 def _exclude_non_skin(row, cursor, cat_ids):
     """
     Schließt die Kategorie 'Skins' aus, wenn keine kosmetischen oder gegenstandsbezogenen
-    Merkmale (TXST, CLFM_KYWD_Skin, ARMO_Override, WEAP_Override, OMOD, LMSW) vorliegen.
+    Merkmale für Ausrüstungen (TXST, CLFM_KYWD_Skin, ARMO_Override, WEAP_Override, OMOD) vorliegen.
+    Isolierte LMSW (Material-Swaps) ohne Ausrüstungs-Träger gelten als statische Mesh-Shader und schließen Skins aus.
     """
     txst = row.get('TXST') or 0
     clfm_skin = row.get('CLFM_KYWD_Skin') or 0
     armo_o = row.get('ARMO_Override') or 0
     weap_o = row.get('WEAP_Override') or 0
     omod = row.get('OMOD') or 0
-    lmsw = row.get('LMSW') or 0
     
-    if (txst == 0 and clfm_skin == 0 and armo_o == 0 and weap_o == 0 and 
-        omod == 0 and lmsw == 0):
+    if (txst == 0 and clfm_skin == 0 and armo_o == 0 and weap_o == 0 and omod == 0):
         mod_id = row.get('Mod_ID') or row.get('ID')
         component_id = row.get('Component_ID')
         
@@ -155,7 +154,7 @@ def _exclude_non_skin(row, cursor, cat_ids):
                 SET "{skins_id}" = 0
                 WHERE Mod_ID = ? AND Component_ID = ?
             """, (mod_id, component_id))
-            reason = "Keine Textur-Sets (TXST), Skin-Keywords oder Farbmodifikationen (CLFM/OMOD/LMSW) für bestehende Rüstungen oder Waffen vorhanden."
+            reason = "Keine Textur-Sets (TXST), Skin-Keywords oder Farbmodifikationen (CLFM/OMOD) für bestehende Rüstungen oder Waffen vorhanden."
             _log_result(cursor, 1, mod_id, component_id, skins_id, None, 1, reason)
             return reason
     return None
@@ -641,9 +640,27 @@ def _has_playerhome_cells(row, cursor=None, component_id=None):
 
 def _has_ship_cells(row, cursor=None, component_id=None):
     """Prüft, ob die Komponente Schiffs-Zell-Merkmale besitzt."""
-    # Prüfen, ob die Mod Schiffs-Zellen oder Schiffs-PackIns verändert
-    ship_cells = (row.get('qry_CELL_Ship') or 0) + (row.get('qry_CELL_Ship_PackIn') or 0)
-    return ship_cells > 0
+    cell_packin = (row.get('qry_CELL_Ship_PackIn') or 0)
+    cell_ship = (row.get('qry_CELL_Ship') or 0)
+    
+    if cell_packin > 0:
+        return True
+        
+    if cell_ship > 0:
+        cobj_ship = row.get('COBJ_BNAM_Ship') or 0
+        stbh = row.get('STBH') or 0
+        stmp = row.get('STMP') or 0
+        weap_ship = row.get('WEAP_KWDA_Ship') or 0
+        stat = row.get('STAT') or 0
+        furn = row.get('FURN') or 0
+        pkin = row.get('PKIN') or 0
+        has_ship_hardware = (cobj_ship > 0 or stbh > 0 or stmp > 0 or weap_ship > 0 or (stat + furn + pkin) > 5)
+        # Wenn keine Schiffshardware vorliegt und es eine reine Lichtmod ist:
+        if not has_ship_hardware and (row.get('LIGH') or 0) > 0:
+            return False
+        return True
+        
+    return False
 
 
 def _exclude_non_city(row, cursor, cat_ids):
@@ -2683,7 +2700,7 @@ def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
             furn_o = urow.get('FURN_Override') or 0
             new_furn = max(0, furn - furn_o)
             pkin = urow.get('PKIN') or 0
-            has_new_structures = (new_stat > 0 or new_furn > 0 or pkin > 0)
+            has_new_structures = (new_stat > 5 or new_furn > 5 or pkin > 5)
 
             set_clauses = []
 

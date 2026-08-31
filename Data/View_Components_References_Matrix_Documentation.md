@@ -202,11 +202,11 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`).
     *   **Wert:** `NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`.
 *   **`dim_calc_inner_Texturen`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
-    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s) END`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der 3D-Welt-Textur-Archive `*- textures.ba2`, bereinigt um reine Interface-/Photomode-Texturen).
+    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s ohne Photomode/UI) END`.
 *   **`dim_calc_outer_Texturen`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Textur-Inhalte der Mod (`TXST` 1:1 bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der `*- textures.ba2`-Replacer-Archive).
-    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST ELSE Count(Texture_BA2s) END`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Textur-Inhalte der Mod (`TXST` 1:1 bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der 3D-Welt-Textur-Archive `*- textures.ba2`, bereinigt um reine Interface-/Photomode-Texturen).
+    *   **Wert:** `CASE WHEN TXST > 0 THEN TXST ELSE Count(Texture_BA2s ohne Photomode/UI) END`.
 *   **`dim_calc_inner_Licht`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Lichtquellen und -Sterne (`LIGH_Override + STDT_Override`).
     *   **Wert:** `LIGH_Override + STDT_Override`.
@@ -226,11 +226,11 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller Sound- und Musikinhalte der Mod (`SOUN + MUSC` 1:1 bei Vorhandensein von Form-Sounds im Plugin, andernfalls die Anzahl der `*- sounds.ba2` / `*- voices.ba2`-Replacer-Archive).
     *   **Wert:** `CASE WHEN (SOUN + MUSC) > 0 THEN SOUN + MUSC ELSE Count(Audio_BA2s) END`.
 *   **`dim_calc_inner_Interface`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in die Benutzeroberfläche (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface-Asset-Archive).
-    *   **Wert:** `Count(Interface_BA2s)`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in die Benutzeroberfläche (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface- und Photomode-Asset-Archive).
+    *   **Wert:** `Count(Interface_BA2s + Photomode_BA2s)`.
 *   **`dim_calc_outer_Interface`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Interface- und UI-Inhalte der Mod (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface-Asset-Archive).
-    *   **Wert:** `Count(Interface_BA2s)`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Interface- und UI-Inhalte der Mod (Anzahl der zugeordneten `*- interface.ba2`-Archive bzw. Interface- und Photomode-Asset-Archive).
+    *   **Wert:** `Count(Interface_BA2s + Photomode_BA2s)`.
 *   **`dim_calc_inner_Sortierung`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Namensregeln und Gegenstands-Umbenennungen (`INNR_Override + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`).
     *   **Wert:** `INNR_Override + WEAP_Override + ARMO_Override + AMMO_Override + ALCH_Override + COBJ_Override + MISC_Override + KEYM_Override + BOOK_Override`.

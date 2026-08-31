@@ -746,7 +746,7 @@ SELECT
             JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
             JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
             WHERE mc_esm.Component_ID = ref.Component_ID 
-              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2')
+              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2' AND LOWER(c_ba2.File) NOT LIKE '%photomode%')
         ), 0)
     END AS dim_calc_inner_Texturen,
     
@@ -758,7 +758,7 @@ SELECT
             JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
             JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
             WHERE mc_esm.Component_ID = ref.Component_ID 
-              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2')
+              AND (LOWER(c_ba2.File) LIKE '%texture%.ba2' AND LOWER(c_ba2.File) NOT LIKE '%photomode%')
         ), 0)
     END AS dim_calc_outer_Texturen,
     COALESCE(ref.LIGH_Override, 0) + COALESCE(ref.STDT_Override, 0) AS dim_calc_inner_Licht,
@@ -800,7 +800,7 @@ SELECT
         JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
         JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
         WHERE mc_esm.Component_ID = ref.Component_ID 
-          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2')
+          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2' OR LOWER(c_ba2.File) LIKE '%photomode%')
     ), 0) AS dim_calc_inner_Interface,
     
     COALESCE((
@@ -809,7 +809,7 @@ SELECT
         JOIN Mods_Components mc_ba2 ON c_ba2.ID = mc_ba2.Component_ID 
         JOIN Mods_Components mc_esm ON mc_ba2.Mod_ID = mc_esm.Mod_ID 
         WHERE mc_esm.Component_ID = ref.Component_ID 
-          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2')
+          AND (LOWER(c_ba2.File) LIKE '%interface%.ba2' OR LOWER(c_ba2.File) LIKE '%photomode%')
     ), 0) AS dim_calc_outer_Interface,
     
     COALESCE(ref.INNR_Override, 0) + 

@@ -531,16 +531,14 @@ def _check_is_interface(cursor, mod_id):
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
     
     for ba2_file in ba2_files:
-        ba2_lower = ba2_file.lower()
-        # Schnelle Prüfung auf Namensebene
-        if "interface" in ba2_lower:
-            count += 1
-            continue
-            
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
             if ba2_flags.get("has_interface"):
+                count += 1
+        else:
+            ba2_lower = ba2_file.lower()
+            if "interface" in ba2_lower or "photomode" in ba2_lower:
                 count += 1
     return count
 
@@ -563,15 +561,16 @@ def _check_has_textures(cursor, mod_id):
     from Structure.File_BA2_Parser import scan_ba2_archive_for_types
     
     for ba2_file in ba2_files:
-        ba2_lower = ba2_file.lower()
-        if "textures" in ba2_lower or "texture.ba2" in ba2_lower:
-            count += 1
-            continue
-            
         ba2_path = os.path.join(STARFIELD_GAME_DATA_PATH, ba2_file)
         if os.path.exists(ba2_path):
             ba2_flags = scan_ba2_archive_for_types(ba2_path)
             if ba2_flags.get("has_textures"):
+                count += 1
+        else:
+            ba2_lower = ba2_file.lower()
+            if "photomode" in ba2_lower:
+                continue
+            if "textures" in ba2_lower or "texture.ba2" in ba2_lower:
                 count += 1
     return count
 
@@ -1451,15 +1450,15 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
     if has_scripts and gameplay_id:
         keep_ids.append(gameplay_id)
         reason += "Scripte in BA2 gefunden -> Gameplay-Kategorie."
+    elif has_interface and interface_id:
+        keep_ids.append(interface_id)
+        reason += "Interface-Dateien in BA2 gefunden -> Interface-Kategorie."
     elif has_textures and textures_id:
         keep_ids.append(textures_id)
         reason += "Texturen in BA2 gefunden -> Texturen-Kategorie."
     elif has_audio and sound_id:
         keep_ids.append(sound_id)
         reason += "Audio in BA2 gefunden -> Sound-Kategorie."
-    elif has_interface and interface_id:
-        keep_ids.append(interface_id)
-        reason += "Interface-Dateien in BA2 gefunden -> Interface-Kategorie."
     else:
         # Falls keine BA2s geladen/gescannt werden konnten, bleiben alle Asset-Kategorien als Möglichkeit im Rennen,
         # aber alle anderen Kategorien (die Pointer erfordern) werden ausgeschlossen.

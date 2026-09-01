@@ -4094,8 +4094,114 @@ def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Charakter vs. Welt implementieren (KO: Echte Weltbauten schlagen Styling)
-    pass
+    """
+    Schritt 26: Gruppenduell Charakter vs. Welt.
+    Charakter: 'Charakter'
+    Welt:      'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
+    
+    1. Feste Welt- & Raumgeometrie (Reiner Architektur-KO / Typ 3 -> Welt gewinnt IMMER):
+       - Städte: Städtische Zellen, PreVis und Geometrie besitzen absolute Priorität (LLO Pos 06).
+       - Gebäude: Dungeons, Bauten und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07).
+       - Spielerheime: Bewohnbare Domizile und Ladezonen besitzen Priorität (LLO Pos 08).
+       - POIs: Dynamische Planeten-Generierungsblöcke besitzen Priorität (LLO Pos 11).
+       - Umgebung: Landschaft, Biome, Worldspaces und Wetter besitzen Priorität (LLO Pos 05).
+    2. Werkbank- & Workshop-Rezepte (Außenposten vs. Charakter):
+       - Massevergleich mit 3-fachem Faktor für Charakter (Typ 4):
+         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_Außenposten -> Charakter gewinnt.
+         - Andernfalls -> Außenposten gewinnt.
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
+
+    charakter_cat_tuples = [
+        ("Charakter", "dim_calc_outer_Charakter"),
+    ]
+    world_cat_tuples = [
+        ("Städte", "dim_calc_outer_Städte"),
+        ("Gebäude", "dim_calc_outer_Gebäude"),
+        ("Spielerheime", "dim_calc_outer_Spielerheime"),
+        ("POIs", "dim_calc_outer_POIs"),
+        ("Außenposten", "dim_calc_outer_Außenposten"),
+        ("Umgebung", "dim_calc_outer_Umgebung"),
+    ]
+
+    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+    non_duel_ids_26 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in world_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_26 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_26:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_char_cids and active_world_cids:
+            c_cid = active_char_cids[0]
+            w_cid = active_world_cids[0]
+
+            c_name = id_to_name.get(c_cid, "")
+            w_name = id_to_name.get(w_cid, "")
+
+            val_c = urow.get(f'dim_calc_outer_{c_name}') or 0.0
+            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
+
+            winner_cid = None
+
+            # --- BLOCK A: FESTE RAUM-, GEOMETRIE- & WELT-KATEGORIEN (REINER ARCHITEKTUR-KO / TYP 3) ---
+            if w_name == 'Städte':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, c_cid, w_cid, 3, "Städtische Zellen, PreVis-Daten und urbane Raumstrukturen ('Städte') besitzen absolute Ladeordnungs-Priorität vor Charakter-Styling.")
+
+            elif w_name == 'Gebäude':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, c_cid, w_cid, 3, "Physische Bauwerke, Dungeons und NavMeshes ('Gebäude') besitzen funktionale Ladeordnungs-Priorität vor Charakter-Styling.")
+
+            elif w_name == 'Spielerheime':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, c_cid, w_cid, 3, "Bewohnbare Domizile, Ladezonen und Domizil-Strukturen ('Spielerheime') besitzen funktionale Priorität vor Charakter-Styling.")
+
+            elif w_name == 'POIs':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, c_cid, w_cid, 3, "Prozedurale Planeten-Generierungsblöcke und POI-Nodes ('POIs') besitzen fundamentale Engine-Priorität vor Charakter-Styling.")
+
+            elif w_name == 'Umgebung':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, c_cid, w_cid, 3, "Landschafts-, Biome-, Worldspace- und Wetteranpassungen ('Umgebung') besitzen funktionale Ladeordnungs-Priorität vor Charakter-Styling.")
+
+            # --- BLOCK B: WERKSTATT- & WORKSHOP-REZEPTE (AUSSENPOSTEN VS. CHARAKTER) ---
+            elif w_name == 'Außenposten':
+                if val_c >= (3 * val_w):
+                    winner_cid = c_cid
+                    ctx.log_result(cursor, mid, cid, w_cid, c_cid, 4, f"Massevergleich Charakter vs. Außenposten: Dominantes Charakter-Styling ('Charakter': {val_c:.1f}) übertrifft Außenposten-Rezepte ('Außenposten': {val_w:.1f} x 3 = {3*val_w:.1f}) um mindestens das 3-Fache.")
+                else:
+                    winner_cid = w_cid
+                    ctx.log_result(cursor, mid, cid, c_cid, w_cid, 4, f"Massevergleich Außenposten vs. Charakter: Modulare Außenposten-Strukturen ('Außenposten': {val_w:.1f}) behaupten sich gegen Charakter-Styling ('Charakter': {val_c:.1f}).")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_26)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):

@@ -2312,7 +2312,18 @@ def _step_sensory(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_actors(cursor, cat_map, cat_ids, ctx):
-
+    """
+    Schritt 10: Gewinner Gruppe Akteure.
+    Akteure: 'Begleiter', 'Kreaturen', 'NPCs'
+    
+    1. Bereinigung von Kreaturen ohne echte Monster/Alien-Akteure:
+       - Wenn NPC__KYWD_Creature == 0, scheidet Kreaturen per Architektur-KO (Typ 3) gegen
+         menschliche NPCs oder Begleiter aus (RACE dient nicht als Monster-Akteur).
+    2. LLO-Kaskade bei echten Spezialisten:
+       - Begleiter (NPC__KYWD_Companion > 0) stechen allgemeine NPCs per KI-Architektur (Typ 3) aus.
+       - Echte Kreaturen (NPC__KYWD_Creature > 0) stechen allgemeine NPCs per KI-Architektur (Typ 3) aus.
+    3. Massevergleich unter verbleibenden Kandidaten (z. B. Begleiter vs. echte Kreaturen).
+    """
     # Die 3 Akteurs-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     actor_cat_tuples = [
         ("Begleiter", "dim_calc_outer_Begleiter"),
@@ -2361,22 +2372,34 @@ def _step_actors(cursor, cat_map, cat_ids, ctx):
                         active_actor_scores[cname] = score
 
         if active_actor_scores:
-            # 2. KO-Kriterien anwenden (LLO-Kaskade)
-            # KO: Spezialisierte Akteure (Begleiter & Kreaturen) stechen allgemeine humanoide NPCs aus
-            winner_ko_name = None
-            if "Begleiter" in active_actor_scores and active_actor_scores["Begleiter"] > 0:
-                winner_ko_name = "Begleiter"
-            elif "Kreaturen" in active_actor_scores and active_actor_scores["Kreaturen"] > 0:
-                winner_ko_name = "Kreaturen"
+            npc_creature = urow.get('NPC__KYWD_Creature') or 0
 
-            if winner_ko_name and "NPCs" in active_actor_scores:
-                w_id = cat_map[winner_ko_name]
+            # 2. Bereinigung: Kreaturen ohne echte Kreaturen-Akteure scheiden aus
+            if "Kreaturen" in active_actor_scores and npc_creature == 0:
+                k_id = cat_map["Kreaturen"]
+                target_name = "Begleiter" if "Begleiter" in active_actor_scores else ("NPCs" if "NPCs" in active_actor_scores else None)
+                if target_name:
+                    t_id = cat_map[target_name]
+                    active_actor_scores.pop("Kreaturen", None)
+                    ctx.log_result(cursor, mid, cid, k_id, t_id, 3, f"Keine eigenständigen Kreaturen-Akteure vorhanden ('NPC__KYWD_Creature': 0); der Rassen-Datensatz (RACE) dient als anatomisches Gerüst für '{target_name}'.")
+
+            # 3. KO-Kriterien anwenden (LLO-Kaskade bei echten Spezialisten)
+            # Begleiter stechen allgemeine humanoide NPCs aus
+            if "Begleiter" in active_actor_scores and "NPCs" in active_actor_scores:
+                b_id = cat_map["Begleiter"]
                 npc_id = cat_map["NPCs"]
                 active_actor_scores.pop("NPCs", None)
-                ctx.log_result(cursor, mid, cid, npc_id, w_id, 3, f"Spezialisierte Akteure ({winner_ko_name}) stechen allgemeine humanoide NPCs per KI-Architektur aus.")
+                ctx.log_result(cursor, mid, cid, npc_id, b_id, 3, "Spezialisierte Gefährten-Akteure ('Begleiter') stechen allgemeine humanoide NPCs per KI- und Rekrutierungs-Architektur aus.")
+
+            # Echte Kreaturen stechen allgemeine humanoide NPCs aus
+            elif "Kreaturen" in active_actor_scores and npc_creature > 0 and "NPCs" in active_actor_scores:
+                k_id = cat_map["Kreaturen"]
+                npc_id = cat_map["NPCs"]
+                active_actor_scores.pop("NPCs", None)
+                ctx.log_result(cursor, mid, cid, npc_id, k_id, 3, "Spezialisierte Spielwelt-Kreaturen ('Kreaturen') stechen allgemeine humanoide NPCs per KI-Architektur aus.")
 
             if active_actor_scores:
-                # 3. Gewinner nach Masse ermitteln (z. B. Begleiter vs. Kreaturen oder verbleibende reine NPCs)
+                # 4. Gewinner nach Masse ermitteln (z. B. Begleiter vs. echte Kreaturen oder verbleibende reine NPCs)
                 sorted_actors = sorted(active_actor_scores.items(), key=lambda x: x[1], reverse=True)
                 winner_cname = sorted_actors[0][0]
                 winner_cid = cat_map[winner_cname]

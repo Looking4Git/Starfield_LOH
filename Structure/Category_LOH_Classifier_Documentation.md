@@ -30,7 +30,7 @@ Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies,
 - **Gewinner Gruppe Welt-Mods:** Kaskadierende Auswahl des stärksten Welt-Merkmals (`POIs`, `Städte`, `Spielerheime`, `Gebäude`, `Außenposten`, `Umgebung`).
 - **Gewinner Gruppe Objekt-Mods:** LLO-Kaskade (`Waffen` > `Kleidung` > `Crafting` > `Items` / `Skins` / `Einrichtung` / `Pflanzen`) sowie Massevergleich `dim_calc_outer_*`.
 - **Gewinner Gruppe Sensorik:** LLO-Kaskade (`Licht` > `Effekte` > `Texturen` / `Sound`) sowie Massevergleich `dim_calc_outer_Texturen` vs. `dim_calc_outer_Sound`.
-- **Gewinner Gruppe Akteure:** LLO-Kaskade (`Begleiter` / `Kreaturen` > `NPCs`) sowie Massevergleich `dim_calc_outer_Begleiter` vs. `dim_calc_outer_Kreaturen`.
+- **Gewinner Gruppe Akteure:** Bereinigung von Kreaturen ohne echte Monster-/Alien-Akteure (`NPC__KYWD_Creature == 0`); LLO-Kaskade (`Begleiter` / echte `Kreaturen` > `NPCs`) sowie Massevergleich `dim_calc_outer_Begleiter` vs. `dim_calc_outer_Kreaturen`.
 - **Gewinner Gruppe Systeme:** `Gameplay` / `Sortierung` / `Interface` stechen `Tweaks` per KO aus; Massevergleich unter Inhalts-Systemen; `Tweaks` als Auffangbecken.
 - **Gewinner Gruppe Transport:** Massevergleich `dim_calc_outer_Schiffe` vs. `dim_calc_outer_Fahrzeuge`.
 - **Echte Remover-Mods:** Rein subtraktive Lösch-Mods stechen leere Welt- und Hilfsstrukturen per KO aus; bei echten neuen Inhalten scheidet `Remove` per KO aus.

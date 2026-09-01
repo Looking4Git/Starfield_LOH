@@ -40,7 +40,7 @@ Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies,
 
 > [!IMPORTANT]
 > **Allgemeingültiges Prinzip für alle Gruppenduelle:**
-> 1. **Verlässlichkeit aktiver Kategorien:** Wir verlassen uns strikt darauf, dass eine Kategorie, die auf der jeweiligen Stufe noch aktiv ist (`Wert == Stufe`), alle inhaltlichen und technischen Bedingungen für diese Kategorie vollumfänglich erfüllt (garantiert durch die Ausschlussmatrix in Phase A, den Dummyausschluss und die Prioritäts- und Gruppengewinner in den Phasen B und C).
+> 1. **Verlässlichkeit aktiver Kategorien:** Wir verlassen uns strikt darauf, dass eine Kategorie, die auf der jeweiligen Stufe noch aktiv ist (`Wert == Stufe`), alle inhaltlichen und technischen Bedingungen für diese Kategorie vollumfänglich erfüllt (garantiert durch die Ausschlussmatrix in Phase A, den Dummyausschluss und die Prioritäts- und Gruppengewinner in den Phasen B und C). Dies ermöglich auch einen einfachen Vergleich nach noch aktiven Kategorien in der vorhanden Ausschlussmatrix (Beispiele für die Planung und Umsetzung können aus bereits umgesetzten Gruppenduellen entnommen werden.)
 > 2. **Keine Neuerfindung von Grundregeln:** In den Duellschritten werden keine neuen Einstiegs- oder Existenzregeln für Kategorien erfunden (keine redundanten Re-Validierungen von Signaturen, Datensätzen oder Basis-Berechtigungen).
 > 3. **Zusatzprüfungen nur für die Duell-Entscheidung:** Es werden ausschließlich solche zusätzlichen technischen Kriterien herangezogen, die für die Abwägung zwischen den zwei konkreten Duellanten notwendig oder sinnvoll sind:
 >    * **Typ 3 (Architektur-K.O.):** Nach unserem Hauptgrundsatz der Kategorisierung nach den Vorgaben und Arbeitsweise der Creation Engine 2 bevorzugen wir klare und treffsichere Regelungen vor Massenvergleichen. Wir gleichen dies zur Sicherheit auch immer gegen die LLO Regeln ab.
@@ -64,7 +64,7 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 
 ##### Block 3: Charakter-Duelle
 - **Gruppenduell Charakter vs. Systeme:** `Gameplay` gewinnt per Architektur-KO (Typ 3) vor `Charakter` (Funktionale Spiellogik/Zauber/Tränke vor reinem Aussehen); `Charakter` gewinnt per Architektur-KO (Typ 3) vor `Tweaks`, `Sortierung` und `Interface`.
-- **Gruppenduell Charakter vs. Akteure**
+- **Gruppenduell Charakter vs. Akteure:** `Begleiter` gewinnt per Architektur-KO (Typ 3) vor `Charakter` (Begleiter-KI und Logik besitzen funktionale Priorität); bei `NPCs` entscheidet ein gewichteter Massevergleich (Typ 4 mit 3-fachem Faktor für `Charakter`); bei `Kreaturen` gewinnt `Charakter` per Architektur-KO (Typ 3), wenn keine Kreaturen-Akteure vorhanden sind (`NPC__KYWD_Creature == 0`), andernfalls besitzen echte Spielwelt-Kreaturen Priorität (Typ 3) bzw. gewichteter Massevergleich (Typ 4).
 - **Gruppenduell Charakter vs. Welt**
 
 ##### Block 4: Akteure-Duelle

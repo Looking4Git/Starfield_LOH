@@ -3963,8 +3963,111 @@ def _step_character_vs_systems(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Charakter vs. Akteure implementieren (KO: HDPT/RACE gehören zum NPC)
-    pass
+    """
+    Schritt 25: Gruppenduell Charakter vs. Akteure.
+    Charakter: 'Charakter'
+    Akteure:   'Begleiter', 'NPCs', 'Kreaturen'
+    
+    1. Begleiter vs. Charakter:
+       - Reiner Architektur-KO (Typ 3): Begleiter gewinnt (Begleiter-KI und Logik besitzen Vorrang).
+    2. NPCs vs. Charakter:
+       - Massevergleich mit 3-fachem Faktor für Charakter (Typ 4):
+         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_NPCs -> Charakter gewinnt.
+         - Andernfalls -> NPCs gewinnt.
+    3. Kreaturen vs. Charakter:
+       - Keine Kreaturen-Akteure vorhanden (NPC__KYWD_Creature == 0):
+         -> Charakter gewinnt per Architektur-KO (Typ 3), da isolierter RACE-Datensatz rein als Spieler-Charaktergerüst dient.
+       - Echte Kreaturen-Akteure vorhanden (NPC__KYWD_Creature > 0):
+         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_Kreaturen -> Charakter gewinnt per Typ 4.
+         - Andernfalls -> Kreaturen gewinnt per Typ 3 (funktionale Spielwelt-Fauna vor Aussehen).
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
+
+    charakter_cat_tuples = [
+        ("Charakter", "dim_calc_outer_Charakter"),
+    ]
+    actor_cat_tuples = [
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("NPCs", "dim_calc_outer_NPCs"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+    ]
+
+    char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
+    act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    non_duel_ids_25 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in act_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_25 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_25:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_char_cids and active_act_cids:
+            c_cid = active_char_cids[0]
+            a_cid = active_act_cids[0]
+
+            c_name = id_to_name.get(c_cid, "")
+            a_name = id_to_name.get(a_cid, "")
+
+            val_c = urow.get(f'dim_calc_outer_{c_name}') or 0.0
+            val_a = urow.get(f'dim_calc_outer_{a_name}') or 0.0
+
+            npc_creature = urow.get('NPC__KYWD_Creature') or 0
+
+            winner_cid = None
+
+            # --- BLOCK A: BEGLEITER VS. CHARAKTER ---
+            if a_name == 'Begleiter':
+                winner_cid = a_cid
+                ctx.log_result(cursor, mid, cid, c_cid, a_cid, 3, "Begleiter-Logik und KI besitzen funktionale Priorität vor Charakter-Styling; mitgelieferte Frisuren und Presets dienen der visuellen Gestaltung des Begleiters.")
+
+            # --- BLOCK B: NPCS VS. CHARAKTER ---
+            elif a_name == 'NPCs':
+                if val_c >= (3 * val_a):
+                    winner_cid = c_cid
+                    ctx.log_result(cursor, mid, cid, a_cid, c_cid, 4, f"Massevergleich Charakter vs. NPCs: Dominantes Charakter-Styling ('Charakter': {val_c:.1f}) übertrifft Welt-NPCs ('NPCs': {val_a:.1f} x 3 = {3*val_a:.1f}) um mindestens das 3-Fache.")
+                else:
+                    winner_cid = a_cid
+                    ctx.log_result(cursor, mid, cid, c_cid, a_cid, 4, f"Massevergleich NPCs vs. Charakter: Welt-NPCs und Bevölkerungs-Inhalte ('NPCs': {val_a:.1f}) behaupten sich gegen Charakter-Styling ('Charakter': {val_c:.1f}).")
+
+            # --- BLOCK C: KREATUREN VS. CHARAKTER ---
+            elif a_name == 'Kreaturen':
+                if npc_creature == 0:
+                    winner_cid = c_cid
+                    ctx.log_result(cursor, mid, cid, a_cid, c_cid, 3, "Keine eigenständigen Kreaturen-Akteure in der Spielwelt vorhanden ('NPC__KYWD_Creature': 0); der Rassen-Datensatz (RACE) dient rein als anatomisches Gerüst für den Spieler-Charaktereditor.")
+                elif val_c >= (3 * val_a):
+                    winner_cid = c_cid
+                    ctx.log_result(cursor, mid, cid, a_cid, c_cid, 4, f"Massevergleich Charakter vs. Kreaturen: Dominantes Charakter-Styling ('Charakter': {val_c:.1f}) übertrifft Kreaturen ('Kreaturen': {val_a:.1f} x 3 = {3*val_a:.1f}) um mindestens das 3-Fache.")
+                else:
+                    winner_cid = a_cid
+                    ctx.log_result(cursor, mid, cid, c_cid, a_cid, 3, f"Funktionale Spielwelt-Kreaturen und Alien-Fauna ('Kreaturen': {val_a:.1f}) besitzen funktionale Priorität vor Charakter-Styling.")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_25)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):

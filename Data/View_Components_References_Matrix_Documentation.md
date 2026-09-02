@@ -190,17 +190,17 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller echten allgemeinen/humanoiden Charaktere der Mod (bereinigt um Dummies, Begleiter und Kreaturen: `MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion - NPC__KYWD_Creature)`).
     *   **Wert:** `MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion - NPC__KYWD_Creature)`.
 *   **`dim_calc_inner_Begleiter`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC__KYWD_Companion_Override`).
-    *   **Wert:** `NPC__KYWD_Companion_Override`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Begleiter (`NPC__KYWD_Companion_Override`, bereinigt um reine Dummy-Mods `NPC_ == NPC__Dummy`).
+    *   **Wert:** `CASE WHEN (NPC_ > 0 AND NPC_ = NPC__Dummy) THEN 0 ELSE NPC__KYWD_Companion_Override END`.
 *   **`dim_calc_outer_Begleiter`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Begleiter-Charaktere der Mod (`NPC__KYWD_Companion`, Neu + Overrides 1:1).
-    *   **Wert:** `NPC__KYWD_Companion`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Begleiter-Charaktere der Mod (`NPC__KYWD_Companion`, Neu + Overrides 1:1, bereinigt um reine Dummy-Mods `NPC_ == NPC__Dummy`).
+    *   **Wert:** `CASE WHEN (NPC_ > 0 AND NPC_ = NPC__Dummy) THEN 0 ELSE NPC__KYWD_Companion END`.
 *   **`dim_calc_inner_Kreaturen`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Anzahl modifizierter Vanilla-Kreaturen und -Rassen (`NPC__KYWD_Creature_Override + RACE_Override`).
     *   **Wert:** `NPC__KYWD_Creature_Override + RACE_Override`.
 *   **`dim_calc_outer_Kreaturen`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (`NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`).
-    *   **Wert:** `NPC__KYWD_Creature + RACE + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Monster-, Alien-, Tier- und Roboterinhalte sowie neuer Rassen der Mod (bereinigt um Dummy-Mannequin-Rassen `NPC_ == NPC__Dummy AND NPC__KYWD_Creature == 0`).
+    *   **Wert:** `(CASE WHEN (NPC_ > 0 AND NPC_ = NPC__Dummy AND NPC__KYWD_Creature = 0) THEN 0 ELSE NPC__KYWD_Creature + RACE END) + (CASE WHEN (RACE > 0 OR NPC__KYWD_Creature > 0) THEN MAX(0, NPC_ - NPC__Dummy - NPC__KYWD_Companion) ELSE 0 END)`.
 *   **`dim_calc_inner_Texturen`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Eingriffstiefe in Vanilla-Texturen (`TXST_Override` bei Vorhandensein von Form-Texturen im Plugin, andernfalls die Anzahl der 3D-Welt-Textur-Archive `*- textures.ba2`, bereinigt um reine Interface-/Photomode-Texturen).
     *   **Wert:** `CASE WHEN TXST > 0 THEN TXST_Override ELSE Count(Texture_BA2s ohne Photomode/UI) END`.

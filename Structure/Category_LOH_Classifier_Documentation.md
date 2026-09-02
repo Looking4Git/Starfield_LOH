@@ -15,6 +15,8 @@ Schließt Kategorien auf Stufe 0 aus, falls grundlegende technische Record-Signa
 Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies, Script-Helpern und abgeleiteten Modulen noch echte Netto-Inhalte (`dim_calc_outer_* > 0` oder `dim_calc_inner_* > 0`) vorliegen. Kategorien mit Netto-Inhalt == 0 werden in der Matrix auf `0` gesetzt:
 - `Kleidung`: Ausgeschlossen, wenn alle ARMO `ARMO_Dummy` sind.
 - `NPCs`: Ausgeschlossen, wenn alle NPCs `NPC__Dummy` oder Begleiter/Kreaturen sind.
+- `Begleiter`: Ausgeschlossen, wenn alle NPCs `NPC__Dummy` sind (reine Mannequins/Schaufensterpuppen ohne KI-Pakete).
+- `Kreaturen`: Ausgeschlossen, wenn keine Kreaturen-Keywords (`NPC__KYWD_Creature == 0`) vorliegen und alle vorhandenen NPCs `NPC__Dummy` sind (reine Mannequin-Rassen).
 - `Waffen`: Ausgeschlossen, wenn alle Waffen Script-Helper, Schiffs- oder Fahrzeugwaffen sind.
 - `Crafting`: Ausgeschlossen, wenn alle Rezepte Schiffs- oder Außenpostenmodule sind.
 - `Einrichtung`: Ausgeschlossen, wenn alle Möbel Fahrzeug-Steuersitze sind.
@@ -68,7 +70,7 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 - **Gruppenduell Charakter vs. Welt:** Physische Welt- und Raumgeometrie (`Städte`, `Gebäude`, `Spielerheime`, `POIs`, `Umgebung`) stechen `Charakter` ausnahmslos per Architektur-KO (Typ 3) aus (Ladeordnungs-Priorität für NavMeshes, Ladezonen und Geometrie); bei `Außenposten` entscheidet ein gewichteter Massevergleich (Typ 4 mit 3-fachem Faktor für `Charakter`).
 
 ##### Block 4: Akteure-Duelle
-- **Gruppenduell Akteure vs. Systeme**
+- **Gruppenduell Akteure vs. Systeme:** Lebendige Spielwelt-Akteure (`Begleiter`, `NPCs`, `Kreaturen`) mit Physis, KI-Paketen (`PKID`), Sprachausgabe und Weltplatzierung stechen alle System-Kategorien (`Gameplay`, `Sortierung`, `Interface`, `Tweaks`) ausnahmslos per Architektur-KO (Typ 3) aus (Ladeordnungs-Priorität LLO Pos 14–16 vor Pos 13; mitgelieferte Zauber, Perks, Kampffähigkeiten oder Einstellungs-Globale dienen als Werkzeuge/Fähigkeiten der Akteure).
 - **Gruppenduell Akteure vs. Welt**
 
 ##### Block 5: Systeme-Duelle

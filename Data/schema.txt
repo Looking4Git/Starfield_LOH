@@ -723,8 +723,14 @@ SELECT
     COALESCE(ref.MGEF, 0) + COALESCE(ref.MGEF_Remove, 0) AS dim_calc_outer_Gameplay,
     MAX(0, COALESCE(ref.NPC__Override, 0) - COALESCE(ref.NPC__KYWD_Companion_Override, 0) - COALESCE(ref.NPC__KYWD_Creature_Override, 0)) AS dim_calc_inner_NPCs,
     MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__Dummy, 0) - COALESCE(ref.NPC__KYWD_Companion, 0) - COALESCE(ref.NPC__KYWD_Creature, 0)) AS dim_calc_outer_NPCs,
-    COALESCE(ref.NPC__KYWD_Companion_Override, 0) AS dim_calc_inner_Begleiter,
-    COALESCE(ref.NPC__KYWD_Companion, 0) AS dim_calc_outer_Begleiter,
+    CASE 
+        WHEN (COALESCE(ref.NPC_, 0) > 0 AND COALESCE(ref.NPC_, 0) = COALESCE(ref.NPC__Dummy, 0)) THEN 0 
+        ELSE COALESCE(ref.NPC__KYWD_Companion_Override, 0) 
+    END AS dim_calc_inner_Begleiter,
+    CASE 
+        WHEN (COALESCE(ref.NPC_, 0) > 0 AND COALESCE(ref.NPC_, 0) = COALESCE(ref.NPC__Dummy, 0)) THEN 0 
+        ELSE COALESCE(ref.NPC__KYWD_Companion, 0) 
+    END AS dim_calc_outer_Begleiter,
     COALESCE(ref.NPC__KYWD_Creature_Override, 0) + COALESCE(ref.RACE_Override, 0) + 
     CASE 
         WHEN (COALESCE(ref.RACE_Override, 0) > 0 OR COALESCE(ref.NPC__KYWD_Creature_Override, 0) > 0)
@@ -732,7 +738,10 @@ SELECT
         ELSE 0 
     END AS dim_calc_inner_Kreaturen,
     
-    COALESCE(ref.NPC__KYWD_Creature, 0) + COALESCE(ref.RACE, 0) + 
+    CASE 
+        WHEN (COALESCE(ref.NPC_, 0) > 0 AND COALESCE(ref.NPC_, 0) = COALESCE(ref.NPC__Dummy, 0) AND COALESCE(ref.NPC__KYWD_Creature, 0) = 0) THEN 0 
+        ELSE COALESCE(ref.NPC__KYWD_Creature, 0) + COALESCE(ref.RACE, 0) 
+    END + 
     CASE 
         WHEN (COALESCE(ref.RACE, 0) > 0 OR COALESCE(ref.NPC__KYWD_Creature, 0) > 0)
         THEN MAX(0, COALESCE(ref.NPC_, 0) - COALESCE(ref.NPC__Dummy, 0) - COALESCE(ref.NPC__KYWD_Companion, 0))

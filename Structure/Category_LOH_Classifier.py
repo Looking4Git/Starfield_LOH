@@ -1871,6 +1871,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
 
     clothing_id = cat_map.get('Kleidung')
     npcs_id = cat_map.get('NPCs')
+    companion_id = cat_map.get('Begleiter')
+    creature_id = cat_map.get('Kreaturen')
     waffen_id = cat_map.get('Waffen')
     crafting_id = cat_map.get('Crafting')
     furn_id = cat_map.get('Einrichtung')
@@ -1907,7 +1909,27 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 npc_dummy = urow.get('NPC__Dummy') or 0
                 ctx.log_result(cursor, mid, cid, npcs_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen, Steuerungs-Dummies ('NPC__Dummy': {npc_dummy}) oder gehören zu Begleitern/Kreaturen; keine eigenständigen humanoiden NPCs vorhanden.")
 
-        # 3. Waffen prüfen
+        # 3. Begleiter prüfen (Dummy- & Netto-Ausschluss)
+        if companion_id and (mat_row.get(str(companion_id)) or 0) == ctx.prev_level:
+            val_out = urow.get('dim_calc_outer_Begleiter') or 0
+            val_in = urow.get('dim_calc_inner_Begleiter') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{companion_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                npc = urow.get('NPC_') or 0
+                npc_dummy = urow.get('NPC__Dummy') or 0
+                ctx.log_result(cursor, mid, cid, companion_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen oder Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Begleiter mit KI-Paketen vorhanden.")
+
+        # 4. Kreaturen prüfen (Dummy- & Netto-Ausschluss)
+        if creature_id and (mat_row.get(str(creature_id)) or 0) == ctx.prev_level:
+            val_out = urow.get('dim_calc_outer_Kreaturen') or 0
+            val_in = urow.get('dim_calc_inner_Kreaturen') or 0
+            if val_out == 0 and val_in == 0:
+                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{creature_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                npc = urow.get('NPC_') or 0
+                npc_dummy = urow.get('NPC__Dummy') or 0
+                ctx.log_result(cursor, mid, cid, creature_id, None, 1, f"Keine lebendigen Kreaturen-Akteure vorhanden ('NPC__KYWD_Creature': 0, 'NPC__Dummy': {npc_dummy}); Rassen-Datensatz (RACE) dient rein als Gerüst für Schaufensterpuppen/Dummies.")
+
+        # 5. Waffen prüfen
         if waffen_id and (mat_row.get(str(waffen_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Waffen') or 0
             val_in = urow.get('dim_calc_inner_Waffen') or 0
@@ -4205,8 +4227,90 @@ def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Akteure vs. Systeme implementieren
-    pass
+    """
+    Schritt 27: Gruppenduell Akteure vs. Systeme.
+    Akteure: 'Begleiter', 'NPCs', 'Kreaturen'
+    Systeme: 'Gameplay', 'Sortierung', 'Interface', 'Tweaks'
+    
+    Entscheidungslogik: Reiner Architektur-K.O. (Typ 3)
+    Lebendige Spielwelt-Akteure mit Physis, KI-Paketen (PKID), Sprachausgabe und Platzierung 
+    in der Spielwelt (LLO Pos 14-16) besitzen fundamentale funktionale Priorität vor 
+    abstrakten Gameplay-Mechaniken (LLO Pos 13) und reinen Hilfssystemen. 
+    Mitgelieferte Zauber, Perks, Kampffähigkeiten oder Einstellungs-Globale dienen als 
+    Werkzeuge/Fähigkeiten der Akteure.
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
+
+    actor_cat_tuples = [
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("NPCs", "dim_calc_outer_NPCs"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+    ]
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+
+    act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    non_duel_ids_27 = [cid for cid in cat_ids if cid not in act_cat_ids and cid not in sys_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_27 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_27:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_act_cids and active_sys_cids:
+            a_cid = active_act_cids[0]
+            s_cid = active_sys_cids[0]
+
+            a_name = id_to_name.get(a_cid, "")
+            s_name = id_to_name.get(s_cid, "")
+
+            winner_cid = a_cid
+
+            # Spezifische, verständliche Begründungstexte für die Transparenz-Protokollierung
+            if s_name == 'Gameplay':
+                if a_name == 'Begleiter':
+                    ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, "Begleiter-Logik, KI und Dialoge besitzen funktionale Ladeordnungs-Priorität (LLO Pos 15) vor Gameplay-Mechaniken; mitgelieferte Perks/Spells dienen als Begleiter-Fähigkeiten.")
+                elif a_name == 'NPCs':
+                    ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, "Humanoide Nicht-Spieler-Charaktere ('NPCs') mit KI, Sprachausgabe und Platzierung besitzen funktionale Priorität (LLO Pos 14) vor allgemeinen Gameplay-Mechaniken.")
+                elif a_name == 'Kreaturen':
+                    ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, "Spielwelt-Kreaturen, Monster und Alien-Fauna ('Kreaturen') besitzen funktionale Priorität (LLO Pos 16) vor allgemeinen Gameplay-Mechaniken; Angriffszauber und Effekte dienen als Kreaturen-Fähigkeiten.")
+                else:
+                    ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, f"Lebendige Spielwelt-Akteure ('{a_name}') besitzen funktionale Priorität vor allgemeinen Gameplay-Mechaniken ('{s_name}').")
+            else:
+                ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, f"Lebendige Spielwelt-Akteure ('{a_name}') mit KI-Paketen und Physis besitzen funktionale Priorität vor reinen Hilfssystemen ('{s_name}').")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_27)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):

@@ -71,7 +71,7 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 
 ##### Block 4: Akteure-Duelle
 - **Gruppenduell Akteure vs. Systeme:** Lebendige Spielwelt-Akteure (`Begleiter`, `NPCs`, `Kreaturen`) mit Physis, KI-Paketen (`PKID`), Sprachausgabe und Weltplatzierung stechen alle System-Kategorien (`Gameplay`, `Sortierung`, `Interface`, `Tweaks`) ausnahmslos per Architektur-KO (Typ 3) aus (Ladeordnungs-Priorität LLO Pos 14–16 vor Pos 13; mitgelieferte Zauber, Perks, Kampffähigkeiten oder Einstellungs-Globale dienen als Werkzeuge/Fähigkeiten der Akteure).
-- **Gruppenduell Akteure vs. Welt**
+- **Gruppenduell Akteure vs. Welt:** Physische Welt- und Raumgeometrie (`Städte`, `Gebäude`, `Spielerheime`, `POIs`, `Umgebung`) stechen lebendige Akteure (`Begleiter`, `NPCs`, `Kreaturen`) ausnahmslos per Architektur-KO (Typ 3) aus (Ladeordnungs-Priorität LLO Pos 05–08 und 11 vor Pos 14–16 für PreVis, NavMeshes, Ladezonen und Planetenblöcke); bei `Außenposten` schlägt `Begleiter` Baurezepte per Architektur-KO (Typ 3, LLO Pos 15 vor Pos 09), modulare Bausysteme (`COBJ_BNAM_Outpost_* > 0`) schlagen Akteure per Architektur-KO (Typ 3, LLO Pos 09 vor Pos 14/16) und bei reinen Crew-/Akteur-Sammlungen entscheidet ein gewichteter Massevergleich (Typ 4 mit 3-fachem Faktor für Akteure).
 
 ##### Block 5: Systeme-Duelle
 - **Gruppenduell Systeme vs. Welt**

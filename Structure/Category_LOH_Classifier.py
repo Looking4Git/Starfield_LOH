@@ -4314,8 +4314,134 @@ def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Akteure vs. Welt implementieren (Platzierter Bar-NPC vs. Neuer Dungeon)
-    pass
+    """
+    Schritt 28: Gruppenduell Akteure vs. Welt.
+    Akteure: 'Begleiter', 'NPCs', 'Kreaturen'
+    Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
+    
+    1. Feste Welt-, Raum- & Geometriekategorien (Städte, Gebäude, Spielerheime, POIs, Umgebung):
+       - Städte: Städtische Zellen, PreVis und Geometrie besitzen absolute Priorität (LLO Pos 06 vor Pos 14-16).
+       - Gebäude: Dungeons, Bauten und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07 vor Pos 14-16).
+       - Spielerheime: Bewohnbare Domizile und Ladezonen besitzen Priorität (LLO Pos 08 vor Pos 14-16).
+       - POIs: Dynamische Planeten-Generierungsblöcke besitzen Priorität (LLO Pos 11 vor Pos 14-16).
+       - Umgebung: Landschaft, Biome, Worldspaces und Wetter besitzen Priorität (LLO Pos 05 vor Pos 14-16).
+       -> Welt gewinnt IMMER per Architektur-KO (Typ 3).
+       
+    2. Werkstatt- & Workshop-Module (Außenposten vs. Akteure):
+       - Fall 1: Begleiter vs. Außenposten:
+         -> Begleiter gewinnt per Architektur-KO (Typ 3): Begleiter-KI, Dialogbäume und Frameworks
+            besitzen Ladeordnungs-Priorität (LLO Pos 15 vor Pos 09) vor reinen Baurezepten.
+       - Fall 2: Echte modulare Außenposten-Bausysteme (COBJ_BNAM_Outpost_Heavy > 0 oder COBJ_BNAM_Outpost_Soft > 0):
+         -> Außenposten gewinnt per Architektur-KO (Typ 3): Modulare Wohnblöcke, Habs, Hallen und
+            Großstrukturen (LLO Pos 09 vor Pos 14/16) bilden das tragende Baufundament vor Akteuren.
+       - Fall 3: NPCs / Kreaturen vs. Außenposten (Allgemeiner / Relationaler Massevergleich):
+         -> Wenn dim_calc_outer_Akteur >= 3 * dim_calc_outer_Außenposten:
+            Akteur gewinnt per Typ 4 (Dominante Crew-/Armee-Inhalte übertreffen Beistellmöbel).
+         -> Andernfalls:
+            Außenposten gewinnt per Typ 4 (Außenposten-Strukturen behaupten sich gegen Akteur-Beigaben).
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
+
+    actor_cat_tuples = [
+        ("Begleiter", "dim_calc_outer_Begleiter"),
+        ("NPCs", "dim_calc_outer_NPCs"),
+        ("Kreaturen", "dim_calc_outer_Kreaturen"),
+    ]
+    world_cat_tuples = [
+        ("Städte", "dim_calc_outer_Städte"),
+        ("Gebäude", "dim_calc_outer_Gebäude"),
+        ("Spielerheime", "dim_calc_outer_Spielerheime"),
+        ("POIs", "dim_calc_outer_POIs"),
+        ("Außenposten", "dim_calc_outer_Außenposten"),
+        ("Umgebung", "dim_calc_outer_Umgebung"),
+    ]
+
+    act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
+    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+    non_duel_ids_28 = [cid for cid in cat_ids if cid not in act_cat_ids and cid not in world_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_28 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_28:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_act_cids and active_world_cids:
+            a_cid = active_act_cids[0]
+            w_cid = active_world_cids[0]
+
+            a_name = id_to_name.get(a_cid, "")
+            w_name = id_to_name.get(w_cid, "")
+
+            val_a = urow.get(f'dim_calc_outer_{a_name}') or 0.0
+            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
+
+            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
+
+            winner_cid = None
+
+            # --- BLOCK A: FESTE RAUM-, GEOMETRIE- & WELT-KATEGORIEN (REINER ARCHITEKTUR-KO / TYP 3) ---
+            if w_name == 'Städte':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Städtische Zellen, PreVis-Daten und urbane Raumstrukturen ('Städte') besitzen absolute Ladeordnungs-Priorität (LLO Pos 06) vor platzierten Akteuren ('{a_name}').")
+
+            elif w_name == 'Gebäude':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Physische Bauwerke, Dungeons und NavMeshes ('Gebäude') besitzen funktionale Ladeordnungs-Priorität (LLO Pos 07) vor platzierten Akteuren ('{a_name}').")
+
+            elif w_name == 'Spielerheime':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Bewohnbare Domizile, Ladezonen und Domizil-Strukturen ('Spielerheime') besitzen funktionale Priorität (LLO Pos 08) vor platzierten Akteuren ('{a_name}').")
+
+            elif w_name == 'POIs':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Prozedurale Planeten-Generierungsblöcke und POI-Nodes ('POIs') besitzen fundamentale Engine-Priorität (LLO Pos 11) vor Akteuren ('{a_name}').")
+
+            elif w_name == 'Umgebung':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Landschafts-, Biome-, Worldspace- und Wetteranpassungen ('Umgebung') besitzen funktionale Ladeordnungs-Priorität (LLO Pos 05) vor platzierten Akteuren ('{a_name}').")
+
+            # --- BLOCK B: WERKSTATT- & WORKSHOP-REZEPTE (AUSSENPOSTEN VS. AKTEURE) ---
+            elif w_name == 'Außenposten':
+                if a_name == 'Begleiter':
+                    winner_cid = a_cid
+                    ctx.log_result(cursor, mid, cid, w_cid, a_cid, 3, "Begleiter-Logik, KI und Dialoge besitzen funktionale Ladeordnungs-Priorität (LLO Pos 15) vor Außenposten-Baurezepten (LLO Pos 09).")
+                elif val_a >= (3 * val_w):
+                    winner_cid = a_cid
+                    ctx.log_result(cursor, mid, cid, w_cid, a_cid, 4, f"Massevergleich {a_name} vs. Außenposten: Dominante Akteur-Inhalte ('{a_name}': {val_a:.1f}) übertreffen Außenposten-Rezepte ('Außenposten': {val_w:.1f} x 3 = {3*val_w:.1f}) um mindestens das 3-Fache.")
+                elif cobj_op > 0:
+                    winner_cid = w_cid
+                    ctx.log_result(cursor, mid, cid, a_cid, w_cid, 3, f"Modulare Außenposten-Bausysteme (Habs, Wohnmodule und Extraktoren, LLO Pos 09) bilden das tragende Baufundament vor platzierten Akteuren ('{a_name}', LLO Pos 14/16).")
+                else:
+                    winner_cid = w_cid
+                    ctx.log_result(cursor, mid, cid, a_cid, w_cid, 4, f"Massevergleich Außenposten vs. {a_name}: Außenposten-Strukturen ('Außenposten': {val_w:.1f}) behaupten sich gegen Beigabe-Akteure ('{a_name}': {val_a:.1f}).")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_28)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):

@@ -260,8 +260,9 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                         
                         if "packin" in edid_lower:
                             is_packin = True
-                        elif any(k in edid_lower for k in ["holding", "test", "dummy", "faux", "ctest", "swapper", "preview"]) or (not has_xlcn and not has_full):
-                            is_dummy = True
+                        elif not has_xlcn:
+                            if any(k in edid_lower for k in ["holding", "utility", "test", "dummy", "faux", "ctest", "swapper", "preview"]) or (not has_full):
+                                is_dummy = True
                             
                     if is_packin:
                         local_counts['CELL_PackIn'] += 1

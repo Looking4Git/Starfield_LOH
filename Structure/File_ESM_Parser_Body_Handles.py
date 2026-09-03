@@ -260,7 +260,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                         
                         if "packin" in edid_lower:
                             is_packin = True
-                        elif any(k in edid_lower for k in ["holding", "utility", "test", "dummy", "faux", "ctest"]) or (not has_xlcn and not has_full):
+                        elif any(k in edid_lower for k in ["holding", "test", "dummy", "faux", "ctest", "swapper", "preview"]) or (not has_xlcn and not has_full):
                             is_dummy = True
                             
                     if is_packin:
@@ -372,6 +372,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                     has_vtck = False
                     has_pkid = False
                     has_snam = False
+                    edid_str = ""
                     for sub_sig, sub_data in iter_subrecords(decompressed_data):
                         if sub_sig == b'VTCK':
                             has_vtck = True
@@ -398,8 +399,12 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                                 if is_override:
                                     local_counts['NPC__KYWD_Shop_Override'] += 1
 
-                    # Rein technische Erfassung: Fehlen alle Lebensmerkmale (Stimme, KI-Pakete, Fraktion) -> Dummy/Mannequin
-                    if not has_vtck and not has_pkid and not has_snam:
+                    # Rein technische Erfassung: Fehlen alle 3 Lebensmerkmale (Stimme, KI-Pakete, Fraktion) -> Dummy
+                    # Zusätzliche Absicherung für Mannequins: Name enthält "mannequin" UND mindestens 2 der 3 Merkmale fehlen
+                    missing_life_features = sum([1 for x in (has_vtck, has_pkid, has_snam) if not x])
+                    if missing_life_features == 3:
+                        local_counts['NPC__Dummy'] += 1
+                    elif "mannequin" in edid_str and missing_life_features >= 2:
                         local_counts['NPC__Dummy'] += 1
                 continue
 

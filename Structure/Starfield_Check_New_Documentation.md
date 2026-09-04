@@ -52,12 +52,14 @@ Beim Einlesen von `.esm`-Dateien analysiert der Parser (`File_ESM_Parser_Body_Ha
 
 #### Entscheidungsmatrix für `CELL`-Datensätze:
 
-| WRLD / Außenwelt? | PackIn im Namen (`EDID`)? | Hilfsbegriff im Namen (`EDID`)? | Display-Name (`FULL`)? | Location (`XLCN`)? | Einstufung | Erklärung / Zweck |
-| :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| Egal | **JA** | Egal | Egal | Egal | **`CELL_PackIn`** | Vorgefertigte Bauteil-Schablone (Pack-In). |
-| **NEIN** *(Innenraum)* | NEIN | **JA** (*holding, storage, staging, utility, swapper, preview, test, dummy, faux, ctest*) | Egal | Egal | **`CELL_Dummy`** | Funktionale Park-, Menü-, Spawn- oder Hilfskammer. `XLCN` blockiert die Erkennung nicht. |
-| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **JA** | Egal | **Echte Zelle** | Benannter begehbarer Innenraum (z. B. Raumschiff, Bar, Wohnung). |
-| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **NEIN** | **JA** | **Echte Zelle** | Begehbarer Raum/Gang ohne Eigennamen, aber an Location angebunden (z. B. Schiffshabs). |
-| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **NEIN** | **NEIN** | **`CELL_Dummy`** | Unbenannter, verwaister Innenraum ohne Anbindung. |
-| **JA** *(Außenwelt)* | NEIN | Egal | **JA** oder **JA** | **JA** oder **JA** | **Echte Zelle** | Aktive Außenwelt- / Planetenkachel. |
-| **JA** *(Außenwelt)* | NEIN | Egal | **NEIN** | **NEIN** | **`CELL_Dummy`** | Generierte, leere Kachel im Außenwelt-Raster ohne Inhalt. |
+| WRLD / Außenwelt?      | PackIn im EDID? | Hilfsbegriff im EDID?*                                                   | Display-Name (FULL)? | Location (XLCN)? | Einstufung        | Erklärung / Zweck                                                                |
+|:-----------------------|:----------------|:-------------------------------------------------------------------------|:---------------------|:-----------------|:------------------|:---------------------------------------------------------------------------------|
+| Egal                   | **JA**          | Egal                                                                     | Egal                 | Egal             | **`CELL_PackIn`** | Vorgefertigte Bauteil-Schablone (Pack-In).                                       |
+| **NEIN** *(Innenraum)* | NEIN            | **JA** *(holding, storage, staging, utility, swapper, preview, test...)* | Egal                 | Egal             | **`CELL_Dummy`**  | Funktionale Park-, Menü-, Spawn- oder Hilfskammer (`XLCN` blockiert nicht).      |
+| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **JA**               | Egal             | **Echte Zelle**   | Benannter begehbarer Innenraum (z. B. Raumschiff, Bar, Wohnung).                |
+| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **NEIN**             | **JA**           | **Echte Zelle**   | Begehbarer Raum/Gang ohne Eigennamen, aber an Location angebunden (z. B. Habs).  |
+| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **NEIN**             | **NEIN**         | **`CELL_Dummy`**  | Unbenannter, verwaister Innenraum ohne Anbindung.                                |
+| **JA** *(Außenwelt)*   | NEIN            | Egal                                                                     | **JA** *(oder XLCN)* | **JA** *(oder FULL)* | **Echte Zelle** | Aktive Außenwelt- / Planetenkachel mit Inhalt oder Location.                     |
+| **JA** *(Außenwelt)*   | NEIN            | Egal                                                                     | **NEIN**             | **NEIN**         | **`CELL_Dummy`**  | Generierte, leere Kachel im Außenwelt-Raster ohne Inhalt.                        |
+
+*\*Hilfsbegriffe in Innenräumen: `holding`, `staging`, `storage`, `utility`, `test`, `dummy`, `faux`, `ctest`, `swapper`, `preview`.*

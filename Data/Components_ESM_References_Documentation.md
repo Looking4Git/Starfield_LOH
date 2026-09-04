@@ -28,7 +28,7 @@ Diese Datei beschreibt den Aufbau und die Bedeutung der Spalten in der Tabelle `
 *   **BIOM / BIOM_Override**: *Biome*. Biom-Definitionsdatensätze. Bestimmen die Verteilung von Flora, Fauna, Texturen und Landschafts-Features.
 *   **CAMS / CAMS_Override**: *Camera Shot*. Kamera-Einstellungen und feste Blickwinkel (z. B. für Schiffsandock-Perspektiven, Dialog- und Ereigniskameras).
 *   **CELL / CELL_Dummy / CELL_Override / CELL_Override_Dummy / CELL_Override_PackIn / CELL_PackIn**: *Cell*. Einzelne Planetenquadrate (Außenbereiche) oder Ladezonen (Innenräume). 
-    *   `CELL_Dummy` / `CELL_Override_Dummy`: Erfasst reine Skript-, Holding-, Test- und Utility-Zellen ohne Location oder Ingame-Namen.
+    *   `CELL_Dummy` / `CELL_Override_Dummy`: Erfasst reine Skript-, Holding-, Staging-, Storage-, Test-, Utility-, Swapper- und Preview-Zellen (im Innenraum unabhängig von `XLCN`) sowie unbenannte verwaiste Kacheln ohne Display-Namen (`FULL`) und ohne Location (`XLCN`).
     *   `CELL_PackIn` / `CELL_Override_PackIn`: Erfasst Zell-Schablonen für Fertigbauteile (PackIns).
 *   **CLFM / CLFM_Override / CLFM_KYWD_Character / CLFM_KYWD_Character_Override / CLFM_KYWD_Ship / CLFM_KYWD_Ship_Override / CLFM_KYWD_Skin / CLFM_KYWD_Skin_Override**: *Color Form*. Universelle RGBA-Farbpaletten der Creation Engine 2.
     *   `CLFM_KYWD_Character` / `CLFM_KYWD_Character_Override`: Spezifische Kosmetik- und Chargen-Farben für den Charaktereditor (Haarfarben, Augenfarben, Hauttöne, Make-up, Tattoos, Gesichtsbehaarung).

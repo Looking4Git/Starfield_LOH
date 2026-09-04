@@ -45,3 +45,19 @@ Stand 26.05.2026
       - Prüfen aller dem Mod über die Tabelle Mods_Components zugeordneten Komponenten
          - Ist eine Komponente nicht mehr in der ContentCatalog vorhanden
             -> Entfernen der Verknüpfung über die Tabelle Mods_Components
+
+### Anhang: Entscheidungsmatrix zur Erkennung von Dummy-Zellen im ESM-Parser
+
+Beim Einlesen von `.esm`-Dateien analysiert der Parser (`File_ESM_Parser_Body_Handles.py`) alle `CELL`-Datensätze und unterscheidet anhand von Innenraum/Außenwelt-Flag (`DATA`-Subrecord Bit 0), Namen (`EDID` / `FULL`) und Location-Verknüpfungen (`XLCN`), ob es sich um echte begehbare Spielweltzellen, Schablonen (`CELL_PackIn`) oder rein technische Hilfs-/Menüräume (`CELL_Dummy`) handelt.
+
+#### Entscheidungsmatrix für `CELL`-Datensätze:
+
+| WRLD / Außenwelt? | PackIn im Namen (`EDID`)? | Hilfsbegriff im Namen (`EDID`)? | Display-Name (`FULL`)? | Location (`XLCN`)? | Einstufung | Erklärung / Zweck |
+| :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| Egal | **JA** | Egal | Egal | Egal | **`CELL_PackIn`** | Vorgefertigte Bauteil-Schablone (Pack-In). |
+| **NEIN** *(Innenraum)* | NEIN | **JA** (*holding, storage, staging, utility, swapper, preview, test, dummy, faux, ctest*) | Egal | Egal | **`CELL_Dummy`** | Funktionale Park-, Menü-, Spawn- oder Hilfskammer. `XLCN` blockiert die Erkennung nicht. |
+| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **JA** | Egal | **Echte Zelle** | Benannter begehbarer Innenraum (z. B. Raumschiff, Bar, Wohnung). |
+| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **NEIN** | **JA** | **Echte Zelle** | Begehbarer Raum/Gang ohne Eigennamen, aber an Location angebunden (z. B. Schiffshabs). |
+| **NEIN** *(Innenraum)* | NEIN | **NEIN** | **NEIN** | **NEIN** | **`CELL_Dummy`** | Unbenannter, verwaister Innenraum ohne Anbindung. |
+| **JA** *(Außenwelt)* | NEIN | Egal | **JA** oder **JA** | **JA** oder **JA** | **Echte Zelle** | Aktive Außenwelt- / Planetenkachel. |
+| **JA** *(Außenwelt)* | NEIN | Egal | **NEIN** | **NEIN** | **`CELL_Dummy`** | Generierte, leere Kachel im Außenwelt-Raster ohne Inhalt. |

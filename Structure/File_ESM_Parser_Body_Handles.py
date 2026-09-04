@@ -247,6 +247,7 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                     if decompressed_data:
                         has_xlcn = False
                         has_full = False
+                        is_interior = False
                         edid_lower = ""
                         for sub_sig, sub_data in iter_subrecords(decompressed_data):
                             if sub_sig == b'EDID':
@@ -254,14 +255,25 @@ def scan_esm_for_handles(file_path, is_core=False, num_full_masters=None, formid
                             elif sub_sig == b'XLCN':
                                 has_xlcn = True
                             elif sub_sig == b'FULL':
-                                val = sub_data.split(b'\x00')[0]
+                                val = sub_data.split(b'\x00')[0].strip()
                                 if len(val) > 0:
                                     has_full = True
+                            elif sub_sig == b'DATA' and len(sub_data) >= 1:
+                                is_interior = bool(sub_data[0] & 0x01)
                         
                         if "packin" in edid_lower:
                             is_packin = True
-                        elif not has_xlcn:
-                            if any(k in edid_lower for k in ["holding", "utility", "test", "dummy", "faux", "ctest", "swapper", "preview"]) or (not has_full):
+                        elif is_interior:
+                            # 1. Semantische Hilfs-, Park-, Test- und Vorschaubereiche im Innenraum sind immer Dummies
+                            if any(k in edid_lower for k in ["holding", "staging", "storage", "utility", "test", "dummy", "faux", "ctest", "swapper", "preview"]):
+                                is_dummy = True
+                            # 2. Unbenannte Innenräume ohne Location sind technische Dummies
+                            elif (not has_full) and (not has_xlcn):
+                                is_dummy = True
+                        else:
+                            # Für Außenwelt-Zellen (Worldspaces / Planeten):
+                            # Leere, unbenannte Außenzellen ohne Location sind generierte Grid-Dummies
+                            if (not has_full) and (not has_xlcn):
                                 is_dummy = True
                             
                     if is_packin:

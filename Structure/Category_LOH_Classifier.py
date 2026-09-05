@@ -4445,8 +4445,164 @@ def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
 
 
 def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
-    # TODO: Detaillierte Duell-Regeln Systeme vs. Welt implementieren
-    pass
+    """
+    Schritt 29: Gruppenduell Systeme vs. Welt.
+    Systeme: 'Gameplay', 'Sortierung', 'Interface', 'Tweaks'
+    Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
+    
+    1. Feste Welt-, Raum- & Geometriekategorien (Städte, Gebäude, Spielerheime, POIs, Umgebung):
+       - Umgebung: Landschafts-, Biome-, Worldspace- und Wetteranpassungen besitzen Priorität (LLO Pos 05 vor Pos 13/21-23).
+       - Städte: Städtische Zellen, PreVis-Daten und urbane Raumstrukturen besitzen Priorität (LLO Pos 06 vor Pos 13/21-23).
+       - Gebäude: Physische Bauwerke, Dungeons und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07 vor Pos 13/21-23).
+       - Spielerheime: Bewohnbare Domizile, Ladezonen und Domizil-Strukturen besitzen Priorität (LLO Pos 08 vor Pos 13/21-23).
+       - POIs: Prozedurale Planeten-Generierungsblöcke und POI-Nodes besitzen Priorität (LLO Pos 11 vor Pos 13/21-23).
+       -> Welt gewinnt IMMER per Architektur-KO (Typ 3).
+       
+    2. Werkstatt- & Workshop-Module (Außenposten vs. Systeme):
+       - Fall A: Außenposten vs. Hilfssysteme (Tweaks, Sortierung, Interface):
+         -> Außenposten gewinnt per Architektur-KO (Typ 3): Modulare Bausysteme und Werkstatt-Rezepte
+            (LLO Pos 09 vor Pos 21-23) bilden das greifbare Inhaltsfundament vor reinen Einstellungen oder Menüs.
+       - Fall B: Außenposten vs. Gameplay (Dreistufige Auswertung):
+         - Stufe 1 (Schnittstellen-Erkennung / Typ 3): Echte Spiellogik (core_gameplay >= 2 oder core_gameplay > 0 mit GLOB >= 5)
+           bei maximal 5 Außenposten-Rezepten (COBJ_BNAM_Outpost_Heavy + COBJ_BNAM_Outpost_Soft <= 5)
+           -> Gameplay gewinnt per Typ 3 (Außenposten-Modul dient als reine Übergabe-Schnittstelle / Dispenser).
+         - Stufe 2 (Groß-Bausystem / Typ 3): Massives Außenposten-Set (Rezepte > 15 oder COBJ_BNAM_Outpost_Heavy >= 5)
+           bei minimaler Hilfslogik (core_gameplay <= 2)
+           -> Außenposten gewinnt per Typ 3 (Bausystem-Fundament LLO Pos 09 vor Beigabe-Perks).
+         - Stufe 3 (Gewichteter Massevergleich für Hybriden / Typ 4):
+           Score_Gameplay = (core_gameplay * 3) + ALCH
+           Score_Außenposten = COBJ_BNAM_Outpost_Heavy + COBJ_BNAM_Outpost_Soft + log10(FURN)*2 (dim_calc_outer_Außenposten)
+           -> Bei Score_Gameplay >= Score_Außenposten gewinnt Gameplay per Typ 4, andernfalls Außenposten per Typ 4.
+    """
+    id_to_name = {v: k for k, v in cat_map.items()}
+
+    system_cat_tuples = [
+        ("Gameplay", "dim_calc_outer_Gameplay"),
+        ("Sortierung", "dim_calc_outer_Sortierung"),
+        ("Interface", "dim_calc_outer_Interface"),
+        ("Tweaks", "dim_calc_outer_Tweaks"),
+    ]
+    world_cat_tuples = [
+        ("Städte", "dim_calc_outer_Städte"),
+        ("Gebäude", "dim_calc_outer_Gebäude"),
+        ("Spielerheime", "dim_calc_outer_Spielerheime"),
+        ("POIs", "dim_calc_outer_POIs"),
+        ("Außenposten", "dim_calc_outer_Außenposten"),
+        ("Umgebung", "dim_calc_outer_Umgebung"),
+    ]
+
+    sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
+    world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
+    non_duel_ids_29 = [cid for cid in cat_ids if cid not in sys_cat_ids and cid not in world_cat_ids]
+
+    cursor.execute(f"""
+        SELECT 
+            lcm.Mod_ID, 
+            lcm.Component_ID,
+            v.*
+        FROM LoadOrder_Classifier_Matrix lcm
+        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+        WHERE lcm.Mod_ID IN (
+            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+        )
+    """)
+    unresolved_rows_29 = [dict(r) for r in cursor.fetchall()]
+    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+
+    for urow in unresolved_rows_29:
+        mid = urow['Mod_ID']
+        cid = urow['Component_ID']
+
+        cursor.execute(f"""
+            SELECT {col_select_quotes}
+            FROM LoadOrder_Classifier_Matrix
+            WHERE Mod_ID = ? AND Component_ID = ?
+        """, (mid, cid))
+        mat_row = dict(cursor.fetchone())
+
+        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+
+        if active_sys_cids and active_world_cids:
+            s_cid = active_sys_cids[0]
+            w_cid = active_world_cids[0]
+
+            s_name = id_to_name.get(s_cid, "")
+            w_name = id_to_name.get(w_cid, "")
+
+            val_s = urow.get(f'dim_calc_outer_{s_name}') or 0.0
+            val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
+
+            winner_cid = None
+
+            # --- BLOCK A: FESTE RAUM-, GEOMETRIE- & WELT-KATEGORIEN (REINER ARCHITEKTUR-KO / TYP 3) ---
+            if w_name == 'Umgebung':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Landschafts-, Biome-, Worldspace- und Wetteranpassungen ('Umgebung') besitzen fundamentale Ladeordnungs-Priorität (LLO Pos 05) vor System- und Gameplay-Mechaniken ('{s_name}').")
+
+            elif w_name == 'Städte':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Städtische Zellen, PreVis-Daten und urbane Raumstrukturen ('Städte') besitzen absolute Ladeordnungs-Priorität (LLO Pos 06) vor System- und Gameplay-Mechaniken ('{s_name}').")
+
+            elif w_name == 'Gebäude':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Physische Bauwerke, Dungeons und NavMeshes ('Gebäude') besitzen funktionale Ladeordnungs-Priorität (LLO Pos 07) vor System- und Gameplay-Mechaniken ('{s_name}').")
+
+            elif w_name == 'Spielerheime':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Bewohnbare Domizile, Ladezonen und Domizil-Strukturen ('Spielerheime') besitzen funktionale Priorität (LLO Pos 08) vor System- und Gameplay-Mechaniken ('{s_name}').")
+
+            elif w_name == 'POIs':
+                winner_cid = w_cid
+                ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Prozedurale Planeten-Generierungsblöcke und POI-Nodes ('POIs') besitzen fundamentale Engine-Priorität (LLO Pos 11) vor System- und Gameplay-Mechaniken ('{s_name}').")
+
+            # --- BLOCK B & C: AUSSENPOSTEN VS. SYSTEME ---
+            elif w_name == 'Außenposten':
+                # Block B: Außenposten vs. Hilfssysteme (Tweaks, Sortierung, Interface)
+                if s_name in ('Tweaks', 'Sortierung', 'Interface'):
+                    winner_cid = w_cid
+                    ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Modulare Außenposten-Bausysteme (LLO Pos 09) bilden handfeste Inhaltskomponenten vor passiven Einstellungen oder Menüs ('{s_name}', LLO Pos 21-23).")
+
+                # Block C: Außenposten vs. Gameplay
+                elif s_name == 'Gameplay':
+                    perk = urow.get('PERK') or 0
+                    spel = urow.get('SPEL') or 0
+                    mgef = urow.get('MGEF') or 0
+                    avif = urow.get('AVIF') or 0
+                    ench = urow.get('ENCH') or 0
+                    alch = urow.get('ALCH') or 0
+                    glob = urow.get('GLOB') or 0
+                    core_gp = perk + spel + mgef + avif + ench
+
+                    cobj_heavy = urow.get('COBJ_BNAM_Outpost_Heavy') or 0
+                    cobj_soft = urow.get('COBJ_BNAM_Outpost_Soft') or 0
+                    cobj_op = cobj_heavy + cobj_soft
+
+                    # Stufe 1: Bauliche Schnittstellen-Erkennung (Typ 3 für Gameplay)
+                    if (core_gp >= 2 or (core_gp > 0 and glob >= 5)) and cobj_op <= 5:
+                        winner_cid = s_cid
+                        ctx.log_result(cursor, mid, cid, w_cid, s_cid, 3, f"Aktive Gameplay-Spiellogik (Kern-Score: {core_gp}, Globals: {glob}) dominiert; Außenposten-Rezepte ({cobj_op}) dienen ausschließlich als bauliche Übergabe-Schnittstelle (Dispenser).")
+
+                    # Stufe 2: Dominantes Werkstatt-Bausystem (Typ 3 für Außenposten)
+                    elif (cobj_op > 15 or cobj_heavy >= 5) and core_gp <= 2:
+                        winner_cid = w_cid
+                        ctx.log_result(cursor, mid, cid, s_cid, w_cid, 3, f"Modulare Außenposten-Bausysteme (Rezepte: {cobj_op}, Heavy: {cobj_heavy}) bilden das tragende Baufundament (LLO Pos 09); minimale Gameplay-Elemente (Kern: {core_gp}) dienen als Freischalt-Bedingungen.")
+
+                    # Stufe 3: Gewichteter Massevergleich für Hybriden (Typ 4)
+                    else:
+                        score_gp = (core_gp * 3.0) + float(alch)
+                        score_op = float(val_w)
+                        if score_gp >= score_op:
+                            winner_cid = s_cid
+                            ctx.log_result(cursor, mid, cid, w_cid, s_cid, 4, f"Massevergleich Gameplay vs. Außenposten: Gewichtete Systemlogik ('Gameplay': {score_gp:.1f} [Kern: {core_gp} x 3 + ALCH: {alch}]) übertrifft Außenposten-Strukturen ('Außenposten': {score_op:.1f}).")
+                        else:
+                            winner_cid = w_cid
+                            ctx.log_result(cursor, mid, cid, s_cid, w_cid, 4, f"Massevergleich Außenposten vs. Gameplay: Außenposten-Strukturen ('Außenposten': {score_op:.1f}) übertreffen gewichtete Systemlogik ('Gameplay': {score_gp:.1f} [Kern: {core_gp} x 3 + ALCH: {alch}]).")
+
+            if winner_cid is not None:
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_29)
+
+    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
 # Zentrale, lückenlose Pipeline-Definition mit dynamischer Stufenverwaltung

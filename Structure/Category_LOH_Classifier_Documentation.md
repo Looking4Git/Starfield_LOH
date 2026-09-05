@@ -74,7 +74,13 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 - **Gruppenduell Akteure vs. Welt:** Physische Welt- und Raumgeometrie (`Städte`, `Gebäude`, `Spielerheime`, `POIs`, `Umgebung`) stechen lebendige Akteure (`Begleiter`, `NPCs`, `Kreaturen`) ausnahmslos per Architektur-KO (Typ 3) aus (Ladeordnungs-Priorität LLO Pos 05–08 und 11 vor Pos 14–16 für PreVis, NavMeshes, Ladezonen und Planetenblöcke); bei `Außenposten` schlägt `Begleiter` Baurezepte per Architektur-KO (Typ 3, LLO Pos 15 vor Pos 09), modulare Bausysteme (`COBJ_BNAM_Outpost_* > 0`) schlagen Akteure per Architektur-KO (Typ 3, LLO Pos 09 vor Pos 14/16) und bei reinen Crew-/Akteur-Sammlungen entscheidet ein gewichteter Massevergleich (Typ 4 mit 3-fachem Faktor für Akteure).
 
 ##### Block 5: Systeme-Duelle
-- **Gruppenduell Systeme vs. Welt**
+- **Gruppenduell Systeme vs. Welt:**
+  - *Feste Welt-, Raum- und Geometriekategorien (`Umgebung`, `Städte`, `Gebäude`, `Spielerheime`, `POIs`):* Stechen alle System-Kategorien (`Gameplay`, `Sortierung`, `Interface`, `Tweaks`) ausnahmslos per Architektur-KO (Typ 3) aus (Fundamentales Raum-, Worldspace- und Levelgerüst LLO Pos 05–08 und 11 besitzt zwingende Ladeordnungs-Priorität vor Systemmechaniken LLO Pos 13 und Konfigurations-Parametern LLO Pos 21–23).
+  - *Außenposten vs. Hilfssysteme (`Tweaks`, `Sortierung`, `Interface`):* `Außenposten` gewinnt per Architektur-KO (Typ 3, Modulare Bausysteme und Werkstatt-Rezepte LLO Pos 09 bilden greifbare Inhaltskomponenten vor passiven Einstellungen oder Menüs LLO Pos 21–23).
+  - *Außenposten vs. `Gameplay`:* Dreistufige, architektonische Auswertung:
+    - *Stufe 1 (Schnittstellen-Erkennung / Typ 3):* Echte Spiellogik (`core_gameplay = PERK + SPEL + MGEF + AVIF + ENCH >= 2` oder `core_gameplay > 0` mit `GLOB >= 5`) bei maximal 5 Außenposten-Rezepten (`COBJ_BNAM_Outpost_Heavy + COBJ_BNAM_Outpost_Soft <= 5`) $\rightarrow$ Sieg für **`Gameplay`** per Architektur-KO (Typ 3, Außenposten-Modul dient als reine bauliche Übergabe-Schnittstelle bzw. Dispenser für die Spiellogik).
+    - *Stufe 2 (Großes Bausystem / Typ 3):* Massives Außenposten-Modulset (Rezepte $> 15$ oder `COBJ_BNAM_Outpost_Heavy >= 5`) bei minimaler Hilfslogik (`core_gameplay <= 2`) $\rightarrow$ Sieg für **`Außenposten`** per Architektur-KO (Typ 3, Baufundament LLO Pos 09 vor Beigabe-Perks).
+    - *Stufe 3 (Gewichteter Massevergleich für Hybriden / Typ 4):* $\text{Score}_{\text{Gameplay}} = (\text{core\_gameplay} \times 3) + \text{ALCH}$ gegenüber $\text{Score}_{\text{Außenposten}} = \text{dim\_calc\_outer\_Außenposten}$. Der Faktor 3 wird gezielt auf die wirkmächtige systemische Kernlogik angewendet, während Alchemie-Verbrauchsmasse (`ALCH`) linear 1:1 einfließt $\rightarrow$ Sieg nach höherem Score per Typ 4.
 
 #### Phase E: Auswertung & Zuweisung
 Am Ende jedes Pipeline-Durchlaufs/Schritts wird für jede Mod-Komponente das Maximum (`max_val > 0`) der verbleibenden Matrix-Werte ermittelt:

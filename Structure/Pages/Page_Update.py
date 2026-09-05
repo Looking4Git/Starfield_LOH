@@ -10,6 +10,7 @@ from Structure.Bethesda_Fetch import run_fetch
 from Structure.Starfield_LOH_Reset import reset_database
 from Structure.Nexus_Fetch import run_nexus_fetch
 from Structure.Category_LOH_Classifier import run_classifier
+from Structure.Pages.Widget_LogConsole import Widget_LogConsole
 
 
 class Page_Update(QWidget):
@@ -81,71 +82,70 @@ class Page_Update(QWidget):
         log_label = QLabel("Protokoll-Ausgabe:")
         self.layout.addWidget(log_label)
 
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; padding: 10px;")
-        self.layout.addWidget(self.log_output)
+        self.log_console = Widget_LogConsole()
+        self.log_output = self.log_console  # Alias für Rückwärtskompatibilität
+        self.layout.addWidget(self.log_console)
 
     def start_local_check(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_local_check, start_message="Thread gestartet: Lokaler Starfield Check...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_deleted_check(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_deleted_check, start_message="Thread gestartet: Starfield Check Deleted...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_load_order_check(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_load_order_check, start_message="Thread gestartet: Load Order Check & Re-Sequence...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_fetch(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_fetch, start_message="Thread gestartet: Bethesda Fetch...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_nexus_fetch(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_nexus_fetch, start_message="Thread gestartet: Nexus Mods Fetch...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_classifier(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(run_classifier, start_message="Thread gestartet: Kategorie-Klassifizierung (Category LOH Classifier)...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
     def start_db_reset(self):
         self.set_buttons_enabled(False)
-        self.log_output.clear()
+        self.log_console.clear()
         
         self.worker = TaskWorker(reset_database, start_message="Thread gestartet: Datenbank-Reset...")
-        self.worker.log_signal.connect(self.append_log)
+        self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
@@ -159,16 +159,12 @@ class Page_Update(QWidget):
         self.btn_db_reset.setEnabled(enabled)
 
     def append_log(self, text):
-        self.log_output.append(text)
-        # Auto-scroll zum Ende
-        scrollbar = self.log_output.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        """Delegiert an die Konsole (für Rückwärtskompatibilität)."""
+        self.log_console.append_log(text)
 
     def process_finished(self, success):
         self.set_buttons_enabled(True)
+        self.log_console.append_status(success)
         if success:
-            self.log_output.append("\n--> Prozess erfolgreich abgeschlossen.")
             self.data_updated.emit()
-        else:
-            self.log_output.append("\n--> Prozess mit Fehlern beendet.")
 

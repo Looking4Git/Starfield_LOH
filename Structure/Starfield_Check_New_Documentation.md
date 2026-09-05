@@ -46,20 +46,15 @@ Stand 26.05.2026
          - Ist eine Komponente nicht mehr in der ContentCatalog vorhanden
             -> Entfernen der Verknüpfung über die Tabelle Mods_Components
 
-### Anhang: Entscheidungsmatrix zur Erkennung von Dummy-Zellen im ESM-Parser
+### Schnittstelle zur Binäranalyse (`File_ESM_Parser.py`)
 
-Beim Einlesen von `.esm`-Dateien analysiert der Parser (`File_ESM_Parser_Body_Handles.py`) alle `CELL`-Datensätze und unterscheidet anhand von Innenraum/Außenwelt-Flag (`DATA`-Subrecord Bit 0), Namen (`EDID` / `FULL`) und Location-Verknüpfungen (`XLCN`), ob es sich um echte begehbare Spielweltzellen, Schablonen (`CELL_PackIn`) oder rein technische Hilfs-/Menüräume (`CELL_Dummy`) handelt.
+Die eigentliche binäre Analyse der `.esm`- und `.esp`-Dateien sowie das Auslesen der Record-Handles, FormID-Signaturen, Shifter und Standort-Pointer wird vollständig an das Modul [Structure/File_ESM_Parser.py](file:///d:/Starfield_LOH/Structure/File_ESM_Parser.py) delegiert.
 
-#### Entscheidungsmatrix für `CELL`-Datensätze:
+* **Auslagerung der Parser-Dokumentation:**  
+  Die detaillierte Dokumentation des Single-Pass-Prinzips, aller modularen Unterfunktionen, der **Entscheidungsmatrix zur Erkennung von Dummy-Zellen** sowie des Reporting-Subsystems (`Parser_Reporter.py`) befindet sich in:  
+  -> [Structure/File_ESM_Parser_Documentation.md](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Documentation.md)
 
-| WRLD / Außenwelt?      | PackIn im EDID? | Hilfsbegriff im EDID?*                                                   | Display-Name (FULL)? | Location (XLCN)? | Einstufung        | Erklärung / Zweck                                                                |
-|:-----------------------|:----------------|:-------------------------------------------------------------------------|:---------------------|:-----------------|:------------------|:---------------------------------------------------------------------------------|
-| Egal                   | **JA**          | Egal                                                                     | Egal                 | Egal             | **`CELL_PackIn`** | Vorgefertigte Bauteil-Schablone (Pack-In).                                       |
-| **NEIN** *(Innenraum)* | NEIN            | **JA** *(holding, storage, staging, utility, swapper, preview, test...)* | Egal                 | Egal             | **`CELL_Dummy`**  | Funktionale Park-, Menü-, Spawn- oder Hilfskammer (`XLCN` blockiert nicht).      |
-| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **JA**               | Egal             | **Echte Zelle**   | Benannter begehbarer Innenraum (z. B. Raumschiff, Bar, Wohnung).                |
-| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **NEIN**             | **JA**           | **Echte Zelle**   | Begehbarer Raum/Gang ohne Eigennamen, aber an Location angebunden (z. B. Habs).  |
-| **NEIN** *(Innenraum)* | NEIN            | **NEIN**                                                                 | **NEIN**             | **NEIN**         | **`CELL_Dummy`**  | Unbenannter, verwaister Innenraum ohne Anbindung.                                |
-| **JA** *(Außenwelt)*   | NEIN            | Egal                                                                     | **JA** *(oder XLCN)* | **JA** *(oder FULL)* | **Echte Zelle** | Aktive Außenwelt- / Planetenkachel mit Inhalt oder Location.                     |
-| **JA** *(Außenwelt)*   | NEIN            | Egal                                                                     | **NEIN**             | **NEIN**         | **`CELL_Dummy`**  | Generierte, leere Kachel im Außenwelt-Raster ohne Inhalt.                        |
-
-*\*Hilfsbegriffe in Innenräumen: `holding`, `staging`, `storage`, `utility`, `test`, `dummy`, `faux`, `ctest`, `swapper`, `preview`.*
+* **Ergebnisübernahme in die Datenbank:**
+  - **Systemkomponenten (`scan_and_update_system_components`):** Schreibt in `Components_System`, `Components_System_FormIDs`, `Components_System_LCTN`, `Components_System_CELL_LCTN` und `Components_System_WRLD_LCTN`.
+  - **Mod-Komponenten (`scan_and_update_mod_components`):** Schreibt in `Components_ESM_References`, `Components_ESM_FormIDs`, `Components_ESM_LCTN`, `Components_ESM_CELL_LCTN` und `Components_ESM_WRLD_LCTN`.
+  - **Header-Abhängigkeiten (`assign_header_requirements`):** Gleicht die aus den Headern (`MAST`) ermittelten Anforderungen mit den tatsächlich installierten Mod-Komponenten ab und trägt gefundene Abhängigkeiten in `Mods_Requirements` ein.

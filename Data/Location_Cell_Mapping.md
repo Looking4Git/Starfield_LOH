@@ -41,7 +41,7 @@ Speichern, welche Zelle im Spiel zu welcher Location gehört. Es werden nur Zell
 
 ---
 
-## 3. Kombinierter One-Pass-Parser (`File_ESM_Parser_Body_CELL_LCTN.py`)
+## 3. Kombinierter One-Pass-Parser (`File_ESM_Parser.py`)
 
 Um die Performance zu maximieren und die 12 GB große `Starfield.esm` nicht mehrfach lesen zu müssen, liest der Parser beide Record-Typen in einem einzigen Durchlauf parallel ein:
 

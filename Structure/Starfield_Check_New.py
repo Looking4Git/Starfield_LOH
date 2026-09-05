@@ -14,17 +14,16 @@ if _project_root not in sys.path:
 from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
 from Structure.Database import check_component_exists, get_mod_by_id, get_components_by_mod_id, get_db_connection
 
-from Structure.File_ESM_Parser_Base import (
+from Structure.File_ESM_Parser import (
     parse_tes4_header,
     get_num_masters,
-    get_masters_list
-)
-from Structure.File_ESM_Parser_Body_Handles import (
+    get_masters_list,
     scan_esm_for_handles,
+    parse_esm_file,
     CORE_POINTER_COLS,
     MOD_POINTER_COLS
 )
-from Structure.File_ESM_Parser_Body_CELL_LCTN import extract_esm_locations_and_cells
+from Structure.Parser_Reporter import ParserProgressReporter
 
 
 def calculate_shifters(counts):
@@ -164,13 +163,13 @@ OFFICIAL_DLC_NAMES = {
     "oldmars.esm": "DLC: Old Mars Skin Pack",
 }
 
-def scan_and_update_system_components(log_msg):
+def scan_and_update_system_components(log_msg, log_signal=None):
     """
     Scans the Starfield/Data directory for official Bethesda .esm files that are NOT mods
     (i.e. not registered in Plugins.txt / Components table), gets their modification date,
     reads their pointers (with caching), and updates the System_Components table.
     """
-    log_msg("\n[System Check] Starte Scan nach offiziellen Bethesda Masterfiles im Data-Verzeichnis...")
+    log_msg("\n[System Check] Starte Single-Pass-Scan der offiziellen Spieldateien (Bethesda Masterfiles)...")
     
     if not os.path.exists(STARFIELD_GAME_DATA_PATH):
         log_msg(f"WARNUNG: Starfield Data Pfad '{STARFIELD_GAME_DATA_PATH}' existiert nicht. Überspringe System-Masterfiles Scan.")
@@ -227,11 +226,18 @@ def scan_and_update_system_components(log_msg):
                     log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {row['REFR']}, ACHR: {row['ACHR']}")
             
             if needs_scan:
-                log_msg(f"  -> [SYSTEM COMPONENT SCAN] '{esm}' wird binär gescannt...")
-                counts, local_sigs = scan_esm_for_handles(filepath, is_core=True)
-                
-                # Locations und Zellen extrahieren
-                locations, cell_locations = extract_esm_locations_and_cells(filepath)
+                sys_comp_id = row['ID'] if row else "(neu)"
+                reporter = ParserProgressReporter(
+                    comp_id=sys_comp_id,
+                    file_name=esm,
+                    is_system=True,
+                    log_signal=log_signal,
+                    write_to_log_func=write_to_log
+                )
+                counts, local_sigs, locations, cell_locations, wrld_locations = scan_esm_for_handles(
+                    filepath, is_core=True, reporter=reporter
+                )
+                reporter.mark_saving_db()
                 
                 pointer_values = []
                 for col in CORE_POINTER_COLS:
@@ -262,7 +268,7 @@ def scan_and_update_system_components(log_msg):
                 # FormID Signaturen speichern
                 cursor.execute("DELETE FROM Components_System_FormIDs WHERE Component_ID = ?", (sys_id,))
                 if local_sigs:
-                    from Structure.File_ESM_Parser_Base import get_masters_list
+                    from Structure.File_ESM_Parser import get_masters_list
                     masters = get_masters_list(filepath)
                     master_id_map = {}
                     for idx, master_name in enumerate(masters):
@@ -319,8 +325,19 @@ def scan_and_update_system_components(log_msg):
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
+                # Worldspace-Location-Referenzen in Components_System_WRLD_LCTN speichern
+                cursor.execute("DELETE FROM Components_System_WRLD_LCTN WHERE Component_ID = ?", (sys_id,))
+                if wrld_locations:
+                    insert_wrlds = []
+                    for wl in wrld_locations:
+                        insert_wrlds.append((sys_id, wl['wrld_form_id'], wl['form_id_lctn']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_System_WRLD_LCTN (Component_ID, WRLD_FormID, FormID_LCTN)
+                        VALUES (?, ?, ?)
+                    """, insert_wrlds)
+                
                 conn.commit()
-                log_msg(f"    -> NEU EINGELESEN: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, PKIN: {counts['PKIN']} | Locations: {len(locations)}, Cells: {len(cell_locations)} | Metadaten gespeichert.")
+                reporter.finish()
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
@@ -328,12 +345,12 @@ def scan_and_update_system_components(log_msg):
         if conn:
             conn.close()
 
-def scan_and_update_mod_components(log_msg):
+def scan_and_update_mod_components(log_msg, log_signal=None):
     """
     Iteriert über alle in der Tabelle 'Components' registrierten Masterfiles,
     prüft deren Modifikationsdatum und aktualisiert ggf. die Pointer-Zähler.
     """
-    log_msg("\n[Mod Check] Starte Scan nach Pointer Handles für aktive Mod Masterfiles...")
+    log_msg("\n[Mod Check] Starte Single-Pass-Scan der aktiven Mod-Dateien (Creation Engine 2 Masterfiles)...")
     
     conn = None
     try:
@@ -349,6 +366,12 @@ def scan_and_update_mod_components(log_msg):
         """)
         components = cursor.fetchall()
         
+        # Lookups für Masterfiles vorab in-memory cachen
+        cursor.execute("SELECT ID, LOWER(File) FROM Components_System")
+        sys_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+        cursor.execute("SELECT ID, LOWER(File) FROM Components")
+        mod_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+
         cleared_mods = set()
         for comp in components:
             comp_id = comp['ID']
@@ -370,21 +393,20 @@ def scan_and_update_mod_components(log_msg):
                 log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
             
             if needs_scan:
+                reporter = ParserProgressReporter(
+                    comp_id=comp_id,
+                    file_name=file_name,
+                    is_system=False,
+                    log_signal=log_signal,
+                    write_to_log_func=write_to_log
+                )
                 num_full = get_num_full_masters(filepath, cursor)
                 
-                formid_to_sig = {}
-                cursor.execute("SELECT FormID_Local, Sig FROM Components_System_FormIDs")
-                for fid, sig in cursor.fetchall():
-                    formid_to_sig[fid] = sig.encode('ascii')
-                cursor.execute("SELECT FormID_Local, Sig FROM Components_ESM_FormIDs")
-                for fid, sig in cursor.fetchall():
-                    formid_to_sig[fid] = sig.encode('ascii')
-                
-                counts, local_sigs = scan_esm_for_handles(filepath, is_core=False, num_full_masters=num_full, formid_to_sig=formid_to_sig)
+                counts, local_sigs, locations, cell_locations, wrld_locations = scan_esm_for_handles(
+                    filepath, is_core=False, num_full_masters=num_full, reporter=reporter
+                )
+                reporter.mark_saving_db()
                 calculate_shifters(counts)
-                
-                # Locations und Zellen extrahieren
-                locations, cell_locations = extract_esm_locations_and_cells(filepath)
                 
                 pointer_values = []
                 for col in MOD_POINTER_COLS:
@@ -411,23 +433,17 @@ def scan_and_update_mod_components(log_msg):
                 # FormID Signaturen speichern
                 cursor.execute("DELETE FROM Components_ESM_FormIDs WHERE Component_ID = ?", (comp_id,))
                 if local_sigs:
-                    from Structure.File_ESM_Parser_Base import get_masters_list
+                    from Structure.File_ESM_Parser import get_masters_list
                     masters = get_masters_list(filepath)
                     master_id_map = {}
                     for idx, master_name in enumerate(masters):
-                        # 1. In Components_System suchen
-                        cursor.execute("SELECT ID FROM Components_System WHERE LOWER(File) = ?", (master_name.lower(),))
-                        sys_row = cursor.fetchone()
-                        if sys_row:
-                            master_id_map[idx] = (sys_row[0], 1)
+                        m_low = master_name.lower()
+                        if m_low in sys_file_to_id:
+                            master_id_map[idx] = (sys_file_to_id[m_low], 1)
+                        elif m_low in mod_file_to_id:
+                            master_id_map[idx] = (mod_file_to_id[m_low], 0)
                         else:
-                            # 2. In Components suchen
-                            cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (master_name.lower(),))
-                            mod_row = cursor.fetchone()
-                            if mod_row:
-                                master_id_map[idx] = (mod_row[0], 0)
-                            else:
-                                master_id_map[idx] = (None, None)
+                            master_id_map[idx] = (None, None)
 
                     insert_sigs = []
                     for (fid, is_ovr), (sig_bytes, master_idx, cell_fid, edid, base_fid) in local_sigs.items():
@@ -475,6 +491,17 @@ def scan_and_update_mod_components(log_msg):
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
+                # Worldspace-Location-Referenzen in Components_ESM_WRLD_LCTN speichern
+                cursor.execute("DELETE FROM Components_ESM_WRLD_LCTN WHERE Component_ID = ?", (comp_id,))
+                if wrld_locations:
+                    insert_wrlds = []
+                    for wl in wrld_locations:
+                        insert_wrlds.append((comp_id, wl['wrld_form_id'], wl['form_id_lctn']))
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_WRLD_LCTN (Component_ID, WRLD_FormID, FormID_LCTN)
+                        VALUES (?, ?, ?)
+                    """, insert_wrlds)
+                
                 # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern
                 cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
                 mod_row = cursor.fetchone()
@@ -497,7 +524,7 @@ def scan_and_update_mod_components(log_msg):
                             """, insert_reqs)
                 
                 conn.commit()
-                log_msg(f"    -> UPDATED: REFR: {counts['REFR']}, ACHR: {counts['ACHR']}, CELL: {counts['CELL']} | Locations: {len(locations)}, Cells: {len(cell_locations)}")
+                reporter.finish()
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")
@@ -997,8 +1024,8 @@ def run_local_check(log_signal):
 
         # Zählen der Pointer Handles und Scannen der offiziellen Bethesda Masterfiles
         try:
-            scan_and_update_system_components(log_msg)
-            scan_and_update_mod_components(log_msg)
+            scan_and_update_system_components(log_msg, log_signal)
+            scan_and_update_mod_components(log_msg, log_signal)
             assign_header_requirements(log_msg)
         except Exception as e:
             log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung oder Requirements-Zuweisung: {str(e)}")

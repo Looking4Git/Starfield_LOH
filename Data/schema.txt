@@ -571,6 +571,112 @@ SELECT
 
 FROM Components_ESM_References;
 
+CREATE VIEW "View_Components_WRLD_Typ" AS
+SELECT
+    Components_ESM_References.Component_ID,
+
+    -- =========================================================================
+    -- STÄDTE (LCTN Keyword 140817 + EDID enthält 'city')
+    -- =========================================================================
+    (
+        SELECT COUNT(DISTINCT cw.WRLD_FormID) 
+        FROM Components_ESM_WRLD_LCTN AS cw
+        LEFT JOIN View_Components_System_LCTN 
+            ON cw.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cw.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
+        WHERE cw.Component_ID = Components_ESM_References.Component_ID
+          AND (
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
+          )
+    ) AS qry_WRLD_City,
+
+    (
+        SELECT COUNT(DISTINCT cw.WRLD_FormID) 
+        FROM Components_ESM_WRLD_LCTN AS cw
+        LEFT JOIN View_Components_System_LCTN 
+            ON cw.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cw.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
+        WHERE cw.Component_ID = Components_ESM_References.Component_ID
+          AND (
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) LIKE '%city%')
+          )
+          AND (
+              cw.WRLD_FormID IN (SELECT WRLD_FormID FROM Components_System_WRLD_LCTN)
+              OR EXISTS (
+                  SELECT 1 
+                  FROM Components_ESM_WRLD_LCTN AS Master_WRLD
+                  JOIN Components AS Master_Components 
+                      ON Master_WRLD.Component_ID = Master_Components.ID
+                  JOIN Mods_Components AS Current_Mod_Comp 
+                      ON Current_Mod_Comp.Component_ID = cw.Component_ID
+                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
+                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
+                     AND Requirements.Masterfile = Master_Components.File
+                  WHERE Master_WRLD.WRLD_FormID = cw.WRLD_FormID
+              )
+          )
+    ) AS qry_WRLD_Override_City,
+
+    -- =========================================================================
+    -- SIEDLUNGEN (LCTN Keyword 140817 + EDID enthält NICHT 'city')
+    -- =========================================================================
+    (
+        SELECT COUNT(DISTINCT cw.WRLD_FormID) 
+        FROM Components_ESM_WRLD_LCTN AS cw
+        LEFT JOIN View_Components_System_LCTN 
+            ON cw.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cw.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
+        WHERE cw.Component_ID = Components_ESM_References.Component_ID
+          AND (
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+          )
+    ) AS qry_WRLD_Settlement,
+
+    (
+        SELECT COUNT(DISTINCT cw.WRLD_FormID) 
+        FROM Components_ESM_WRLD_LCTN AS cw
+        LEFT JOIN View_Components_System_LCTN 
+            ON cw.FormID_LCTN = View_Components_System_LCTN.FormID_Local 
+           AND View_Components_System_LCTN.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN 
+            ON cw.FormID_LCTN = View_Components_ESM_LCTN.FormID_Local 
+           AND View_Components_ESM_LCTN.FormID_Keyword = 140817
+        WHERE cw.Component_ID = Components_ESM_References.Component_ID
+          AND (
+              (View_Components_System_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_System_LCTN.EDID) NOT LIKE '%city%')
+              OR (View_Components_ESM_LCTN.FormID_Local IS NOT NULL AND LOWER(View_Components_ESM_LCTN.EDID) NOT LIKE '%city%')
+          )
+          AND (
+              cw.WRLD_FormID IN (SELECT WRLD_FormID FROM Components_System_WRLD_LCTN)
+              OR EXISTS (
+                  SELECT 1 
+                  FROM Components_ESM_WRLD_LCTN AS Master_WRLD
+                  JOIN Components AS Master_Components 
+                      ON Master_WRLD.Component_ID = Master_Components.ID
+                  JOIN Mods_Components AS Current_Mod_Comp 
+                      ON Current_Mod_Comp.Component_ID = cw.Component_ID
+                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
+                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
+                     AND Requirements.Masterfile = Master_Components.File
+                  WHERE Master_WRLD.WRLD_FormID = cw.WRLD_FormID
+              )
+          )
+    ) AS qry_WRLD_Override_Settlement
+
+FROM Components_ESM_References;
+
 CREATE VIEW "View_Components_ESM_CELL_Ship" AS
 SELECT 
     Component_ID,
@@ -1371,6 +1477,15 @@ CREATE TABLE Components_ESM_CELL_LCTN (
             FOREIGN KEY (Component_ID) REFERENCES Components(ID) ON DELETE CASCADE
         );
 
+CREATE TABLE Components_ESM_WRLD_LCTN (
+            ID INTEGER NOT NULL,
+            Component_ID INTEGER NOT NULL,
+            WRLD_FormID INTEGER NOT NULL,
+            FormID_LCTN INTEGER NOT NULL,
+            PRIMARY KEY (ID AUTOINCREMENT),
+            FOREIGN KEY (Component_ID) REFERENCES Components(ID) ON DELETE CASCADE
+        );
+
 CREATE TABLE Components_ESM_FormIDs (
         Component_ID INTEGER,
         FormID_Local INTEGER,
@@ -1725,6 +1840,15 @@ CREATE TABLE Components_System_CELL_LCTN (
             FOREIGN KEY (Component_ID) REFERENCES Components_System(ID) ON DELETE CASCADE
         );
 
+CREATE TABLE Components_System_WRLD_LCTN (
+            ID INTEGER NOT NULL,
+            Component_ID INTEGER NOT NULL,
+            WRLD_FormID INTEGER NOT NULL,
+            FormID_LCTN INTEGER NOT NULL,
+            PRIMARY KEY (ID AUTOINCREMENT),
+            FOREIGN KEY (Component_ID) REFERENCES Components_System(ID) ON DELETE CASCADE
+        );
+
 CREATE TABLE Components_System_FormIDs (
         Component_ID INTEGER,
         FormID_Local INTEGER,
@@ -1925,3 +2049,15 @@ CREATE UNIQUE INDEX idx_sys_cell_lctn_unique
         ON Components_System_CELL_LCTN (Component_ID, Cell_FormID);
 
 CREATE INDEX idx_sys_formids ON Components_System_FormIDs (FormID_Local, Is_Override);
+
+CREATE INDEX idx_esm_wrld_lctn_lookup 
+        ON Components_ESM_WRLD_LCTN (WRLD_FormID, FormID_LCTN);
+
+CREATE UNIQUE INDEX idx_esm_wrld_lctn_unique 
+        ON Components_ESM_WRLD_LCTN (Component_ID, WRLD_FormID);
+
+CREATE INDEX idx_sys_wrld_lctn_lookup 
+        ON Components_System_WRLD_LCTN (WRLD_FormID, FormID_LCTN);
+
+CREATE UNIQUE INDEX idx_sys_wrld_lctn_unique 
+        ON Components_System_WRLD_LCTN (Component_ID, WRLD_FormID);

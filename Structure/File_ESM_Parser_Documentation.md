@@ -22,9 +22,9 @@ Die konsolidierte Architektur löst dies durch zwei Kernprinzipien:
 Die zentrale Einstiegsfunktion in `Structure/File_ESM_Parser.py`:
 
 ```python
-def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_sig=None, reporter=None):
+def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_sig=None, reporter=None, wrld_to_lctn=None):
     ...
-    return local_counts, local_signatures, locations, cell_locations, wrld_locations
+    return local_counts, local_signatures, locations, cell_locations
 ```
 
 ### 2.1 Eingabeparameter
@@ -33,13 +33,13 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
 * `num_full_masters`: Anzahl der Full-Master in der Masterliste (zur präzisen Erkennung von Overrides).
 * `formid_to_sig`: Optionales Mapping lokaler FormIDs auf Typ-Signaturen zur Auflösung von Querverweisen.
 * `reporter`: Optionale Instanz von `ParserProgressReporter` für Live-Terminal-Updates und Logging.
+* `wrld_to_lctn`: Optionales Mapping von Worldspace-FormIDs auf Location-FormIDs.
 
 ### 2.2 Rückgabewerte (Tuple)
 1. **`local_counts` (Dict):** Enthält Zählerstände für alle Spalten der Referenzmatrix (`CORE_POINTER_COLS` bzw. `MOD_POINTER_COLS`), Shifter-Werte und Dummy-Zähler.
 2. **`local_signatures` (Dict):** Mapping `(FormID_Local, Is_Override) -> (Sig, Master_Index, Cell_FormID, EDID, Base_FormID)`. Dient der Erkennung von Komponenten-Konflikten und Overrides.
 3. **`locations` (List of Dicts):** Liste von `{'form_id_local', 'form_id_keyword', 'edid'}` für `Components_[System|ESM]_LCTN`.
-4. **`cell_locations` (List of Dicts):** Liste von `{'cell_form_id', 'form_id_lctn', 'is_pack_in'}` für `Components_[System|ESM]_CELL_LCTN`.
-5. **`wrld_locations` (List of Dicts):** Liste von `{'wrld_form_id', 'form_id_lctn'}` für `Components_[System|ESM]_WRLD_LCTN`.
+4. **`cell_locations` (List of Dicts):** Liste von `{'cell_form_id', 'form_id_lctn', 'is_pack_in'}` für `Components_[System|ESM]_CELL_LCTN` (enthält sowohl Innenräume mit eigenem `XLCN` als auch Außenkacheln mit vererbter Location aus `GRUP Type 1`).
 
 ---
 

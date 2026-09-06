@@ -43,16 +43,21 @@ Speichern, welche Zelle im Spiel zu welcher Location gehört. Es werden nur Zell
 
 ## 3. Kombinierter One-Pass-Parser (`File_ESM_Parser.py`)
 
-Um die Performance zu maximieren und die 12 GB große `Starfield.esm` nicht mehrfach lesen zu müssen, liest der Parser beide Record-Typen in einem einzigen Durchlauf parallel ein:
+Um die Performance zu maximieren und die 12 GB große `Starfield.esm` nicht mehrfach lesen zu müssen, liest der Parser alle Record-Typen in einem einzigen linearen Durchlauf parallel ein:
 
 ```
-[ESM-Datei] ──> [Iteriere Records]
+[ESM-Datei] ──> [Iteriere Records & GRUPs]
                    ├── sig == 'LCTN' ──> Extrahiere Keywords (EDIDs gehen in FormIDs-Katalog)
-                   └── sig == 'CELL' ──> Dekomprimiere Payload, suche XLCN
+                   ├── sig == 'WRLD' ──> Extrahiere XLCN (Worldspace-Location in-memory registrieren)
+                   ├── GRUP Type 1   ──> Verfolge Eltern-Worldspace (WRLD_CHILDREN Stack)
+                   └── sig == 'CELL' ──> Dekomprimiere Payload, löse Location auf:
+                                           1. Eigenes XLCN der Zelle (Local Override -> Höchste Priorität)
+                                           2. Geerbte Location des Eltern-Worldspaces (Fallback)
 ```
 
-*   **Zusatzaufwand:** Die Dekomprimierung der Zellen-Header kostet minimal Rechenleistung, verlängert den vollständigen Scan aller Spieldateien jedoch nur um ca. 10 Sekunden (von ~55s auf ~65s insgesamt).
-*   **Ergebnis:** Der Parser liefert ein Tuple `(locations, cell_locations)` zurück, welches direkt per Bulk-Insert (`executemany`) in die Datenbank geschrieben wird.
+*   **Sicherheitsabfrage & Vererbung:** Trägt eine Außen-Kachel im Spiel kein eigenes `XLCN`-Subrecord, erbt sie automatisch die Location ihres übergeordneten Worldspaces (`GRUP Type 1`). Besitzt eine Zelle jedoch ein eigenes `XLCN`, behält dieses stets strikten Vorrang (kein Überschreiben spezifischer Teilbereiche).
+*   **Wildnis-Schutz:** Worldspaces ohne Location (z. B. generische Planetenoberflächen) vererben nichts (`None`). Solche Zellen erhalten keinen Eintrag in `CELL_LCTN` und bleiben echte Wildnis.
+*   **Ergebnis:** Der Parser liefert ein Tuple `(local_counts, local_signatures, locations, cell_locations)` zurück, welches direkt per Bulk-Insert (`executemany`) in die Datenbank geschrieben wird.
 
 ---
 

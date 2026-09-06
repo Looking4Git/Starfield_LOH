@@ -4,14 +4,15 @@ Unterstützt zeilenweises Logging sowie atomare In-Place-Aktualisierungen
 von dynamischen Fortschrittsblöcken (z. B. Detailscans des ESM-Parsers).
 """
 
-from PySide6.QtWidgets import QTextEdit
+from PySide6.QtWidgets import QPlainTextEdit
 from PySide6.QtGui import QTextCursor
 from PySide6.QtCore import Qt, Slot
 
 
-class Widget_LogConsole(QTextEdit):
+class Widget_LogConsole(QPlainTextEdit):
     """
-    Spezialisiertes QTextEdit zur Anzeige strukturierter Konsolen- und Prozessausgaben.
+    Spezialisiertes QPlainTextEdit zur hochperformanten Anzeige strukturierter
+    Konsolen- und Prozessausgaben ohne Rich-Text-Overhead.
     Bietet Slots für worker.log_signal und aktualisiert laufende Blöcke flackerfrei in-place.
     """
 
@@ -58,7 +59,7 @@ class Widget_LogConsole(QTextEdit):
             return
 
         # Normaler Text
-        self.append(text)
+        self.appendPlainText(text)
 
         # Wenn ein Scan für eine Komponente startet, verankern wir die Position für nachfolgende In-Place-Updates
         if text.strip().startswith("- Parser Scan "):
@@ -81,7 +82,7 @@ class Widget_LogConsole(QTextEdit):
             cursor.insertText("\n" + content)
         else:
             # Fallback falls kein Anker existiert
-            self.append(content)
+            self.appendPlainText(content)
 
         if is_final:
             self._block_anchor_pos = None
@@ -97,9 +98,9 @@ class Widget_LogConsole(QTextEdit):
     def append_status(self, success: bool):
         """Gibt eine standardisierte Abschlussmeldung aus."""
         if success:
-            self.append("\n--> Prozess erfolgreich abgeschlossen.")
+            self.appendPlainText("\n--> Prozess erfolgreich abgeschlossen.")
         else:
-            self.append("\n--> Prozess mit Fehlern beendet.")
+            self.appendPlainText("\n--> Prozess mit Fehlern beendet.")
         self._block_anchor_pos = None
         self._scroll_to_bottom()
 

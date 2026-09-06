@@ -11,6 +11,7 @@ from Structure.Pages.Page_Mods import Page_Mods
 from Structure.Pages.Page_LoadOrder import Page_LoadOrder
 from Structure.Pages.Page_Update import Page_Update
 from Structure.Paths import SETTINGS_FILE
+from Structure.Database import ensure_default_database_mode
 
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
@@ -326,6 +327,7 @@ class StarfieldLOH(QMainWindow):
             QApplication.instance().setStyleSheet(combined_qss)
 
 if __name__ == "__main__":
+    ensure_default_database_mode()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     window = StarfieldLOH()

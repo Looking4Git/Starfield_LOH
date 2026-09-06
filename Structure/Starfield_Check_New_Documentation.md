@@ -55,6 +55,11 @@ Die eigentliche binäre Analyse der `.esm`- und `.esp`-Dateien sowie das Auslese
   -> [Structure/File_ESM_Parser_Documentation.md](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Documentation.md)
 
 * **Ergebnisübernahme in die Datenbank:**
-  - **Systemkomponenten (`scan_and_update_system_components`):** Schreibt in `Components_System`, `Components_System_FormIDs`, `Components_System_LCTN`, `Components_System_CELL_LCTN` und `Components_System_WRLD_LCTN`.
-  - **Mod-Komponenten (`scan_and_update_mod_components`):** Schreibt in `Components_ESM_References`, `Components_ESM_FormIDs`, `Components_ESM_LCTN`, `Components_ESM_CELL_LCTN` und `Components_ESM_WRLD_LCTN`.
+  - **Systemkomponenten (`scan_and_update_system_components`):** Schreibt in `Components_System`, `Components_System_FormIDs`, `Components_System_LCTN` und `Components_System_CELL_LCTN` (inklusive aller Außen-Kacheln mit geerbter Worldspace-Location).
+  - **Mod-Komponenten (`scan_and_update_mod_components`):** Schreibt in `Components_ESM_References`, `Components_ESM_FormIDs`, `Components_ESM_LCTN` und `Components_ESM_CELL_LCTN`.
   - **Header-Abhängigkeiten (`assign_header_requirements`):** Gleicht die aus den Headern (`MAST`) ermittelten Anforderungen mit den tatsächlich installierten Mod-Komponenten ab und trägt gefundene Abhängigkeiten in `Mods_Requirements` ein.
+
+* **Datenbank-Performance & Selbstheilung:**
+  - Zur Beschleunigung der Massen-Inserts schaltet `run_local_check` vor Beginn der Analyse auf `PRAGMA journal_mode = WAL` und `PRAGMA synchronous = NORMAL`.
+  - Im `finally:`-Block wird die Datenbank mit `PRAGMA wal_checkpoint(TRUNCATE);` restlos synchronisiert und garantiert wieder auf den sicheren Standardmodus (`DELETE`, `synchronous = FULL`) zurückgestellt.
+  - Beim Start der Anwendung (`Starfield_LOH.pyw`) prüft `ensure_default_database_mode()` den Zustand der Datenbank und repariert eventuelle Rückstände eines unvorhergesehenen System- oder Stromausfalls vollautomatisch.

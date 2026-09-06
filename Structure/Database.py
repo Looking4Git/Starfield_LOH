@@ -14,6 +14,46 @@ def get_db_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
+def ensure_default_database_mode() -> None:
+    """
+    Prüft beim Start der Anwendung, ob die Datenbank nach einem unvorhergesehenen
+    System- oder Programmabsturz noch im WAL-Modus steht, und stellt sie garantiert
+    auf den sicheren Standardmodus (DELETE, synchronous = FULL) zurück.
+    """
+    if not os.path.exists(DB_FILE):
+        return
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cur = conn.cursor()
+        cur.execute("PRAGMA journal_mode;")
+        row = cur.fetchone()
+        mode = row[0].lower() if row else ""
+        if mode == "wal":
+            logging.info("Starfield LOH Selbstheilung: Setze DB-Journalmodus von WAL auf DELETE zurück...")
+            cur.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            cur.execute("PRAGMA journal_mode = DELETE;")
+            cur.execute("PRAGMA synchronous = FULL;")
+        conn.close()
+    except Exception as e:
+        logging.warning(f"ensure_default_database_mode fehlgeschlagen: {e}")
+
+def enable_db_performance_mode(conn: sqlite3.Connection) -> None:
+    """Aktiviert temporär den WAL-Modus und lockert synchronous für schnelle Massenoperationen."""
+    try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+    except Exception as e:
+        logging.warning(f"Konnte Performance-Pragmas nicht aktivieren: {e}")
+
+def restore_db_default_mode(conn: sqlite3.Connection) -> None:
+    """Führt einen WAL-Checkpoint aus und schaltet zuverlässig auf den Standardmodus zurück."""
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+        conn.execute("PRAGMA journal_mode = DELETE;")
+        conn.execute("PRAGMA synchronous = FULL;")
+    except Exception as e:
+        logging.warning(f"Konnte Default-Pragmas nicht wiederherstellen: {e}")
+
 def get_mods_by_state(state_id: int) -> list[dict]:
     """Holt alle Mods gefiltert nach ihrem Status (Mods_State ID)."""
     query = """

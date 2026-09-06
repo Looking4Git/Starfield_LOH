@@ -246,9 +246,10 @@ def iter_subrecords(decompressed_data):
 
 def iter_esm_records(file_path):
     """
-    Generator, der über alle Records einer ESM-Datei iteriert (GRUP-Records überspringt).
-    Garantiert die korrekte Dateizeiger-Positionierung für den nächsten Record.
-    Yields: (sig, data_size, flags, form_id, f, is_medium_master, is_small_master)
+    Generator, der über alle Records einer ESM-Datei iteriert.
+    Führt einen Group-Stack für GRUP-Records, um für jeden Record den aktuellen
+    Eltern-Worldspace (GRUP Type 1: WRLD_CHILDREN) mitzuliefern.
+    Yields: (sig, data_size, flags, form_id, f, is_medium_master, is_small_master, cur_parent_wrld)
     """
     if not os.path.exists(file_path):
         return
@@ -265,7 +266,13 @@ def iter_esm_records(file_path):
         file_size = f.tell()
         f.seek(0)
         
+        group_stack = []  # Liste von (end_pos, group_type, wrld_fid)
+        
         while f.tell() < file_size:
+            pos = f.tell()
+            while group_stack and pos >= group_stack[-1][0]:
+                group_stack.pop()
+
             header = f.read(24)
             if len(header) < 24:
                 break
@@ -273,10 +280,22 @@ def iter_esm_records(file_path):
             sig, data_size, flags, form_id = struct.unpack('<4sIII', header[0:16])
             
             if sig == b'GRUP':
+                group_size = data_size
+                label = flags
+                group_type = form_id
+                end_pos = pos + group_size
+                wrld_id = (label & 0x00FFFFFF) if group_type == 1 else None
+                group_stack.append((end_pos, group_type, wrld_id))
                 continue
                 
+            cur_parent_wrld = None
+            for g_end, g_type, g_wrld in reversed(group_stack):
+                if g_type == 1 and g_wrld is not None:
+                    cur_parent_wrld = g_wrld
+                    break
+
             next_record_pos = f.tell() + data_size
-            yield sig, data_size, flags, form_id, f, is_medium_master, is_small_master
+            yield sig, data_size, flags, form_id, f, is_medium_master, is_small_master, cur_parent_wrld
             f.seek(next_record_pos, os.SEEK_SET)
 
 
@@ -293,11 +312,12 @@ def _get_sig_from_col(col):
     return name
 
 
-def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, is_core):
+def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, is_core, parent_wrld_id=None, wrld_to_lctn_map=None):
     """
     Analysiert einen CELL Record auf EDID, XLCN, FULL und DATA (Interior-Flag).
     Ermittelt, ob es sich um PackIn, Dummy oder Standardzelle handelt,
     und liefert den cell_location Eintrag zurück.
+    Ermöglicht Vererbung von Worldspace-Locations mit Vorrang für zelleigene XLCN-Einträge.
     """
     xlcn_val = None
     edid_str = ""
@@ -321,6 +341,15 @@ def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, 
     edid_lower = edid_str.lower()
     is_packin = "packin" in edid_lower
 
+    # Location-Auflösung mit Prioritäten:
+    final_lctn = None
+    if has_xlcn and xlcn_val is not None:
+        # 1. Höchste Priorität: Zelle besitzt eigenes XLCN (Local Override)
+        final_lctn = xlcn_val
+    elif parent_wrld_id is not None and wrld_to_lctn_map:
+        # 2. Zweite Priorität: Vererbung vom Eltern-Worldspace (Fallback)
+        final_lctn = wrld_to_lctn_map.get(parent_wrld_id)
+
     if not is_core:
         is_dummy = False
         if is_packin:
@@ -331,7 +360,7 @@ def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, 
             elif (not has_full) and (not has_xlcn):
                 is_dummy = True
         else:
-            if (not has_full) and (not has_xlcn):
+            if (not has_full) and (not has_xlcn) and (final_lctn is None):
                 is_dummy = True
 
         if is_packin:
@@ -344,10 +373,10 @@ def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, 
                 local_counts['CELL_Override_Dummy'] += 1
 
     cell_loc_entry = None
-    if xlcn_val is not None:
+    if final_lctn is not None:
         cell_loc_entry = {
             'cell_form_id': local_fid,
-            'form_id_lctn': xlcn_val,
+            'form_id_lctn': final_lctn,
             'is_pack_in': 1 if is_packin else 0
         }
 
@@ -411,8 +440,8 @@ def _parse_lctn_record(decompressed_data, local_fid, is_override, local_counts, 
 
 def _parse_wrld_record(decompressed_data, local_fid):
     """
-    Analysiert einen WRLD Record auf EDID und XLCN (Location FormID).
-    Liefert das Worldspace-Mapping-Dict zurück.
+    Analysiert einen WRLD Record auf EDID und XLCN.
+    Liefert (xlcn_val, edid_str) zurück.
     """
     xlcn_val = None
     edid_str = ""
@@ -422,13 +451,7 @@ def _parse_wrld_record(decompressed_data, local_fid):
         elif sub_sig == b'XLCN' and len(sub_data) >= 4:
             xlcn_val = struct.unpack('<I', sub_data[:4])[0] & 0x00FFFFFF
 
-    wrld_entry = None
-    if xlcn_val is not None:
-        wrld_entry = {
-            'wrld_form_id': local_fid,
-            'form_id_lctn': xlcn_val
-        }
-    return wrld_entry, edid_str
+    return xlcn_val, edid_str
 
 
 def _parse_qust_record(decompressed_data, local_counts):
@@ -655,8 +678,10 @@ def _parse_gbfm_record(decompressed_data, is_override, local_counts):
 # ==============================================================================
 # HAUPT-PARSING-FUNKTION (SINGLE-PASS SCAN)
 # ==============================================================================
+# Globales In-Memory-Mapping für System-Worldspaces (wird beim Parsen von Starfield.esm befüllt)
+SYSTEM_WRLD_TO_LCTN = {}
 
-def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_sig=None, reporter=None):
+def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_sig=None, reporter=None, wrld_to_lctn=None):
     """
     Parst eine Bethesda .esm Datei in einem einzigen Bytestream-Durchlauf (Single-Pass).
     Extrahiert:
@@ -664,8 +689,9 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
     - FormID-Signaturen für Konfliktanalysen (local_signatures)
     - Location-Keywords (locations)
     - Cell-Location-Verknüpfungen (cell_locations)
-    - Worldspace-Location-Verknüpfungen (wrld_locations)
     """
+    global SYSTEM_WRLD_TO_LCTN
+
     cols = CORE_POINTER_COLS if is_core else MOD_POINTER_COLS
     local_counts = {col: 0 for col in cols}
 
@@ -708,9 +734,11 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
 
     locations = []
     cell_locations = []
-    wrld_locations = []
+    local_wrld_to_lctn = {}
+    if wrld_to_lctn:
+        SYSTEM_WRLD_TO_LCTN.update(wrld_to_lctn)
 
-    for sig, data_size, flags, form_id, f, is_medium_master, is_small_master in iter_esm_records(file_path):
+    for sig, data_size, flags, form_id, f, is_medium_master, is_small_master, cur_parent_wrld in iter_esm_records(file_path):
         local_fid = form_id & 0x00FFFFFF
         if sig == b'CELL':
             current_cell_id = local_fid
@@ -739,10 +767,22 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
             if sig in {b'CELL', b'LCTN', b'WRLD'}:
                 dec = get_decompressed()
                 if dec:
-                    if sig == b'CELL':
+                    if sig == b'WRLD':
+                        if reporter:
+                            reporter.tick('WRLD')
+                        xlcn_val, edid_str = _parse_wrld_record(dec, local_fid)
+                        if xlcn_val is not None:
+                            local_wrld_to_lctn[local_fid] = xlcn_val
+                            SYSTEM_WRLD_TO_LCTN[local_fid] = xlcn_val
+                    elif sig == b'CELL':
                         if reporter:
                             reporter.tick('CELL')
-                        cell_entry, edid_str = _parse_cell_record(dec, local_fid, is_override, local_counts, is_core=True)
+                        active_wrld_map = SYSTEM_WRLD_TO_LCTN.copy()
+                        active_wrld_map.update(local_wrld_to_lctn)
+                        cell_entry, edid_str = _parse_cell_record(
+                            dec, local_fid, is_override, local_counts, is_core=True,
+                            parent_wrld_id=cur_parent_wrld, wrld_to_lctn_map=active_wrld_map
+                        )
                         if cell_entry:
                             cell_locations.append(cell_entry)
                     elif sig == b'LCTN':
@@ -750,12 +790,6 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                             reporter.tick('LCTN')
                         loc_list, edid_str = _parse_lctn_record(dec, local_fid, is_override, local_counts, is_core=True)
                         locations.extend(loc_list)
-                    elif sig == b'WRLD':
-                        if reporter:
-                            reporter.tick('WRLD')
-                        wrld_entry, edid_str = _parse_wrld_record(dec, local_fid)
-                        if wrld_entry:
-                            wrld_locations.append(wrld_entry)
         else:
             # Bei Mods: EDID und base_fid erfassen
             if should_store and sig != b'TES4':
@@ -848,7 +882,12 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                         reporter.tick('CELL')
                     dec = get_decompressed()
                     if dec:
-                        cell_entry, _ = _parse_cell_record(dec, local_fid, is_override, local_counts, is_core=False)
+                        active_wrld_map = SYSTEM_WRLD_TO_LCTN.copy()
+                        active_wrld_map.update(local_wrld_to_lctn)
+                        cell_entry, _ = _parse_cell_record(
+                            dec, local_fid, is_override, local_counts, is_core=False,
+                            parent_wrld_id=cur_parent_wrld, wrld_to_lctn_map=active_wrld_map
+                        )
                         if cell_entry:
                             cell_locations.append(cell_entry)
 
@@ -857,9 +896,9 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                         reporter.tick('WRLD')
                     dec = get_decompressed()
                     if dec:
-                        wrld_entry, _ = _parse_wrld_record(dec, local_fid)
-                        if wrld_entry:
-                            wrld_locations.append(wrld_entry)
+                        xlcn_val, _ = _parse_wrld_record(dec, local_fid)
+                        if xlcn_val is not None:
+                            local_wrld_to_lctn[local_fid] = xlcn_val
 
             # QUST
             if sig == b'QUST' and 'QUST_FULL' in local_counts:
@@ -964,7 +1003,7 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
     else:
         local_counts['ARMO_Dummy'] = max(local_counts.get('ARMO_Dummy', 0), armo_no_full_count)
 
-    return local_counts, local_signatures, locations, cell_locations, wrld_locations
+    return local_counts, local_signatures, locations, cell_locations
 
 
 # Rückwärtskompatibler Alias für bestehende Aufrufer

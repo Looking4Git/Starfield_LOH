@@ -48,7 +48,7 @@ class ParserProgressReporter:
         self.last_update_time = 0.0
         self.update_interval = 0.05  # 50 ms Drosselung für flüssige CPU-schonende Anzeige
         self.last_gui_update_time = 0.0
-        self.gui_update_interval = 0.08  # 80 ms Drosselung für flüssige GUI-Aktualisierung
+        self.gui_update_interval = 0.12  # 120 ms Drosselung für flüssige und ressourcenschonende GUI-Aktualisierung
 
         self.active_scans = {}     # key -> count
         self.rendered_counts = {}  # key -> last rendered count in terminal

@@ -12,7 +12,14 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
-from Structure.Database import check_component_exists, get_mod_by_id, get_components_by_mod_id, get_db_connection
+from Structure.Database import (
+    check_component_exists,
+    get_mod_by_id,
+    get_components_by_mod_id,
+    get_db_connection,
+    enable_db_performance_mode,
+    restore_db_default_mode
+)
 
 from Structure.File_ESM_Parser import (
     parse_tes4_header,
@@ -178,6 +185,7 @@ def scan_and_update_system_components(log_msg, log_signal=None):
     conn = None
     try:
         conn = get_db_connection()
+        conn.execute("PRAGMA synchronous = NORMAL;")
         cursor = conn.cursor()
         
         # Hole alle Dateinamen aus Components (LOWER)
@@ -234,7 +242,7 @@ def scan_and_update_system_components(log_msg, log_signal=None):
                     log_signal=log_signal,
                     write_to_log_func=write_to_log
                 )
-                counts, local_sigs, locations, cell_locations, wrld_locations = scan_esm_for_handles(
+                counts, local_sigs, locations, cell_locations = scan_esm_for_handles(
                     filepath, is_core=True, reporter=reporter
                 )
                 reporter.mark_saving_db()
@@ -325,17 +333,6 @@ def scan_and_update_system_components(log_msg, log_signal=None):
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
                 
-                # Worldspace-Location-Referenzen in Components_System_WRLD_LCTN speichern
-                cursor.execute("DELETE FROM Components_System_WRLD_LCTN WHERE Component_ID = ?", (sys_id,))
-                if wrld_locations:
-                    insert_wrlds = []
-                    for wl in wrld_locations:
-                        insert_wrlds.append((sys_id, wl['wrld_form_id'], wl['form_id_lctn']))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_System_WRLD_LCTN (Component_ID, WRLD_FormID, FormID_LCTN)
-                        VALUES (?, ?, ?)
-                    """, insert_wrlds)
-                
                 conn.commit()
                 reporter.finish()
                 
@@ -355,6 +352,7 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
     conn = None
     try:
         conn = get_db_connection()
+        conn.execute("PRAGMA synchronous = NORMAL;")
         cursor = conn.cursor()
         
         # Hole alle registrierten Masterfiles
@@ -402,7 +400,7 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
                 )
                 num_full = get_num_full_masters(filepath, cursor)
                 
-                counts, local_sigs, locations, cell_locations, wrld_locations = scan_esm_for_handles(
+                counts, local_sigs, locations, cell_locations = scan_esm_for_handles(
                     filepath, is_core=False, num_full_masters=num_full, reporter=reporter
                 )
                 reporter.mark_saving_db()
@@ -490,17 +488,6 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
                         INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
-                
-                # Worldspace-Location-Referenzen in Components_ESM_WRLD_LCTN speichern
-                cursor.execute("DELETE FROM Components_ESM_WRLD_LCTN WHERE Component_ID = ?", (comp_id,))
-                if wrld_locations:
-                    insert_wrlds = []
-                    for wl in wrld_locations:
-                        insert_wrlds.append((comp_id, wl['wrld_form_id'], wl['form_id_lctn']))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_WRLD_LCTN (Component_ID, WRLD_FormID, FormID_LCTN)
-                        VALUES (?, ?, ?)
-                    """, insert_wrlds)
                 
                 # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern
                 cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
@@ -1022,6 +1009,9 @@ def run_local_check(log_signal):
         conn.commit()
         log_msg("\n--> Alle Änderungen erfolgreich in der Datenbank gespeichert.")
 
+        # Performance-Modus (WAL) für die anstehenden Scans aktivieren
+        enable_db_performance_mode(conn)
+
         # Zählen der Pointer Handles und Scannen der offiziellen Bethesda Masterfiles
         try:
             scan_and_update_system_components(log_msg, log_signal)
@@ -1046,6 +1036,7 @@ def run_local_check(log_signal):
         return False
     finally:
         if conn:
+            restore_db_default_mode(conn)
             conn.close()
 
 if __name__ == '__main__':

@@ -22,8 +22,6 @@ def reset_database(log_signal=None):
         
         # Bewegungsdaten-Tabellen leeren
         tables_to_clear = [
-            "Components_System_WRLD_LCTN",
-            "Components_ESM_WRLD_LCTN",
             "Components_System_CELL_LCTN",
             "Components_ESM_CELL_LCTN",
             "Components_System_LCTN",

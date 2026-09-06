@@ -31,7 +31,9 @@ Filtert alle originalen Schiffszellen aus den offiziellen Masterfiles der Spield
       AND (LOWER(EDID) LIKE '%ship%' 
            OR LOWER(EDID) LIKE '%station%' 
            OR LOWER(EDID) LIKE '%spaceship%'
-           OR LOWER(EDID) LIKE 'ss%');
+           OR LOWER(EDID) LIKE 'ss%'
+           OR LOWER(EDID) LIKE '%smod%'
+           OR LOWER(EDID) LIKE '%cockpit%');
     ```
 
 ### B. `View_Components_ESM_CELL_Ship` (Mod-View)
@@ -48,14 +50,16 @@ Filtert alle geänderten oder neuen Schiffszellen aus den installierten Mod-Date
       AND (LOWER(EDID) LIKE '%ship%' 
            OR LOWER(EDID) LIKE '%station%' 
            OR LOWER(EDID) LIKE '%spaceship%'
-           OR LOWER(EDID) LIKE 'ss%');
+           OR LOWER(EDID) LIKE 'ss%'
+           OR LOWER(EDID) LIKE '%smod%'
+           OR LOWER(EDID) LIKE '%cockpit%');
     ```
 
 ---
 
 ## 3. Funktionsweise der Erkennung
 
-*   **Identifizierung:** Der View selektiert alle Datensätze mit der Signatur `CELL` und prüft, ob die Editor-ID (`EDID`) die Begriffe `ship`, `station`, `spaceship` enthält oder mit dem Präfix `ss` (für Space Station, z. B. `ssTheEyeInt`) beginnt.
+*   **Identifizierung:** Der View selektiert alle Datensätze mit der Signatur `CELL` und prüft, ob die Editor-ID (`EDID`) die Begriffe `ship`, `station`, `spaceship`, `smod` (Ship Module - Creation Engine 2 Standard für Schiffsmodule/Habs) oder `cockpit` enthält oder mit dem Präfix `ss` (für Space Station, z. B. `ssTheEyeInt`) beginnt.
 *   **PackIn-Kennzeichnung:** Das Flag `Is_PackIn` wird automatisch über SQL auf `1` gesetzt, falls der Begriff `packin` in der `EDID` vorkommt (z. B. bei Vorlagen für Schiffsmodule), andernfalls auf `0`.
 
 ---

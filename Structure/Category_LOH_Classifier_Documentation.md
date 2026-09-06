@@ -82,12 +82,22 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
     - *Stufe 2 (Großes Bausystem / Typ 3):* Massives Außenposten-Modulset (Rezepte $> 15$ oder `COBJ_BNAM_Outpost_Heavy >= 5`) bei minimaler Hilfslogik (`core_gameplay <= 2`) $\rightarrow$ Sieg für **`Außenposten`** per Architektur-KO (Typ 3, Baufundament LLO Pos 09 vor Beigabe-Perks).
     - *Stufe 3 (Gewichteter Massevergleich für Hybriden / Typ 4):* $\text{Score}_{\text{Gameplay}} = (\text{core\_gameplay} \times 3) + \text{ALCH}$ gegenüber $\text{Score}_{\text{Außenposten}} = \text{dim\_calc\_outer\_Außenposten}$. Der Faktor 3 wird gezielt auf die wirkmächtige systemische Kernlogik angewendet, während Alchemie-Verbrauchsmasse (`ALCH`) linear 1:1 einfließt $\rightarrow$ Sieg nach höherem Score per Typ 4.
 
-#### Phase E: Auswertung & Zuweisung
+#### Phase E: Schritt 30 – Kategorie-Vererbung (Inheritance)
+Für alle nach den Gruppenduellen noch unbestimmten Modifikationen (`Category_LOH_Classifier IS NULL`):
+* **2-Stufen-Modell:**
+  1. *Stufe 1 (Inhalt geht vor):* Wenn eine Mod (auch ein Patch) eigene fachspezifische Marker (Schiffszellen, Waffen, Rüstungen, Kleidung, Quests, Städte) besitzt, wird sie in den Phasen A bis D nach ihrem konkreten Inhalt klassifiziert (wie alle bisherigen 28 Patches).
+  2. *Stufe 2 (Vererbung als Fallback):* Wenn eine Mod **keine** eigenen primären Fachkategorie-Merkmale aufweist (wie z. B. reine FormID-Listen `FLST` ohne eigene Spiellogik), aber mindestens eine Mod-Voraussetzung in `Mods_Requirements` besitzt:
+     * Sie erbt deterministisch die Kategorie der Voraussetzung mit der **höchsten Ladeordnungsposition** ($\max(\text{Position})$ aller Master-Mods).
+     * Grund: Ein Patch muss nach den Gesetzen der Creation Engine 2 immer nach all seinen Masterfiles geladen werden ($\text{Kategorie}(\text{Patch}) \ge \max(\text{Kategorie}(\text{Master}_i))$).
+     * In der Matrixtabelle erhält die Mod in dieser Kategorie den aktuellen Schrittwert (`30`), alle anderen werden auf `0` gesetzt.
+     * Die Entscheidung wird in `LoadOrder_Classifier_Results` mit Typ 2 (*Zwingend / Architektur*) transparent dokumentiert.
+
+#### Phase F: Auswertung & Zuweisung
 Am Ende jedes Pipeline-Durchlaufs/Schritts wird für jede Mod-Komponente das Maximum (`max_val > 0`) der verbleibenden Matrix-Werte ermittelt:
 * Wenn **genau eine** Kategorie diesen Höchstwert aufweist, gilt die Mod als eindeutig klassifiziert und dieser Wert wird als `Category_LOH_Classifier` eingetragen.
 * Wenn mehrere Kategorien denselben Höchstwert aufweisen (oder alle auf `0` stehen), bleibt die Klassifizierung unbestimmt (`NULL`) und zieht in den nächsten Prüfschritt ein.
 
-#### Phase F: Transparenz-Protokollierung (`LoadOrder_Classifier_Results` & `Classifier_Result_Types`)
+#### Phase G: Transparenz-Protokollierung (`LoadOrder_Classifier_Results` & `Classifier_Result_Types`)
 Um dem Benutzer transparent und nachvollziehbar zu begründen, warum eine Modifikation in eine bestimmte Kategorie eingestuft wurde (und warum andere Kategorien ausgeschlossen wurden), führt der Classifier eine verlierergetriebene Protokolltabelle `LoadOrder_Classifier_Results`.
 
 ##### A. Stammdaten: `Classifier_Result_Types`

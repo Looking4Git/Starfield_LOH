@@ -63,6 +63,11 @@ MOD_POINTER_COLS = [
 
 POINTER_COLS = MOD_POINTER_COLS  # Abwärtskompatibilität
 
+# NPC-Archetypen und Hilfsbegriffe für semantische Dummy-Erkennung
+NPC_GENERIC_ARCHETYPES = {"citizen", "colonist", "miner", "security", "guard", "civilian", "passenger"}
+NPC_HELPER_KEYWORDS = ["temp", "tmp", "dummy", "preview", "helper", "proxy", "placeholder", "swapper"]
+
+
 
 # ==============================================================================
 # HEADER & METADATEN FUNKTIONEN
@@ -541,18 +546,27 @@ def _parse_weap_record(decompressed_data, is_override, local_counts, helper_keyw
 
 
 def _parse_npc_record(decompressed_data, is_override, local_counts):
-    """Analysiert NPC-Merkmale (VTCK, PKID, SNAM, EDID) für Companion/Creature/Shop/Ship und Dummies."""
+    """Analysiert NPC-Merkmale (VTCK, PKID, TPLT, SNAM, FULL, EDID) für Companion/Creature/Shop/Ship und Dummies."""
     has_vtck = False
     has_pkid = False
+    has_tplt = False
     has_snam = False
     edid_str = ""
+    full_str = ""
+    is_companion = False
+    is_shop = False
+
     for sub_sig, sub_data in iter_subrecords(decompressed_data):
         if sub_sig == b'VTCK':
             has_vtck = True
         elif sub_sig == b'PKID':
             has_pkid = True
+        elif sub_sig == b'TPLT':
+            has_tplt = True
         elif sub_sig == b'SNAM':
             has_snam = True
+        elif sub_sig == b'FULL':
+            full_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
         elif sub_sig == b'EDID':
             edid_str = sub_data.split(b'\x00')[0].decode('utf-8', errors='ignore').lower()
             if "shipbuilder" in edid_str or "shipservices" in edid_str:
@@ -560,6 +574,7 @@ def _parse_npc_record(decompressed_data, is_override, local_counts):
                 if is_override:
                     local_counts['NPC__KYWD_Ship_Override'] += 1
             elif any(k in edid_str for k in ["companion", "follower", "sarah", "andreja", "barrett", "samcoe", "vasco"]):
+                is_companion = True
                 local_counts['NPC__KYWD_Companion'] += 1
                 if is_override:
                     local_counts['NPC__KYWD_Companion_Override'] += 1
@@ -568,15 +583,35 @@ def _parse_npc_record(decompressed_data, is_override, local_counts):
                 if is_override:
                     local_counts['NPC__KYWD_Creature_Override'] += 1
             elif any(k in edid_str for k in ["vendor_", "merchant_", "storeowner", "tradeauthority", "shopkeeper"]):
+                is_shop = True
                 local_counts['NPC__KYWD_Shop'] += 1
                 if is_override:
                     local_counts['NPC__KYWD_Shop_Override'] += 1
 
-    missing_life_features = sum([1 for x in (has_vtck, has_pkid, has_snam) if not x])
+    # Konsolidierte KI-Existenz (eigenes Package PKID oder geerbtes Template TPLT)
+    has_ai = has_pkid or has_tplt
+    missing_life_features = sum([1 for x in (has_ai, has_vtck, has_snam) if not x])
+
+    # Begleiter und Shopkeeper sind absolut vor Dummy-Einstufung geschützt
+    if is_companion or is_shop:
+        return
+
+    # Säule 1: Vollkommen leblose Körper (alle 3 Kernmerkmale fehlen)
     if missing_life_features == 3:
         local_counts['NPC__Dummy'] += 1
+    # Säule 2: Mannequins / Schaufensterpuppen (mindestens 2 Merkmale fehlen)
     elif "mannequin" in edid_str and missing_life_features >= 2:
         local_counts['NPC__Dummy'] += 1
+    # Säule 3: Semantische Temp-/Hilfs-Akteure mit 2-von-4 Absicherung
+    else:
+        edid_clean = edid_str.replace("template", "")
+        if any(k in edid_clean for k in NPC_HELPER_KEYWORDS):
+            full_lower = full_str.lower()
+            has_unique_name = bool(full_lower) and (full_lower not in NPC_GENERIC_ARCHETYPES) and not any(w in full_lower for w in NPC_HELPER_KEYWORDS)
+            missing_4 = sum([1 for x in (has_ai, has_vtck, has_snam, has_unique_name) if not x])
+            if not has_ai or missing_4 >= 2:
+                local_counts['NPC__Dummy'] += 1
+
 
 
 def _parse_cobj_record(decompressed_data, is_override, local_counts, cobj_cnam_fids):

@@ -4605,6 +4605,75 @@ def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
     ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
 
 
+def _step_inheritance(cursor, cat_map, cat_ids, ctx):
+    """
+    Schritt 30: Kategorie-Vererbung (Inheritance).
+    Für alle bisher noch unbestimmten Mods (Category_LOH_Classifier IS NULL):
+    Wenn die Mod mindestens eine Mod-Voraussetzung in Mods_Requirements besitzt,
+    erbt sie die Kategorie der Voraussetzung mit der höchsten Ladeordnungsposition.
+    In der Matrixtabelle erhält die Mod in dieser Kategorie den aktuellen Schrittwert (30).
+    """
+    cursor.execute("""
+        SELECT 
+            m.ID AS Mod_ID,
+            mc.Component_ID,
+            m.Name_Online,
+            m.Name_ContentCatalog
+        FROM Mods m
+        JOIN Mods_Components mc ON m.ID = mc.Mod_ID
+        JOIN Components c ON mc.Component_ID = c.ID
+        WHERE m.State = 1 AND c.Is_Masterfile > 0
+          AND m.Category_LOH_Classifier IS NULL
+    """)
+    unresolved = [dict(r) for r in cursor.fetchall()]
+    if not unresolved:
+        return
+
+    for mod in unresolved:
+        mid = mod['Mod_ID']
+        cid = mod['Component_ID']
+
+        # Suche alle Mod-Voraussetzungen, die bereits eine Klassifizierung besitzen
+        cursor.execute("""
+            SELECT 
+                mr.ID_Mod_Requirement,
+                m_req.Name_ContentCatalog,
+                m_req.Name_Online,
+                m_req.Category_LOH_Classifier,
+                c_req.Position,
+                c_req.Name AS Category_Name
+            FROM Mods_Requirements mr
+            JOIN Mods m_req ON mr.ID_Mod_Requirement = m_req.ID
+            JOIN Categories_LOH c_req ON m_req.Category_LOH_Classifier = c_req.ID
+            WHERE mr.ID_Mod = ?
+              AND m_req.Category_LOH_Classifier IS NOT NULL
+            ORDER BY c_req.Position DESC, c_req.ID DESC
+            LIMIT 1
+        """, (mid,))
+        req_row = cursor.fetchone()
+
+        if req_row:
+            winner_cid = req_row[3]
+            req_pos = req_row[4]
+            req_cat_name = req_row[5]
+            req_mod_name = req_row[1] or req_row[2] or f"Mod {req_row[0]}"
+
+            # Trage den aktuellen Schrittwert (30) in die Matrixtabelle ein und nulle alle anderen
+            for c in cat_ids:
+                val = ctx.curr_level if c == winner_cid else 0
+                cursor.execute(f"""
+                    UPDATE LoadOrder_Classifier_Matrix
+                    SET "{c}" = ?
+                    WHERE Mod_ID = ? AND Component_ID = ?
+                """, (val, mid, cid))
+
+            # Lösche den fälschlichen Ausschluss der Gewinner-Kategorie aus Schritt 1
+            cursor.execute("""
+                DELETE FROM LoadOrder_Classifier_Results
+                WHERE Mod_ID = ? AND Component_ID = ? AND CategoryLOH_ID_Looser = ?
+            """, (mid, cid, winner_cid))
+
+
 # Zentrale, lückenlose Pipeline-Definition mit dynamischer Stufenverwaltung
 PIPELINE_STEPS = [
     (1, "Ausschlussregeln (Rohdaten)", _step_exclusions),
@@ -4636,6 +4705,7 @@ PIPELINE_STEPS = [
     (27, "Gruppenduell Akteure vs. Systeme", _step_actors_vs_systems),
     (28, "Gruppenduell Akteure vs. Welt", _step_actors_vs_world),
     (29, "Gruppenduell Systeme vs. Welt", _step_systems_vs_world),
+    (30, "Kategorie-Vererbung (Inheritance)", _step_inheritance),
 ]
 
 

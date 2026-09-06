@@ -687,7 +687,9 @@ WHERE Sig = 'CELL'
   AND (LOWER(EDID) LIKE '%ship%' 
        OR LOWER(EDID) LIKE '%station%' 
        OR LOWER(EDID) LIKE '%spaceship%'
-       OR LOWER(EDID) LIKE 'ss%');
+       OR LOWER(EDID) LIKE 'ss%'
+       OR LOWER(EDID) LIKE '%smod%'
+       OR LOWER(EDID) LIKE '%cockpit%');
 
 CREATE VIEW "View_Components_ESM_LCTN" AS
 SELECT 
@@ -1424,7 +1426,9 @@ WHERE Sig = 'CELL'
   AND (LOWER(EDID) LIKE '%ship%' 
        OR LOWER(EDID) LIKE '%station%' 
        OR LOWER(EDID) LIKE '%spaceship%'
-       OR LOWER(EDID) LIKE 'ss%');
+       OR LOWER(EDID) LIKE 'ss%'
+       OR LOWER(EDID) LIKE '%smod%'
+       OR LOWER(EDID) LIKE '%cockpit%');
 
 CREATE VIEW "View_Components_System_LCTN" AS
 SELECT 

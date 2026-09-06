@@ -101,7 +101,12 @@ Liest `EDID` und `KWDA` (Array von 4-Byte Keyword-FormIDs).
 ### 3.5 Spezifische Mod-Subparser
 
 * **`_parse_npc_record`:**
-  * Prüft Lebensmerkmale: `VTCK` (Voice Type), `PKID` (AI Package), `SNAM` (Faction). Fehlen alle 3 Merkmale $\rightarrow$ `NPC__Dummy`.
+  * Prüft Lebensmerkmale und KI-Quellen: `VTCK` (Voice Type), `PKID` (eigenes AI Package), `TPLT` (geerbtes Vorlagen-Template), `SNAM` (Faction) sowie `FULL` (Anzeigename).
+  * **Absoluter Begleiter- und Händlerschutz:** NPCs mit Begleiter-Keywords (`companion`, `follower`, etc.) oder Shopkeeper-Präfixen (`vendor_`, `merchant_`) scheiden von der Dummy-Einstufung grundsätzlich aus.
+  * **3-Säulen-Erkennung für `NPC__Dummy`:**
+    1. *Vollkommene Dummies:* Fehlen alle 3 Kernmerkmale (`not has_ai and not has_vtck and not has_snam`, wobei `has_ai = has_pkid or has_tplt`) $\rightarrow$ `NPC__Dummy`.
+    2. *Mannequins / Schaufensterpuppen:* `EDID` enthält `mannequin` und mindestens 2 der 3 Kernmerkmale fehlen $\rightarrow$ `NPC__Dummy`.
+    3. *Semantische Temp-/Hilfs-Akteure (2 von 4 Kriterien):* `EDID` enthält Hilfsbegriffe (`temp`, `tmp`, `dummy`, `preview`, `helper`, `proxy`, `placeholder`, `swapper` – unter Ausschluss von `template`). Gilt als Dummy, wenn **keinerlei KI** vorhanden ist (`not has_ai`) **ODER** wenn mindestens **2 von 4 Lebensmerkmalen fehlen** (KI `has_ai`, Stimme `VTCK`, Fraktion `SNAM`, individueller Eigenname `FULL`, d. h. `FULL` fehlt oder ist nur ein generischer Klon wie `"Citizen"`).
   * Schiffsmechaniker: `EDID` enthält `shipbuilder` oder `shipservices` $\rightarrow$ `NPC__KYWD_Ship`.
   * Begleiter: `companion`, `follower`, `sarah`, `andreja`, `barrett` etc. $\rightarrow$ `NPC__KYWD_Companion`.
   * Kreaturen / Roboter: `robot`, `sentry`, `ashta`, `terrormorph`, `alien` etc. $\rightarrow$ `NPC__KYWD_Creature`.

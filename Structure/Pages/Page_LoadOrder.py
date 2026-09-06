@@ -1225,14 +1225,18 @@ class Page_LoadOrder(QWidget):
 
     def on_apply_classifier_all_clicked(self):
         """Überträgt nach Bestätigung die Classifier-Kategorien für alle installierten Mods."""
-        reply = QMessageBox.question(
-            self,
-            "Classifier-Kategorien übernehmen",
-            "Möchten Sie für alle installierten Mods die automatisch berechnete Classifier-Kategorie als Kategorie (LOH) übernehmen?\n\nBereits manuell zugewiesene Kategorien werden dabei aktualisiert.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        text = (
+            "Möchten Sie für alle installierten Mods die automatisch berechnete "
+            "Classifier-Kategorie als Kategorie (LOH) übernehmen?\n\n"
+            "Bereits manuell zugewiesene Kategorien werden dabei überschrieben."
         )
-        if reply == QMessageBox.StandardButton.Yes:
+        confirmed = self.show_message_box(
+            "Classifier-Kategorien übernehmen",
+            text,
+            icon=QMessageBox.Icon.Question,
+            yes_no=True
+        )
+        if confirmed:
             count = apply_all_classifier_categories()
             if count >= 0:
                 saved_mod_id = self.current_mod_id
@@ -1245,16 +1249,16 @@ class Page_LoadOrder(QWidget):
                             if data and str(data.get("Mod_ID")) == str(saved_mod_id):
                                 self.table_view.selectRow(r)
                                 break
-                QMessageBox.information(
-                    self,
+                self.show_message_box(
                     "Erfolg",
-                    f"Die Classifier-Kategorien wurden für {count} Mods erfolgreich übernommen."
+                    f"Die Classifier-Kategorien wurden für {count} Mods erfolgreich übernommen.",
+                    icon=QMessageBox.Icon.Information
                 )
             else:
-                QMessageBox.critical(
-                    self,
+                self.show_message_box(
                     "Fehler",
-                    "Beim Übernehmen der Classifier-Kategorien ist ein Datenbankfehler aufgetreten."
+                    "Beim Übernehmen der Classifier-Kategorien ist ein Datenbankfehler aufgetreten.",
+                    icon=QMessageBox.Icon.Critical
                 )
 
     def change_mod_position(self, component_id, old_pos, new_pos):

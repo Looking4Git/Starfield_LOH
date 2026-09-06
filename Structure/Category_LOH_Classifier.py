@@ -46,25 +46,100 @@ def _log_result(cursor, step_id, mod_id, component_id, looser_id, winner_id, typ
 class StepContext:
     """
     Kontext-Objekt für einen einzelnen Prüfschritt in der Klassifizierungs-Pipeline.
-    Kapselt Schrittnummer, Stufen-Progression und Helper-Methoden zur Entkopplung
-    der Fachlogik von harten Zahlenwerten.
+    Kapselt Schrittnummer, Stufen-Progression, Kategorie-Mappings, optimierte
+    Datenabfragen und Helper-Methoden zur Entkopplung der Fachlogik von Boilerplate.
     """
-    def __init__(self, step_id, step_name, prev_level, curr_level, log_msg_fn):
+    def __init__(self, step_id, step_name, prev_level, curr_level, log_msg_fn, cat_map=None, cat_ids=None):
         self.step_id = step_id
         self.name = step_name
         self.prev_level = prev_level
         self.curr_level = curr_level
         self.log_msg = log_msg_fn
+        self.cat_map = cat_map or {}
+        self.cat_ids = cat_ids or []
+        self.id_to_name = {v: k for k, v in self.cat_map.items()}
 
     def log_result(self, cursor, mod_id, component_id, looser_id, winner_id, type_id, reason):
         """Trägt eine Entscheidung für den aktuellen Schritt ein."""
         _log_result(cursor, self.step_id, mod_id, component_id, looser_id, winner_id, type_id, reason, step_description=self.name)
 
-    def promote_winner(self, cursor, mod_id, component_id, winner_id, non_duel_ids):
+    def get_cat_name(self, cat_id):
+        """Liefert den Namen einer Kategorie anhand ihrer ID."""
+        return self.id_to_name.get(cat_id, str(cat_id))
+
+    def get_active(self, row, group_cat_ids):
+        """
+        Gibt die erste Kategorie-ID aus group_cat_ids zurück,
+        die in row auf prev_level steht, oder None.
+        (Ideal für Duell-Schritte, bei denen Binnengruppen bereits aufgelöst sind).
+        """
+        for cid in group_cat_ids:
+            if cid is not None and (row.get(str(cid)) or 0) == self.prev_level:
+                return cid
+        return None
+
+    def get_active_list(self, row, group_cat_ids):
+        """
+        Gibt alle Kategorie-IDs aus group_cat_ids zurück,
+        die in row auf prev_level stehen.
+        """
+        return [cid for cid in group_cat_ids if cid is not None and (row.get(str(cid)) or 0) == self.prev_level]
+
+    def get_active_scores(self, row, cat_tuples):
+        """
+        Ermittelt für Binnengruppen aus einer Liste von (name, dim_col)-Tuples
+        alle aktiven Kategorien auf prev_level mit score > 0.
+        Rückgabe: dict {name: score}
+        """
+        scores = {}
+        for cname, dim_col in cat_tuples:
+            cid_val = self.cat_map.get(cname)
+            if cid_val is not None:
+                val = row.get(str(cid_val)) or 0
+                if val == self.prev_level:
+                    score = row.get(dim_col) or 0
+                    if score > 0:
+                        scores[cname] = score
+        return scores
+
+    def get_non_duel_ids(self, *group_id_lists):
+        """
+        Gibt alle Kategorie-IDs zurück, die in keiner der übergebenen Gruppenlisten
+        enthalten sind (für die Nachzugs-Klausel in promote_winner).
+        """
+        excluded = set()
+        for g in group_id_lists:
+            if g:
+                excluded.update(g)
+        return [cid for cid in self.cat_ids if cid not in excluded]
+
+    def get_unresolved_rows(self, cursor):
+        """
+        Lädt alle noch unbestimmten Mods zusammen mit v.* und allen Matrix-Werten (lcm.*)
+        in einer einzigen performanten SQL-Abfrage.
+        """
+        col_select = ", ".join([f'lcm."{c}"' for c in self.cat_ids])
+        cursor.execute(f"""
+            SELECT 
+                lcm.Mod_ID, 
+                lcm.Component_ID,
+                {col_select},
+                v.*
+            FROM LoadOrder_Classifier_Matrix lcm
+            JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
+            WHERE lcm.Mod_ID IN (
+                SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+            )
+        """)
+        return [dict(r) for r in cursor.fetchall()]
+
+    def promote_winner(self, cursor, mod_id, component_id, winner_id, non_duel_ids=None):
         """
         Hebt den Gewinner auf curr_level an und zieht unbeteiligte Kategorien,
         die auf prev_level standen, ebenfalls auf curr_level nach.
         """
+        if non_duel_ids is None:
+            non_duel_ids = [c for c in self.cat_ids if c != winner_id]
         set_clauses = [f'"{winner_id}" = {self.curr_level}']
         for non_id in non_duel_ids:
             set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = {self.prev_level} THEN {self.curr_level} ELSE "{non_id}" END')
@@ -75,14 +150,16 @@ class StepContext:
             WHERE Mod_ID = ? AND Component_ID = ?
         """, (mod_id, component_id))
 
-    def lift_uncollided(self, cursor, cat_ids, col_select_quotes):
+    def lift_uncollided(self, cursor, cat_ids=None, col_select_quotes=None):
         """
         Hebt alle Zeilen, deren aktiver Höchstwert auf prev_level stand
         (und die in diesem Schritt keine Kollision hatten), auf curr_level an.
         """
-        col_cases = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = {self.prev_level} THEN {self.curr_level} ELSE "{cid}" END' for cid in cat_ids])
+        active_cat_ids = cat_ids or self.cat_ids
+        col_select = col_select_quotes or ", ".join([f'"{c}"' for c in active_cat_ids])
+        col_cases = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = {self.prev_level} THEN {self.curr_level} ELSE "{cid}" END' for cid in active_cat_ids])
         cursor.execute(f"""
-            SELECT Mod_ID, Component_ID, {col_select_quotes}
+            SELECT Mod_ID, Component_ID, {col_select}
             FROM LoadOrder_Classifier_Matrix
             WHERE Mod_ID IN (
                 SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
@@ -92,7 +169,7 @@ class StepContext:
         for r in rows:
             mid = r['Mod_ID']
             cid = r['Component_ID']
-            vals = [r[str(c)] or 0 for c in cat_ids]
+            vals = [r[str(c)] or 0 for c in active_cat_ids]
             max_v = max(vals) if vals else 0
             if max_v == self.prev_level:
                 cursor.execute(f"""
@@ -100,6 +177,7 @@ class StepContext:
                     SET {col_cases}
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
+
 
 
 def _exclude_non_bgs(row, cursor, cat_ids):
@@ -1855,19 +1933,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
     Kategorien mit Netto == 0 werden in der Matrix auf 0 gesetzt (ausgeschlossen).
     Alle verbleibenden aktiven Kategorien werden auf curr_level angehoben.
     """
-    col_select = ", ".join([f'"{c}"' for c in cat_ids])
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows = [dict(r) for r in cursor.fetchall()]
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
     clothing_id = cat_map.get('Kleidung')
     npcs_id = cat_map.get('NPCs')
@@ -1882,15 +1948,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Kleidung prüfen
-        if clothing_id and (mat_row.get(str(clothing_id)) or 0) == ctx.prev_level:
+        if clothing_id and (urow.get(str(clothing_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Kleidung') or 0
             val_in = urow.get('dim_calc_inner_Kleidung') or 0
             if val_out == 0 and val_in == 0:
@@ -1900,7 +1959,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, clothing_id, None, 1, f"Alle {armo} Rüstungs-/Kleidungs-Datensätze sind interne Dummies oder Shader-Masken ('ARMO_Dummy': {armo_dummy}); keine tragbare Ausrüstung vorhanden.")
 
         # 2. NPCs prüfen
-        if npcs_id and (mat_row.get(str(npcs_id)) or 0) == ctx.prev_level:
+        if npcs_id and (urow.get(str(npcs_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_NPCs') or 0
             val_in = urow.get('dim_calc_inner_NPCs') or 0
             if val_out == 0 and val_in == 0:
@@ -1910,7 +1969,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, npcs_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen, Steuerungs-Dummies ('NPC__Dummy': {npc_dummy}) oder gehören zu Begleitern/Kreaturen; keine eigenständigen humanoiden NPCs vorhanden.")
 
         # 3. Begleiter prüfen (Dummy- & Netto-Ausschluss)
-        if companion_id and (mat_row.get(str(companion_id)) or 0) == ctx.prev_level:
+        if companion_id and (urow.get(str(companion_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Begleiter') or 0
             val_in = urow.get('dim_calc_inner_Begleiter') or 0
             if val_out == 0 and val_in == 0:
@@ -1920,7 +1979,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, companion_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen oder Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Begleiter mit KI-Paketen vorhanden.")
 
         # 4. Kreaturen prüfen (Dummy- & Netto-Ausschluss)
-        if creature_id and (mat_row.get(str(creature_id)) or 0) == ctx.prev_level:
+        if creature_id and (urow.get(str(creature_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Kreaturen') or 0
             val_in = urow.get('dim_calc_inner_Kreaturen') or 0
             if val_out == 0 and val_in == 0:
@@ -1930,7 +1989,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, creature_id, None, 1, f"Keine lebendigen Kreaturen-Akteure vorhanden ('NPC__KYWD_Creature': 0, 'NPC__Dummy': {npc_dummy}); Rassen-Datensatz (RACE) dient rein als Gerüst für Schaufensterpuppen/Dummies.")
 
         # 5. Waffen prüfen
-        if waffen_id and (mat_row.get(str(waffen_id)) or 0) == ctx.prev_level:
+        if waffen_id and (urow.get(str(waffen_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Waffen') or 0
             val_in = urow.get('dim_calc_inner_Waffen') or 0
             if val_out == 0 and val_in == 0:
@@ -1941,8 +2000,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 weap_veh = urow.get('WEAP_KWDA_Vehicle') or 0
                 ctx.log_result(cursor, mid, cid, waffen_id, None, 1, f"Alle {weap} Waffen-Datensätze dienen als Script-Helper ({weap_helper}), Schiffs- ({weap_ship}) oder Fahrzeugwaffen ({weap_veh}); keine tragbaren Handfeuerwaffen vorhanden.")
 
-        # 4. Crafting prüfen
-        if crafting_id and (mat_row.get(str(crafting_id)) or 0) == ctx.prev_level:
+        # 6. Crafting prüfen
+        if crafting_id and (urow.get(str(crafting_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Crafting') or 0
             val_in = urow.get('dim_calc_inner_Crafting') or 0
             if val_out == 0 and val_in == 0:
@@ -1950,8 +2009,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 cobj = urow.get('COBJ') or 0
                 ctx.log_result(cursor, mid, cid, crafting_id, None, 1, f"Alle {cobj} Herstellungsrezepte (COBJ) sind Schiffs- oder Außenposten-Module; keine eigenständigen Werkbank-Rezepte vorhanden.")
 
-        # 5. Einrichtung prüfen
-        if furn_id and (mat_row.get(str(furn_id)) or 0) == ctx.prev_level:
+        # 7. Einrichtung prüfen
+        if furn_id and (urow.get(str(furn_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Einrichtung') or 0
             val_in = urow.get('dim_calc_inner_Einrichtung') or 0
             if val_out == 0 and val_in == 0:
@@ -1959,8 +2018,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 furn = urow.get('FURN') or 0
                 ctx.log_result(cursor, mid, cid, furn_id, None, 1, f"Alle {furn} Möbel-Datensätze (FURN) dienen als Fahrzeug-Steuersitze; keine Einrichtungs- oder Deko-Möbel vorhanden.")
 
-        # 6. Gebäude prüfen (Dummy- & Workshop-Netto-Ausschluss)
-        if bld_id and (mat_row.get(str(bld_id)) or 0) == ctx.prev_level:
+        # 8. Gebäude prüfen (Dummy- & Workshop-Netto-Ausschluss)
+        if bld_id and (urow.get(str(bld_id)) or 0) == ctx.prev_level:
             cobj = urow.get('COBJ') or 0
             pkin = urow.get('PKIN') or 0
             cobj_outpost = urow.get('COBJ_BNAM_Outpost_Soft') or 0
@@ -1987,117 +2046,52 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
         """, (mid, cid))
 
 
-def _step_bgs(cursor, cat_map, cat_ids, ctx):
-    bgs_id = cat_map.get('BGS') or 1
+def _step_system_priority(cursor, cat_map, cat_ids, ctx, category_name, reason_text):
+    """Generische Subfunktion für die zwingenden System-Prioritäten der Phase B."""
+    cat_id = cat_map.get(category_name)
+    if not cat_id:
+        ctx.lift_uncollided(cursor)
+        return
 
-    # Protokolliere Verlierer für Mods, bei denen BGS aktiv ist
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
         FROM LoadOrder_Classifier_Matrix
-        WHERE "{bgs_id}" = {ctx.prev_level} AND Mod_ID IN (
+        WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    bgs_candidates = cursor.fetchall()
-    for b_row in bgs_candidates:
-        b_mid = b_row[0]
-        b_cid = b_row[1]
+    candidates = cursor.fetchall()
+    for row in candidates:
+        mid, cid = row[0], row[1]
         for other_cid in cat_ids:
-            if other_cid != bgs_id:
-                ctx.log_result(cursor, b_mid, b_cid, other_cid, bgs_id, 2, "Zwingende System-Priorität: Offizielle Bethesda-Modifikation (BGS besitzt zwingenden Vorrang).")
+            if other_cid != cat_id:
+                ctx.log_result(cursor, mid, cid, other_cid, cat_id, 2, reason_text)
 
     cursor.execute(f"""
         UPDATE LoadOrder_Classifier_Matrix
-        SET "{bgs_id}" = {ctx.curr_level}
-        WHERE "{bgs_id}" = {ctx.prev_level} AND Mod_ID IN (
+        SET "{cat_id}" = {ctx.curr_level}
+        WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
             SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
         )
     """)
-    ctx.lift_uncollided(cursor, cat_ids, ", ".join([f'"{c}"' for c in cat_ids]))
+    ctx.lift_uncollided(cursor)
+
+
+def _step_bgs(cursor, cat_map, cat_ids, ctx):
+    _step_system_priority(cursor, cat_map, cat_ids, ctx, 'BGS', "Zwingende System-Priorität: Offizielle Bethesda-Modifikation (BGS besitzt zwingenden Vorrang).")
 
 
 def _step_bugfix(cursor, cat_map, cat_ids, ctx):
-    bugfix_id = cat_map.get('Bugfix') or 2
-
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID 
-        FROM LoadOrder_Classifier_Matrix
-        WHERE "{bugfix_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    bugfix_candidates = cursor.fetchall()
-    for b_row in bugfix_candidates:
-        b_mid = b_row[0]
-        b_cid = b_row[1]
-        for other_cid in cat_ids:
-            if other_cid != bugfix_id:
-                ctx.log_result(cursor, b_mid, b_cid, other_cid, bugfix_id, 2, "Zwingende System-Priorität: Reiner Bugfix-Patch (hohe Override-Quote und Bereichsdiversität).")
-
-    cursor.execute(f"""
-        UPDATE LoadOrder_Classifier_Matrix
-        SET "{bugfix_id}" = {ctx.curr_level}
-        WHERE "{bugfix_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    ctx.lift_uncollided(cursor, cat_ids, ", ".join([f'"{c}"' for c in cat_ids]))
+    _step_system_priority(cursor, cat_map, cat_ids, ctx, 'Bugfix', "Zwingende System-Priorität: Reiner Bugfix-Patch (hohe Override-Quote und Bereichsdiversität).")
 
 
 def _step_overhaul(cursor, cat_map, cat_ids, ctx):
-    overhaul_id = cat_map.get('Overhaul') or 3
-
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID 
-        FROM LoadOrder_Classifier_Matrix
-        WHERE "{overhaul_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    overhaul_candidates = cursor.fetchall()
-    for o_row in overhaul_candidates:
-        o_mid = o_row[0]
-        o_cid = o_row[1]
-        for other_cid in cat_ids:
-            if other_cid != overhaul_id:
-                ctx.log_result(cursor, o_mid, o_cid, other_cid, overhaul_id, 2, "Zwingende System-Priorität: Umfassendes Total Overhaul über mehrere Kernbereiche der Spielbasis.")
-
-    cursor.execute(f"""
-        UPDATE LoadOrder_Classifier_Matrix
-        SET "{overhaul_id}" = {ctx.curr_level}
-        WHERE "{overhaul_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    ctx.lift_uncollided(cursor, cat_ids, ", ".join([f'"{c}"' for c in cat_ids]))
+    _step_system_priority(cursor, cat_map, cat_ids, ctx, 'Overhaul', "Zwingende System-Priorität: Umfassendes Total Overhaul über mehrere Kernbereiche der Spielbasis.")
 
 
 def _step_quest(cursor, cat_map, cat_ids, ctx):
-    quest_id = cat_map.get('Quest') or 4
+    _step_system_priority(cursor, cat_map, cat_ids, ctx, 'Quest', "Zwingende System-Priorität: Echte Quest-Struktur und Missionssteuerung (QUST) deklariert.")
 
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID 
-        FROM LoadOrder_Classifier_Matrix
-        WHERE "{quest_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    quest_candidates = cursor.fetchall()
-    for q_row in quest_candidates:
-        q_mid = q_row[0]
-        q_cid = q_row[1]
-        for other_cid in cat_ids:
-            if other_cid != quest_id:
-                ctx.log_result(cursor, q_mid, q_cid, other_cid, quest_id, 2, "Zwingende System-Priorität: Echte Quest-Struktur und Missionssteuerung (QUST) deklariert.")
-
-    cursor.execute(f"""
-        UPDATE LoadOrder_Classifier_Matrix
-        SET "{quest_id}" = {ctx.curr_level}
-        WHERE "{quest_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    ctx.lift_uncollided(cursor, cat_ids, ", ".join([f'"{c}"' for c in cat_ids]))
 
 
 def _step_world_cascade(cursor, cat_map, cat_ids, ctx):
@@ -2109,17 +2103,9 @@ def _step_world_cascade(cursor, cat_map, cat_ids, ctx):
     env_id = cat_map.get('Umgebung')
 
     cell_cat_ids = [cid for cid in [poi_id, city_id, playerhome_id, building_id, outpost_id, env_id] if cid is not None]
-    non_cell_ids = [cid for cid in cat_ids if cid not in cell_cat_ids]
+    non_cell_ids = ctx.get_non_duel_ids(cell_cat_ids)
 
-    col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
-    cursor.execute(f"""
-        SELECT Mod_ID, Component_ID, {col_select}
-        FROM LoadOrder_Classifier_Matrix
-        WHERE Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows = [dict(r) for r in cursor.fetchall()]
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
     for urow in unresolved_rows:
         mid = urow['Mod_ID']
@@ -2141,16 +2127,16 @@ def _step_world_cascade(cursor, cat_map, cat_ids, ctx):
             selected_cat = env_id
 
         if selected_cat is not None:
-            selected_name = [name for name, c_id in cat_map.items() if c_id == selected_cat][0]
+            selected_name = ctx.get_cat_name(selected_cat)
             # Protokolliere alle anderen Welt-Kandidaten, die aktiv waren und ausgestochen wurden
             for other_w_id in cell_cat_ids:
                 if other_w_id != selected_cat and (urow.get(str(other_w_id)) or 0) == ctx.prev_level:
-                    other_w_name = [name for name, c_id in cat_map.items() if c_id == other_w_id][0]
+                    other_w_name = ctx.get_cat_name(other_w_id)
                     ctx.log_result(cursor, mid, cid, other_w_id, selected_cat, 3, f"Kaskadierende Welt-Priorisierung: '{selected_name}' sticht '{other_w_name}' per LLO-Kaskade aus.")
 
             ctx.promote_winner(cursor, mid, cid, selected_cat, non_cell_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_objects(cursor, cat_map, cat_ids, ctx):
@@ -2165,43 +2151,16 @@ def _step_objects(cursor, cat_map, cat_ids, ctx):
         ("Skins", "dim_calc_outer_Skins"),
     ]
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
-    non_obj_ids = [cid for cid in cat_ids if cid not in obj_cat_ids]
+    non_obj_ids = ctx.get_non_duel_ids(obj_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_5 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_5:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Ermittle aktive Objekt-Kategorien auf Stufe prev_level
-        active_obj_scores = {}
-        for cname, dim_col in object_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == ctx.prev_level:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_obj_scores[cname] = score
+        active_obj_scores = ctx.get_active_scores(urow, object_cat_tuples)
 
         if active_obj_scores:
             # 2. Harte KO-Kriterien anwenden (LLO-Hierarchie)
@@ -2244,11 +2203,10 @@ def _step_objects(cursor, cat_map, cat_ids, ctx):
 
                 ctx.promote_winner(cursor, mid, cid, winner_cid, non_obj_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_sensory(cursor, cat_map, cat_ids, ctx):
-
     # Die 4 Sensorik-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     sensor_cat_tuples = [
         ("Licht", "dim_calc_outer_Licht"),
@@ -2257,45 +2215,16 @@ def _step_sensory(cursor, cat_map, cat_ids, ctx):
         ("Sound", "dim_calc_outer_Sound"),
     ]
     sensor_cat_ids = [cat_map[name] for name, _ in sensor_cat_tuples if name in cat_map]
-    non_sensor_ids = [cid for cid in cat_ids if cid not in sensor_cat_ids]
+    non_sensor_ids = ctx.get_non_duel_ids(sensor_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_6 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_6:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Ermittle aktive Sensorik-Kategorien auf Stufe prev_level
-        active_sensor_scores = {}
-        for cname, dim_col in sensor_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == ctx.prev_level:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_sensor_scores[cname] = score
+        active_sensor_scores = ctx.get_active_scores(urow, sensor_cat_tuples)
 
         if active_sensor_scores:
             # 2. KO-Kriterien anwenden (LLO-Kaskade)
@@ -2330,68 +2259,30 @@ def _step_sensory(cursor, cat_map, cat_ids, ctx):
 
                 ctx.promote_winner(cursor, mid, cid, winner_cid, non_sensor_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_actors(cursor, cat_map, cat_ids, ctx):
     """
     Schritt 10: Gewinner Gruppe Akteure.
     Akteure: 'Begleiter', 'Kreaturen', 'NPCs'
-    
-    1. Bereinigung von Kreaturen ohne echte Monster/Alien-Akteure:
-       - Wenn NPC__KYWD_Creature == 0, scheidet Kreaturen per Architektur-KO (Typ 3) gegen
-         menschliche NPCs oder Begleiter aus (RACE dient nicht als Monster-Akteur).
-    2. LLO-Kaskade bei echten Spezialisten:
-       - Begleiter (NPC__KYWD_Companion > 0) stechen allgemeine NPCs per KI-Architektur (Typ 3) aus.
-       - Echte Kreaturen (NPC__KYWD_Creature > 0) stechen allgemeine NPCs per KI-Architektur (Typ 3) aus.
-    3. Massevergleich unter verbleibenden Kandidaten (z. B. Begleiter vs. echte Kreaturen).
     """
-    # Die 3 Akteurs-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     actor_cat_tuples = [
         ("Begleiter", "dim_calc_outer_Begleiter"),
         ("Kreaturen", "dim_calc_outer_Kreaturen"),
         ("NPCs", "dim_calc_outer_NPCs"),
     ]
     actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_actor_ids = [cid for cid in cat_ids if cid not in actor_cat_ids]
+    non_actor_ids = ctx.get_non_duel_ids(actor_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_7 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_7:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Ermittle aktive Akteurs-Kategorien auf Stufe prev_level
-        active_actor_scores = {}
-        for cname, dim_col in actor_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == ctx.prev_level:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_actor_scores[cname] = score
+        active_actor_scores = ctx.get_active_scores(urow, actor_cat_tuples)
 
         if active_actor_scores:
             npc_creature = urow.get('NPC__KYWD_Creature') or 0
@@ -2433,11 +2324,10 @@ def _step_actors(cursor, cat_map, cat_ids, ctx):
 
                 ctx.promote_winner(cursor, mid, cid, winner_cid, non_actor_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_systems(cursor, cat_map, cat_ids, ctx):
-
     # Die 4 System-/QoL-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     sys_cat_tuples = [
         ("Gameplay", "dim_calc_outer_Gameplay"),
@@ -2446,50 +2336,19 @@ def _step_systems(cursor, cat_map, cat_ids, ctx):
         ("Tweaks", "dim_calc_outer_Tweaks"),
     ]
     sys_cat_ids = [cat_map[name] for name, _ in sys_cat_tuples if name in cat_map]
-    non_sys_ids = [cid for cid in cat_ids if cid not in sys_cat_ids]
+    non_sys_ids = ctx.get_non_duel_ids(sys_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_8 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_8:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Ermittle aktive System-/QoL-Kategorien auf Stufe prev_level
-        active_sys_scores = {}
-        for cname, dim_col in sys_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == ctx.prev_level:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_sys_scores[cname] = score
+        active_sys_scores = ctx.get_active_scores(urow, sys_cat_tuples)
 
         if active_sys_scores:
             # 2. KO-Kriterien anwenden:
-            # Sobald Gameplay (Zauber/Perks), Sortierung (INNR/Namens-Overrides) oder Interface (UI-Dateien)
-            # aktiv sind, scheidet Tweaks per KO aus
             winner_sys_name = None
             for check_name in ["Gameplay", "Sortierung", "Interface"]:
                 if check_name in active_sys_scores and active_sys_scores[check_name] > 0:
@@ -2515,56 +2374,26 @@ def _step_systems(cursor, cat_map, cat_ids, ctx):
 
                 ctx.promote_winner(cursor, mid, cid, winner_cid, non_sys_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport(cursor, cat_map, cat_ids, ctx):
-
     # Die 2 Transport-Kategorien mit ihren Massen-Kennzahlen (dim_calc_outer_*)
     trans_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
     ]
     trans_cat_ids = [cat_map[name] for name, _ in trans_cat_tuples if name in cat_map]
-    non_trans_ids = [cid for cid in cat_ids if cid not in trans_cat_ids]
+    non_trans_ids = ctx.get_non_duel_ids(trans_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_9 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_9:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # 1. Ermittle aktive Transport-Kategorien auf Stufe prev_level
-        active_trans_scores = {}
-        for cname, dim_col in trans_cat_tuples:
-            cid_val = cat_map.get(cname)
-            if cid_val is not None:
-                val = mat_row.get(str(cid_val)) or 0
-                if val == ctx.prev_level:
-                    score = urow.get(dim_col) or 0
-                    if score > 0:
-                        active_trans_scores[cname] = score
+        active_trans_scores = ctx.get_active_scores(urow, trans_cat_tuples)
 
         if active_trans_scores:
             # 2. Gewinner nach Masse ermitteln (Schiffe vs. Fahrzeuge)
@@ -2579,58 +2408,30 @@ def _step_transport(cursor, cat_map, cat_ids, ctx):
 
             ctx.promote_winner(cursor, mid, cid, winner_cid, non_trans_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_remover(cursor, cat_map, cat_ids, ctx):
-
     remove_id = cat_map.get('Remove') or cat_map.get('Remover') or 28
     world_cat_ids = [cat_map[n] for n in ["POIs", "Städte", "Spielerheime", "Gebäude", "Außenposten", "Umgebung"] if n in cat_map]
     content_cat_ids = [cid for cid in cat_ids if cid != remove_id and cid not in world_cat_ids]
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_10 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_10:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # Prüfe, ob Remover auf Stufe prev_level aktiv ist
-        remove_val = mat_row.get(str(remove_id)) or 0
+        remove_val = urow.get(str(remove_id)) or 0
         remove_score = urow.get('dim_calc_outer_Remove') or 0
 
         if remove_val == ctx.prev_level and remove_score > 0:
             # 1. Prüfe, ob andere Inhalts-Kandidaten auf Stufe prev_level aktiv sind
-            active_content_cids = [
-                c for c in content_cat_ids 
-                if (mat_row.get(str(c)) or 0) == ctx.prev_level
-            ]
+            active_content_cids = ctx.get_active_list(urow, content_cat_ids)
 
             # 2. Prüfe, ob Welt-Kandidaten auf Stufe prev_level aktiv sind
-            active_world_cids = [
-                c for c in world_cat_ids 
-                if (mat_row.get(str(c)) or 0) == ctx.prev_level
-            ]
+            active_world_cids = ctx.get_active_list(urow, world_cat_ids)
 
             # Prüfe, ob echte neue Strukturen deklariert wurden (STAT - STAT_Override, FURN - FURN_Override, PKIN)
             stat = urow.get('STAT') or 0
@@ -2646,7 +2447,7 @@ def _step_remover(cursor, cat_map, cat_ids, ctx):
             if active_content_cids:
                 # Inhalts-Kandidaten schlagen Remover per KO (Remover scheidet aus)
                 primary_w_id = active_content_cids[0]
-                primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                primary_w_name = ctx.get_cat_name(primary_w_id)
                 ctx.log_result(cursor, mid, cid, remove_id, primary_w_id, 3, f"Inhalts-Definitionen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) per Architektur aus.")
                 for c in active_content_cids:
                     set_clauses.append(f'"{c}" = {ctx.curr_level}')
@@ -2656,14 +2457,14 @@ def _step_remover(cursor, cat_map, cat_ids, ctx):
                 if has_new_structures:
                     # Welt-Mod gewinnt per KO (Löschung diente nur dem Bauplatz für neue Strukturen)
                     primary_w_id = active_world_cids[0]
-                    primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                    primary_w_name = ctx.get_cat_name(primary_w_id)
                     ctx.log_result(cursor, mid, cid, remove_id, primary_w_id, 3, f"Echte Neubauten/Strukturen ('{primary_w_name}') stechen Deaktivierungs-Operationen (Remove) aus (Löschung diente als Bauplatz).")
                     for c in active_world_cids:
                         set_clauses.append(f'"{c}" = {ctx.curr_level}')
                 else:
                     # Reiner Remover gewinnt (keine neuen Strukturen, reine Deaktivierungen)
                     for w_cid in active_world_cids:
-                        w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                        w_name = ctx.get_cat_name(w_cid)
                         ctx.log_result(cursor, mid, cid, w_cid, remove_id, 3, f"Reine Deaktivierungs-Operation (Remove) sticht '{w_name}' aus (keine neuen Strukturen deklariert).")
                     set_clauses.append(f'"{remove_id}" = {ctx.curr_level}')
             else:
@@ -2678,11 +2479,10 @@ def _step_remover(cursor, cat_map, cat_ids, ctx):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
-
     sensor_cat_ids = [cat_map[n] for n in ["Licht", "Effekte", "Texturen", "Sound"] if n in cat_map]
     passive_sensor_ids = [cat_map[n] for n in ["Texturen", "Sound"] if n in cat_map]
     active_render_ids = [cat_map[n] for n in ["Licht", "Effekte"] if n in cat_map]
@@ -2697,36 +2497,15 @@ def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
     primary_content_ids = object_cat_ids + actor_cat_ids + transport_cat_ids + system_cat_ids + char_cat_ids
     non_sensor_ids = primary_content_ids + world_cat_ids
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_11 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_11:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
-
         # Prüfe aktive Kandidaten auf Stufe prev_level
-        active_sensors = [c for c in sensor_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_non_sensors = [c for c in non_sensor_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
+        active_sensors = ctx.get_active_list(urow, sensor_cat_ids)
+        active_non_sensors = ctx.get_active_list(urow, non_sensor_ids)
 
         if active_sensors and active_non_sensors:
             # Sensorik trifft auf Inhalt
@@ -2751,18 +2530,18 @@ def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
             if has_active_render and not has_passive_sensor and not has_primary_content and active_worlds and not has_new_structures:
                 # Reines Licht/Effekt-Overhaul ohne neue Strukturen in bestehenden Welt-Zellen (z.B. ELFX) -> Licht gewinnt!
                 winner_s_id = active_sensors[0]
-                winner_s_name = [name for name, c_id in cat_map.items() if c_id == winner_s_id][0]
+                winner_s_name = ctx.get_cat_name(winner_s_id)
                 for w_cid in active_worlds:
-                    w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+                    w_name = ctx.get_cat_name(w_cid)
                     ctx.log_result(cursor, mid, cid, w_cid, winner_s_id, 3, f"Reines Beleuchtungs-/Shader-Overhaul ('{winner_s_name}') sticht '{w_name}' ohne Neubauten per Render-Architektur aus.")
                 for scid in active_sensors:
                     set_clauses.append(f'"{scid}" = {ctx.curr_level}')
             else:
                 # In allen anderen Fällen schlägt Inhalt die Sensorik (Texturen/Sound verlieren immer; Licht/Effekte verlieren bei Objekten/Neubauten)
                 primary_w_id = active_non_sensors[0]
-                primary_w_name = [name for name, c_id in cat_map.items() if c_id == primary_w_id][0]
+                primary_w_name = ctx.get_cat_name(primary_w_id)
                 for scid in active_sensors:
-                    s_name = [name for name, c_id in cat_map.items() if c_id == scid][0]
+                    s_name = ctx.get_cat_name(scid)
                     ctx.log_result(cursor, mid, cid, scid, primary_w_id, 3, f"Inhalts-Trägerobjekte / Weltbauten ('{primary_w_name}') stechen passive Medien/Beleuchtung ('{s_name}') per Architektur aus.")
                 for ncid in active_non_sensors:
                     set_clauses.append(f'"{ncid}" = {ctx.curr_level}')
@@ -2775,11 +2554,10 @@ def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport_vs_objects(cursor, cat_map, cat_ids, ctx):
-
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
@@ -2796,45 +2574,20 @@ def _step_transport_vs_objects(cursor, cat_map, cat_ids, ctx):
 
     trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
-    non_duel_ids_21 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in obj_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(trans_cat_ids, obj_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_21 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_21:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        t_cid = ctx.get_active(urow, trans_cat_ids)
+        o_cid = ctx.get_active(urow, obj_cat_ids)
 
-        # 1. Ermittle aktive Transport- und Objekt-Kandidaten auf Stufe prev_level
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_trans_cids and active_obj_cids:
-            t_cid = active_trans_cids[0]
-            o_cid = active_obj_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
+        if t_cid and o_cid:
+            t_name = ctx.get_cat_name(t_cid)
+            o_name = ctx.get_cat_name(o_cid)
 
             val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
@@ -2882,13 +2635,12 @@ def _step_transport_vs_objects(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, t_cid, o_cid, 4, f"Massevergleich {o_name} vs. Transport: '{o_name}' ({val_o:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_21)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport_vs_character(cursor, cat_map, cat_ids, ctx):
-
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
@@ -2899,43 +2651,19 @@ def _step_transport_vs_character(cursor, cat_map, cat_ids, ctx):
 
     trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
-    non_duel_ids_22 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in char_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(trans_cat_ids, char_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_22 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_22:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        t_cid = ctx.get_active(urow, trans_cat_ids)
+        c_cid = ctx.get_active(urow, char_cat_ids)
 
-        # 1. Ermittle aktive Transport- und Charakter-Kandidaten auf Stufe prev_level
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_trans_cids and active_char_cids:
-            t_cid = active_trans_cids[0]
-            c_cid = active_char_cids[0]
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
+        if t_cid and c_cid:
+            t_name = ctx.get_cat_name(t_cid)
 
             cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
             stbh = urow.get('STBH') or 0
@@ -2951,13 +2679,12 @@ def _step_transport_vs_character(cursor, cat_map, cat_ids, ctx):
                 winner_cid = c_cid
                 ctx.log_result(cursor, mid, cid, t_cid, c_cid, 3, "Charakter-Styling sticht reine Vanilla-Zellenübersteuerungen ohne Schiffsbaukomponenten per Architektur aus.")
 
-            ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_22)
+            ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport_vs_systems(cursor, cat_map, cat_ids, ctx):
-
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
@@ -2971,45 +2698,20 @@ def _step_transport_vs_systems(cursor, cat_map, cat_ids, ctx):
 
     trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_23 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in sys_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(trans_cat_ids, sys_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_23 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_23:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        t_cid = ctx.get_active(urow, trans_cat_ids)
+        s_cid = ctx.get_active(urow, sys_cat_ids)
 
-        # 1. Ermittle aktive Transport- und Systeme-Kandidaten auf Stufe prev_level
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_trans_cids and active_sys_cids:
-            t_cid = active_trans_cids[0]
-            s_cid = active_sys_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+        if t_cid and s_cid:
+            t_name = ctx.get_cat_name(t_cid)
+            s_name = ctx.get_cat_name(s_cid)
 
             val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
             val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
@@ -3046,13 +2748,12 @@ def _step_transport_vs_systems(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, t_cid, s_cid, 4, f"Massevergleich {s_name} vs. Transport: '{s_name}' ({val_s:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_23)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport_vs_actors(cursor, cat_map, cat_ids, ctx):
-
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
@@ -3065,45 +2766,20 @@ def _step_transport_vs_actors(cursor, cat_map, cat_ids, ctx):
 
     trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     actor_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_duel_ids_24 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in actor_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(trans_cat_ids, actor_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_24 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_24:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        t_cid = ctx.get_active(urow, trans_cat_ids)
+        a_cid = ctx.get_active(urow, actor_cat_ids)
 
-        # 1. Ermittle aktive Transport- und Akteure-Kandidaten auf Stufe prev_level
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_actor_cids = [c for c in actor_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_trans_cids and active_actor_cids:
-            t_cid = active_trans_cids[0]
-            a_cid = active_actor_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            a_name = [name for name, c_id in cat_map.items() if c_id == a_cid][0]
+        if t_cid and a_cid:
+            t_name = ctx.get_cat_name(t_cid)
+            a_name = ctx.get_cat_name(a_cid)
 
             val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
 
@@ -3168,13 +2844,12 @@ def _step_transport_vs_actors(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, a_cid, t_cid, 4, f"Massevergleich: Schiffskomponenten ({val_t:.1f}) überwiegen gegenüber {a_name}.")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_24)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
-
     transport_cat_tuples = [
         ("Schiffe", "dim_calc_outer_Schiffe"),
         ("Fahrzeuge", "dim_calc_outer_Fahrzeuge"),
@@ -3190,45 +2865,20 @@ def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
 
     trans_cat_ids = [cat_map[name] for name, _ in transport_cat_tuples if name in cat_map]
     world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_25 = [cid for cid in cat_ids if cid not in trans_cat_ids and cid not in world_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(trans_cat_ids, world_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_25 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_25:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        t_cid = ctx.get_active(urow, trans_cat_ids)
+        w_cid = ctx.get_active(urow, world_cat_ids)
 
-        # 1. Ermittle aktive Transport- und Welt-Kandidaten auf Stufe prev_level
-        active_trans_cids = [c for c in trans_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_trans_cids and active_world_cids:
-            t_cid = active_trans_cids[0]
-            w_cid = active_world_cids[0]
-
-            t_name = [name for name, c_id in cat_map.items() if c_id == t_cid][0]
-            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+        if t_cid and w_cid:
+            t_name = ctx.get_cat_name(t_cid)
+            w_name = ctx.get_cat_name(w_cid)
 
             val_t = urow.get(f'dim_calc_outer_{t_name}') or 0
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
@@ -3333,13 +2983,12 @@ def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, t_cid, w_cid, 4, f"Massevergleich {w_name} vs. Transport: '{w_name}' ({val_w:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_25)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_objects_vs_character(cursor, cat_map, cat_ids, ctx):
-
     object_cat_tuples = [
         ("Waffen", "dim_calc_outer_Waffen"),
         ("Kleidung", "dim_calc_outer_Kleidung"),
@@ -3355,45 +3004,20 @@ def _step_objects_vs_character(cursor, cat_map, cat_ids, ctx):
 
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
-    non_duel_ids_31 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in char_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(obj_cat_ids, char_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_31 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_31:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        o_cid = ctx.get_active(urow, obj_cat_ids)
+        c_cid = ctx.get_active(urow, char_cat_ids)
 
-        # 1. Ermittle aktive Objekt- und Charakter-Kandidaten auf Stufe prev_level
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_obj_cids and active_char_cids:
-            o_cid = active_obj_cids[0]
-            c_cid = active_char_cids[0]
-
-            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
-            c_name = [name for name, c_id in cat_map.items() if c_id == c_cid][0]
+        if o_cid and c_cid:
+            o_name = ctx.get_cat_name(o_cid)
+            c_name = ctx.get_cat_name(c_cid)
 
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
             val_c = urow.get(f'dim_calc_outer_{c_name}') or 0
@@ -3409,16 +3033,8 @@ def _step_objects_vs_character(cursor, cat_map, cat_ids, ctx):
 
             # 1. Duell: Waffen vs. Charakter (KO für echte Handfeuerwaffen)
             if o_name == 'Waffen':
-                if netto_weap > 0 or val_o > 0:
-                    winner_cid = o_cid
-                    ctx.log_result(cursor, mid, cid, c_cid, o_cid, 3, "Handfeuerwaffen und Kampfausrüstung ('Waffen') besitzen funktionale Priorität vor Charakter-Styling und Rassen-Gerüsten.")
-                else:
-                    if val_o >= (3 * val_c):
-                        winner_cid = o_cid
-                        ctx.log_result(cursor, mid, cid, c_cid, o_cid, 4, f"Massevergleich Waffen vs. Charakter: 'Waffen' ({val_o:.1f}) übertrifft 'Charakter' ({val_c:.1f}) um mindestens das 3-Fache.")
-                    else:
-                        winner_cid = c_cid
-                        ctx.log_result(cursor, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. Waffen: 'Charakter' ({val_c:.1f}) behauptet sich gegen 'Waffen' ({val_o:.1f}) bei 3-facher Gewichtung.")
+                winner_cid = o_cid
+                ctx.log_result(cursor, mid, cid, c_cid, o_cid, 3, "Handfeuerwaffen und Kampfausrüstung ('Waffen') besitzen funktionale Priorität vor Charakter-Styling und Rassen-Gerüsten.")
 
             # 2. Duell: Skins vs. Charakter (KO für Charakter)
             elif o_name == 'Skins':
@@ -3453,13 +3069,12 @@ def _step_objects_vs_character(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, o_cid, c_cid, 4, f"Massevergleich Charakter vs. {o_name}: 'Charakter' ({val_c:.1f}) behauptet sich gegen '{o_name}' ({val_o:.1f}) bei 3-facher Gewichtung.")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_31)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_objects_vs_systems(cursor, cat_map, cat_ids, ctx):
-
     object_cat_tuples = [
         ("Waffen", "dim_calc_outer_Waffen"),
         ("Kleidung", "dim_calc_outer_Kleidung"),
@@ -3478,45 +3093,20 @@ def _step_objects_vs_systems(cursor, cat_map, cat_ids, ctx):
 
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_32 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in sys_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(obj_cat_ids, sys_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_32 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_32:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        o_cid = ctx.get_active(urow, obj_cat_ids)
+        s_cid = ctx.get_active(urow, sys_cat_ids)
 
-        # 1. Ermittle aktive Objekt- und Systeme-Kandidaten auf Stufe prev_level
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_obj_cids and active_sys_cids:
-            o_cid = active_obj_cids[0]
-            s_cid = active_sys_cids[0]
-
-            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
-            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+        if o_cid and s_cid:
+            o_name = ctx.get_cat_name(o_cid)
+            s_name = ctx.get_cat_name(s_cid)
 
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
             val_s = urow.get(f'dim_calc_outer_{s_name}') or 0
@@ -3628,12 +3218,9 @@ def _step_objects_vs_systems(cursor, cat_map, cat_ids, ctx):
                     if val_s >= (3 * val_o):
                         winner_cid = s_cid
                         ctx.log_result(cursor, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: Dominantes Gameplay-System ('Gameplay': {val_s:.1f}) übertrifft Beigabe-Waffen ('Waffen': {val_o:.1f} x 3 = {3*val_o:.1f}).")
-                    elif netto_weap > 0 or val_o > 0:
+                    else:
                         winner_cid = o_cid
                         ctx.log_result(cursor, mid, cid, s_cid, o_cid, 3, "Eigenständige Handfeuerwaffen ('Waffen') besitzen Vorrang vor Gameplay-Zusatzmechaniken (LLO-Slot-Sicherheit).")
-                    else:
-                        winner_cid = s_cid
-                        ctx.log_result(cursor, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Waffen: 'Gameplay' ({val_s:.1f}) übertrifft 'Waffen' ({val_o:.1f}).")
 
                 elif o_name == 'Kleidung':
                     if val_s >= (3 * val_o):
@@ -3663,9 +3250,9 @@ def _step_objects_vs_systems(cursor, cat_map, cat_ids, ctx):
                         ctx.log_result(cursor, mid, cid, o_cid, s_cid, 4, f"Massevergleich Gameplay vs. Pflanzen: Gameplay-Mechaniken ('Gameplay': {val_s:.1f}) übertreffen Flora-Objekte ('Pflanzen': {val_o:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_32)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
@@ -3673,12 +3260,7 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
     Duell-Entscheidungen zwischen Objekt-Kategorien und Akteur-Kategorien.
     Akteure: 'NPCs', 'Begleiter', 'Kreaturen'
     Objekte: 'Waffen', 'Kleidung', 'Crafting', 'Einrichtung', 'Items', 'Skins', 'Pflanzen'
-    
-    Nutzt den binären Zähler NPC__Dummy zur sicheren Unterscheidung echter Akteure
-    von leblosen Schaufensterpuppen, Terminal-Händlern und Steuerungs-Dummies.
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     object_cat_tuples = [
         ("Waffen", "dim_calc_outer_Waffen"),
         ("Kleidung", "dim_calc_outer_Kleidung"),
@@ -3696,45 +3278,20 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
 
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_duel_ids_33 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in act_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(obj_cat_ids, act_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_33 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_33:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        o_cid = ctx.get_active(urow, obj_cat_ids)
+        a_cid = ctx.get_active(urow, act_cat_ids)
 
-        # 1. Ermittle aktive Objekt- und Akteur-Kandidaten auf Stufe prev_level
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_obj_cids and active_act_cids:
-            o_cid = active_obj_cids[0]
-            a_cid = active_act_cids[0]
-
-            o_name = id_to_name.get(o_cid, "")
-            a_name = id_to_name.get(a_cid, "")
+        if o_cid and a_cid:
+            o_name = ctx.get_cat_name(o_cid)
+            a_name = ctx.get_cat_name(a_cid)
 
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
             val_a = urow.get(f'dim_calc_outer_{a_name}') or 0
@@ -3742,7 +3299,6 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
             # Spezifische Kennzahlen
             npc_total = urow.get('NPC_') or 0
             npc_dummy = urow.get('NPC__Dummy') or 0
-            npc_override = urow.get('NPC__Override') or 0
             comp = urow.get('NPC__KYWD_Companion') or 0
             creat = urow.get('NPC__KYWD_Creature') or 0
 
@@ -3750,7 +3306,6 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
             weap = urow.get('WEAP') or 0
             cobj = urow.get('COBJ') or 0
             furn = urow.get('FURN') or 0
-            misc = urow.get('MISC') or 0
 
             # Bereinigte echte NPCs (unter Ausschluss von Dummies, Begleitern und Kreaturen)
             real_npcs = max(0, npc_total - npc_dummy - comp - creat)
@@ -3772,8 +3327,8 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
 
             # --- BLOCK B: NPCS (HUMANOIDEN) VS. OBJEKTE ---
             elif a_name == 'NPCs':
+                # Absicherung: Reiner Dummy-Ausschluss (falls nicht bereits in Schritt 2 abgehandelt)
                 if real_npcs == 0:
-                    # 100% aller NPCs sind Schaufensterpuppen / Terminal-Dummies
                     winner_cid = o_cid
                     ctx.log_result(cursor, mid, cid, a_cid, o_cid, 3, f"Alle {npc_total} NPC-Einträge sind leblos identifizierte Schaufensterpuppen oder Terminal-Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Akteure vorhanden. '{o_name}' siegt per Architektur-KO.")
                 elif (armo > 0 or weap > 0 or cobj > 0 or furn > 0) and (armo + weap + cobj + furn) >= (3 * real_npcs):
@@ -3790,6 +3345,7 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
 
             # --- BLOCK C: KREATUREN VS. OBJEKTE ---
             elif a_name == 'Kreaturen':
+                # Absicherung: Reiner Dummy-Ausschluss (falls nicht bereits in Schritt 2 abgehandelt)
                 if creat == 0 and real_npcs == 0:
                     winner_cid = o_cid
                     ctx.log_result(cursor, mid, cid, a_cid, o_cid, 3, f"Keine echten Kreaturen vorhanden ('NPC__Dummy': {npc_dummy}); '{o_name}' siegt per Architektur-KO.")
@@ -3805,9 +3361,9 @@ def _step_objects_vs_actors(cursor, cat_map, cat_ids, ctx):
                         ctx.log_result(cursor, mid, cid, a_cid, o_cid, 4, f"Massevergleich {o_name} vs. Kreaturen: '{o_name}' ({val_o:.1f}) übertrifft 'Kreaturen' ({val_a:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_33)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
@@ -3815,9 +3371,6 @@ def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
     Duell-Entscheidungen zwischen Objekt-Kategorien und Welt-Kategorien.
     Objekte: 'Waffen', 'Kleidung', 'Crafting', 'Einrichtung', 'Items', 'Skins', 'Pflanzen'
     Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
-    
-    Nutzt calc_Helper_Objects_Ratio und bauliche Kennzahlen (new_stat, wrld, navm),
-    um reine Item-Übergabekisten/Werkbänke in bestehenden Zellen von echten Raumbauten zu trennen.
     """
     object_cat_tuples = [
         ("Waffen", "dim_calc_outer_Waffen"),
@@ -3839,50 +3392,24 @@ def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
 
     obj_cat_ids = [cat_map[name] for name, _ in object_cat_tuples if name in cat_map]
     world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_34 = [cid for cid in cat_ids if cid not in obj_cat_ids and cid not in world_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(obj_cat_ids, world_cat_ids)
 
-    # Lade unklassifizierte Mods mit ihren View-Referenzen
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_34 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_34:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        # Hole Matrix-Zeile für diesen Mod
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        o_cid = ctx.get_active(urow, obj_cat_ids)
+        w_cid = ctx.get_active(urow, world_cat_ids)
 
-        # 1. Ermittle aktive Objekt- und Welt-Kandidaten auf Stufe prev_level
-        active_obj_cids = [c for c in obj_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_obj_cids and active_world_cids:
-            o_cid = active_obj_cids[0]
-            w_cid = active_world_cids[0]
-
-            o_name = [name for name, c_id in cat_map.items() if c_id == o_cid][0]
-            w_name = [name for name, c_id in cat_map.items() if c_id == w_cid][0]
+        if o_cid and w_cid:
+            o_name = ctx.get_cat_name(o_cid)
+            w_name = ctx.get_cat_name(w_cid)
 
             val_o = urow.get(f'dim_calc_outer_{o_name}') or 0
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
 
-            # Relevante Kennzahlen
             helper_ratio = urow.get('calc_Helper_Objects_Ratio') or 0.0
             helpers = urow.get('calc_Helper_Objects') or 0
             refr = urow.get('REFR') or 0
@@ -3929,9 +3456,9 @@ def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, o_cid, w_cid, 3, f"Echter baulicher/landschaftlicher Raumeingriff ('{w_name}') besitzt Vorrang vor Beigabe-Objekten ('{o_name}').")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_34)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_character_vs_systems(cursor, cat_map, cat_ids, ctx):
@@ -3952,42 +3479,20 @@ def _step_character_vs_systems(cursor, cat_map, cat_ids, ctx):
 
     char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
     sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_24 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in sys_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(char_cat_ids, sys_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_24 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_24:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        c_cid = ctx.get_active(urow, char_cat_ids)
+        s_cid = ctx.get_active(urow, sys_cat_ids)
 
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_char_cids and active_sys_cids:
-            c_cid = active_char_cids[0]
-            s_cid = active_sys_cids[0]
-
-            c_name = [name for name, c_id in cat_map.items() if c_id == c_cid][0]
-            s_name = [name for name, c_id in cat_map.items() if c_id == s_cid][0]
+        if c_cid and s_cid:
+            c_name = ctx.get_cat_name(c_cid)
+            s_name = ctx.get_cat_name(s_cid)
 
             winner_cid = None
 
@@ -4002,9 +3507,9 @@ def _step_character_vs_systems(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, s_cid, c_cid, 3, f"Physische und visuelle Charakter-Morphologien ('{c_name}') besitzen Vorrang vor reinen Hilfssystemen ('{s_name}').")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_24)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
@@ -4012,22 +3517,7 @@ def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
     Schritt 25: Gruppenduell Charakter vs. Akteure.
     Charakter: 'Charakter'
     Akteure:   'Begleiter', 'NPCs', 'Kreaturen'
-    
-    1. Begleiter vs. Charakter:
-       - Reiner Architektur-KO (Typ 3): Begleiter gewinnt (Begleiter-KI und Logik besitzen Vorrang).
-    2. NPCs vs. Charakter:
-       - Massevergleich mit 3-fachem Faktor für Charakter (Typ 4):
-         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_NPCs -> Charakter gewinnt.
-         - Andernfalls -> NPCs gewinnt.
-    3. Kreaturen vs. Charakter:
-       - Keine Kreaturen-Akteure vorhanden (NPC__KYWD_Creature == 0):
-         -> Charakter gewinnt per Architektur-KO (Typ 3), da isolierter RACE-Datensatz rein als Spieler-Charaktergerüst dient.
-       - Echte Kreaturen-Akteure vorhanden (NPC__KYWD_Creature > 0):
-         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_Kreaturen -> Charakter gewinnt per Typ 4.
-         - Andernfalls -> Kreaturen gewinnt per Typ 3 (funktionale Spielwelt-Fauna vor Aussehen).
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     charakter_cat_tuples = [
         ("Charakter", "dim_calc_outer_Charakter"),
     ]
@@ -4039,42 +3529,20 @@ def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
 
     char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
     act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
-    non_duel_ids_25 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in act_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(char_cat_ids, act_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_25 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_25:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        c_cid = ctx.get_active(urow, char_cat_ids)
+        a_cid = ctx.get_active(urow, act_cat_ids)
 
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_char_cids and active_act_cids:
-            c_cid = active_char_cids[0]
-            a_cid = active_act_cids[0]
-
-            c_name = id_to_name.get(c_cid, "")
-            a_name = id_to_name.get(a_cid, "")
+        if c_cid and a_cid:
+            c_name = ctx.get_cat_name(c_cid)
+            a_name = ctx.get_cat_name(a_cid)
 
             val_c = urow.get(f'dim_calc_outer_{c_name}') or 0.0
             val_a = urow.get(f'dim_calc_outer_{a_name}') or 0.0
@@ -4110,9 +3578,9 @@ def _step_character_vs_actors(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, c_cid, a_cid, 3, f"Funktionale Spielwelt-Kreaturen und Alien-Fauna ('Kreaturen': {val_a:.1f}) besitzen funktionale Priorität vor Charakter-Styling.")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_25)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
@@ -4120,20 +3588,7 @@ def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
     Schritt 26: Gruppenduell Charakter vs. Welt.
     Charakter: 'Charakter'
     Welt:      'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
-    
-    1. Feste Welt- & Raumgeometrie (Reiner Architektur-KO / Typ 3 -> Welt gewinnt IMMER):
-       - Städte: Städtische Zellen, PreVis und Geometrie besitzen absolute Priorität (LLO Pos 06).
-       - Gebäude: Dungeons, Bauten und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07).
-       - Spielerheime: Bewohnbare Domizile und Ladezonen besitzen Priorität (LLO Pos 08).
-       - POIs: Dynamische Planeten-Generierungsblöcke besitzen Priorität (LLO Pos 11).
-       - Umgebung: Landschaft, Biome, Worldspaces und Wetter besitzen Priorität (LLO Pos 05).
-    2. Werkbank- & Workshop-Rezepte (Außenposten vs. Charakter):
-       - Massevergleich mit 3-fachem Faktor für Charakter (Typ 4):
-         - dim_calc_outer_Charakter >= 3 * dim_calc_outer_Außenposten -> Charakter gewinnt.
-         - Andernfalls -> Außenposten gewinnt.
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     charakter_cat_tuples = [
         ("Charakter", "dim_calc_outer_Charakter"),
     ]
@@ -4148,42 +3603,20 @@ def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
 
     char_cat_ids = [cat_map[name] for name, _ in charakter_cat_tuples if name in cat_map]
     world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_26 = [cid for cid in cat_ids if cid not in char_cat_ids and cid not in world_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(char_cat_ids, world_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_26 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_26:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        c_cid = ctx.get_active(urow, char_cat_ids)
+        w_cid = ctx.get_active(urow, world_cat_ids)
 
-        active_char_cids = [c for c in char_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_char_cids and active_world_cids:
-            c_cid = active_char_cids[0]
-            w_cid = active_world_cids[0]
-
-            c_name = id_to_name.get(c_cid, "")
-            w_name = id_to_name.get(w_cid, "")
+        if c_cid and w_cid:
+            c_name = ctx.get_cat_name(c_cid)
+            w_name = ctx.get_cat_name(w_cid)
 
             val_c = urow.get(f'dim_calc_outer_{c_name}') or 0.0
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
@@ -4221,9 +3654,9 @@ def _step_character_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, c_cid, w_cid, 4, f"Massevergleich Außenposten vs. Charakter: Modulare Außenposten-Strukturen ('Außenposten': {val_w:.1f}) behaupten sich gegen Charakter-Styling ('Charakter': {val_c:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_26)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
@@ -4231,16 +3664,7 @@ def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
     Schritt 27: Gruppenduell Akteure vs. Systeme.
     Akteure: 'Begleiter', 'NPCs', 'Kreaturen'
     Systeme: 'Gameplay', 'Sortierung', 'Interface', 'Tweaks'
-    
-    Entscheidungslogik: Reiner Architektur-K.O. (Typ 3)
-    Lebendige Spielwelt-Akteure mit Physis, KI-Paketen (PKID), Sprachausgabe und Platzierung 
-    in der Spielwelt (LLO Pos 14-16) besitzen fundamentale funktionale Priorität vor 
-    abstrakten Gameplay-Mechaniken (LLO Pos 13) und reinen Hilfssystemen. 
-    Mitgelieferte Zauber, Perks, Kampffähigkeiten oder Einstellungs-Globale dienen als 
-    Werkzeuge/Fähigkeiten der Akteure.
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     actor_cat_tuples = [
         ("Begleiter", "dim_calc_outer_Begleiter"),
         ("NPCs", "dim_calc_outer_NPCs"),
@@ -4255,46 +3679,23 @@ def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
 
     act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
     sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
-    non_duel_ids_27 = [cid for cid in cat_ids if cid not in act_cat_ids and cid not in sys_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(act_cat_ids, sys_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_27 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_27:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        a_cid = ctx.get_active(urow, act_cat_ids)
+        s_cid = ctx.get_active(urow, sys_cat_ids)
 
-        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_act_cids and active_sys_cids:
-            a_cid = active_act_cids[0]
-            s_cid = active_sys_cids[0]
-
-            a_name = id_to_name.get(a_cid, "")
-            s_name = id_to_name.get(s_cid, "")
+        if a_cid and s_cid:
+            a_name = ctx.get_cat_name(a_cid)
+            s_name = ctx.get_cat_name(s_cid)
 
             winner_cid = a_cid
 
-            # Spezifische, verständliche Begründungstexte für die Transparenz-Protokollierung
             if s_name == 'Gameplay':
                 if a_name == 'Begleiter':
                     ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, "Begleiter-Logik, KI und Dialoge besitzen funktionale Ladeordnungs-Priorität (LLO Pos 15) vor Gameplay-Mechaniken; mitgelieferte Perks/Spells dienen als Begleiter-Fähigkeiten.")
@@ -4308,9 +3709,9 @@ def _step_actors_vs_systems(cursor, cat_map, cat_ids, ctx):
                 ctx.log_result(cursor, mid, cid, s_cid, a_cid, 3, f"Lebendige Spielwelt-Akteure ('{a_name}') mit KI-Paketen und Physis besitzen funktionale Priorität vor reinen Hilfssystemen ('{s_name}').")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_27)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
@@ -4318,30 +3719,7 @@ def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
     Schritt 28: Gruppenduell Akteure vs. Welt.
     Akteure: 'Begleiter', 'NPCs', 'Kreaturen'
     Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
-    
-    1. Feste Welt-, Raum- & Geometriekategorien (Städte, Gebäude, Spielerheime, POIs, Umgebung):
-       - Städte: Städtische Zellen, PreVis und Geometrie besitzen absolute Priorität (LLO Pos 06 vor Pos 14-16).
-       - Gebäude: Dungeons, Bauten und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07 vor Pos 14-16).
-       - Spielerheime: Bewohnbare Domizile und Ladezonen besitzen Priorität (LLO Pos 08 vor Pos 14-16).
-       - POIs: Dynamische Planeten-Generierungsblöcke besitzen Priorität (LLO Pos 11 vor Pos 14-16).
-       - Umgebung: Landschaft, Biome, Worldspaces und Wetter besitzen Priorität (LLO Pos 05 vor Pos 14-16).
-       -> Welt gewinnt IMMER per Architektur-KO (Typ 3).
-       
-    2. Werkstatt- & Workshop-Module (Außenposten vs. Akteure):
-       - Fall 1: Begleiter vs. Außenposten:
-         -> Begleiter gewinnt per Architektur-KO (Typ 3): Begleiter-KI, Dialogbäume und Frameworks
-            besitzen Ladeordnungs-Priorität (LLO Pos 15 vor Pos 09) vor reinen Baurezepten.
-       - Fall 2: Echte modulare Außenposten-Bausysteme (COBJ_BNAM_Outpost_Heavy > 0 oder COBJ_BNAM_Outpost_Soft > 0):
-         -> Außenposten gewinnt per Architektur-KO (Typ 3): Modulare Wohnblöcke, Habs, Hallen und
-            Großstrukturen (LLO Pos 09 vor Pos 14/16) bilden das tragende Baufundament vor Akteuren.
-       - Fall 3: NPCs / Kreaturen vs. Außenposten (Allgemeiner / Relationaler Massevergleich):
-         -> Wenn dim_calc_outer_Akteur >= 3 * dim_calc_outer_Außenposten:
-            Akteur gewinnt per Typ 4 (Dominante Crew-/Armee-Inhalte übertreffen Beistellmöbel).
-         -> Andernfalls:
-            Außenposten gewinnt per Typ 4 (Außenposten-Strukturen behaupten sich gegen Akteur-Beigaben).
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     actor_cat_tuples = [
         ("Begleiter", "dim_calc_outer_Begleiter"),
         ("NPCs", "dim_calc_outer_NPCs"),
@@ -4358,42 +3736,20 @@ def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
 
     act_cat_ids = [cat_map[name] for name, _ in actor_cat_tuples if name in cat_map]
     world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_28 = [cid for cid in cat_ids if cid not in act_cat_ids and cid not in world_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(act_cat_ids, world_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_28 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_28:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        a_cid = ctx.get_active(urow, act_cat_ids)
+        w_cid = ctx.get_active(urow, world_cat_ids)
 
-        active_act_cids = [c for c in act_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_act_cids and active_world_cids:
-            a_cid = active_act_cids[0]
-            w_cid = active_world_cids[0]
-
-            a_name = id_to_name.get(a_cid, "")
-            w_name = id_to_name.get(w_cid, "")
+        if a_cid and w_cid:
+            a_name = ctx.get_cat_name(a_cid)
+            w_name = ctx.get_cat_name(w_cid)
 
             val_a = urow.get(f'dim_calc_outer_{a_name}') or 0.0
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
@@ -4439,9 +3795,9 @@ def _step_actors_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, a_cid, w_cid, 4, f"Massevergleich Außenposten vs. {a_name}: Außenposten-Strukturen ('Außenposten': {val_w:.1f}) behaupten sich gegen Beigabe-Akteure ('{a_name}': {val_a:.1f}).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_28)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
@@ -4449,33 +3805,7 @@ def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
     Schritt 29: Gruppenduell Systeme vs. Welt.
     Systeme: 'Gameplay', 'Sortierung', 'Interface', 'Tweaks'
     Welt:    'Städte', 'Gebäude', 'Spielerheime', 'POIs', 'Außenposten', 'Umgebung'
-    
-    1. Feste Welt-, Raum- & Geometriekategorien (Städte, Gebäude, Spielerheime, POIs, Umgebung):
-       - Umgebung: Landschafts-, Biome-, Worldspace- und Wetteranpassungen besitzen Priorität (LLO Pos 05 vor Pos 13/21-23).
-       - Städte: Städtische Zellen, PreVis-Daten und urbane Raumstrukturen besitzen Priorität (LLO Pos 06 vor Pos 13/21-23).
-       - Gebäude: Physische Bauwerke, Dungeons und NavMeshes besitzen Ladeordnungs-Priorität (LLO Pos 07 vor Pos 13/21-23).
-       - Spielerheime: Bewohnbare Domizile, Ladezonen und Domizil-Strukturen besitzen Priorität (LLO Pos 08 vor Pos 13/21-23).
-       - POIs: Prozedurale Planeten-Generierungsblöcke und POI-Nodes besitzen Priorität (LLO Pos 11 vor Pos 13/21-23).
-       -> Welt gewinnt IMMER per Architektur-KO (Typ 3).
-       
-    2. Werkstatt- & Workshop-Module (Außenposten vs. Systeme):
-       - Fall A: Außenposten vs. Hilfssysteme (Tweaks, Sortierung, Interface):
-         -> Außenposten gewinnt per Architektur-KO (Typ 3): Modulare Bausysteme und Werkstatt-Rezepte
-            (LLO Pos 09 vor Pos 21-23) bilden das greifbare Inhaltsfundament vor reinen Einstellungen oder Menüs.
-       - Fall B: Außenposten vs. Gameplay (Dreistufige Auswertung):
-         - Stufe 1 (Schnittstellen-Erkennung / Typ 3): Echte Spiellogik (core_gameplay >= 2 oder core_gameplay > 0 mit GLOB >= 5)
-           bei maximal 5 Außenposten-Rezepten (COBJ_BNAM_Outpost_Heavy + COBJ_BNAM_Outpost_Soft <= 5)
-           -> Gameplay gewinnt per Typ 3 (Außenposten-Modul dient als reine Übergabe-Schnittstelle / Dispenser).
-         - Stufe 2 (Groß-Bausystem / Typ 3): Massives Außenposten-Set (Rezepte > 15 oder COBJ_BNAM_Outpost_Heavy >= 5)
-           bei minimaler Hilfslogik (core_gameplay <= 2)
-           -> Außenposten gewinnt per Typ 3 (Bausystem-Fundament LLO Pos 09 vor Beigabe-Perks).
-         - Stufe 3 (Gewichteter Massevergleich für Hybriden / Typ 4):
-           Score_Gameplay = (core_gameplay * 3) + ALCH
-           Score_Außenposten = COBJ_BNAM_Outpost_Heavy + COBJ_BNAM_Outpost_Soft + log10(FURN)*2 (dim_calc_outer_Außenposten)
-           -> Bei Score_Gameplay >= Score_Außenposten gewinnt Gameplay per Typ 4, andernfalls Außenposten per Typ 4.
     """
-    id_to_name = {v: k for k, v in cat_map.items()}
-
     system_cat_tuples = [
         ("Gameplay", "dim_calc_outer_Gameplay"),
         ("Sortierung", "dim_calc_outer_Sortierung"),
@@ -4493,42 +3823,20 @@ def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
 
     sys_cat_ids = [cat_map[name] for name, _ in system_cat_tuples if name in cat_map]
     world_cat_ids = [cat_map[name] for name, _ in world_cat_tuples if name in cat_map]
-    non_duel_ids_29 = [cid for cid in cat_ids if cid not in sys_cat_ids and cid not in world_cat_ids]
+    non_duel_ids = ctx.get_non_duel_ids(sys_cat_ids, world_cat_ids)
 
-    cursor.execute(f"""
-        SELECT 
-            lcm.Mod_ID, 
-            lcm.Component_ID,
-            v.*
-        FROM LoadOrder_Classifier_Matrix lcm
-        JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-        WHERE lcm.Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-        )
-    """)
-    unresolved_rows_29 = [dict(r) for r in cursor.fetchall()]
-    col_select_quotes = ", ".join([f'"{c}"' for c in cat_ids])
+    unresolved_rows = ctx.get_unresolved_rows(cursor)
 
-    for urow in unresolved_rows_29:
+    for urow in unresolved_rows:
         mid = urow['Mod_ID']
         cid = urow['Component_ID']
 
-        cursor.execute(f"""
-            SELECT {col_select_quotes}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID = ? AND Component_ID = ?
-        """, (mid, cid))
-        mat_row = dict(cursor.fetchone())
+        s_cid = ctx.get_active(urow, sys_cat_ids)
+        w_cid = ctx.get_active(urow, world_cat_ids)
 
-        active_sys_cids = [c for c in sys_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-        active_world_cids = [c for c in world_cat_ids if (mat_row.get(str(c)) or 0) == ctx.prev_level]
-
-        if active_sys_cids and active_world_cids:
-            s_cid = active_sys_cids[0]
-            w_cid = active_world_cids[0]
-
-            s_name = id_to_name.get(s_cid, "")
-            w_name = id_to_name.get(w_cid, "")
+        if s_cid and w_cid:
+            s_name = ctx.get_cat_name(s_cid)
+            w_name = ctx.get_cat_name(w_cid)
 
             val_s = urow.get(f'dim_calc_outer_{s_name}') or 0.0
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0.0
@@ -4600,9 +3908,9 @@ def _step_systems_vs_world(cursor, cat_map, cat_ids, ctx):
                             ctx.log_result(cursor, mid, cid, s_cid, w_cid, 4, f"Massevergleich Außenposten vs. Gameplay: Außenposten-Strukturen ('Außenposten': {score_op:.1f}) übertreffen gewichtete Systemlogik ('Gameplay': {score_gp:.1f} [Kern: {core_gp} x 3 + ALCH: {alch}]).")
 
             if winner_cid is not None:
-                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids_29)
+                ctx.promote_winner(cursor, mid, cid, winner_cid, non_duel_ids)
 
-    ctx.lift_uncollided(cursor, cat_ids, col_select_quotes)
+    ctx.lift_uncollided(cursor, cat_ids)
 
 
 def _step_inheritance(cursor, cat_map, cat_ids, ctx):
@@ -4781,7 +4089,9 @@ def run_classifier(log_signal=None):
                 step_name=step_name,
                 prev_level=prev_level,
                 curr_level=step_id,
-                log_msg_fn=log_msg
+                log_msg_fn=log_msg,
+                cat_map=cat_map,
+                cat_ids=cat_ids
             )
             log_msg(f"\n-> Schritt {step_id}: {step_name} ({unresolved_count})...")
             step_func(cursor, cat_map, cat_ids, ctx)

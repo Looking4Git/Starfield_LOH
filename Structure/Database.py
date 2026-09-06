@@ -731,3 +731,30 @@ def update_load_order_positions(profile_id: int, positions: list[tuple[int, int]
     finally:
         if conn:
             conn.close()
+
+def apply_all_classifier_categories() -> int:
+    """
+    Überträgt für alle installierten Mods (State = 1) die berechnete Classifier-Kategorie
+    (Category_LOH_Classifier) in das Feld Category_LOH.
+    Gibt die Anzahl der aktualisierten Mods zurück (-1 bei Fehler).
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE Mods 
+            SET Category_LOH = Category_LOH_Classifier 
+            WHERE State = 1 AND Category_LOH_Classifier IS NOT NULL
+        """)
+        updated_count = cursor.rowcount
+        conn.commit()
+        return updated_count
+    except sqlite3.Error as e:
+        if conn:
+            conn.rollback()
+        logging.error(f"Fehler bei apply_all_classifier_categories: {e}")
+        return -1
+    finally:
+        if conn:
+            conn.close()

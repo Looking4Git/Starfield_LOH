@@ -13,7 +13,8 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  create_profile, copy_profile, delete_profile,
                                  update_mod_category_and_note, update_profile_description,
                                  update_load_order_positions, get_mod_requirements_for_ui,
-                                 delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui)
+                                 delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
+                                 apply_all_classifier_categories)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Requirement import RequirementDialog
@@ -259,6 +260,14 @@ class Page_LoadOrder(QWidget):
         self.inp_name_online = ui.findChild(QLineEdit, "inp_name_online")
         if self.inp_name_online:
             self.inp_name_online.setReadOnly(True)
+        self.inp_classifier_category = ui.findChild(QLineEdit, "inp_classifier_category")
+        self.btn_apply_classifier_mod = ui.findChild(QPushButton, "btn_apply_classifier_mod")
+        self.btn_apply_classifier_all = ui.findChild(QPushButton, "btn_apply_classifier_all")
+        if self.btn_apply_classifier_mod:
+            self.btn_apply_classifier_mod.setEnabled(False)
+            self.btn_apply_classifier_mod.clicked.connect(self.on_apply_classifier_mod_clicked)
+        if self.btn_apply_classifier_all:
+            self.btn_apply_classifier_all.clicked.connect(self.on_apply_classifier_all_clicked)
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.tree_categories_creations = ui.findChild(QTreeView, "tree_categories_creations")
@@ -782,6 +791,10 @@ class Page_LoadOrder(QWidget):
         """Leert die Eingabefelder im Detail-View."""
         self.current_mod_id = ""
         self.current_mod_data = None
+        if hasattr(self, 'inp_classifier_category') and self.inp_classifier_category:
+            self.inp_classifier_category.clear()
+        if hasattr(self, 'btn_apply_classifier_mod') and self.btn_apply_classifier_mod:
+            self.btn_apply_classifier_mod.setEnabled(False)
         self.cmb_category.setCurrentIndex(-1)
         self.inp_name_online.clear()
         self.inp_note.clear()
@@ -849,6 +862,14 @@ class Page_LoadOrder(QWidget):
         if hasattr(self, 'inp_position'):
             self.inp_position.setText(str(row_data.get("Position") or ""))
         
+        # Classifier-Kategorie setzen
+        classifier_name = row_data.get("Category_Classifier_Name") or "---"
+        if hasattr(self, 'inp_classifier_category') and self.inp_classifier_category:
+            self.inp_classifier_category.setText(classifier_name)
+        if hasattr(self, 'btn_apply_classifier_mod') and self.btn_apply_classifier_mod:
+            has_classifier = bool(row_data.get("Category_Classifier_ID"))
+            self.btn_apply_classifier_mod.setEnabled(has_classifier)
+
         # Kategorie ComboBox auf den Wert setzen
         self.set_combo_by_data(self.cmb_category, row_data.get("Category_ID"))
         
@@ -1189,6 +1210,51 @@ class Page_LoadOrder(QWidget):
             logging.error(f"Fehler beim Speichern der Mod ID {mod_id} in der Datenbank.")
             return False
 
+    def on_apply_classifier_mod_clicked(self):
+        """Überträgt die Classifier-Kategorie der ausgewählten Mod in das LOH-Kategorie-Feld."""
+        if not self.current_mod_id or not hasattr(self, 'current_mod_data') or not self.current_mod_data:
+            return
+        classifier_id = self.current_mod_data.get("Category_Classifier_ID")
+        if not classifier_id:
+            return
+            
+        self.set_combo_by_data(self.cmb_category, classifier_id)
+        self.save_mod_details(reload_table=False)
+
+    def on_apply_classifier_all_clicked(self):
+        """Überträgt nach Bestätigung die Classifier-Kategorien für alle installierten Mods."""
+        reply = QMessageBox.question(
+            self,
+            "Classifier-Kategorien übernehmen",
+            "Möchten Sie für alle installierten Mods die automatisch berechnete Classifier-Kategorie als Kategorie (LOH) übernehmen?\n\nBereits manuell zugewiesene Kategorien werden dabei aktualisiert.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            count = apply_all_classifier_categories()
+            if count >= 0:
+                saved_mod_id = self.current_mod_id
+                self.load_data()
+                if saved_mod_id:
+                    for r in range(self.model.rowCount()):
+                        item = self.model.item(r, 0)
+                        if item:
+                            data = self.get_row_data(item)
+                            if data and str(data.get("Mod_ID")) == str(saved_mod_id):
+                                self.table_view.selectRow(r)
+                                break
+                QMessageBox.information(
+                    self,
+                    "Erfolg",
+                    f"Die Classifier-Kategorien wurden für {count} Mods erfolgreich übernommen."
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Fehler",
+                    "Beim Übernehmen der Classifier-Kategorien ist ein Datenbankfehler aufgetreten."
+                )
+
     def change_mod_position(self, component_id, old_pos, new_pos):
         profile_id = self.current_profile_id
         if profile_id is None:
@@ -1412,8 +1478,8 @@ class Page_LoadOrder(QWidget):
                 bg_color = QColor("#C72138")  # Starfield Rot
                 fg_color = QColor("#ffffff")  # Weißer Text
             elif current_row_mod_id in dep_ids:
-                bg_color = QColor("#D7A64B")  # Starfield Gelb
-                fg_color = QColor("#000000")  # Schwarzer Text
+                bg_color = QColor("#1F7343")  # Starfield Grün (Deep Sci-Fi)
+                fg_color = QColor("#ffffff")  # Weißer Text
 
             if bg_color and fg_color:
                 self.highlighted_rows.append(r)

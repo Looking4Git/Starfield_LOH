@@ -303,6 +303,25 @@ QPushButton#btn_pos_up, QPushButton#btn_pos_down {
     text-align: center;
 }
 
+/* Classifier Übernahme-Buttons */
+QPushButton#btn_apply_classifier_mod, QPushButton#btn_apply_classifier_all {
+    text-align: center;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 2px 4px;
+}
+
+QPushButton#btn_apply_classifier_mod:disabled, QPushButton#btn_apply_classifier_all:disabled {
+    background-color: #444444;
+    color: #888888;
+}
+
+#detail_view QLineEdit#inp_classifier_category {
+    background-color: #f2f2f2;
+    color: #1e1e1e;
+    font-weight: bold;
+}
+
 /* =========================================================
    Unsichtbarer Rollbalken (wenn nicht benötigt, aber reserviert)
    ========================================================= */

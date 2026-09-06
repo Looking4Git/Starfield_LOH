@@ -346,25 +346,47 @@
              </property>
              <property name="minimumSize">
               <size>
-               <width>100</width>
+               <width>188</width>
                <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>188</width>
+               <height>16777215</height>
               </size>
              </property>
             </widget>
            </item>
            <item>
+            <spacer name="classifier_spacer">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
             <widget class="QPushButton" name="btn_apply_classifier_mod">
              <property name="minimumSize">
               <size>
-               <width>68</width>
-               <height>26</height>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
               </size>
              </property>
              <property name="text">
-              <string>▼ Mod</string>
-             </property>
-             <property name="toolTip">
-              <string>Classifier-Kategorie für die ausgewählte Mod als LOH-Kategorie übernehmen</string>
+              <string>Mod</string>
              </property>
             </widget>
            </item>
@@ -372,15 +394,18 @@
             <widget class="QPushButton" name="btn_apply_classifier_all">
              <property name="minimumSize">
               <size>
-               <width>75</width>
-               <height>26</height>
+               <width>130</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>130</width>
+               <height>32</height>
               </size>
              </property>
              <property name="text">
-              <string>▼▼ Alle</string>
-             </property>
-             <property name="toolTip">
-              <string>Classifier-Kategorien für alle installierten Mods als LOH-Kategorie übernehmen</string>
+              <string>Alle</string>
              </property>
             </widget>
            </item>

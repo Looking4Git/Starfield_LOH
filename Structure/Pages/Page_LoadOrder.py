@@ -264,9 +264,11 @@ class Page_LoadOrder(QWidget):
         self.btn_apply_classifier_mod = ui.findChild(QPushButton, "btn_apply_classifier_mod")
         self.btn_apply_classifier_all = ui.findChild(QPushButton, "btn_apply_classifier_all")
         if self.btn_apply_classifier_mod:
+            make_button_premium(self.btn_apply_classifier_mod, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down.svg"), "Mod")
             self.btn_apply_classifier_mod.setEnabled(False)
             self.btn_apply_classifier_mod.clicked.connect(self.on_apply_classifier_mod_clicked)
         if self.btn_apply_classifier_all:
+            make_button_premium(self.btn_apply_classifier_all, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Alle")
             self.btn_apply_classifier_all.clicked.connect(self.on_apply_classifier_all_clicked)
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")

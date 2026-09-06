@@ -28,6 +28,7 @@ def reset_database(log_signal=None):
             "Components_ESM_LCTN",
             "Components_System_FormIDs",
             "Components_ESM_FormIDs",
+            "Components_ESM_Dummies",
             "Components_System",
             "Mods_Components",
             "Mods_Category_Creations",

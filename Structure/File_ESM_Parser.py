@@ -360,7 +360,7 @@ def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, 
         if is_packin:
             pass
         elif is_interior:
-            if any(k in edid_lower for k in ["holding", "staging", "storage", "utility", "test", "dummy", "faux", "ctest", "swapper", "preview"]):
+            if any(k in edid_lower for k in ["holding", "staging", "storage", "utility", "test", "dummy", "faux", "ctest", "swapper", "preview", "marker", "markers", "warehouse"]):
                 is_dummy = True
             elif (not has_full) and (not has_xlcn):
                 is_dummy = True
@@ -385,7 +385,7 @@ def _parse_cell_record(decompressed_data, local_fid, is_override, local_counts, 
             'is_pack_in': 1 if is_packin else 0
         }
 
-    return cell_loc_entry, edid_str
+    return cell_loc_entry, edid_str, (not is_core and is_dummy)
 
 
 def _parse_lctn_record(decompressed_data, local_fid, is_override, local_counts, is_core):
@@ -535,6 +535,7 @@ def _parse_weap_record(decompressed_data, is_override, local_counts, helper_keyw
         local_counts['WEAP_KWDA_Helper'] += 1
         if is_override:
             local_counts['WEAP_KWDA_Helper_Override'] += 1
+        return True
     elif is_vehicle:
         local_counts['WEAP_KWDA_Vehicle'] += 1
         if is_override:
@@ -543,6 +544,7 @@ def _parse_weap_record(decompressed_data, is_override, local_counts, helper_keyw
         local_counts['WEAP_KWDA_Ship'] += 1
         if is_override:
             local_counts['WEAP_KWDA_Ship_Override'] += 1
+    return False
 
 
 def _parse_npc_record(decompressed_data, is_override, local_counts):
@@ -594,14 +596,16 @@ def _parse_npc_record(decompressed_data, is_override, local_counts):
 
     # Begleiter und Shopkeeper sind absolut vor Dummy-Einstufung geschützt
     if is_companion or is_shop:
-        return
+        return False
 
     # Säule 1: Vollkommen leblose Körper (alle 3 Kernmerkmale fehlen)
     if missing_life_features == 3:
         local_counts['NPC__Dummy'] += 1
+        return True
     # Säule 2: Mannequins / Schaufensterpuppen (mindestens 2 Merkmale fehlen)
     elif "mannequin" in edid_str and missing_life_features >= 2:
         local_counts['NPC__Dummy'] += 1
+        return True
     # Säule 3: Semantische Temp-/Hilfs-Akteure mit 2-von-4 Absicherung
     else:
         edid_clean = edid_str.replace("template", "")
@@ -611,6 +615,8 @@ def _parse_npc_record(decompressed_data, is_override, local_counts):
             missing_4 = sum([1 for x in (has_ai, has_vtck, has_snam, has_unique_name) if not x])
             if not has_ai or missing_4 >= 2:
                 local_counts['NPC__Dummy'] += 1
+                return True
+    return False
 
 
 
@@ -762,10 +768,13 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
     current_cell_id = None
     local_signatures = {}
     armo_formids = set()
+    npc_formids = set()
     cobj_cnam_fids = set()
     armo_no_full_count = 0
+    armo_no_full_fids = set()
     arma_count = 0
     mrph_count = 0
+    dummy_records = []
 
     locations = []
     cell_locations = []
@@ -814,7 +823,7 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                             reporter.tick('CELL')
                         active_wrld_map = SYSTEM_WRLD_TO_LCTN.copy()
                         active_wrld_map.update(local_wrld_to_lctn)
-                        cell_entry, edid_str = _parse_cell_record(
+                        cell_entry, edid_str, _ = _parse_cell_record(
                             dec, local_fid, is_override, local_counts, is_core=True,
                             parent_wrld_id=cur_parent_wrld, wrld_to_lctn_map=active_wrld_map
                         )
@@ -872,6 +881,7 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                                     break
                     if not has_full:
                         armo_no_full_count += 1
+                        armo_no_full_fids.add(local_fid)
 
             # GBFM
             if not is_core and sig == b'GBFM':
@@ -919,12 +929,14 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                     if dec:
                         active_wrld_map = SYSTEM_WRLD_TO_LCTN.copy()
                         active_wrld_map.update(local_wrld_to_lctn)
-                        cell_entry, _ = _parse_cell_record(
+                        cell_entry, _, is_cell_dummy = _parse_cell_record(
                             dec, local_fid, is_override, local_counts, is_core=False,
                             parent_wrld_id=cur_parent_wrld, wrld_to_lctn_map=active_wrld_map
                         )
                         if cell_entry:
                             cell_locations.append(cell_entry)
+                        if is_cell_dummy:
+                            dummy_records.append((local_fid, 'CELL', 'DummyCell'))
 
                 elif sig == b'WRLD':
                     if reporter:
@@ -959,17 +971,23 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
                     reporter.tick('WEAP')
                 dec = get_decompressed()
                 if dec:
-                    _parse_weap_record(dec, is_override, local_counts, helper_keywords, vehicle_keywords, ship_keywords)
+                    is_weap_dummy = _parse_weap_record(dec, is_override, local_counts, helper_keywords, vehicle_keywords, ship_keywords)
+                    if is_weap_dummy:
+                        dummy_records.append((local_fid, 'WEAP', 'DummyWeapon'))
                 continue
 
             # NPC_
-            if sig == b'NPC_' and 'NPC__KYWD_Ship' in local_counts:
-                if reporter:
-                    reporter.tick('NPC_')
-                dec = get_decompressed()
-                if dec:
-                    _parse_npc_record(dec, is_override, local_counts)
-                continue
+            if sig == b'NPC_':
+                npc_formids.add(local_fid)
+                if 'NPC__KYWD_Ship' in local_counts:
+                    if reporter:
+                        reporter.tick('NPC_')
+                    dec = get_decompressed()
+                    if dec:
+                        is_npc_dummy = _parse_npc_record(dec, is_override, local_counts)
+                        if is_npc_dummy:
+                            dummy_records.append((local_fid, 'NPC_', 'DummyNPC'))
+                    continue
 
             # FURN
             if sig == b'FURN' and not is_core and 'FURN_VMRT' in local_counts:
@@ -1035,10 +1053,17 @@ def parse_esm_file(file_path, is_core=False, num_full_masters=None, formid_to_si
 
     if armo_total > 0 and not is_dedicated_mesh_mod and not has_armo_cobj and lvli_total == 0 and refr_total == 0 and real_npc == 0:
         local_counts['ARMO_Dummy'] = max(local_counts.get('ARMO_Dummy', 0), armo_total)
-    else:
+        for afid in armo_formids:
+            dummy_records.append((afid, 'ARMO', 'DummyArmor'))
+    elif armo_no_full_fids:
         local_counts['ARMO_Dummy'] = max(local_counts.get('ARMO_Dummy', 0), armo_no_full_count)
+        for afid in armo_no_full_fids:
+            dummy_records.append((afid, 'ARMO', 'DummyArmorNoFull'))
 
-    return local_counts, local_signatures, locations, cell_locations
+    # Deduplizieren der Dummy-Records
+    unique_dummies = list({(fid, sig_name): (fid, sig_name, dtype) for fid, sig_name, dtype in dummy_records}.values())
+
+    return local_counts, local_signatures, locations, cell_locations, unique_dummies
 
 
 # Rückwärtskompatibler Alias für bestehende Aufrufer

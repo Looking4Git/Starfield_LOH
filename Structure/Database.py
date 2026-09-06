@@ -785,6 +785,11 @@ def create_view_mods_conflicts_matrix() -> bool:
         JOIN Mods_Components mc2 ON f2.Component_ID = mc2.Component_ID
         WHERE f1.Is_Override = 1 AND f2.Is_Override = 1 AND f1.Sig NOT IN ('TES4', 'NAVI')
           AND mc1.Mod_ID != mc2.Mod_ID
+          AND NOT EXISTS (
+              SELECT 1 FROM Components_ESM_Dummies d
+              WHERE d.FormID_Local = f1.FormID_Local
+                AND (d.Component_ID = f1.Component_ID OR d.Component_ID = f2.Component_ID)
+          )
     )
     SELECT 
         p.Mod_ID_A,

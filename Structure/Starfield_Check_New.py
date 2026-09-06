@@ -242,7 +242,7 @@ def scan_and_update_system_components(log_msg, log_signal=None):
                     log_signal=log_signal,
                     write_to_log_func=write_to_log
                 )
-                counts, local_sigs, locations, cell_locations = scan_esm_for_handles(
+                counts, local_sigs, locations, cell_locations, _ = scan_esm_for_handles(
                     filepath, is_core=True, reporter=reporter
                 )
                 reporter.mark_saving_db()
@@ -400,7 +400,7 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
                 )
                 num_full = get_num_full_masters(filepath, cursor)
                 
-                counts, local_sigs, locations, cell_locations = scan_esm_for_handles(
+                counts, local_sigs, locations, cell_locations, dummy_records = scan_esm_for_handles(
                     filepath, is_core=False, num_full_masters=num_full, reporter=reporter
                 )
                 reporter.mark_saving_db()
@@ -466,6 +466,15 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
                         )
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, insert_sigs)
+
+                # Dummy-FormIDs in Components_ESM_Dummies speichern
+                cursor.execute("DELETE FROM Components_ESM_Dummies WHERE Component_ID = ?", (comp_id,))
+                if dummy_records:
+                    insert_dummies = [(comp_id, fid, sig_str, dtype) for fid, sig_str, dtype in dummy_records]
+                    cursor.executemany("""
+                        INSERT OR IGNORE INTO Components_ESM_Dummies (Component_ID, FormID_Local, Sig, Dummy_Type)
+                        VALUES (?, ?, ?, ?)
+                    """, insert_dummies)
 
                 # 3. Locations in Components_ESM_LCTN speichern
                 cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ?", (comp_id,))

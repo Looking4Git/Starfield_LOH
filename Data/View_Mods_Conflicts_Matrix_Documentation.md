@@ -29,8 +29,19 @@ Bei Multi-Masterfile-Mods (z. B. der *Trackerallianz* mit 8 separaten ESM-Dateie
 
 ### C. Ausschluss von Engine-Metadaten (`TES4` und `NAVI`)
 * **Header-Record `TES4`:** Wird bei praktisch jedem Plugin angepasst und stellt keinen inhaltlichen Spielkonflikt dar.
-* **Globaler NavMesh-Index `NAVI` (FormID `0x00000FF1`):** Das Creation Kit generiert diesen Record automatisch, sobald in einem Plugin auch nur eine Zelle oder Tür berührt wird. Da dieser Datensatz die gesamte Spielwelt global indiziert und von der Engine zur Laufzeit zusammengeführt wird, stellt ein identischer `NAVI`-Record keinen realen Inkompatibilitätskonflikt dar. Ohne diesen Ausschluss entstünden über 1.400 Scheinkonflikte zwischen Mods, die an völlig unterschiedlichen Orten spielen. Echte Wegfindungskollisionen werden lückenlos über die zellspezifischen **`NAVM`**-Records erfasst.
+* **Globaler NavMesh-Index `NAVI` (FormID `0x00000FF1`):** Das Creation Kit generiert diesen Record automatisch, sobald in einem Plugin auch nur eine Zelle oder Tür berührt wird. Da dieser Datensatz die gesamte Spielwelt global indiziert und von der Engine zur Laufzeit zusammengeführt wird, stellt ein identischer `NAVI`-Record keinen realen Inkompatibilitätskonflikt dar. Echte Wegfindungskollisionen werden lückenlos über die zellspezifischen **`NAVM`**-Records erfasst.
 * Beide Metadaten-Typen werden strikt herausgefiltert: `Sig NOT IN ('TES4', 'NAVI')`.
+
+### D. Dynamischer Ausschluss von Dummy-Records (`Components_ESM_Dummies`)
+Um auch zellbasierte Dirty Edits (wie die Creation-Kit-Holdingzelle `aaaMarkers` `0x00012998`) und andere funktionale Hilfsobjekte (Mannequins, Shader-Masken, Script-Helper) zuverlässig auszublenden, erfasst der Parser alle Dummies in der relationalen Tabelle **`Components_ESM_Dummies`**.
+* Der View schließt alle Datensätze automatisch aus, wenn sie in `Components_ESM_Dummies` der beteiligten Komponenten registriert sind:
+  ```sql
+  AND NOT EXISTS (
+      SELECT 1 FROM Components_ESM_Dummies d
+      WHERE d.FormID_Local = f1.FormID_Local
+        AND (d.Component_ID = f1.Component_ID OR d.Component_ID = f2.Component_ID)
+  )
+  ```
 
 ---
 

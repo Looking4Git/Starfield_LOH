@@ -174,3 +174,12 @@ Das Modul `Structure/Parser_Reporter.py` entkoppelt die Statusausgabe vollständ
 * **Zentrales Logfile (`write_to_log_func`):** Schreibt erst bei `reporter.finish()` den gesamten Block gebündelt in `Logs/Starfield_LOH_Check.log`. Dadurch bleibt das Logfile frei von Zwischenständen und bietet perfekte Debugging-Übersicht.
 * **Abschlusszeile mit gerundeten Sekunden:**
   `   -> Scan nach 16 Sekunden abgeschlossen.`
+
+---
+
+## 5. Dynamischer On-Demand-Parser (`File_ESM_Parser_Dynamic.py`)
+
+Für gezielte Einzelabfragen von Records, Subrecords und hierarchischen Verknüpfungen (ohne linearen Komplettscan) existiert die separate Funktionsbibliothek [Structure/File_ESM_Parser_Dynamic.py](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Dynamic.py).
+
+Details, Funktionssignaturen und Anwendungsbeispiele sind dokumentiert in:
+* [Structure/File_ESM_Parser_Dynamic_Documentation.md](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Dynamic_Documentation.md)

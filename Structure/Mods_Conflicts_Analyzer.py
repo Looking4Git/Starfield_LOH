@@ -163,11 +163,67 @@ def analyze_conflicts(db_path=None, reporter=None):
         FROM View_Mods_Conflicts_FormID_Base;
         """)
 
-        # 4. Schritt 1: Ausschlussprüfung auf 0 - Keiner (WRLD-Container)
-        print("   -> Schritt 1: Ausschlussprüfung auf reine Worldspace-Container (WRLD)...")
-        cur.execute("UPDATE Mods_Conflicts SET Conflict_Type = 0 WHERE Sig = 'WRLD';")
-        step1_demoted = cur.rowcount
-        print(f"      - Schritt 1: {step1_demoted} WRLD-Container auf Typ 0 ('Keiner') zurückgestuft.")
+        # 4. Schritt 1: Dynamische Inhaltsprüfung auf WRLD-Container (Typ 0 vs. Typ 3)
+        print("   -> Schritt 1: Dynamische Subrecord-Prüfung für Worldspace-Container (WRLD)...")
+        from Structure.File_ESM_Parser_Dynamic import get_subrecords
+
+        cur.execute("""
+            SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID,
+                   c1.File AS File_A, c2.File AS File_B
+            FROM Mods_Conflicts mc
+            JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
+            JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
+            JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
+            JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
+            WHERE mc.Sig = 'WRLD'
+            GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        """)
+        wrld_rows = cur.fetchall()
+
+        wrld_cache = {}
+        target_subrecords = ['CNAM', 'DNAM', 'WNAM', 'DATA', 'NAM0', 'NAM9']
+        demoted_type_0 = []
+        promoted_type_3 = []
+
+        for mod_id_a, mod_id_b, form_id, file_a, file_b in wrld_rows:
+            key_a = (file_a, form_id)
+            if key_a not in wrld_cache:
+                subs = get_subrecords(file_a, form_id, target_subrecords, target_sig='WRLD')
+                wrld_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else None
+
+            key_b = (file_b, form_id)
+            if key_b not in wrld_cache:
+                subs = get_subrecords(file_b, form_id, target_subrecords, target_sig='WRLD')
+                wrld_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else None
+
+            data_a = wrld_cache[key_a]
+            data_b = wrld_cache[key_b]
+
+            if data_a is not None and data_b is not None and data_a == data_b:
+                # Beide Mods haben 100% identische Steuerdaten -> Reiner Mitläufer!
+                demoted_type_0.append((mod_id_a, mod_id_b, form_id))
+            else:
+                # Mindestens ein Steuerwert (Klima, Wasser, Wetter) unterscheidet sich -> Kritisch!
+                promoted_type_3.append((mod_id_a, mod_id_b, form_id))
+
+        if demoted_type_0:
+            cur.executemany("""
+                UPDATE Mods_Conflicts 
+                SET Conflict_Type = 0 
+                WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = 'WRLD';
+            """, demoted_type_0)
+
+        if promoted_type_3:
+            cur.executemany("""
+                UPDATE Mods_Conflicts 
+                SET Conflict_Type = 3 
+                WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = 'WRLD';
+            """, promoted_type_3)
+
+        step1_demoted = len(demoted_type_0)
+        print(f"      - Schritt 1: {step1_demoted} WRLD-Container als identische Mitläufer (Typ 0) erkannt.")
+        if promoted_type_3:
+            print(f"      - Schritt 1: {len(promoted_type_3)} WRLD-Container als echte Wetter/Klima-Kollisionen (Typ 3) eingestuft!")
 
         # 5. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
         print("   -> Erstelle Indizes auf Mods_Conflicts...")

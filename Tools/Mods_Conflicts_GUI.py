@@ -5,7 +5,7 @@ import sqlite3
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTableView, QHeaderView, QListWidget, QListWidgetItem,
-    QLineEdit, QFrame, QMessageBox, QCheckBox, QSplitter
+    QLineEdit, QFrame, QMessageBox, QCheckBox, QSplitter, QSizePolicy
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QFont, QColor
@@ -77,8 +77,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
         # --- CONTROL BAR (Filter, Checkbox, Copy) ---
         control_frame = QFrame()
         control_frame.setObjectName("control_frame")
+        control_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        control_frame.setFixedHeight(48)
         ctrl_layout = QHBoxLayout(control_frame)
-        ctrl_layout.setContentsMargins(12, 10, 12, 10)
+        ctrl_layout.setContentsMargins(12, 6, 12, 6)
         ctrl_layout.setSpacing(15)
 
         lbl_search = QLabel("Filter:")
@@ -106,16 +108,17 @@ class ModsConflictsInspectorWindow(QMainWindow):
         self.btn_copy.clicked.connect(self.copy_to_clipboard)
         ctrl_layout.addWidget(self.btn_copy)
 
-        main_layout.addWidget(control_frame)
+        main_layout.addWidget(control_frame, 0)
 
         # --- 3-SPALTEN LAYOUT MIT QSPLITTER ---
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.setChildrenCollapsible(False)
+        self.splitter.setHandleWidth(12)
 
         # 1. SPALTE LINKS: Mod A
         col_a_widget = QWidget()
         col_a_layout = QVBoxLayout(col_a_widget)
-        col_a_layout.setContentsMargins(0, 0, 0, 0)
+        col_a_layout.setContentsMargins(0, 0, 5, 0)
         col_a_layout.setSpacing(6)
 
         self.lbl_col_a = QLabel("Mod A (Ausgangs-Mod)")
@@ -132,7 +135,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
         # 2. SPALTE MITTE: Mod B (Konflikt-Partner)
         col_b_widget = QWidget()
         col_b_layout = QVBoxLayout(col_b_widget)
-        col_b_layout.setContentsMargins(0, 0, 0, 0)
+        col_b_layout.setContentsMargins(5, 0, 5, 0)
         col_b_layout.setSpacing(6)
 
         self.lbl_col_b = QLabel("Mod B (Konflikt-Partner)")
@@ -149,7 +152,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
         # 3. SPALTE RECHTS: Detail-Tabelle der kollidierenden Datensätze
         col_details_widget = QWidget()
         col_details_layout = QVBoxLayout(col_details_widget)
-        col_details_layout.setContentsMargins(0, 0, 0, 0)
+        col_details_layout.setContentsMargins(5, 0, 0, 0)
         col_details_layout.setSpacing(6)
 
         self.lbl_stats = QLabel("Kollidierende Datensätze (Details)")
@@ -193,9 +196,9 @@ class ModsConflictsInspectorWindow(QMainWindow):
         col_details_layout.addWidget(self.table_view)
         self.splitter.addWidget(col_details_widget)
 
-        # Initiale Größenverteilung der 3 Spalten (320px, 320px, Rest für Details)
+        # Initiale Größenverteilung der 3 Spalten (340px, 340px, Rest für Details)
         self.splitter.setSizes([340, 340, 800])
-        main_layout.addWidget(self.splitter)
+        main_layout.addWidget(self.splitter, 1)
 
         # --- STYLESHEET (Starfield Dark Mode mit hellen Listen und heller Tabelle) ---
         self.setStyleSheet("""
@@ -283,6 +286,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 alternate-background-color: #F8F8F8;
                 color: #1E1E1E;
                 border: 1px solid #444444;
+                border-radius: 4px;
                 font-family: "Segoe UI", Arial, sans-serif;
                 font-size: 12px;
                 outline: none;
@@ -304,6 +308,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 alternate-background-color: #F2F2F2;
                 color: #1E1E1E;
                 border: 1px solid #444444;
+                border-radius: 4px;
                 gridline-color: #D0D0D0;
                 font-family: "Segoe UI", Arial, sans-serif;
                 font-size: 12px;
@@ -323,12 +328,12 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 border: 1px solid #1A1A1A;
                 padding: 6px;
             }
-            /* Splitter Handle */
-            QSplitter::handle {
-                background-color: #2B2B2B;
-                width: 5px;
+            /* Splitter Handle & Abstände zwischen den Listen */
+            QSplitter::handle:horizontal {
+                background-color: #121212;
+                width: 12px;
             }
-            QSplitter::handle:hover {
+            QSplitter::handle:horizontal:hover {
                 background-color: #304C7A;
             }
         """)

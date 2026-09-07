@@ -11,6 +11,13 @@ from Structure.Paths import DB_FILE, LOGS_DIR
 
 logger = logging.getLogger("Starfield_LOH")
 
+CONFLICT_TYPES = {
+    3: "Kritisch",
+    2: "Normal",
+    1: "Leicht",
+    0: "Keiner"
+}
+
 
 def analyze_conflicts(db_path=None, reporter=None):
     """
@@ -132,52 +139,65 @@ def analyze_conflicts(db_path=None, reporter=None):
             Cell_EDID   TEXT,
             Base_FormID INTEGER,
             Base_EDID   TEXT,
+            Conflict_Type INTEGER NOT NULL DEFAULT 2,
             PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
         );
         """)
 
-        # 3. Daten aus dem Basis-View materialisieren
+        # 3. Daten aus dem Basis-View materialisieren (Default Conflict_Type = 2 'Normal')
         print("   -> Lese Datensätze aus View_Mods_Conflicts_FormID_Base ein...")
         cur.execute("""
         INSERT INTO Mods_Conflicts (
             Mod_ID_A, Mod_Name_A, Mod_ID_B, Mod_Name_B,
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
-            Base_FormID, Base_EDID
+            Base_FormID, Base_EDID,
+            Conflict_Type
         )
         SELECT 
             Mod_ID_A, Mod_Name_A, Mod_ID_B, Mod_Name_B,
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
-            Base_FormID, Base_EDID
+            Base_FormID, Base_EDID,
+            2 AS Conflict_Type
         FROM View_Mods_Conflicts_FormID_Base;
         """)
 
-        # 4. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
+        # 4. Schritt 1: Ausschlussprüfung auf 0 - Keiner (WRLD-Container)
+        print("   -> Schritt 1: Ausschlussprüfung auf reine Worldspace-Container (WRLD)...")
+        cur.execute("UPDATE Mods_Conflicts SET Conflict_Type = 0 WHERE Sig = 'WRLD';")
+        step1_demoted = cur.rowcount
+        print(f"      - Schritt 1: {step1_demoted} WRLD-Container auf Typ 0 ('Keiner') zurückgestuft.")
+
+        # 5. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
         print("   -> Erstelle Indizes auf Mods_Conflicts...")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_pair ON Mods_Conflicts (Mod_ID_A, Mod_ID_B);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_formid ON Mods_Conflicts (FormID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sig ON Mods_Conflicts (Sig);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_type ON Mods_Conflicts (Conflict_Type);")
 
         conn.commit()
 
-        # 5. Statistiken erheben
+        # 6. Statistiken erheben
         cur.execute("SELECT COUNT(*) FROM Mods_Conflicts;")
-        total_conflicts = cur.fetchone()[0]
+        total_records = cur.fetchone()[0]
 
-        cur.execute("SELECT COUNT(DISTINCT Mod_ID_A || '-' || Mod_ID_B) FROM Mods_Conflicts;")
-        total_pairs = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM Mods_Conflicts WHERE Conflict_Type > 0;")
+        active_conflicts = cur.fetchone()[0]
+
+        cur.execute("SELECT COUNT(DISTINCT Mod_ID_A || '-' || Mod_ID_B) FROM Mods_Conflicts WHERE Conflict_Type > 0;")
+        active_pairs = cur.fetchone()[0]
 
         duration = time.time() - start_time
         msg_finish = (
             f"Mods_Conflicts_Analyzer erfolgreich abgeschlossen: "
-            f"{total_conflicts} Datensatz-Konflikte über {total_pairs} Mod-Paare "
-            f"in {duration:.2f} Sekunden materialisiert."
+            f"{total_records} Datensätze materialisiert ({active_conflicts} aktiv, {step1_demoted} Typ 0) "
+            f"über {active_pairs} aktive Mod-Paare in {duration:.2f} Sekunden."
         )
         logger.info(msg_finish)
         print(f"   -> {msg_finish}")
 
-        return True, total_conflicts, total_pairs
+        return True, active_conflicts, active_pairs
 
     except Exception as e:
         conn.rollback()

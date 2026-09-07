@@ -2142,20 +2142,22 @@ LEFT JOIN Components_System_FormIDs b_sys
 GROUP BY p.Mod_ID_A, p.Mod_ID_B, p.FormID_Local, p.Sig;
 
 CREATE TABLE "Mods_Conflicts" (
-    "Mod_ID_A"    INTEGER NOT NULL,
-    "Mod_Name_A"  TEXT,
-    "Mod_ID_B"    INTEGER NOT NULL,
-    "Mod_Name_B"  TEXT,
-    "Sig"         TEXT NOT NULL,
-    "FormID"      INTEGER NOT NULL,
-    "EDID"        TEXT,
-    "Cell_FormID" INTEGER,
-    "Cell_EDID"   TEXT,
-    "Base_FormID" INTEGER,
-    "Base_EDID"   TEXT,
+    "Mod_ID_A"       INTEGER NOT NULL,
+    "Mod_Name_A"     TEXT,
+    "Mod_ID_B"       INTEGER NOT NULL,
+    "Mod_Name_B"     TEXT,
+    "Sig"            TEXT NOT NULL,
+    "FormID"         INTEGER NOT NULL,
+    "EDID"           TEXT,
+    "Cell_FormID"    INTEGER,
+    "Cell_EDID"      TEXT,
+    "Base_FormID"    INTEGER,
+    "Base_EDID"      TEXT,
+    "Conflict_Type"  INTEGER NOT NULL DEFAULT 2,
     PRIMARY KEY("Mod_ID_A", "Mod_ID_B", "FormID", "Sig")
 );
 
 CREATE INDEX "idx_mods_conflicts_pair" ON "Mods_Conflicts" ("Mod_ID_A", "Mod_ID_B");
 CREATE INDEX "idx_mods_conflicts_formid" ON "Mods_Conflicts" ("FormID");
 CREATE INDEX "idx_mods_conflicts_sig" ON "Mods_Conflicts" ("Sig");
+CREATE INDEX "idx_mods_conflicts_type" ON "Mods_Conflicts" ("Conflict_Type");

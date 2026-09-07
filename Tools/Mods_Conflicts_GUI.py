@@ -685,7 +685,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
         self.load_mods_a(preserve_id_a=cur_id_a, preserve_id_b=cur_id_b)
 
     def copy_to_clipboard(self):
-        """Kopiert die aktuelle Paarung und alle sichtbaren Tabellendaten als Markdown-Tabelle in die Zwischenablage."""
+        """Kopiert eine schlanke Identifikationszeile des Mod-Paares in die Zwischenablage."""
         item_a = self.list_mod_a.currentItem()
         item_b = self.list_mod_b.currentItem()
         if not item_a or not item_b:
@@ -697,45 +697,8 @@ class ModsConflictsInspectorWindow(QMainWindow):
         mod_a_name = item_a.data(Qt.UserRole + 1)
         mod_b_name = item_b.data(Qt.UserRole + 1)
 
-        # Statistiken aus DB abfragen
-        conn = sqlite3.connect(DB_FILE)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT 
-                SUM(CASE WHEN Conflict_Type > 0 THEN 1 ELSE 0 END) AS active_cnt,
-                SUM(CASE WHEN Conflict_Type = 0 THEN 1 ELSE 0 END) AS zero_cnt,
-                COUNT(*) AS total_cnt
-            FROM Mods_Conflicts
-            WHERE (Mod_ID_A = ? AND Mod_ID_B = ?) OR (Mod_ID_A = ? AND Mod_ID_B = ?);
-        """, (mod_a_id, mod_b_id, mod_b_id, mod_a_id))
-        stats_row = cur.fetchone()
-        active_cnt = stats_row[0] or 0
-        zero_cnt = stats_row[1] or 0
-        total_cnt = stats_row[2] or 0
-        conn.close()
-
-        lines = []
-        lines.append(f"### Mod-Konflikt-Vergleich: {mod_a_name} vs. {mod_b_name}")
-        lines.append(f"- **Mod A:** {mod_a_name} (ID {mod_a_id})")
-        lines.append(f"- **Mod B:** {mod_b_name} (ID {mod_b_id})")
-        lines.append(f"- **Aktive Konflikte (Typ > 0):** {active_cnt} Einträge")
-        lines.append(f"- **Ignorierte Einträge (Typ 0):** {zero_cnt} Einträge")
-        lines.append(f"- **Gesamteinträge:** {total_cnt}")
-        lines.append("")
-        lines.append("| Typ | Signatur | FormID | Editor-ID | Zell-FormID | Zell-Name | Basis-FormID | Basis-Name |")
-        lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
-
-        visible_rows = self.proxy_model.rowCount()
-        for row in range(visible_rows):
-            row_vals = []
-            for col in range(self.proxy_model.columnCount()):
-                idx = self.proxy_model.index(row, col)
-                txt = str(self.proxy_model.data(idx) or "-")
-                row_vals.append(txt)
-            lines.append(f"| {' | '.join(row_vals)} |")
-
-        md_output = "\n".join(lines)
-        QApplication.clipboard().setText(md_output)
+        clip_text = f"### Mod-Konflikt-Vergleich: {mod_a_name} (ID {mod_a_id}) vs. {mod_b_name} (ID {mod_b_id})"
+        QApplication.clipboard().setText(clip_text)
 
         prev_stats = self.lbl_stats.text()
         if "✓" not in prev_stats:

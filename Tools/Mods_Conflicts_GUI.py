@@ -208,8 +208,8 @@ class ModsConflictsInspectorWindow(QMainWindow):
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setStretchFactor(2, 1)
 
-        # Inhaltsbasierte Spaltenbreiten: Mod A (420px), Mod B (340px), Rest für Details-Tabelle
-        self.splitter.setSizes([420, 340, 740])
+        # Inhaltsbasierte Spaltenbreiten: Mod A (420px), Mod B (420px), Rest für Details-Tabelle
+        self.splitter.setSizes([420, 420, 660])
         main_layout.addWidget(self.splitter, 1)
 
         # --- STYLESHEET (Starfield Dark Mode mit hellen Listen und heller Tabelle) ---

@@ -25,63 +25,24 @@ def get_subrecords(component, form_id, subrecords=None, raw_bytes=True, target_s
 ```
 
 #### Parameter:
-| Parameter | Typ | Standard | Beschreibung |
-| :--- | :--- | :--- | :--- |
-| `component` | `str \| int` | *(erforderlich)* | Dateiname (z. B. `'sfta01.esm'`), relativer/absoluter Pfad oder numerische `Component_ID` aus der SQLite-Tabelle `Components`. |
-| `form_id` | `int \| str` | *(erforderlich)* | FormID des gesuchten Records als Integer (z. B. `0x00244CAA`) oder Hex-String (`'0x00244CAA'`). |
-| `subrecords` | `list[str] \| set[str] \| None` | `None` | Liste von 4-Zeichen-Subrecord-Signaturen (z. B. `['CNAM', 'DNAM', 'DATA']`). Wenn `None`, werden alle Subrecords des Datensatzes extrahiert. |
-| `raw_bytes` | `bool` | `True` | Liefert unberührte Binärbytes (ideal für 1:1-Gleichheitsprüfungen). |
-| `target_sig` | `str \| None` | `None` | Optionale Record-Signatur (z. B. `'WRLD'`, `'PNDT'`, `'CELL'`), um bei mehrfachen lokalen IDs verschiedener Master präzise den Zielrecord zu treffen. |
+* **`component`** (`str | int`, *erforderlich*):  
+  Dateiname (z. B. `'sfta01.esm'`), relativer/absoluter Pfad oder numerische `Component_ID` aus der SQLite-Tabelle `Components`.
+* **`form_id`** (`int | str`, *erforderlich*):  
+  FormID des gesuchten Records als Integer (z. B. `0x00244CAA`) oder Hex-String (`'0x00244CAA'`).
+* **`subrecords`** (`list[str] | set[str] | None`, *Standard: `None`*):  
+  Liste von 4-Zeichen-Subrecord-Signaturen (z. B. `['CNAM', 'DNAM', 'DATA']`). Wenn `None`, werden alle Subrecords des Datensatzes extrahiert.
+* **`raw_bytes`** (`bool`, *Standard: `True`*):  
+  Liefert unberührte Binärbytes (ideal für 1:1-Gleichheitsprüfungen).
+* **`target_sig`** (`str | None`, *Standard: `None`*):  
+  Optionale Record-Signatur (z. B. `'WRLD'`, `'PNDT'`, `'CELL'`), um bei mehrfachen lokalen IDs verschiedener Master präzise den Zielrecord zu treffen.
 
 #### Rückgabewert (`dict` oder `None`):
 Gibt `None` zurück, falls der Datensatz in der Datei nicht existiert. Andernfalls ein Dictionary mit:
 * `_header`: Metadaten des Records (`sig`, `form_id`, `form_id_local`, `flags`, `is_compressed`, `size`).
 * Je Subrecord ein Schlüssel mit den Binärdaten (`bytes`). Kommt ein Subrecord mehrfach vor (z. B. `RNAM` oder `KWDA`), ist der Wert eine Liste `list[bytes]`.
 
----
-
-### 2.2 `get_child_records()`
-
-Traversiert die hierarchische `GRUP`-Baumstruktur einer ESM-Datei und ermittelt alle Kind-Records einer bestimmten Signatur unterhalb eines Eltern-Datensatzes.
-
-```python
-def get_child_records(component, parent_form_id, target_sig) -> list[int]:
-```
-
-#### Parameter:
-| Parameter | Typ | Standard | Beschreibung |
-| :--- | :--- | :--- | :--- |
-| `component` | `str \| int` | *(erforderlich)* | Dateiname, Pfad oder `Component_ID`. |
-| `parent_form_id` | `int \| str` | *(erforderlich)* | FormID des Eltern-Knotens (z. B. Worldspace-FormID `0x00244CAA` oder Zell-FormID). |
-| `target_sig` | `str` | *(erforderlich)* | Gesuchte Signatur der Kinder (z. B. `'CELL'` unterhalb von `WRLD` oder `'REFR'` unterhalb von `CELL`). |
-
-#### Rückgabewert (`list[int]`):
-Eine Liste lokaler Integer-FormIDs aller gefundenen Kind-Datensätze innerhalb dieser Gruppe.
-
----
-
-### 2.3 `get_referenced_formids()`
-
-Scannt einen Datensatz nach allen ausgehenden 4-Byte-FormID-Pointern (Referenzen auf Basen, Munition, Schlüsselwörter, Locations, Templates, etc.).
-
-```python
-def get_referenced_formids(component, form_id) -> set[int]:
-```
-
-#### Parameter:
-| Parameter | Typ | Standard | Beschreibung |
-| :--- | :--- | :--- | :--- |
-| `component` | `str \| int` | *(erforderlich)* | Dateiname, Pfad oder `Component_ID`. |
-| `form_id` | `int \| str` | *(erforderlich)* | FormID des zu analysierenden Datensatzes. |
-
-#### Rückgabewert (`set[int]`):
-Eine Menge aller vom Record referenzierten FormIDs (lokal aufgelöst als 24-Bit-Integers).
-
----
-
-## 3. Praxisnahe Anwendungsbeispiele
-
-### Beispiel 1: Subrecord-Inhaltsvergleich (WRLD / PNDT Mitläufer-Erkennung)
+#### Anwendungsbeispiel:
+**Subrecord-Inhaltsvergleich (WRLD / PNDT Mitläufer-Erkennung)**  
 Ermittelt, ob zwei kollidierende Mods denselben Worldspace nur als unberührte Creation-Kit-Hülle mitführen oder tatsächlich Klimawerte verändert haben:
 
 ```python
@@ -105,7 +66,27 @@ if subs_a and subs_b:
 
 ---
 
-### Beispiel 2: Räumliche Kollisionseingrenzung (Zellen unter Worldspace)
+### 2.2 `get_child_records()`
+
+Traversiert die hierarchische `GRUP`-Baumstruktur einer ESM-Datei und ermittelt alle Kind-Records einer bestimmten Signatur unterhalb eines Eltern-Datensatzes.
+
+```python
+def get_child_records(component, parent_form_id, target_sig) -> list[int]:
+```
+
+#### Parameter:
+* **`component`** (`str | int`, *erforderlich*):  
+  Dateiname, Pfad oder `Component_ID`.
+* **`parent_form_id`** (`int | str`, *erforderlich*):  
+  FormID des Eltern-Knotens (z. B. Worldspace-FormID `0x00244CAA` oder Zell-FormID).
+* **`target_sig`** (`str`, *erforderlich*):  
+  Gesuchte Signatur der Kinder (z. B. `'CELL'` unterhalb von `WRLD` oder `'REFR'` unterhalb von `CELL`).
+
+#### Rückgabewert (`list[int]`):
+Eine Liste lokaler Integer-FormIDs aller gefundenen Kind-Datensätze innerhalb dieser Gruppe.
+
+#### Anwendungsbeispiel:
+**Räumliche Kollisionseingrenzung (Zellen unter Worldspace)**  
 Zwei Mods greifen beide auf `NewAtlantis` zu. Haben sie eine gemeinsame Schnittmenge oder bauen sie in völlig unterschiedlichen Stadtteilen?
 
 ```python
@@ -123,7 +104,26 @@ else:
 
 ---
 
-### Beispiel 3: Erkennung von „Ghost-References“ (Crash-to-Desktop-Prävention)
+### 2.3 `get_referenced_formids()`
+
+Scannt einen Datensatz nach allen ausgehenden 4-Byte-FormID-Pointern (Referenzen auf Basen, Munition, Schlüsselwörter, Locations, Templates, etc.).
+
+```python
+def get_referenced_formids(component, form_id) -> set[int]:
+```
+
+#### Parameter:
+* **`component`** (`str | int`, *erforderlich*):  
+  Dateiname, Pfad oder `Component_ID`.
+* **`form_id`** (`int | str`, *erforderlich*):  
+  FormID des zu analysierenden Datensatzes.
+
+#### Rückgabewert (`set[int]`):
+Eine Menge aller vom Record referenzierten FormIDs (lokal aufgelöst als 24-Bit-Integers).
+
+#### Anwendungsbeispiele:
+
+##### Beispiel 1: Erkennung von „Ghost-References“ (Crash-to-Desktop-Prävention)
 Prüft, ob ein platziertes Objekt (`REFR`) auf eine Basis-FormID verweist, die gar nicht existiert:
 
 ```python
@@ -138,9 +138,7 @@ for ref_id in referenced_ids:
         print(f"WARNUNG: Broken Pointer / Ghost Reference auf 0x{ref_id:08X}! CTD-Gefahr!")
 ```
 
----
-
-### Beispiel 4: Crafting-Rezept- und Werkbank-Verknüpfungen (`COBJ`)
+##### Beispiel 2: Crafting-Rezept- und Werkbank-Verknüpfungen (`COBJ`)
 Liest alle Verknüpfungen eines Rezepts aus, um betroffene Werkbänke und Materialien zu bestimmen:
 
 ```python

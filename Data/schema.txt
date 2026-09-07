@@ -2065,3 +2065,97 @@ CREATE INDEX idx_sys_wrld_lctn_lookup
 
 CREATE UNIQUE INDEX idx_sys_wrld_lctn_unique 
         ON Components_System_WRLD_LCTN (Component_ID, WRLD_FormID);
+
+CREATE VIEW View_Mods_Conflicts_FormID_Base AS
+WITH RawPairs AS (
+    SELECT DISTINCT
+        CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN mc1.Mod_ID ELSE mc2.Mod_ID END AS Mod_ID_A,
+        CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN mc2.Mod_ID ELSE mc1.Mod_ID END AS Mod_ID_B,
+        f1.Master_Component_ID,
+        f1.Master_Is_System,
+        f1.FormID_Local,
+        f1.Sig
+    FROM Components_ESM_FormIDs f1
+    JOIN Components_ESM_FormIDs f2
+      ON f1.Master_Component_ID = f2.Master_Component_ID
+     AND f1.FormID_Local = f2.FormID_Local
+     AND f1.Master_Is_System = f2.Master_Is_System
+     AND f1.Component_ID < f2.Component_ID
+    JOIN Mods_Components mc1 ON f1.Component_ID = mc1.Component_ID
+    JOIN Mods_Components mc2 ON f2.Component_ID = mc2.Component_ID
+    WHERE f1.Is_Override = 1 AND f2.Is_Override = 1 AND f1.Sig NOT IN ('TES4', 'NAVI')
+      AND mc1.Mod_ID != mc2.Mod_ID
+      AND NOT EXISTS (
+          SELECT 1 FROM Components_ESM_Dummies d
+          WHERE d.FormID_Local = f1.FormID_Local
+            AND (d.Component_ID = f1.Component_ID OR d.Component_ID = f2.Component_ID)
+      )
+)
+SELECT 
+    p.Mod_ID_A,
+    COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || p.Mod_ID_A) AS Mod_Name_A,
+    p.Mod_ID_B,
+    COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || p.Mod_ID_B) AS Mod_Name_B,
+    p.Sig,
+    p.FormID_Local AS FormID,
+    COALESCE(
+        NULLIF(f1.EDID, ''),
+        NULLIF(f2.EDID, ''),
+        NULLIF(sys.EDID, '')
+    ) AS EDID,
+    CASE 
+        WHEN p.Sig = 'CELL' THEN p.FormID_Local
+        ELSE COALESCE(f1.Cell_FormID, f2.Cell_FormID)
+    END AS Cell_FormID,
+    COALESCE(
+        NULLIF(c_mod.EDID, ''),
+        NULLIF(c_sys.EDID, '')
+    ) AS Cell_EDID,
+    COALESCE(f1.Base_FormID, f2.Base_FormID) AS Base_FormID,
+    COALESCE(
+        NULLIF(b_mod.EDID, ''),
+        NULLIF(b_sys.EDID, '')
+    ) AS Base_EDID
+FROM RawPairs p
+JOIN Mods m1 ON p.Mod_ID_A = m1.ID
+JOIN Mods m2 ON p.Mod_ID_B = m2.ID
+LEFT JOIN Components_ESM_FormIDs f1 
+  ON p.FormID_Local = f1.FormID_Local 
+ AND f1.Component_ID IN (SELECT Component_ID FROM Mods_Components WHERE Mod_ID = p.Mod_ID_A)
+ AND f1.Is_Override = 1
+LEFT JOIN Components_ESM_FormIDs f2 
+  ON p.FormID_Local = f2.FormID_Local 
+ AND f2.Component_ID IN (SELECT Component_ID FROM Mods_Components WHERE Mod_ID = p.Mod_ID_B)
+ AND f2.Is_Override = 1
+LEFT JOIN Components_System_FormIDs sys 
+  ON p.FormID_Local = sys.FormID_Local AND p.Sig = sys.Sig
+LEFT JOIN Components_ESM_FormIDs c_mod
+  ON c_mod.FormID_Local = (CASE WHEN p.Sig = 'CELL' THEN p.FormID_Local ELSE COALESCE(f1.Cell_FormID, f2.Cell_FormID) END)
+ AND c_mod.Sig = 'CELL'
+LEFT JOIN Components_System_FormIDs c_sys
+  ON c_sys.FormID_Local = (CASE WHEN p.Sig = 'CELL' THEN p.FormID_Local ELSE COALESCE(f1.Cell_FormID, f2.Cell_FormID) END)
+ AND c_sys.Sig = 'CELL'
+LEFT JOIN Components_ESM_FormIDs b_mod
+  ON b_mod.FormID_Local = COALESCE(f1.Base_FormID, f2.Base_FormID)
+LEFT JOIN Components_System_FormIDs b_sys
+  ON b_sys.FormID_Local = COALESCE(f1.Base_FormID, f2.Base_FormID)
+GROUP BY p.Mod_ID_A, p.Mod_ID_B, p.FormID_Local, p.Sig;
+
+CREATE TABLE "Mods_Conflicts" (
+    "Mod_ID_A"    INTEGER NOT NULL,
+    "Mod_Name_A"  TEXT,
+    "Mod_ID_B"    INTEGER NOT NULL,
+    "Mod_Name_B"  TEXT,
+    "Sig"         TEXT NOT NULL,
+    "FormID"      INTEGER NOT NULL,
+    "EDID"        TEXT,
+    "Cell_FormID" INTEGER,
+    "Cell_EDID"   TEXT,
+    "Base_FormID" INTEGER,
+    "Base_EDID"   TEXT,
+    PRIMARY KEY("Mod_ID_A", "Mod_ID_B", "FormID", "Sig")
+);
+
+CREATE INDEX "idx_mods_conflicts_pair" ON "Mods_Conflicts" ("Mod_ID_A", "Mod_ID_B");
+CREATE INDEX "idx_mods_conflicts_formid" ON "Mods_Conflicts" ("FormID");
+CREATE INDEX "idx_mods_conflicts_sig" ON "Mods_Conflicts" ("Sig");

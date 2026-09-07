@@ -185,10 +185,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 border-radius: 4px;
             }
             QComboBox {
-                background-color: #2A2A2A;
-                color: #FFFFFF;
-                border: 1px solid #444444;
-                border-radius: 3px;
+                background-color: #FFFFFF;
+                color: #000000;
+                border: 1px solid #888888;
+                border-radius: 2px;
                 padding: 4px 8px;
                 font-size: 12px;
             }
@@ -196,16 +196,16 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 border: 1px solid #304C7A;
             }
             QComboBox QAbstractItemView {
-                background-color: #222222;
-                color: #ECECEC;
+                background-color: #FFFFFF;
+                color: #000000;
                 selection-background-color: #304C7A;
                 selection-color: #FFFFFF;
             }
             QLineEdit {
-                background-color: #2A2A2A;
-                color: #FFFFFF;
-                border: 1px solid #444444;
-                border-radius: 3px;
+                background-color: #FFFFFF;
+                color: #000000;
+                border: 1px solid #888888;
+                border-radius: 2px;
                 padding: 4px 8px;
                 font-size: 12px;
             }
@@ -224,24 +224,30 @@ class ModsConflictsInspectorWindow(QMainWindow):
             QPushButton#btn_action:hover {
                 background-color: #4068A3;
             }
+            /* Helle Tabelle nach Vorgabe der Hauptanwendung */
             QTableView {
-                background-color: #1A1A1A;
-                alternate-background-color: #222222;
-                color: #ECECEC;
-                border: 1px solid #333333;
-                gridline-color: #2A2A2A;
+                background-color: #ECECEC;
+                alternate-background-color: #F2F2F2;
+                color: #1E1E1E;
+                border: 1px solid #444444;
+                gridline-color: #D0D0D0;
                 font-family: "Segoe UI", Arial, sans-serif;
                 font-size: 12px;
                 selection-background-color: #304C7A;
                 selection-color: #FFFFFF;
+                outline: none;
+            }
+            QTableView::item:selected {
+                background-color: #304C7A;
+                color: #FFFFFF;
             }
             QHeaderView::section {
-                background-color: #282828;
-                color: #D7A64B;
+                background-color: #2B2B2B;
+                color: #ECECEC;
                 font-weight: bold;
                 font-size: 12px;
-                border: 1px solid #333333;
-                padding: 5px;
+                border: 1px solid #1A1A1A;
+                padding: 6px;
             }
         """)
 

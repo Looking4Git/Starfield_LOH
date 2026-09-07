@@ -123,10 +123,12 @@ class ModsConflictsInspectorWindow(QMainWindow):
 
         self.lbl_col_a = QLabel("Mod A (Ausgangs-Mod)")
         self.lbl_col_a.setObjectName("col_title")
+        self.lbl_col_a.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         col_a_layout.addWidget(self.lbl_col_a)
 
         self.list_mod_a = QListWidget()
         self.list_mod_a.setObjectName("list_mods")
+        self.list_mod_a.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.list_mod_a.currentItemChanged.connect(self.on_mod_a_selected)
         col_a_layout.addWidget(self.list_mod_a)
 
@@ -140,10 +142,12 @@ class ModsConflictsInspectorWindow(QMainWindow):
 
         self.lbl_col_b = QLabel("Mod B (Konflikt-Partner)")
         self.lbl_col_b.setObjectName("col_title")
+        self.lbl_col_b.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         col_b_layout.addWidget(self.lbl_col_b)
 
         self.list_mod_b = QListWidget()
         self.list_mod_b.setObjectName("list_mods")
+        self.list_mod_b.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.list_mod_b.currentItemChanged.connect(self.on_mod_b_selected)
         col_b_layout.addWidget(self.list_mod_b)
 
@@ -157,6 +161,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
 
         self.lbl_stats = QLabel("Kollidierende Datensätze (Details)")
         self.lbl_stats.setObjectName("col_title")
+        self.lbl_stats.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         col_details_layout.addWidget(self.lbl_stats)
 
         # Table Model & View
@@ -196,8 +201,15 @@ class ModsConflictsInspectorWindow(QMainWindow):
         col_details_layout.addWidget(self.table_view)
         self.splitter.addWidget(col_details_widget)
 
-        # Initiale Größenverteilung der 3 Spalten (340px, 340px, Rest für Details)
-        self.splitter.setSizes([340, 340, 800])
+        # Größen- und Skalierungsverhalten:
+        # Mod A und Mod B behalten feste Inhaltsbreiten (Stretch-Faktor 0),
+        # während ausschließlich die Tabellenanzeige mit der Fensterbreite skaliert (Stretch-Faktor 1).
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setStretchFactor(2, 1)
+
+        # Inhaltsbasierte Spaltenbreiten: Mod A (420px), Mod B (340px), Rest für Details-Tabelle
+        self.splitter.setSizes([420, 340, 740])
         main_layout.addWidget(self.splitter, 1)
 
         # --- STYLESHEET (Starfield Dark Mode mit hellen Listen und heller Tabelle) ---
@@ -419,6 +431,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
 
             for mod_id, mod_name, cnt in mods:
                 item = QListWidgetItem(f"{mod_name} [ID {mod_id}]  ({cnt})")
+                item.setToolTip(f"{mod_name} [ID {mod_id}]  ({cnt} Konflikte)")
                 item.setData(Qt.UserRole, mod_id)
                 item.setData(Qt.UserRole + 1, mod_name)
                 self.list_mod_a.addItem(item)
@@ -499,6 +512,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
 
             for p_id, p_name, cnt in partners:
                 item = QListWidgetItem(f"{p_name} [ID {p_id}]  ({cnt})")
+                item.setToolTip(f"{p_name} [ID {p_id}]  ({cnt} Kollisionen)")
                 item.setData(Qt.UserRole, p_id)
                 item.setData(Qt.UserRole + 1, p_name)
                 self.list_mod_b.addItem(item)

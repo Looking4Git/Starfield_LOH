@@ -209,13 +209,43 @@ def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
     return count
 
 
+def _build_wrld_diff_reason(diff_keys):
+    """
+    Synthetisiert eine präzise Symptom- und Konsequenzbegründung
+    anhand der tatsächlich abweichenden Subrecords eines WRLD-Datensatzes.
+    """
+    if not diff_keys:
+        return "Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel."
+
+    diff_set = set(diff_keys)
+    has_climate = 'CNAM' in diff_set
+    has_water = 'WNAM' in diff_set
+    has_terrain = bool({'DATA', 'DNAM', 'NAM0', 'NAM9'} & diff_set)
+
+    symptoms = []
+    if has_climate:
+        symptoms.append("plötzliche Wetterabbrüche (Popping) oder veränderte Wetterzyklen")
+    if has_water:
+        symptoms.append("unpassende Wasserfarben, Strömungen oder fehlerhafter Unterwasser-Nebel")
+    if has_terrain:
+        symptoms.append("veränderte Standard-Geländehöhen oder verschobene Kartengrenzen")
+
+    if not symptoms:
+        symptoms.append("abweichende Worldspace-Steuerungsdaten")
+
+    symptoms_text = " sowie ".join(symptoms) + " möglich."
+    diff_str = ", ".join(diff_keys)
+    return f"Abweichende Steuer-Subrecords ({diff_str}): {symptoms_text[0].upper() + symptoms_text[1:]}"
+
+
 def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     """
     Schritt 4: Worldspace-Subrecord-Analyse
     Prüft verbleibende aktive WRLD-Konflikte über File_ESM_Parser_Dynamic.
     - Identische Steuer-Subrecords -> Typ 0 (Identischer Mitläufer).
       Erhält Step_ID = 4, Step_Description = step_desc.
-    - Abweichende Steuer-Subrecords -> Bleiben unverändert (Step_ID = 1, Conflict_Type = 2).
+    - Abweichende Steuer-Subrecords -> Typ 2 (Reale Kollision mit differenzierter Subrecord-Begründung).
+      Erhält Step_ID = 4, Step_Description = step_desc.
     """
     from Structure.File_ESM_Parser_Dynamic import get_subrecords
 
@@ -235,30 +265,37 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     wrld_cache = {}
     target_subrecords = ['CNAM', 'DNAM', 'WNAM', 'DATA', 'NAM0', 'NAM9']
     demoted_type_0 = []
+    qualified_type_2 = []
 
     for mod_id_a, mod_id_b, form_id, sig, file_a, file_b in wrld_rows:
         key_a = (file_a, form_id)
         if key_a not in wrld_cache:
             subs = get_subrecords(file_a, form_id, target_subrecords, target_sig='WRLD')
-            wrld_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else None
+            wrld_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
 
         key_b = (file_b, form_id)
         if key_b not in wrld_cache:
             subs = get_subrecords(file_b, form_id, target_subrecords, target_sig='WRLD')
-            wrld_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else None
+            wrld_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
 
         data_a = wrld_cache[key_a]
         data_b = wrld_cache[key_b]
 
-        if data_a is not None and data_b is not None and data_a == data_b:
+        diff_keys = [k for k in target_subrecords if data_a.get(k) != data_b.get(k)]
+
+        if not diff_keys:
             # Beide Mods haben 100% identische Steuerdaten -> Reiner Mitläufer!
             reason = "Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel."
             demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
-        # Bei abweichenden Daten bleibt der Datensatz unverändert auf Step 1, Typ 2
+        else:
+            # Reale Kollision mit differenzierter Subrecord-Begründung
+            reason = _build_wrld_diff_reason(diff_keys)
+            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
 
-    count = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
-    print(f"      - Schritt 4: {count} WRLD-Container als identische Mitläufer (Typ 0) erkannt.")
-    return count
+    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
+    print(f"      - Schritt 4: {cnt_0} WRLD-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
+    return cnt_0 + cnt_2
 
 
 # Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung

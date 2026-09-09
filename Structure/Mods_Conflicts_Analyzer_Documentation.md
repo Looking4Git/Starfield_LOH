@@ -102,9 +102,9 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
    * Setzt für Treffer `Step_ID = 3`, `Step_Description = 'Schiedsrichter-Patches'`, `Conflict_Type = 0` und die Begründung `"Konflikt durch nachgelagerten Patch harmonisiert ('<Patch-Name>' [ID <Patch-ID>]): Beide Mods greifen wie vorgesehen."`.
 
 4. **Schritt 4: `_step_wrld_containers` (Worldspace-Subrecord-Analyse)**
-   * Führt für verbleibende aktive WRLD-Kollisionen einen On-Demand-Vergleich der Steuer-Subrecords (`CNAM`, `DNAM`, `WNAM`, `DATA`) über `File_ESM_Parser_Dynamic` durch.
-   * **Nur bei 100 % identischen Steuerdaten:** Wird der Datensatz als harmloser Creation-Kit-Mitläufer identifiziert und gestempelt mit `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 0` und `Reason = 'Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.'`.
-   * **Abweichende Steuerdaten:** Werden nicht verändert; sie verbleiben auf ihrer Basiseinstufung (`Step_ID = 1`, `Conflict_Type = 2`) mit der konkreten Begründung `"Abweichende Steuer-Subrecords: Plötzliche Wetterabbrüche (Popping), falsche Regen- oder Sturmtexturen sowie unpassende Wasser- und Lichtstimmungen möglich."`.
+   * Führt für verbleibende aktive WRLD-Kollisionen einen speichereffizienten Subrecord-Vergleich (`CNAM`, `DNAM`, `WNAM`, `DATA`, `NAM0`, `NAM9`) über `File_ESM_Parser_Dynamic` durch.
+   * **Bei 100 % identischen Steuerdaten:** Wird der Datensatz als harmloser Creation-Kit-Mitläufer identifiziert und gestempelt mit `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 0` und `Reason = 'Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.'`.
+   * **Bei abweichenden Steuerdaten:** Werden die exakt differierenden Subrecords (`diff_keys`) ermittelt und gezielte Symptome abgeleitet. Der Datensatz wird ebenfalls auf `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 2` fortgeschrieben (z. B. `Reason = 'Abweichende Steuer-Subrecords (CNAM, DATA, DNAM): Plötzliche Wetterabbrüche (Popping) oder veränderte Wetterzyklen sowie veränderte Standard-Geländehöhen oder verschobene Kartengrenzen möglich.'`).
 
 ---
 

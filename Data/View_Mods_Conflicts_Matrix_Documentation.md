@@ -156,97 +156,11 @@ Um hochperformante $O(1)$-Lookups in der Benutzeroberfläche (`Mods_Conflicts_GU
 
 ## 7. Typisierung & Schweregrade der Konflikte (`Conflict_Type`)
 
-Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie, die alle Hauptreferenzen der Creation Engine 2 lückenlos abdeckt:
+Die qualitative Bewertung und Einstufung von Kollisionen (`Typ 0` bis `Typ 3`) sowie die detaillierte Zuordnung aller Creation Engine 2 (CE2) Signaturen erfolgt strukturiert im Konflikt-Analyzer (`Structure/Mods_Conflicts_Analyzer.py`).
 
-* **Typ 3: Kritisch** (Game-Breaker, Endlosschleifen & CTD-Gefahr)
-  * **Wirkung im Spiel:** Das Spiel stürzt ab (Crash to Desktop) oder Kern-Spielfunktionen und Quests werden unlösbar zerstört.
-  * **Referenz-Gruppen & Signaturen:**
-    * ├── **Wegfindung (Pathfinding):**
-    * │   └── `NAVM` (NavMesh - Wegfindungsnetze; Kantenrisse führen zu KI-Crashs).
-    * ├── **Quests & Story Manager:**
-    * │   ├── `QUST` (Quests & Quest-Phasen).
-    * │   ├── `SMQN` / `SMBN` / `SMEN` (Story-Manager-Knoten, Branches & Event-Trigger).
-    * │   └── `SCEN` (Szenen-Abläufe & inszenierte Sequenzen).
-    * ├── **Skript-Integrität & Engine-Defaults:**
-    * │   ├── `VMAD` (Papyrus-Bindeglied an Objekten/Triggern; Skript-Verlust bricht Logik ab).
-    * │   ├── `DOBJ` (Default Objects - Globale Hardcoded-Systemzeiger von Starfield).
-    * │   └── `AVIF` (System-ActorValues mit Hardcoded-Engine-Funktionen).
-    * └── **Gefährliche Referenzen:**
-    *     └── `REFR` / `ACHR` (mit Deleted-Flag: Zugriff auf gelöschte Objekte $\rightarrow$ Crash!).
+Die vollständige Spezifikation der Klassifizierungsstufen, Kriterien und Signatur-Bäume ist dokumentiert in:
+👉 [Mods_Conflicts_Analyzer_Documentation.md](../Structure/Mods_Conflicts_Analyzer_Documentation.md)
 
-* **Typ 2: Normal** (Sichtbare Fehler, Immersions-Glitches & gestörte Spielmechaniken)
-  * **Wirkung im Spiel:** Spiel läuft stabil, aber der Fehler ist direkt optisch/akustisch sichtbar oder eine Spielmechanik versagt.
-  * **Referenz-Gruppen & Signaturen:**
-    * ├── **Räumliche Welt & Platzierungen (Clipping-Gefahr):**
-    * │   ├── `CELL` (Innenräume & Planetenkacheln).
-    * │   ├── `WRLD` (Worldspaces mit abweichenden Steuerdaten wie Klima, Wasser, Flags).
-    * │   ├── `REFR` (Physisch platzierte Möbel, Kisten und Deko in der Welt).
-    * │   ├── `ACHR` (Physisch platzierte NPCs und Akteure in der Welt).
-    * │   ├── `DOOR` (Türen & Zell-Ladeübergänge).
-    * │   ├── `LCTN` / `LAYR` (Locations & visuelle Render-Layer).
-    * │   └── `SFBK` / `SFTR` / `PNDT` (Planetare POI-Blöcke & Landschaftsstrukturen).
-    * ├── **Gameplay-Mechaniken (Wirkungsverlust / Funktionsstörung):**
-    * │   ├── `PERK` (Talente, Perks & Fähigkeitsbäume).
-    * │   ├── `SPEL` (Kräfte, Zauber, Flüche & Krankheiten).
-    * │   ├── `MGEF` (Magische Basiseffekte & Buff-/Debuff-Definitionen).
-    * │   └── `ENCH` (Verzauberungen & Rüstungs-/Waffeneffekte).
-    * ├── **Akteure, KI & Dialoge:**
-    * │   ├── `NPC_` (NPC-Definitionen: KI, Voice, Fraktion, Inventar).
-    * │   ├── `PACK` (AI Packages: Tagesabläufe, Patrouillen, Schlafzeiten).
-    * │   ├── `FACT` (Fraktionszugehörigkeiten, Allianzen & Feindschaften).
-    * │   ├── `AFFE` (Begleiter-Zuneigung & Affinity-Events).
-    * │   └── `DIAL` / `INFO` (Gesprochene Dialogthemen & Dialogzeilen).
-    * ├── **Visuelle & Akustische Sensorik (Glitches):**
-    * │   ├── `LIGH` (Lichtquellen, Schattenwurf & Lichtkegel).
-    * │   ├── `TXST` / `MATO` / `MATT` (Textursätze, Material-Swaps & Shader).
-    * │   ├── `EFSH` / `EFSQ` (Grafikeffekte, Partikel & Shader-Sequenzen).
-    * │   ├── `IMAD` / `IMGS` (Bildschirm-Farbkorrekturen & Post-Processing).
-    * │   ├── `CLMT` / `WTHS` (Klimazyklen & Wetterdefinitionen).
-    * │   └── `SOUN` / `MUSC` / `SDLT` (Soundeffekte, Musikspuren & Sound-Links).
-    * ├── **Schiffsbau & Fahrzeuge:**
-    * │   ├── `STBH` / `STMP` / `STND` (Schiffs-Verhalten, Schablonen & Snap-Nodes).
-    * │   └── `GBFM` (Gameplay-Blaupausen für Landfahrzeuge / REV-8 & Passantendichte).
-    * └── **Interaktive Welt-Objekte:**
-    *     ├── `ACTI` / `TACT` (Aktivatoren, Schalter & Hebel).
-    *     ├── `CONT` (Behälter & Tresore).
-    *     ├── `TERM` (Interaktive Terminals).
-    *     └── `FLOR` (Erntbare Pflanzen & Großvegetation).
-
-* **Typ 1: Leicht** (Harmloser Wertestreit / Pure Rule of One)
-  * **Wirkung im Spiel:** Vollkommen harmlos für Stabilität und Spielfortschritt. Die spätere Mod gewinnt einfach die Eigenschaft.
-  * **Referenz-Gruppen & Signaturen:**
-    * ├── **Ausrüstung & Gegenstände (Stats/Zahlenwerte):**
-    * │   ├── `WEAP` / `PROJ` (Waffen: Schaden, Feuerrate, Reichweite, Projektil).
-    * │   ├── `ARMO` / `ARMA` (Rüstungen & Kleidung: Schutzwerte, Trageslots).
-    * │   ├── `AMMO` (Munitionsarten & Gewicht).
-    * │   ├── `OMOD` (Waffen- & Rüstungs-Aufsätze / Modifikationen).
-    * │   ├── `MISC` / `KEYM` (Sonstiges, Ressourcen, Schrott, Schlüssel).
-    * │   └── `BOOK` (Bücher, Notizen, Slates, Preise & Beschreibungen).
-    * ├── **Herstellung & Verbrauchsgüter:**
-    * │   ├── `COBJ` (Werkbank-Baupläne & Handwerksrezepte).
-    * │   └── `ALCH` / `INGR` (Medizin, Chems, Essen, Getränke & Zutaten).
-    * ├── **Listen & Tabellen (Leveled Lists):**
-    * │   ├── `LVLI` (Leveled Items - Loot-Tabellen).
-    * │   ├── `LVLN` (Leveled NPCs - Gegner-Spawntabellen).
-    * │   ├── `LVLP` / `LVLB` (Leveled Pack-Ins).
-    * │   └── `FLST` (FormID-Sammellisten für Händler & Scripte).
-    * ├── **System-Konfigurationen & Variablen:**
-    * │   ├── `GLOB` (Globale Variablen / Schalter).
-    * │   ├── `GMST` (Game Settings - Spielparameter wie Schwerkraft, Preise).
-    * │   └── `INNR` (Instance Naming Rules - Dynamische Benennungsregeln).
-    * └── **Charakter-Kosmetik & Animationen:**
-    *     ├── `HDPT` (Frisuren, Bärte, Gesichtsmerkmale).
-    *     ├── `CLFM` (Farbtöne für Haare, Haut, Augen & Schiffslacke).
-    *     ├── `CAMS` / `CPTH` (Kamera-Perspektiven & Fahrten).
-    *     └── `MOVT` / `CSTY` / `IDLE` (Bewegungstypen, Kampfstile, Idle-Animationen).
-
-* **Typ 0: Keiner** (Entschärft / Gewollt / Neutralisiert)
-  * **Wirkung im Spiel:** Kein wirksamer Konflikt.
-  * **Kriterien & Ursachen:**
-    * ├── **Gewolltes Override:** Mod B deklariert Mod A als Voraussetzung (`Mods_Requirements`).
-    * ├── **Gelöster Konflikt:** Ein dritter Schiedsrichter-Patch P versöhnt Mod A und Mod B auf derselben FormID.
-    * ├── **Identischer Mitläufer:** 100 % identische Steuer-Subrecords (z. B. unberührte WRLD-Container).
-    * └── **Reine Engine-Metadaten:** `TES4` (Plugin-Header) und `NAVI` (Globaler NavMesh-Index).
 
 
 

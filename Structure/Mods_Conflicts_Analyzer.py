@@ -18,55 +18,139 @@ CONFLICT_TYPES = {
     0: "Keiner"
 }
 
+# Signatur-Basiskonfiguration nach Creation Engine 2 (CE2) Hierarchie
+SIG_BASELINE_CONFIG = {
+    # Typ 3: Kritisch (Game-Breaker, NavMesh, Quests, Story Manager, Skripte)
+    'NAVM': (3, "Kritisch: NavMesh-Kollision (Gefahr von Kantenrissen und KI-Crashs)"),
+    'QUST': (3, "Kritisch: Quest-Kollision (Gefahr von Phasen- und Fortschrittsblockern)"),
+    'SMQN': (3, "Kritisch: Story-Manager-Knoten (Event-Dispatching-Störung)"),
+    'SMBN': (3, "Kritisch: Story-Manager-Branch (Event-Dispatching-Störung)"),
+    'SMEN': (3, "Kritisch: Story-Manager-Event (Event-Dispatching-Störung)"),
+    'SCEN': (3, "Kritisch: Szenen-Kollision (Ablauf- und Sequenz-Blocker)"),
+    'DOBJ': (3, "Kritisch: Default Objects (Gefahr von Hardcoded-Engine-Fehlern)"),
+    'AVIF': (3, "Kritisch: ActorValue-Kollision (Gefahr gestörter System-Kennzahlen)"),
 
-def _check_patches(cur, reporter=None):
+    # Typ 1: Leicht (Harmloser Wertestreit / Rule of One)
+    'WEAP': (1, "Leicht: Waffen-Override (Schaden/Stats - Rule of One)"),
+    'PROJ': (1, "Leicht: Projektil-Override (Stats/Verhalten - Rule of One)"),
+    'ARMO': (1, "Leicht: Rüstungs-/Kleidungs-Override (Stats/Slots - Rule of One)"),
+    'ARMA': (1, "Leicht: ArmorAddon-Override (Modell-Zuordnung - Rule of One)"),
+    'AMMO': (1, "Leicht: Munitions-Override (Stats/Gewicht - Rule of One)"),
+    'OMOD': (1, "Leicht: Modifikations-Override (Aufsatz-Stats - Rule of One)"),
+    'MISC': (1, "Leicht: Sonstiges/Schrott-Override (Stats/Werte - Rule of One)"),
+    'KEYM': (1, "Leicht: Schlüssel-Override (Zuordnung - Rule of One)"),
+    'BOOK': (1, "Leicht: Buch-/Notizen-Override (Text/Preise - Rule of One)"),
+    'COBJ': (1, "Leicht: Rezept-Override (Baupläne/Werkbank - Rule of One)"),
+    'ALCH': (1, "Leicht: Verbrauchs-/Chems-Override (Effektwerte - Rule of One)"),
+    'INGR': (1, "Leicht: Zutaten-Override (Werte - Rule of One)"),
+    'LVLI': (1, "Leicht: Leveled-Item-Lootliste (Rule of One)"),
+    'LVLN': (1, "Leicht: Leveled-NPC-Spawnliste (Rule of One)"),
+    'LVLP': (1, "Leicht: Leveled-PackIn-Liste (Rule of One)"),
+    'LVLB': (1, "Leicht: Leveled-Space-Liste (Rule of One)"),
+    'FLST': (1, "Leicht: FormID-Sammelliste (Rule of One)"),
+    'GLOB': (1, "Leicht: Globale Variable (Rule of One)"),
+    'GMST': (1, "Leicht: Game Setting / Engine-Parameter (Rule of One)"),
+    'INNR': (1, "Leicht: Benennungsregel / Instance Naming Rule (Rule of One)"),
+    'HDPT': (1, "Leicht: HeadPart-Kosmetik (Rule of One)"),
+    'CLFM': (1, "Leicht: ColorForm-Kosmetik (Rule of One)"),
+    'CAMS': (1, "Leicht: Kamera-Perspektive (Rule of One)"),
+    'CPTH': (1, "Leicht: Kamera-Pfad (Rule of One)"),
+    'MOVT': (1, "Leicht: Bewegungstyp (Rule of One)"),
+    'CSTY': (1, "Leicht: Kampfstil (Rule of One)"),
+    'IDLE': (1, "Leicht: Idle-Animation (Rule of One)"),
+}
+
+
+def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
     """
-    Schritt 1: Patch-Erkennung und Voraussetzungs-Auflösung (Regel 1 & 2)
-    1A. Direkte Voraussetzungen (Regel 1):
-        Wenn Mod B Mod A als Voraussetzung deklariert (oder umgekehrt),
-        ist das Überschreiben gewollt (Intended Override) und kein Konflikt.
-    1B. Trianguläre Schiedsrichter-Patches (Regel 2):
-        Wenn Mod A und Mod B auf FormID X kollidieren, aber ein dritter installierter
-        Patch P existiert, der sowohl A als auch B als Voraussetzung deklariert und
-        FormID X ebenfalls überschreibt, ist der Konflikt zwischen A und B gelöst.
+    Modularisierte Hilfsfunktion zur batchweisen Aktualisierung modifizierter Konfliktdatensätze.
+    records: Liste von Tupeln (mod_id_a, mod_id_b, form_id, sig, reason)
     """
-    msg = "   -> Schritt 1: Patch-Erkennung und Voraussetzungs-Auflösung..."
-    logger.info(msg)
-    print(msg)
-
-    # 1A. Direkte Voraussetzungen (Regel 1)
-    # Fall 1: Mod A besitzt Mod B als Voraussetzung
-    cur.execute("""
+    if not records:
+        return 0
+    data = [(step_id, step_desc, conflict_type, reason, a, b, f, s) for a, b, f, s, reason in records]
+    cur.executemany("""
         UPDATE Mods_Conflicts
-        SET Conflict_Type = 0,
-            Reason = 'Gewolltes Override: ''' || Mod_Name_A || ''' besitzt ''' || Mod_Name_B || ''' als deklarierte Voraussetzung'
-        WHERE EXISTS (
-            SELECT 1 FROM Mods_Requirements mr
-            WHERE mr.ID_Mod = Mods_Conflicts.Mod_ID_A AND mr.ID_Mod_Requirement = Mods_Conflicts.Mod_ID_B
-        );
-    """)
-    cnt_req_a = cur.rowcount
+        SET Step_ID = ?,
+            Step_Description = ?,
+            Conflict_Type = ?,
+            Reason = ?
+        WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+    """, data)
+    return len(records)
 
-    # Fall 2: Mod B besitzt Mod A als Voraussetzung
+
+def _step_baseline_typification(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 1: Signatur-Basiseinstufung
+    Bewertet alle eingelesenen Konflikte initial anhand ihrer CE2-Signatur
+    (Typ 3: Kritisch, Typ 1: Leicht, Typ 2: Normal als Standard).
+    Setzt initial Step_ID = 1 und Step_Description = step_desc.
+    """
+    cur.execute("SELECT DISTINCT Sig FROM Mods_Conflicts;")
+    sigs = [row[0] for row in cur.fetchall()]
+    total_modified = 0
+
+    for sig in sigs:
+        if sig in SIG_BASELINE_CONFIG:
+            c_type, reason = SIG_BASELINE_CONFIG[sig]
+        else:
+            c_type, reason = 2, f"Normal: Kollidierender Mod-Override auf Signatur {sig}"
+
+        cur.execute("""
+            UPDATE Mods_Conflicts
+            SET Step_ID = ?,
+                Step_Description = ?,
+                Conflict_Type = ?,
+                Reason = ?
+            WHERE Sig = ?;
+        """, (step_id, step_desc, c_type, reason, sig))
+        total_modified += cur.rowcount
+
+    print(f"      - {total_modified} Datensätze über {len(sigs)} Signaturen initial typisiert.")
+    return total_modified
+
+
+def _step_direct_requirements(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 2: Direkte Mod-Voraussetzungen (Regel 1)
+    Wenn Mod B Mod A als Voraussetzung deklariert (oder umgekehrt),
+    ist das Überschreiben ein gewolltes Prerequisite-Override (Typ 0).
+    Nur tatsächlich zutreffende Datensätze werden auf Step 2 aktualisiert.
+    """
     cur.execute("""
-        UPDATE Mods_Conflicts
-        SET Conflict_Type = 0,
-            Reason = 'Gewolltes Override: ''' || Mod_Name_B || ''' besitzt ''' || Mod_Name_A || ''' als deklarierte Voraussetzung'
-        WHERE EXISTS (
-            SELECT 1 FROM Mods_Requirements mr
-            WHERE mr.ID_Mod = Mods_Conflicts.Mod_ID_B AND mr.ID_Mod_Requirement = Mods_Conflicts.Mod_ID_A
-        );
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+               CASE 
+                   WHEN mr_b.ID_Mod IS NOT NULL THEN 'Beabsichtigtes Prerequisite-Override (Regel 1: ''' || mc.Mod_Name_B || ''' setzt ''' || mc.Mod_Name_A || ''' voraus)'
+                   ELSE 'Beabsichtigtes Prerequisite-Override (Regel 1: ''' || mc.Mod_Name_A || ''' setzt ''' || mc.Mod_Name_B || ''' voraus)'
+               END AS Reason
+        FROM Mods_Conflicts mc
+        LEFT JOIN Mods_Requirements mr_b 
+               ON mr_b.ID_Mod = mc.Mod_ID_B AND mr_b.ID_Mod_Requirement = mc.Mod_ID_A
+        LEFT JOIN Mods_Requirements mr_a 
+               ON mr_a.ID_Mod = mc.Mod_ID_A AND mr_a.ID_Mod_Requirement = mc.Mod_ID_B
+        WHERE mr_b.ID_Mod IS NOT NULL OR mr_a.ID_Mod IS NOT NULL;
     """)
-    cnt_req_b = cur.rowcount
-    cnt_direct = cnt_req_a + cnt_req_b
-    print(f"      - Regel 1: {cnt_direct} Datensätze als direkte Voraussetzungs-Overrides (Typ 0) eingestuft.")
+    rows = cur.fetchall()
+    count = _update_conflicts_batch(cur, step_id, step_desc, 0, rows)
+    print(f"      - Regel 1: {count} Datensätze als direkte Voraussetzungs-Overrides (Typ 0) eingestuft.")
+    return count
 
-    # 1B. Trianguläre Schiedsrichter-Patches (Regel 2)
+
+def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 3: Schiedsrichter-Patches (Regel 2)
+    Wenn Mod A und Mod B auf FormID X kollidieren, aber ein dritter installierter
+    Patch P existiert, der sowohl A als auch B als Voraussetzung deklariert und
+    FormID X ebenfalls überschreibt, ist der Konflikt zwischen A und B gelöst (Typ 0).
+    Nur tatsächlich gelöste Datensätze werden auf Step 3 aktualisiert.
+    """
     cur.execute("""
         SELECT 
             mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-            mP.ID AS Patch_Mod_ID,
-            COALESCE(mP.Name_Online, mP.Name_ContentCatalog, 'Mod ' || mP.ID) AS Patch_Name
+            'Beabsichtigte Schiedsrichter-Auflösung (Regel 2: Patch ''' || 
+            COALESCE(mP.Name_Online, mP.Name_ContentCatalog, 'Mod ' || mP.ID) || 
+            ''' [ID ' || mP.ID || '])' AS Reason
         FROM Mods_Conflicts mc
         JOIN Mods_Requirements mrA ON mrA.ID_Mod_Requirement = mc.Mod_ID_A
         JOIN Mods_Requirements mrB ON mrB.ID_Mod_Requirement = mc.Mod_ID_B AND mrA.ID_Mod = mrB.ID_Mod
@@ -78,43 +162,24 @@ def _check_patches(cur, reporter=None):
           AND fP.Is_Override = 1
         GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig;
     """)
-    triangular_rows = cur.fetchall()
-
-    if triangular_rows:
-        update_data = [
-            (
-                f"Konflikt gelöst durch Patch: '{patch_name}' [ID {patch_id}]",
-                mod_id_a, mod_id_b, form_id, sig
-            )
-            for mod_id_a, mod_id_b, form_id, sig, patch_id, patch_name in triangular_rows
-        ]
-        cur.executemany("""
-            UPDATE Mods_Conflicts
-            SET Conflict_Type = 0,
-                Reason = ?
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
-        """, update_data)
-
-    cnt_triangular = len(triangular_rows)
-    print(f"      - Regel 2: {cnt_triangular} Konflikte durch Schiedsrichter-Patches als gelöst (Typ 0) eingestuft.")
-    return cnt_direct, cnt_triangular
+    rows = cur.fetchall()
+    count = _update_conflicts_batch(cur, step_id, step_desc, 0, rows)
+    print(f"      - Regel 2: {count} Konflikte durch Schiedsrichter-Patches als gelöst (Typ 0) eingestuft.")
+    return count
 
 
-def _check_wrld_containers(cur, reporter=None):
+def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     """
-    Schritt 2: Dynamische Inhaltsprüfung auf Worldspace-Container (WRLD)
+    Schritt 4: Worldspace-Subrecord-Analyse
     Prüft verbleibende aktive WRLD-Konflikte über File_ESM_Parser_Dynamic.
-    - Identische Steuer-Subrecords -> Typ 0 (Mitläufer)
-    - Abweichende Steuer-Subrecords -> Typ 3 (Kritisch)
+    - Identische Steuer-Subrecords -> Typ 0 (Identischer Mitläufer).
+      Erhält Step_ID = 4, Step_Description = step_desc.
+    - Abweichende Steuer-Subrecords -> Bleiben unverändert (Step_ID = 1, Conflict_Type = 2).
     """
-    msg = "   -> Schritt 2: Dynamische Subrecord-Prüfung für Worldspace-Container (WRLD)..."
-    logger.info(msg)
-    print(msg)
-
     from Structure.File_ESM_Parser_Dynamic import get_subrecords
 
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID,
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
                c1.File AS File_A, c2.File AS File_B
         FROM Mods_Conflicts mc
         JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
@@ -129,9 +194,8 @@ def _check_wrld_containers(cur, reporter=None):
     wrld_cache = {}
     target_subrecords = ['CNAM', 'DNAM', 'WNAM', 'DATA', 'NAM0', 'NAM9']
     demoted_type_0 = []
-    promoted_type_3 = []
 
-    for mod_id_a, mod_id_b, form_id, file_a, file_b in wrld_rows:
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b in wrld_rows:
         key_a = (file_a, form_id)
         if key_a not in wrld_cache:
             subs = get_subrecords(file_a, form_id, target_subrecords, target_sig='WRLD')
@@ -147,44 +211,33 @@ def _check_wrld_containers(cur, reporter=None):
 
         if data_a is not None and data_b is not None and data_a == data_b:
             # Beide Mods haben 100% identische Steuerdaten -> Reiner Mitläufer!
-            demoted_type_0.append((mod_id_a, mod_id_b, form_id))
-        else:
-            # Mindestens ein Steuerwert (Klima, Wasser, Wetter) unterscheidet sich -> Kritisch!
-            promoted_type_3.append((mod_id_a, mod_id_b, form_id))
+            reason = "Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich"
+            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+        # Bei abweichenden Daten bleibt der Datensatz unverändert auf Step 1, Typ 2
 
-    if demoted_type_0:
-        cur.executemany("""
-            UPDATE Mods_Conflicts 
-            SET Conflict_Type = 0,
-                Reason = 'Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich'
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = 'WRLD';
-        """, demoted_type_0)
+    count = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    print(f"      - Schritt 4: {count} WRLD-Container als identische Mitläufer (Typ 0) erkannt.")
+    return count
 
-    if promoted_type_3:
-        cur.executemany("""
-            UPDATE Mods_Conflicts 
-            SET Conflict_Type = 3,
-                Reason = 'Kritischer Konflikt: Mindestens ein Steuer-Subrecord (Klima/Wasser/Wetter) weicht ab'
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = 'WRLD';
-        """, promoted_type_3)
 
-    step2_demoted = len(demoted_type_0)
-    print(f"      - Schritt 2: {step2_demoted} WRLD-Container als identische Mitläufer (Typ 0) erkannt.")
-    if promoted_type_3:
-        print(f"      - Schritt 2: {len(promoted_type_3)} WRLD-Container als echte Wetter/Klima-Kollisionen (Typ 3) eingestuft!")
-
-    return step2_demoted, len(promoted_type_3)
+# Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung
+CONFLICT_PIPELINE_STEPS = [
+    (1, "Signatur-Basiseinstufung", _step_baseline_typification),
+    (2, "Direkte Mod-Voraussetzungen", _step_direct_requirements),
+    (3, "Schiedsrichter-Patches", _step_triangular_patches),
+    (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
+]
 
 
 def analyze_conflicts(db_path=None, reporter=None):
     """
-    Führt die Konfliktanalyse aus:
-    1. Erstellt/aktualisiert den View View_Mods_Conflicts_FormID_Base (falls nicht vorhanden).
-    2. Löscht und erstellt die Tabelle Mods_Conflicts frisch (DROP & CREATE inkl. Spalte Reason).
-    3. Überträgt alle Datensatz-Kollisionen aus dem View in die physische Tabelle.
-    4. Schritt 1: Patch-Erkennung und Voraussetzungs-Auflösung (_check_patches).
-    5. Schritt 2: Dynamische Inhaltsprüfung auf WRLD-Container (_check_wrld_containers).
-    6. Indiziert die Tabelle für Millisekunden-Lookups in der GUI.
+    Führt die Konfliktanalyse über die modulare Pipeline aus:
+    1. Erstellt/aktualisiert den View View_Mods_Conflicts_FormID_Base.
+    2. Löscht und erstellt die Tabelle Mods_Conflicts frisch:
+       (..., Step_ID, Step_Description, Conflict_Type, Reason).
+    3. Materialisiert alle Kollisionspaare aus dem Basis-View.
+    4. Führt die Prüfschritte der CONFLICT_PIPELINE_STEPS sequenziell aus.
+    5. Indiziert die Tabelle für Millisekunden-Lookups in der GUI.
     """
     target_db = db_path if db_path else DB_FILE
     if not os.path.exists(target_db):
@@ -194,7 +247,7 @@ def analyze_conflicts(db_path=None, reporter=None):
         return False, 0, 0
 
     start_time = time.time()
-    msg_start = "Starte Mods_Conflicts_Analyzer: Materialisierung der FormID-Konfliktbasis..."
+    msg_start = "Starte Mods_Conflicts_Analyzer: Pipeline-basierte Konfliktanalyse..."
     logger.info(msg_start)
     print(msg_start)
 
@@ -287,24 +340,26 @@ def analyze_conflicts(db_path=None, reporter=None):
         cur.execute("DROP TABLE IF EXISTS Mods_Conflicts;")
         cur.execute("""
         CREATE TABLE Mods_Conflicts (
-            Mod_ID_A    INTEGER NOT NULL,
-            Mod_Name_A  TEXT,
-            Mod_ID_B    INTEGER NOT NULL,
-            Mod_Name_B  TEXT,
-            Sig         TEXT NOT NULL,
-            FormID      INTEGER NOT NULL,
-            EDID        TEXT,
-            Cell_FormID INTEGER,
-            Cell_EDID   TEXT,
-            Base_FormID INTEGER,
-            Base_EDID   TEXT,
-            Conflict_Type INTEGER NOT NULL DEFAULT 2,
-            Reason      TEXT,
+            Mod_ID_A          INTEGER NOT NULL,
+            Mod_Name_A        TEXT,
+            Mod_ID_B          INTEGER NOT NULL,
+            Mod_Name_B        TEXT,
+            Sig               TEXT NOT NULL,
+            FormID            INTEGER NOT NULL,
+            EDID              TEXT,
+            Cell_FormID       INTEGER,
+            Cell_EDID         TEXT,
+            Base_FormID       INTEGER,
+            Base_EDID         TEXT,
+            Step_ID           INTEGER NOT NULL DEFAULT 0,
+            Step_Description  TEXT,
+            Conflict_Type     INTEGER NOT NULL DEFAULT 2,
+            Reason            TEXT,
             PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
         );
         """)
 
-        # 3. Daten aus dem Basis-View materialisieren (Default Conflict_Type = 2 'Normal')
+        # 3. Daten aus dem Basis-View materialisieren
         print("   -> Lese Datensätze aus View_Mods_Conflicts_FormID_Base ein...")
         cur.execute("""
         INSERT INTO Mods_Conflicts (
@@ -312,34 +367,41 @@ def analyze_conflicts(db_path=None, reporter=None):
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
             Base_FormID, Base_EDID,
-            Conflict_Type, Reason
+            Step_ID, Step_Description, Conflict_Type, Reason
         )
         SELECT 
             Mod_ID_A, Mod_Name_A, Mod_ID_B, Mod_Name_B,
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
             Base_FormID, Base_EDID,
+            0 AS Step_ID,
+            'Initial' AS Step_Description,
             2 AS Conflict_Type,
-            'Kollidierender Override (beide Mods überschreiben denselben Record)' AS Reason
+            'Unbewerteter Override' AS Reason
         FROM View_Mods_Conflicts_FormID_Base;
         """)
 
-        # 4. Schritt 1: Patch-Erkennung und Voraussetzungs-Auflösung
-        cnt_direct, cnt_triangular = _check_patches(cur, reporter)
+        # 4. Pipeline-Schritte sequenziell ausführen
+        for step_id, step_desc, step_func in CONFLICT_PIPELINE_STEPS:
+            step_start = time.time()
+            msg_step = f"   -> Schritt {step_id}: {step_desc}..."
+            logger.info(msg_step)
+            print(msg_step)
+            affected = step_func(cur, step_id, step_desc, reporter)
+            step_dur = time.time() - step_start
+            print(f"      [Schritt {step_id} abgeschlossen in {step_dur:.2f}s | {affected} Datensätze modifiziert]")
 
-        # 5. Schritt 2: Dynamische Inhaltsprüfung auf WRLD-Container (Typ 0 vs. Typ 3)
-        step2_demoted, step2_promoted = _check_wrld_containers(cur, reporter)
-
-        # 6. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
+        # 5. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
         print("   -> Erstelle Indizes auf Mods_Conflicts...")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_pair ON Mods_Conflicts (Mod_ID_A, Mod_ID_B);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_formid ON Mods_Conflicts (FormID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sig ON Mods_Conflicts (Sig);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_type ON Mods_Conflicts (Conflict_Type);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
 
         conn.commit()
 
-        # 7. Statistiken erheben
+        # 6. Statistiken erheben
         cur.execute("SELECT COUNT(*) FROM Mods_Conflicts;")
         total_records = cur.fetchone()[0]
 

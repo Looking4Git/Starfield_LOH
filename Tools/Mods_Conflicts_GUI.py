@@ -88,7 +88,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
         ctrl_layout.addWidget(lbl_search)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("FormID (z. B. 0x00244C84), Mod-Name, Signatur oder Ort filtern...")
+        self.search_input.setPlaceholderText("FormID, Mod-Name, Signatur, Prüfschritt oder Ort filtern...")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self.on_filter_changed)
         self.search_input.setMinimumWidth(380)
@@ -167,7 +167,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
         # Table Model & View
         self.model = QStandardItemModel()
         self.headers = [
-            "Typ", "Signatur", "FormID (Hex)", "Editor-ID (EDID)",
+            "Prüfschritt", "Typ", "Signatur", "FormID (Hex)", "Editor-ID (EDID)",
             "Zell-FormID", "Zell-Name (Cell_EDID)",
             "Basis-FormID", "Basis-Name (Base_EDID)",
             "Begründung"
@@ -189,15 +189,16 @@ class ModsConflictsInspectorWindow(QMainWindow):
         # Header- und Spaltenbreiten
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
-        self.table_view.setColumnWidth(0, 105)  # Typ
-        self.table_view.setColumnWidth(1, 75)   # Sig
-        self.table_view.setColumnWidth(2, 115)  # FormID
-        self.table_view.setColumnWidth(3, 220)  # EDID
-        self.table_view.setColumnWidth(4, 115)  # Cell_FormID
-        self.table_view.setColumnWidth(5, 180)  # Cell_EDID
-        self.table_view.setColumnWidth(6, 115)  # Base_FormID
-        self.table_view.setColumnWidth(7, 180)  # Base_EDID
-        self.table_view.setColumnWidth(8, 300)  # Begründung
+        self.table_view.setColumnWidth(0, 180)  # Prüfschritt
+        self.table_view.setColumnWidth(1, 105)  # Typ
+        self.table_view.setColumnWidth(2, 75)   # Sig
+        self.table_view.setColumnWidth(3, 115)  # FormID
+        self.table_view.setColumnWidth(4, 220)  # EDID
+        self.table_view.setColumnWidth(5, 115)  # Cell_FormID
+        self.table_view.setColumnWidth(6, 180)  # Cell_EDID
+        self.table_view.setColumnWidth(7, 115)  # Base_FormID
+        self.table_view.setColumnWidth(8, 180)  # Base_EDID
+        self.table_view.setColumnWidth(9, 320)  # Begründung
         header.setStretchLastSection(True)
 
         col_details_layout.addWidget(self.table_view)
@@ -410,9 +411,9 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 text_or = [
                     "Mod_Name_A LIKE ?", "Mod_Name_B LIKE ?",
                     "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
-                    "Reason LIKE ?"
+                    "Step_Description LIKE ?", "Reason LIKE ?"
                 ]
-                params.extend([pat] * 7)
+                params.extend([pat] * 8)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -490,9 +491,9 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 text_or = [
                     "Mod_Name_A LIKE ?", "Mod_Name_B LIKE ?",
                     "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
-                    "Reason LIKE ?"
+                    "Step_Description LIKE ?", "Reason LIKE ?"
                 ]
-                params.extend([pat] * 7)
+                params.extend([pat] * 8)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -588,9 +589,9 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 pat = f"%{search_text}%"
                 text_or = [
                     "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
-                    "Reason LIKE ?"
+                    "Step_Description LIKE ?", "Reason LIKE ?"
                 ]
-                params.extend([pat] * 5)
+                params.extend([pat] * 6)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -599,7 +600,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
             where_sql = "WHERE " + " AND ".join(where_conditions)
 
             query = f"""
-                SELECT Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason
+                SELECT Step_Description, Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason
                 FROM Mods_Conflicts
                 {where_sql}
                 ORDER BY Conflict_Type DESC, Sig ASC, FormID ASC;
@@ -610,7 +611,12 @@ class ModsConflictsInspectorWindow(QMainWindow):
             self.model.removeRows(0, self.model.rowCount())
 
             for row in rows:
-                ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason = row
+                step_desc, ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason = row
+
+                # 0. Prüfschritt-Item
+                item_step = QStandardItem(step_desc if step_desc else "-")
+                if step_desc:
+                    item_step.setToolTip(f"Qualifizierender Prüfschritt: {step_desc}")
 
                 # 1. Typ-Item
                 ctype_name = CONFLICT_TYPES.get(ctype, "Unbekannt")
@@ -646,11 +652,11 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 # Dezent ausgrauen, falls Typ 0 eingeblendet ist
                 if ctype == 0:
                     muted = QColor("#888888")
-                    for itm in [item_sig, item_fid, item_edid, item_cell_fid, item_cell_edid, item_base_fid, item_base_edid, item_reason]:
+                    for itm in [item_step, item_sig, item_fid, item_edid, item_cell_fid, item_cell_edid, item_base_fid, item_base_edid, item_reason]:
                         itm.setForeground(muted)
 
                 self.model.appendRow([
-                    item_type, item_sig, item_fid, item_edid,
+                    item_step, item_type, item_sig, item_fid, item_edid,
                     item_cell_fid, item_cell_edid,
                     item_base_fid, item_base_edid,
                     item_reason

@@ -149,47 +149,104 @@ Um hochperformante $O(1)$-Lookups in der Benutzeroberfläche (`Mods_Conflicts_GU
      * Einstufung: `Conflict_Type = 0`.
      * Begründung: `"Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich"`.
    * Bei abweichenden Steuerdaten (z. B. Klima-, Wasser- oder Wetterunterschiede):
-     * Einstufung: `Conflict_Type = 3`.
-     * Begründung: `"Kritischer Konflikt: Mindestens ein Steuer-Subrecord (Klima/Wasser/Wetter) weicht ab"`.
+     * Einstufung: `Conflict_Type = 2`.
+     * Begründung: `"Realer Konflikt: Abweichende Steuer-Subrecords (Klima/Wasser/Wetter)"`.
 
 ---
 
 ## 7. Typisierung & Schweregrade der Konflikte (`Conflict_Type`)
 
-Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie:
+Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie, die alle Hauptreferenzen der Creation Engine 2 lückenlos abdeckt:
 
-* **Typ 3: Kritisch** (Game-Breaker & CTD-Gefahr)
-  * **Wirkung im Spiel:** Absturz (Crash to Desktop) oder irreversibel zerstörter Spielfortschritt.
-  * **Symptome:** Quests hängen sich auf oder lassen sich nicht abschließen; Wegfindung bricht ab (NPCs fallen durch den Boden oder frieren ein); CTD durch Zugriff auf gelöschte Objekte.
-  * **Betroffene Record-Signaturen & Kriterien:**
-    * ├── `NAVM`: Zerrissene NavMesh-Wegfindungsnetze (Broken Island Meshes, Endlosschleifen der Wegfindungs-Engine).
-    * ├── `QUST` / `SMQN`: Story-Manager-Knoten und kollidierende Quest-Stages mit widersprüchlichen Ablaufbedingungen.
-    * └── `REFR` (Deleted): Zugriff auf systemweit gelöschte Referenzen (`REFR_Deleted` – primäre CTD-Ursache der Creation Engine).
+* **Typ 3: Kritisch** (Game-Breaker, Endlosschleifen & CTD-Gefahr)
+  * **Wirkung im Spiel:** Das Spiel stürzt ab (Crash to Desktop) oder Kern-Spielfunktionen und Quests werden unlösbar zerstört.
+  * **Referenz-Gruppen & Signaturen:**
+    * ├── **Wegfindung (Pathfinding):**
+    * │   └── `NAVM` (NavMesh - Wegfindungsnetze; Kantenrisse führen zu KI-Crashs).
+    * ├── **Quests & Story Manager:**
+    * │   ├── `QUST` (Quests & Quest-Phasen).
+    * │   ├── `SMQN` / `SMBN` / `SMEN` (Story-Manager-Knoten, Branches & Event-Trigger).
+    * │   └── `SCEN` (Szenen-Abläufe & inszenierte Sequenzen).
+    * ├── **Skript-Integrität & Engine-Defaults:**
+    * │   ├── `VMAD` (Papyrus-Bindeglied an Objekten/Triggern; Skript-Verlust bricht Logik ab).
+    * │   ├── `DOBJ` (Default Objects - Globale Hardcoded-Systemzeiger von Starfield).
+    * │   └── `AVIF` (System-ActorValues mit Hardcoded-Engine-Funktionen).
+    * └── **Gefährliche Referenzen:**
+    *     └── `REFR` / `ACHR` (mit Deleted-Flag: Zugriff auf gelöschte Objekte $\rightarrow$ Crash!).
 
-* **Typ 2: Normal** (Sichtbare Fehler & Immersions-Glitches)
-  * **Wirkung im Spiel:** Das Spiel läuft stabil weiter, aber der Fehler ist direkt optisch oder akustisch wahrnehmbar und wird wie ein Bug erlebt.
-  * **Symptome:** Wetter springt unvermittelt um (Weather Popping); fehlende oder schwarze Texturen; zerschnittene oder ineinander geschobene Möbel (Clipping).
-  * **Betroffene Record-Signaturen & Kriterien:**
-    * ├── `WRLD` (abweichend): Kollidierende Klima-, Wasser- oder Welt-Flags in Städten und Planeten bei abweichenden Steuerdaten.
-    * ├── `CELL` / `REFR`: Räumliche Platzierungen und Möbel-Kollisionen in denselben Innenraum- oder Außenkacheln.
-    * ├── `LIGH`: Widersprüchliche Lichtquellen, Schattenwurf-Definitionen und Lichtmasken.
-    * └── `TXST` / `MATO`: Material-Swaps und Textursatz-Kollisionen (flackernde Meshes / Textursprünge).
+* **Typ 2: Normal** (Sichtbare Fehler, Immersions-Glitches & gestörte Spielmechaniken)
+  * **Wirkung im Spiel:** Spiel läuft stabil, aber der Fehler ist direkt optisch/akustisch sichtbar oder eine Spielmechanik versagt.
+  * **Referenz-Gruppen & Signaturen:**
+    * ├── **Räumliche Welt & Platzierungen (Clipping-Gefahr):**
+    * │   ├── `CELL` (Innenräume & Planetenkacheln).
+    * │   ├── `WRLD` (Worldspaces mit abweichenden Steuerdaten wie Klima, Wasser, Flags).
+    * │   ├── `REFR` (Physisch platzierte Möbel, Kisten und Deko in der Welt).
+    * │   ├── `ACHR` (Physisch platzierte NPCs und Akteure in der Welt).
+    * │   ├── `DOOR` (Türen & Zell-Ladeübergänge).
+    * │   ├── `LCTN` / `LAYR` (Locations & visuelle Render-Layer).
+    * │   └── `SFBK` / `SFTR` / `PNDT` (Planetare POI-Blöcke & Landschaftsstrukturen).
+    * ├── **Gameplay-Mechaniken (Wirkungsverlust / Funktionsstörung):**
+    * │   ├── `PERK` (Talente, Perks & Fähigkeitsbäume).
+    * │   ├── `SPEL` (Kräfte, Zauber, Flüche & Krankheiten).
+    * │   ├── `MGEF` (Magische Basiseffekte & Buff-/Debuff-Definitionen).
+    * │   └── `ENCH` (Verzauberungen & Rüstungs-/Waffeneffekte).
+    * ├── **Akteure, KI & Dialoge:**
+    * │   ├── `NPC_` (NPC-Definitionen: KI, Voice, Fraktion, Inventar).
+    * │   ├── `PACK` (AI Packages: Tagesabläufe, Patrouillen, Schlafzeiten).
+    * │   ├── `FACT` (Fraktionszugehörigkeiten, Allianzen & Feindschaften).
+    * │   ├── `AFFE` (Begleiter-Zuneigung & Affinity-Events).
+    * │   └── `DIAL` / `INFO` (Gesprochene Dialogthemen & Dialogzeilen).
+    * ├── **Visuelle & Akustische Sensorik (Glitches):**
+    * │   ├── `LIGH` (Lichtquellen, Schattenwurf & Lichtkegel).
+    * │   ├── `TXST` / `MATO` / `MATT` (Textursätze, Material-Swaps & Shader).
+    * │   ├── `EFSH` / `EFSQ` (Grafikeffekte, Partikel & Shader-Sequenzen).
+    * │   ├── `IMAD` / `IMGS` (Bildschirm-Farbkorrekturen & Post-Processing).
+    * │   ├── `CLMT` / `WTHS` (Klimazyklen & Wetterdefinitionen).
+    * │   └── `SOUN` / `MUSC` / `SDLT` (Soundeffekte, Musikspuren & Sound-Links).
+    * ├── **Schiffsbau & Fahrzeuge:**
+    * │   ├── `STBH` / `STMP` / `STND` (Schiffs-Verhalten, Schablonen & Snap-Nodes).
+    * │   └── `GBFM` (Gameplay-Blaupausen für Landfahrzeuge / REV-8 & Passantendichte).
+    * └── **Interaktive Welt-Objekte:**
+    *     ├── `ACTI` / `TACT` (Aktivatoren, Schalter & Hebel).
+    *     ├── `CONT` (Behälter & Tresore).
+    *     ├── `TERM` (Interaktive Terminals).
+    *     └── `FLOR` (Erntbare Pflanzen & Großvegetation).
 
 * **Typ 1: Leicht** (Harmloser Wertestreit / Pure Rule of One)
-  * **Wirkung im Spiel:** Vollkommen harmlos für Stabilität und Immersion. Die in der Ladekette spätere Mod gewinnt einfach die Eigenschaft.
-  * **Symptome:** Man erhält den Schaden oder Rüstungswert von Mod B statt Mod A; das Spiel läuft zu 100 % fehlerfrei weiter.
-  * **Betroffene Record-Signaturen & Kriterien:**
-    * ├── `WEAP` / `ARMO` / `AMMO`: Waffen-, Rüstungs-, Schadens- und Munitionswerte.
-    * ├── `ALCH` / `INGR`: Nahrungsmittel, Medikamente, Chems und Crafting-Zutaten.
-    * ├── `COBJ`: Werkbank-Herstellungsrezepte.
-    * ├── `GLOB` / `GMST`: Globale Systemvariablen und allgemeine Spieleinstellungen.
-    * └── `MISC` / `BOOK`: Sonstige Gegenstände, Gewichte, Preise, Notizen und Text-Slates.
+  * **Wirkung im Spiel:** Vollkommen harmlos für Stabilität und Spielfortschritt. Die spätere Mod gewinnt einfach die Eigenschaft.
+  * **Referenz-Gruppen & Signaturen:**
+    * ├── **Ausrüstung & Gegenstände (Stats/Zahlenwerte):**
+    * │   ├── `WEAP` / `PROJ` (Waffen: Schaden, Feuerrate, Reichweite, Projektil).
+    * │   ├── `ARMO` / `ARMA` (Rüstungen & Kleidung: Schutzwerte, Trageslots).
+    * │   ├── `AMMO` (Munitionsarten & Gewicht).
+    * │   ├── `OMOD` (Waffen- & Rüstungs-Aufsätze / Modifikationen).
+    * │   ├── `MISC` / `KEYM` (Sonstiges, Ressourcen, Schrott, Schlüssel).
+    * │   └── `BOOK` (Bücher, Notizen, Slates, Preise & Beschreibungen).
+    * ├── **Herstellung & Verbrauchsgüter:**
+    * │   ├── `COBJ` (Werkbank-Baupläne & Handwerksrezepte).
+    * │   └── `ALCH` / `INGR` (Medizin, Chems, Essen, Getränke & Zutaten).
+    * ├── **Listen & Tabellen (Leveled Lists):**
+    * │   ├── `LVLI` (Leveled Items - Loot-Tabellen).
+    * │   ├── `LVLN` (Leveled NPCs - Gegner-Spawntabellen).
+    * │   ├── `LVLP` / `LVLB` (Leveled Pack-Ins).
+    * │   └── `FLST` (FormID-Sammellisten für Händler & Scripte).
+    * ├── **System-Konfigurationen & Variablen:**
+    * │   ├── `GLOB` (Globale Variablen / Schalter).
+    * │   ├── `GMST` (Game Settings - Spielparameter wie Schwerkraft, Preise).
+    * │   └── `INNR` (Instance Naming Rules - Dynamische Benennungsregeln).
+    * └── **Charakter-Kosmetik & Animationen:**
+    *     ├── `HDPT` (Frisuren, Bärte, Gesichtsmerkmale).
+    *     ├── `CLFM` (Farbtöne für Haare, Haut, Augen & Schiffslacke).
+    *     ├── `CAMS` / `CPTH` (Kamera-Perspektiven & Fahrten).
+    *     └── `MOVT` / `CSTY` / `IDLE` (Bewegungstypen, Kampfstile, Idle-Animationen).
 
 * **Typ 0: Keiner** (Entschärft / Gewollt / Neutralisiert)
   * **Wirkung im Spiel:** Kein wirksamer Konflikt.
   * **Kriterien & Ursachen:**
     * ├── **Gewolltes Override:** Mod B deklariert Mod A als Voraussetzung (`Mods_Requirements`).
     * ├── **Gelöster Konflikt:** Ein dritter Schiedsrichter-Patch P versöhnt Mod A und Mod B auf derselben FormID.
-    * └── **Identischer Mitläufer:** 100 % identische Steuer-Subrecords in Creation-Kit-Kontextträgern (z. B. unberührte WRLD-Container).
+    * ├── **Identischer Mitläufer:** 100 % identische Steuer-Subrecords (z. B. unberührte WRLD-Container).
+    * └── **Reine Engine-Metadaten:** `TES4` (Plugin-Header) und `NAVI` (Globaler NavMesh-Index).
+
 
 

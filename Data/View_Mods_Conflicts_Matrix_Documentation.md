@@ -152,3 +152,44 @@ Um hochperformante $O(1)$-Lookups in der Benutzeroberfläche (`Mods_Conflicts_GU
      * Einstufung: `Conflict_Type = 3`.
      * Begründung: `"Kritischer Konflikt: Mindestens ein Steuer-Subrecord (Klima/Wasser/Wetter) weicht ab"`.
 
+---
+
+## 7. Typisierung & Schweregrade der Konflikte (`Conflict_Type`)
+
+Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie:
+
+* **Typ 3: Kritisch** (Game-Breaker & CTD-Gefahr)
+  * **Wirkung im Spiel:** Absturz (Crash to Desktop) oder irreversibel zerstörter Spielfortschritt.
+  * **Symptome:** Quests hängen sich auf oder lassen sich nicht abschließen; Wegfindung bricht ab (NPCs fallen durch den Boden oder frieren ein); CTD durch Zugriff auf gelöschte Objekte.
+  * **Betroffene Record-Signaturen & Kriterien:**
+    * ├── `NAVM`: Zerrissene NavMesh-Wegfindungsnetze (Broken Island Meshes, Endlosschleifen der Wegfindungs-Engine).
+    * ├── `QUST` / `SMQN`: Story-Manager-Knoten und kollidierende Quest-Stages mit widersprüchlichen Ablaufbedingungen.
+    * └── `REFR` (Deleted): Zugriff auf systemweit gelöschte Referenzen (`REFR_Deleted` – primäre CTD-Ursache der Creation Engine).
+
+* **Typ 2: Normal** (Sichtbare Fehler & Immersions-Glitches)
+  * **Wirkung im Spiel:** Das Spiel läuft stabil weiter, aber der Fehler ist direkt optisch oder akustisch wahrnehmbar und wird wie ein Bug erlebt.
+  * **Symptome:** Wetter springt unvermittelt um (Weather Popping); fehlende oder schwarze Texturen; zerschnittene oder ineinander geschobene Möbel (Clipping).
+  * **Betroffene Record-Signaturen & Kriterien:**
+    * ├── `WRLD` (abweichend): Kollidierende Klima-, Wasser- oder Welt-Flags in Städten und Planeten bei abweichenden Steuerdaten.
+    * ├── `CELL` / `REFR`: Räumliche Platzierungen und Möbel-Kollisionen in denselben Innenraum- oder Außenkacheln.
+    * ├── `LIGH`: Widersprüchliche Lichtquellen, Schattenwurf-Definitionen und Lichtmasken.
+    * └── `TXST` / `MATO`: Material-Swaps und Textursatz-Kollisionen (flackernde Meshes / Textursprünge).
+
+* **Typ 1: Leicht** (Harmloser Wertestreit / Pure Rule of One)
+  * **Wirkung im Spiel:** Vollkommen harmlos für Stabilität und Immersion. Die in der Ladekette spätere Mod gewinnt einfach die Eigenschaft.
+  * **Symptome:** Man erhält den Schaden oder Rüstungswert von Mod B statt Mod A; das Spiel läuft zu 100 % fehlerfrei weiter.
+  * **Betroffene Record-Signaturen & Kriterien:**
+    * ├── `WEAP` / `ARMO` / `AMMO`: Waffen-, Rüstungs-, Schadens- und Munitionswerte.
+    * ├── `ALCH` / `INGR`: Nahrungsmittel, Medikamente, Chems und Crafting-Zutaten.
+    * ├── `COBJ`: Werkbank-Herstellungsrezepte.
+    * ├── `GLOB` / `GMST`: Globale Systemvariablen und allgemeine Spieleinstellungen.
+    * └── `MISC` / `BOOK`: Sonstige Gegenstände, Gewichte, Preise, Notizen und Text-Slates.
+
+* **Typ 0: Keiner** (Entschärft / Gewollt / Neutralisiert)
+  * **Wirkung im Spiel:** Kein wirksamer Konflikt.
+  * **Kriterien & Ursachen:**
+    * ├── **Gewolltes Override:** Mod B deklariert Mod A als Voraussetzung (`Mods_Requirements`).
+    * ├── **Gelöster Konflikt:** Ein dritter Schiedsrichter-Patch P versöhnt Mod A und Mod B auf derselben FormID.
+    * └── **Identischer Mitläufer:** 100 % identische Steuer-Subrecords in Creation-Kit-Kontextträgern (z. B. unberührte WRLD-Container).
+
+

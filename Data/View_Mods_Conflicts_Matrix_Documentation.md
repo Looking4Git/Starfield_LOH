@@ -118,8 +118,37 @@ ORDER BY Sum_Conflicts DESC;
 
 ---
 
-## 6. Ausblick: Zweistufige Frozen-Table-Architektur (Performance)
+## 6. Materialisierte Tabelle `Mods_Conflicts` & Patch-Erkennung
 
-Da die dynamische Auswertung des Views über die 2,7 Millionen FormIDs der Tabelle `Components_ESM_FormIDs` rund 3–5 Sekunden benötigt, wird der View in einem nachfolgenden Schritt in eine statische Basistabelle (z. B. `Mods_Conflicts_Base`) materialisiert (eingefroren). 
+Um hochperformante $O(1)$-Lookups in der Benutzeroberfläche (`Mods_Conflicts_GUI.py` bzw. `Page_LoadOrder`) zu ermöglichen und gleichzeitig fachliche Prüfregeln abzubilden, werden die Rohkollisionen aus dem Basis-View in die physische Tabelle **`Mods_Conflicts`** materialisiert.
 
-Dies ermöglicht in der Benutzeroberfläche (`Page_LoadOrder`) einen $O(1)$-Lookup in unter 1 Millisekunde.
+### Spaltendefinition `Mods_Conflicts`:
+* `Mod_ID_A` / `Mod_Name_A`: Erste Mod des kollidierenden Paares (`Mod_ID_A < Mod_ID_B`).
+* `Mod_ID_B` / `Mod_Name_B`: Zweite Mod des kollidierenden Paares.
+* `Sig`: Record-Signatur (z. B. `CELL`, `WRLD`, `REFR`, `WEAP`, etc.).
+* `FormID`: Lokale 24-Bit FormID des kollidierenden Datensatzes.
+* `EDID`: Editor-ID des Datensatzes (aus System- oder Mod-Katalogen).
+* `Cell_FormID` / `Cell_EDID`: Raumkoordinaten / Zelle bei platzierten Objekten.
+* `Base_FormID` / `Base_EDID`: Blueprint / Vorlage des Objekts.
+* `Conflict_Type`: Schweregrad des Konflikts (`3` = Kritisch, `2` = Normal, `1` = Leicht, `0` = Kein Konflikt).
+* `Reason`: Technische und verständliche Begründung der Klassifizierung.
+
+### Prüfregeln der Pipeline (`Mods_Conflicts_Analyzer.py`):
+
+1. **Schritt 1: Patch-Erkennung und Voraussetzungs-Auflösung (`_check_patches`)**
+   * **Regel 1 (Direkte Voraussetzungen):** Wenn Mod B Mod A als Voraussetzung deklariert (oder umgekehrt), ist das Überschreiben gewollt (Intended Override). 
+     * Einstufung: `Conflict_Type = 0`.
+     * Begründung: `"Gewolltes Override: '<Kind-Mod>' besitzt '<Eltern-Mod>' als deklarierte Voraussetzung"`.
+   * **Regel 2 (Trianguläre Schiedsrichter-Patches):** Wenn Mod A und Mod B auf FormID $X$ kollidieren, aber eine installierte Mod $P$ existiert, die sowohl A als auch B als Voraussetzung deklariert und FormID $X$ ebenfalls überschreibt, ist der Konflikt zwischen A und B behoben.
+     * Einstufung: `Conflict_Type = 0`.
+     * Begründung: `"Konflikt gelöst durch Patch: '<Patch-Name>' [ID <Patch-ID>]"`.
+
+2. **Schritt 2: Dynamische Inhaltsprüfung auf Worldspace-Container (`_check_wrld_containers`)**
+   * Vergleicht für alle verbleibenden aktiven WRLD-Kollisionen die Steuer-Subrecords (`CNAM`, `DNAM`, `WNAM`, `DATA`, `NAM0`, `NAM9`) über `File_ESM_Parser_Dynamic`.
+   * Bei 100 % identischen Steuerdaten:
+     * Einstufung: `Conflict_Type = 0`.
+     * Begründung: `"Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich"`.
+   * Bei abweichenden Steuerdaten (z. B. Klima-, Wasser- oder Wetterunterschiede):
+     * Einstufung: `Conflict_Type = 3`.
+     * Begründung: `"Kritischer Konflikt: Mindestens ein Steuer-Subrecord (Klima/Wasser/Wetter) weicht ab"`.
+

@@ -169,7 +169,8 @@ class ModsConflictsInspectorWindow(QMainWindow):
         self.headers = [
             "Typ", "Signatur", "FormID (Hex)", "Editor-ID (EDID)",
             "Zell-FormID", "Zell-Name (Cell_EDID)",
-            "Basis-FormID", "Basis-Name (Base_EDID)"
+            "Basis-FormID", "Basis-Name (Base_EDID)",
+            "Begründung"
         ]
         self.model.setHorizontalHeaderLabels(self.headers)
 
@@ -191,11 +192,12 @@ class ModsConflictsInspectorWindow(QMainWindow):
         self.table_view.setColumnWidth(0, 105)  # Typ
         self.table_view.setColumnWidth(1, 75)   # Sig
         self.table_view.setColumnWidth(2, 115)  # FormID
-        self.table_view.setColumnWidth(3, 230)  # EDID
+        self.table_view.setColumnWidth(3, 220)  # EDID
         self.table_view.setColumnWidth(4, 115)  # Cell_FormID
-        self.table_view.setColumnWidth(5, 200)  # Cell_EDID
+        self.table_view.setColumnWidth(5, 180)  # Cell_EDID
         self.table_view.setColumnWidth(6, 115)  # Base_FormID
-        self.table_view.setColumnWidth(7, 200)  # Base_EDID
+        self.table_view.setColumnWidth(7, 180)  # Base_EDID
+        self.table_view.setColumnWidth(8, 300)  # Begründung
         header.setStretchLastSection(True)
 
         col_details_layout.addWidget(self.table_view)
@@ -407,9 +409,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 pat = f"%{search_text}%"
                 text_or = [
                     "Mod_Name_A LIKE ?", "Mod_Name_B LIKE ?",
-                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?"
+                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
+                    "Reason LIKE ?"
                 ]
-                params.extend([pat] * 6)
+                params.extend([pat] * 7)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -486,9 +489,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 pat = f"%{search_text}%"
                 text_or = [
                     "Mod_Name_A LIKE ?", "Mod_Name_B LIKE ?",
-                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?"
+                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
+                    "Reason LIKE ?"
                 ]
-                params.extend([pat] * 6)
+                params.extend([pat] * 7)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -583,9 +587,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
             if search_text:
                 pat = f"%{search_text}%"
                 text_or = [
-                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?"
+                    "EDID LIKE ?", "Cell_EDID LIKE ?", "Base_EDID LIKE ?", "Sig LIKE ?",
+                    "Reason LIKE ?"
                 ]
-                params.extend([pat] * 4)
+                params.extend([pat] * 5)
                 if search_num is not None:
                     text_or.extend(["FormID = ?", "Cell_FormID = ?", "Base_FormID = ?"])
                     params.extend([search_num, search_num, search_num])
@@ -594,7 +599,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
             where_sql = "WHERE " + " AND ".join(where_conditions)
 
             query = f"""
-                SELECT Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID
+                SELECT Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason
                 FROM Mods_Conflicts
                 {where_sql}
                 ORDER BY Conflict_Type DESC, Sig ASC, FormID ASC;
@@ -605,7 +610,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
             self.model.removeRows(0, self.model.rowCount())
 
             for row in rows:
-                ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid = row
+                ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason = row
 
                 # 1. Typ-Item
                 ctype_name = CONFLICT_TYPES.get(ctype, "Unbekannt")
@@ -634,17 +639,21 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 item_cell_edid = QStandardItem(cell_edid if cell_edid else "-")
                 item_base_fid = HexNumericStandardItem(base_fid)
                 item_base_edid = QStandardItem(base_edid if base_edid else "-")
+                item_reason = QStandardItem(reason if reason else "-")
+                if reason:
+                    item_reason.setToolTip(reason)
 
                 # Dezent ausgrauen, falls Typ 0 eingeblendet ist
                 if ctype == 0:
                     muted = QColor("#888888")
-                    for itm in [item_sig, item_fid, item_edid, item_cell_fid, item_cell_edid, item_base_fid, item_base_edid]:
+                    for itm in [item_sig, item_fid, item_edid, item_cell_fid, item_cell_edid, item_base_fid, item_base_edid, item_reason]:
                         itm.setForeground(muted)
 
                 self.model.appendRow([
                     item_type, item_sig, item_fid, item_edid,
                     item_cell_fid, item_cell_edid,
-                    item_base_fid, item_base_edid
+                    item_base_fid, item_base_edid,
+                    item_reason
                 ])
 
             if show_zero:

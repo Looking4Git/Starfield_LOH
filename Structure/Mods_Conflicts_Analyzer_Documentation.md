@@ -90,114 +90,84 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
 
 1. **Schritt 1: `_step_baseline_typification` (Signatur-Basiseinstufung)**
    * Weist allen Datensätzen direkt nach dem Einlesen anhand ihrer Signatur (`Sig`) den Basistyp zu (Typ 1 für Stats/Items, Typ 2 für Raum/Glitches/Perks, Typ 3 für Quests/Wegfindung).
-   * Schreibt `Step_ID = 1`, `Step_Description = 'Signatur-Basiseinstufung'`, `Conflict_Type = 1/2/3` und die Basiseinstufungs-Begründung.
+   * Schreibt `Step_ID = 1`, `Step_Description = 'Signatur-Basiseinstufung'`, `Conflict_Type = 1/2/3` und die symptom- und wirkungsorientierte Basiseinstufungs-Begründung (ohne redundante Typ- oder Signatur-Wiederholung).
 
 2. **Schritt 2: `_step_direct_requirements` (Direkte Mod-Voraussetzungen / Regel 1)**
    * **Grundsatz:** Eine Mod kann niemals im Konflikt mit ihrer eigenen deklarierten Voraussetzung stehen.
    * Prüft `Mods_Requirements` auf Eltern-Kind-Beziehungen zwischen Mod A und Mod B.
-   * Setzt für Treffer `Step_ID = 2`, `Step_Description = 'Direkte Mod-Voraussetzungen'`, `Conflict_Type = 0` und die Begründung `"Gewolltes Override: '<Kind-Mod>' besitzt '<Eltern-Mod>' als deklarierte Voraussetzung"`.
+   * Setzt für Treffer `Step_ID = 2`, `Step_Description = 'Direkte Mod-Voraussetzungen'`, `Conflict_Type = 0` und die Begründung `"Beabsichtigtes Prerequisite-Override (deklarierte Mod-Voraussetzung): Kein Spielfehler zu erwarten."`.
 
 3. **Schritt 3: `_step_triangular_patches` (Schiedsrichter-Patches / Regel 2)**
    * **Grundsatz:** Kollidieren zwei Mods A und B auf einer FormID, und existiert ein dritter installierter Patch P, der beide als Voraussetzung deklariert und dieselbe FormID überschreibt, ist der Streitpunkt neutralisiert.
-   * Setzt für Treffer `Step_ID = 3`, `Step_Description = 'Schiedsrichter-Patches'`, `Conflict_Type = 0` und die Begründung `"Konflikt gelöst durch Patch: '<Patch-Name>' [ID <Patch-ID>]"`.
+   * Setzt für Treffer `Step_ID = 3`, `Step_Description = 'Schiedsrichter-Patches'`, `Conflict_Type = 0` und die Begründung `"Konflikt durch nachgelagerten Patch harmonisiert ('<Patch-Name>' [ID <Patch-ID>]): Beide Mods greifen wie vorgesehen."`.
 
 4. **Schritt 4: `_step_wrld_containers` (Worldspace-Subrecord-Analyse)**
    * Führt für verbleibende aktive WRLD-Kollisionen einen On-Demand-Vergleich der Steuer-Subrecords (`CNAM`, `DNAM`, `WNAM`, `DATA`) über `File_ESM_Parser_Dynamic` durch.
-   * **Nur bei 100 % identischen Steuerdaten:** Wird der Datensatz als harmloser Creation-Kit-Mitläufer identifiziert und gestempelt mit `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 0` und `Reason = 'Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich'`.
-   * **Abweichende Steuerdaten:** Werden nicht verändert; sie verbleiben auf ihrer Basiseinstufung (`Step_ID = 1`, `Conflict_Type = 2`).
+   * **Nur bei 100 % identischen Steuerdaten:** Wird der Datensatz als harmloser Creation-Kit-Mitläufer identifiziert und gestempelt mit `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 0` und `Reason = 'Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.'`.
+   * **Abweichende Steuerdaten:** Werden nicht verändert; sie verbleiben auf ihrer Basiseinstufung (`Step_ID = 1`, `Conflict_Type = 2`) mit der konkreten Begründung `"Abweichende Steuer-Subrecords: Plötzliche Wetterabbrüche (Popping), falsche Regen- oder Sturmtexturen sowie unpassende Wasser- und Lichtstimmungen möglich."`.
 
 ---
 
 ## 5. Vollständige CE2-Typisierungshierarchie (`Conflict_Type`)
 
-Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie, die alle Hauptreferenzen der Creation Engine 2 lückenlos abdeckt:
+Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten Hierarchie, die alle Hauptreferenzen der Creation Engine 2 lückenlos abdeckt und konkrete Symptome im Spiel beschreibt:
 
 * **Typ 3: Kritisch** (Game-Breaker, Endlosschleifen & CTD-Gefahr)
   * **Wirkung im Spiel:** Das Spiel stürzt ab (Crash to Desktop) oder Kern-Spielfunktionen und Quests werden unlösbar zerstört.
-  * **Referenz-Gruppen & Signaturen:**
+  * **Referenz-Gruppen & Begründungen:**
     * ├── **Wegfindung (Pathfinding):**
-    * │   └── `NAVM` (NavMesh - Wegfindungsnetze; Kantenrisse führen zu KI-Crashs).
+    * │   └── `NAVM`: *Gefahr von Kantenrissen im Wegfindungsnetz, KI-Aussetzern und Spielabstürzen (CTD) beim Laden der Zelle.*
     * ├── **Quests & Story Manager:**
-    * │   ├── `QUST` (Quests & Quest-Phasen).
-    * │   ├── `SMQN` / `SMBN` / `SMEN` (Story-Manager-Knoten, Branches & Event-Trigger).
-    * │   └── `SCEN` (Szenen-Abläufe & inszenierte Sequenzen).
+    * │   ├── `QUST`: *Gefahr von Phasenblockern, unlösbaren Quest-Zielen oder nicht auslösenden Skript-Events.*
+    * │   ├── `SMQN` / `SMBN` / `SMEN`: *Event-Dispatching gestört: Dynamische Story-Ereignisse, Zufallsbegegnungen oder Quests starten nicht.*
+    * │   └── `SCEN`: *Inszenierte Sequenzen und Dialogabläufe können einfrieren, abbrechen oder in Schleifen hängen.*
     * ├── **Skript-Integrität & Engine-Defaults:**
-    * │   ├── `VMAD` (Papyrus-Bindeglied an Objekten/Triggern; Skript-Verlust bricht Logik ab).
-    * │   ├── `DOBJ` (Default Objects - Globale Hardcoded-Systemzeiger von Starfield).
-    * │   └── `AVIF` (System-ActorValues mit Hardcoded-Engine-Funktionen).
+    * │   ├── `DOBJ`: *Schwerer System-Fehler: Überschriebene globale Engine-Zeiger können unvorhersehbare Abstürze verursachen.*
+    * │   └── `AVIF`: *Gefahr gestörter Basis-Spielmechaniken, Berechnungsformeln oder beschädigter Charakterwerte.*
     * └── **Gefährliche Referenzen:**
     *     └── `REFR` / `ACHR` (mit Deleted-Flag: Zugriff auf gelöschte Objekte $\rightarrow$ Crash!).
 
 * **Typ 2: Normal** (Sichtbare Fehler, Immersions-Glitches & gestörte Spielmechaniken)
   * **Wirkung im Spiel:** Spiel läuft stabil, aber der Fehler ist direkt optisch/akustisch sichtbar oder eine Spielmechanik versagt.
-  * **Referenz-Gruppen & Signaturen:**
+  * **Referenz-Gruppen & Begründungen:**
     * ├── **Räumliche Welt & Platzierungen (Clipping-Gefahr):**
-    * │   ├── `CELL` (Innenräume & Planetenkacheln).
-    * │   ├── `WRLD` (Worldspaces mit abweichenden Steuerdaten wie Klima, Wasser, Flags).
-    * │   ├── `REFR` (Physisch platzierte Möbel, Kisten und Deko in der Welt).
-    * │   ├── `ACHR` (Physisch platzierte NPCs und Akteure in der Welt).
-    * │   ├── `DOOR` (Türen & Zell-Ladeübergänge).
-    * │   ├── `LCTN` / `LAYR` (Locations & visuelle Render-Layer).
-    * │   └── `SFBK` / `SFTR` / `PNDT` (Planetare POI-Blöcke & Landschaftsstrukturen).
+    * │   ├── `CELL`: *Raumdaten weichen ab: Licht-Flackern beim Raumwechsel, unpassende Nebel-/Akustikzonen oder fehlerhafte Zonen-Resets.*
+    * │   ├── `WRLD`: *Abweichende Steuer-Subrecords: Plötzliche Wetterabbrüche (Popping), falsche Regen- oder Sturmtexturen sowie unpassende Wasser- und Lichtstimmungen möglich.*
+    * │   ├── `REFR` / `ACHR`: *Koordinatenkonflikt: Möbel, Kisten oder Deko clippen ineinander, schweben in der Luft oder blockieren Laufwege.*
+    * │   ├── `DOOR`: *Teleportmarker versetzt: Spieler oder Begleiter landen in Wänden, fallen ins Bodenlose oder Türen öffnen ins Leere.*
+    * │   └── `LCTN` / `LAYR` / `SFBK` / `SFTR` / `PNDT`: *Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen.*
     * ├── **Gameplay-Mechaniken (Wirkungsverlust / Funktionsstörung):**
-    * │   ├── `PERK` (Talente, Perks & Fähigkeitsbäume).
-    * │   ├── `SPEL` (Kräfte, Zauber, Flüche & Krankheiten).
-    * │   ├── `MGEF` (Magische Basiseffekte & Buff-/Debuff-Definitionen).
-    * │   └── `ENCH` (Verzauberungen & Rüstungs-/Waffeneffekte).
+    * │   ├── `PERK` / `SPEL` / `MGEF` / `ENCH`: *Mechanikverlust: Zauber- oder Perk-Boni greifen nicht, Effekte werden neutralisiert oder Tooltips passen nicht zur Wirkung.*
     * ├── **Akteure, KI & Dialoge:**
-    * │   ├── `NPC_` (NPC-Definitionen: KI, Voice, Fraktion, Inventar).
-    * │   ├── `PACK` (AI Packages: Tagesabläufe, Patrouillen, Schlafzeiten).
-    * │   ├── `FACT` (Fraktionszugehörigkeiten, Allianzen & Feindschaften).
-    * │   ├── `AFFE` (Begleiter-Zuneigung & Affinity-Events).
-    * │   └── `DIAL` / `INFO` (Gesprochene Dialogthemen & Dialogzeilen).
+    * │   ├── `NPC_`: *NPC-Konflikt: Gesichtsbruch („Dark Face Bug“), fehlende Inventar-/Kleidungsstücke oder unpassende Stimmlage/Stimmverlust.*
+    * │   ├── `PACK`: *KI-Ablauf gestört: NPCs stehen nachts regungslos herum, verpassen Termine, irren umher oder blockieren Arbeitsstationen.*
+    * │   ├── `FACT`: *Feind-/Freund-Erkennung gestört: Neutrale NPCs greifen grundlos an oder Sicherheitskräfte ignorieren Verbrechen.*
+    * │   ├── `AFFE`: *Begleiter-Zuneigung gestört: Beziehungspunkte oder Romance-Events schlagen fehl.*
+    * │   └── `DIAL` / `INFO`: *Dialogbruch: Gesprächsoptionen fehlen im Menü, Untertitel springen ab oder Quests hängen mangels Antwortauswahl.*
     * ├── **Visuelle & Akustische Sensorik (Glitches):**
-    * │   ├── `LIGH` (Lichtquellen, Schattenwurf & Lichtkegel).
-    * │   ├── `TXST` / `MATO` / `MATT` (Textursätze, Material-Swaps & Shader).
-    * │   ├── `EFSH` / `EFSQ` (Grafikeffekte, Partikel & Shader-Sequenzen).
-    * │   ├── `IMAD` / `IMGS` (Bildschirm-Farbkorrekturen & Post-Processing).
-    * │   ├── `CLMT` / `WTHS` (Klimazyklen & Wetterdefinitionen).
-    * │   └── `SOUN` / `MUSC` / `SDLT` (Soundeffekte, Musikspuren & Sound-Links).
+    * │   ├── `LIGH` / `TXST` / `MATO` / `MATT` / `EFSH` / `EFSQ` / `IMAD` / `IMGS`: *Sichtbare Grafik-Glitches: Abrupte Helligkeitssprünge bei Kameradrehung, flackernde Schatten oder fehlerhafte Partikel.*
+    * │   ├── `CLMT` / `WTHS`: *Atmosphärischer Bruch: Harte Wettersprünge ohne Übergang, Sonnenschein bei Donnergrollen oder fehlende Wetterzyklen.*
+    * │   └── `SOUN` / `MUSC` / `SDLT`: *Akustische Aussetzer: Waffensounds verstummen, Kampfmusik läuft nach Gefechten endlos weiter oder Geräusche brechen ab.*
     * ├── **Schiffsbau & Fahrzeuge:**
-    * │   ├── `STBH` / `STMP` / `STND` (Schiffs-Verhalten, Schablonen & Snap-Nodes).
-    * │   └── `GBFM` (Gameplay-Blaupausen für Landfahrzeuge / REV-8 & Passantendichte).
+    * │   └── `STBH` / `STMP` / `STND` / `GBFM`: *Modul- oder Fahrzeugkonflikt: Schiffsteile docken versetzt an, Snap-Nodes fehlen oder Kollisionsgrenzen brechen.*
     * └── **Interaktive Welt-Objekte:**
-    *     ├── `ACTI` / `TACT` (Aktivatoren, Schalter & Hebel).
-    *     ├── `CONT` (Behälter & Tresore).
-    *     ├── `TERM` (Interaktive Terminals).
-    *     └── `FLOR` (Erntbare Pflanzen & Großvegetation).
+    *     └── `ACTI` / `TACT` / `TERM` / `CONT` / `FLOR`: *Interaktionsstörung: Schalter lassen sich nicht betätigen, Terminalbildschirme bleiben schwarz oder Behälter-Inhalte fehlen.*
 
-* **Typ 1: Leicht** (Harmloser Wertestreit / Pure Rule of One)
+* **Typ 1: Leicht** (Harmloser Wertestreit)
   * **Wirkung im Spiel:** Vollkommen harmlos für Stabilität und Spielfortschritt. Die spätere Mod gewinnt einfach die Eigenschaft.
-  * **Referenz-Gruppen & Signaturen:**
-    * ├── **Ausrüstung & Gegenstände (Stats/Zahlenwerte):**
-    * │   ├── `WEAP` / `PROJ` (Waffen: Schaden, Feuerrate, Reichweite, Projektil).
-    * │   ├── `ARMO` / `ARMA` (Rüstungen & Kleidung: Schutzwerte, Trageslots).
-    * │   ├── `AMMO` (Munitionsarten & Gewicht).
-    * │   ├── `OMOD` (Waffen- & Rüstungs-Aufsätze / Modifikationen).
-    * │   ├── `MISC` / `KEYM` (Sonstiges, Ressourcen, Schrott, Schlüssel).
-    * │   └── `BOOK` (Bücher, Notizen, Slates, Preise & Beschreibungen).
-    * ├── **Herstellung & Verbrauchsgüter:**
-    * │   ├── `COBJ` (Werkbank-Baupläne & Handwerksrezepte).
-    * │   └── `ALCH` / `INGR` (Medizin, Chems, Essen, Getränke & Zutaten).
-    * ├── **Listen & Tabellen (Leveled Lists):**
-    * │   ├── `LVLI` (Leveled Items - Loot-Tabellen).
-    * │   ├── `LVLN` (Leveled NPCs - Gegner-Spawntabellen).
-    * │   ├── `LVLP` / `LVLB` (Leveled Pack-Ins).
-    * │   └── `FLST` (FormID-Sammellisten für Händler & Scripte).
-    * ├── **System-Konfigurationen & Variablen:**
-    * │   ├── `GLOB` (Globale Variablen / Schalter).
-    * │   ├── `GMST` (Game Settings - Spielparameter wie Schwerkraft, Preise).
-    * │   └── `INNR` (Instance Naming Rules - Dynamische Benennungsregeln).
-    * └── **Charakter-Kosmetik & Animationen:**
-    *     ├── `HDPT` (Frisuren, Bärte, Gesichtsmerkmale).
-    *     ├── `CLFM` (Farbtöne für Haare, Haut, Augen & Schiffslacke).
-    *     ├── `CAMS` / `CPTH` (Kamera-Perspektiven & Fahrten).
-    *     └── `MOVT` / `CSTY` / `IDLE` (Bewegungstypen, Kampfstile, Idle-Animationen).
+  * **Referenz-Gruppen & Begründungen:**
+    * ├── **Ausrüstung:** `WEAP` / `PROJ` (*Waffen-Attribute und Projektilwerte werden von der späteren Mod übernommen.*), `ARMO` / `ARMA` (*Rüstungswerte und Trageslots werden von der späteren Mod übernommen.*), `AMMO` (*Schadens- und Gewichtsangaben...*), `OMOD` (*Aufsatz- und Modifikationswerte...*).
+    * ├── **Items & Bücher:** `MISC` / `KEYM` / `BOOK` (*Bezeichnungen, Preise oder Notizentexte werden von der späteren Mod übernommen.*).
+    * ├── **Herstellung:** `COBJ` / `ALCH` / `INGR` (*Baupläne, Chems- oder Rezeptwerte werden von der späteren Mod übernommen.*).
+    * ├── **Listen & Tabellen:** `LVLI` / `LVLN` / `LVLP` / `LVLB` / `FLST` (*Loot- oder Spawntabellen werden von der späteren Mod überschrieben.*).
+    * ├── **System-Konfigurationen:** `GLOB` / `GMST` / `INNR` (*Globale Spieleinstellungen oder Benennungsregeln werden von der späteren Mod übernommen.*).
+    * └── **Charakter-Kosmetik & Animationen:** `HDPT` / `CLFM` / `CAMS` / `CPTH` / `MOVT` / `CSTY` / `IDLE` (*Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen.*).
 
 * **Typ 0: Keiner** (Entschärft / Gewollt / Neutralisiert)
   * **Wirkung im Spiel:** Kein wirksamer Konflikt.
-  * **Kriterien & Ursachen:**
-    * ├── **Gewolltes Override:** Mod B deklariert Mod A als Voraussetzung (`Mods_Requirements`).
-    * ├── **Gelöster Konflikt:** Ein dritter Schiedsrichter-Patch P versöhnt Mod A und Mod B auf derselben FormID.
-    * ├── **Identischer Mitläufer:** 100 % identische Steuer-Subrecords (z. B. unberührte WRLD-Container).
+  * **Kriterien & Begründungen:**
+    * ├── **Gewolltes Override:** *Beabsichtigtes Prerequisite-Override (deklarierte Mod-Voraussetzung): Kein Spielfehler zu erwarten.*
+    * ├── **Gelöster Konflikt:** *Konflikt durch nachgelagerten Patch harmonisiert ('<Patch-Name>' [ID <Patch-ID>]): Beide Mods greifen wie vorgesehen.*
+    * ├── **Identischer Mitläufer:** *Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.*
     * └── **Reine Engine-Metadaten:** `TES4` (Plugin-Header) und `NAVI` (Globaler NavMesh-Index).
+

@@ -21,43 +21,87 @@ CONFLICT_TYPES = {
 # Signatur-Basiskonfiguration nach Creation Engine 2 (CE2) Hierarchie
 SIG_BASELINE_CONFIG = {
     # Typ 3: Kritisch (Game-Breaker, NavMesh, Quests, Story Manager, Skripte)
-    'NAVM': (3, "Kritisch: NavMesh-Kollision (Gefahr von Kantenrissen und KI-Crashs)"),
-    'QUST': (3, "Kritisch: Quest-Kollision (Gefahr von Phasen- und Fortschrittsblockern)"),
-    'SMQN': (3, "Kritisch: Story-Manager-Knoten (Event-Dispatching-Störung)"),
-    'SMBN': (3, "Kritisch: Story-Manager-Branch (Event-Dispatching-Störung)"),
-    'SMEN': (3, "Kritisch: Story-Manager-Event (Event-Dispatching-Störung)"),
-    'SCEN': (3, "Kritisch: Szenen-Kollision (Ablauf- und Sequenz-Blocker)"),
-    'DOBJ': (3, "Kritisch: Default Objects (Gefahr von Hardcoded-Engine-Fehlern)"),
-    'AVIF': (3, "Kritisch: ActorValue-Kollision (Gefahr gestörter System-Kennzahlen)"),
+    'NAVM': (3, "Gefahr von Kantenrissen im Wegfindungsnetz, KI-Aussetzern und Spielabstürzen (CTD) beim Laden der Zelle."),
+    'QUST': (3, "Gefahr von Phasenblockern, unlösbaren Quest-Zielen oder nicht auslösenden Skript-Events."),
+    'SMQN': (3, "Event-Dispatching gestört: Dynamische Story-Ereignisse, Zufallsbegegnungen oder Quests starten nicht."),
+    'SMBN': (3, "Event-Dispatching gestört: Dynamische Story-Ereignisse, Zufallsbegegnungen oder Quests starten nicht."),
+    'SMEN': (3, "Event-Dispatching gestört: Dynamische Story-Ereignisse, Zufallsbegegnungen oder Quests starten nicht."),
+    'SCEN': (3, "Inszenierte Sequenzen und Dialogabläufe können einfrieren, abbrechen oder in Schleifen hängen."),
+    'DOBJ': (3, "Schwerer System-Fehler: Überschriebene globale Engine-Zeiger können unvorhersehbare Abstürze verursachen."),
+    'AVIF': (3, "Gefahr gestörter Basis-Spielmechaniken, Berechnungsformeln oder beschädigter Charakterwerte."),
 
-    # Typ 1: Leicht (Harmloser Wertestreit / Rule of One)
-    'WEAP': (1, "Leicht: Waffen-Override (Schaden/Stats - Rule of One)"),
-    'PROJ': (1, "Leicht: Projektil-Override (Stats/Verhalten - Rule of One)"),
-    'ARMO': (1, "Leicht: Rüstungs-/Kleidungs-Override (Stats/Slots - Rule of One)"),
-    'ARMA': (1, "Leicht: ArmorAddon-Override (Modell-Zuordnung - Rule of One)"),
-    'AMMO': (1, "Leicht: Munitions-Override (Stats/Gewicht - Rule of One)"),
-    'OMOD': (1, "Leicht: Modifikations-Override (Aufsatz-Stats - Rule of One)"),
-    'MISC': (1, "Leicht: Sonstiges/Schrott-Override (Stats/Werte - Rule of One)"),
-    'KEYM': (1, "Leicht: Schlüssel-Override (Zuordnung - Rule of One)"),
-    'BOOK': (1, "Leicht: Buch-/Notizen-Override (Text/Preise - Rule of One)"),
-    'COBJ': (1, "Leicht: Rezept-Override (Baupläne/Werkbank - Rule of One)"),
-    'ALCH': (1, "Leicht: Verbrauchs-/Chems-Override (Effektwerte - Rule of One)"),
-    'INGR': (1, "Leicht: Zutaten-Override (Werte - Rule of One)"),
-    'LVLI': (1, "Leicht: Leveled-Item-Lootliste (Rule of One)"),
-    'LVLN': (1, "Leicht: Leveled-NPC-Spawnliste (Rule of One)"),
-    'LVLP': (1, "Leicht: Leveled-PackIn-Liste (Rule of One)"),
-    'LVLB': (1, "Leicht: Leveled-Space-Liste (Rule of One)"),
-    'FLST': (1, "Leicht: FormID-Sammelliste (Rule of One)"),
-    'GLOB': (1, "Leicht: Globale Variable (Rule of One)"),
-    'GMST': (1, "Leicht: Game Setting / Engine-Parameter (Rule of One)"),
-    'INNR': (1, "Leicht: Benennungsregel / Instance Naming Rule (Rule of One)"),
-    'HDPT': (1, "Leicht: HeadPart-Kosmetik (Rule of One)"),
-    'CLFM': (1, "Leicht: ColorForm-Kosmetik (Rule of One)"),
-    'CAMS': (1, "Leicht: Kamera-Perspektive (Rule of One)"),
-    'CPTH': (1, "Leicht: Kamera-Pfad (Rule of One)"),
-    'MOVT': (1, "Leicht: Bewegungstyp (Rule of One)"),
-    'CSTY': (1, "Leicht: Kampfstil (Rule of One)"),
-    'IDLE': (1, "Leicht: Idle-Animation (Rule of One)"),
+    # Typ 2: Normal (Sichtbare Fehler, Immersions-Glitches & gestörte Spielmechaniken)
+    'WRLD': (2, "Abweichende Steuer-Subrecords: Plötzliche Wetterabbrüche (Popping), falsche Regen- oder Sturmtexturen sowie unpassende Wasser- und Lichtstimmungen möglich."),
+    'CLMT': (2, "Atmosphärischer Bruch: Harte Wettersprünge ohne Übergang, Sonnenschein bei Donnergrollen oder fehlende Wetterzyklen."),
+    'WTHS': (2, "Atmosphärischer Bruch: Harte Wettersprünge ohne Übergang, Sonnenschein bei Donnergrollen oder fehlende Wetterzyklen."),
+    'CELL': (2, "Raumdaten weichen ab: Licht-Flackern beim Raumwechsel, unpassende Nebel-/Akustikzonen oder fehlerhafte Zonen-Resets."),
+    'REFR': (2, "Koordinatenkonflikt: Möbel, Kisten oder Deko clippen ineinander, schweben in der Luft oder blockieren Laufwege."),
+    'ACHR': (2, "Koordinatenkonflikt: Möbel, Kisten oder NPCs clippen ineinander, schweben in der Luft oder blockieren Laufwege."),
+    'DOOR': (2, "Teleportmarker versetzt: Spieler oder Begleiter landen in Wänden, fallen ins Bodenlose oder Türen öffnen ins Leere."),
+    'LCTN': (2, "Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen."),
+    'LAYR': (2, "Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen."),
+    'SFBK': (2, "Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen."),
+    'SFTR': (2, "Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen."),
+    'PNDT': (2, "Landschafts- und POI-Überlappung: Terrain clippt in Gebäude, Felsen verdecken Eingänge oder schwebende Strukturen."),
+    'NPC_': (2, "NPC-Konflikt: Gesichtsbruch („Dark Face Bug“), fehlende Inventar-/Kleidungsstücke oder unpassende Stimmlage/Stimmverlust."),
+    'PACK': (2, "KI-Ablauf gestört: NPCs stehen nachts regungslos herum, verpassen Termine, irren umher oder blockieren Arbeitsstationen."),
+    'FACT': (2, "Feind-/Freund-Erkennung gestört: Neutrale NPCs greifen grundlos an oder Sicherheitskräfte ignorieren Verbrechen."),
+    'AFFE': (2, "Begleiter-Zuneigung gestört: Beziehungspunkte oder Romance-Events schlagen fehl."),
+    'DIAL': (2, "Dialogbruch: Gesprächsoptionen fehlen im Menü, Untertitel springen ab oder Quests hängen mangels Antwortauswahl."),
+    'INFO': (2, "Dialogbruch: Gesprächsoptionen fehlen im Menü, Untertitel springen ab oder Quests hängen mangels Antwortauswahl."),
+    'PERK': (2, "Mechanikverlust: Zauber- oder Perk-Boni greifen nicht, Effekte werden neutralisiert oder Tooltips passen nicht zur Wirkung."),
+    'SPEL': (2, "Mechanikverlust: Zauber- oder Perk-Boni greifen nicht, Effekte werden neutralisiert oder Tooltips passen nicht zur Wirkung."),
+    'MGEF': (2, "Mechanikverlust: Zauber- oder Perk-Boni greifen nicht, Effekte werden neutralisiert oder Tooltips passen nicht zur Wirkung."),
+    'ENCH': (2, "Mechanikverlust: Zauber- oder Perk-Boni greifen nicht, Effekte werden neutralisiert oder Tooltips passen nicht zur Wirkung."),
+    'LIGH': (2, "Sichtbare Grafik-Glitches: Abrupte Helligkeitssprünge bei Kameradrehung, flackernde Schatten oder fehlerhafte Lichtkegel."),
+    'TXST': (2, "Sichtbare Grafik-Glitches: Abrupte Helligkeitssprünge bei Kameradrehung, flackernde Schatten oder lila Texturfehler."),
+    'MATO': (2, "Sichtbare Grafik-Glitches: Material-Swaps oder Shader brechen ab."),
+    'MATT': (2, "Sichtbare Grafik-Glitches: Material-Swaps oder Shader brechen ab."),
+    'EFSH': (2, "Sichtbare Grafik-Glitches: Partikeleffekte oder Shader-Sequenzen brechen ab."),
+    'EFSQ': (2, "Sichtbare Grafik-Glitches: Partikeleffekte oder Shader-Sequenzen brechen ab."),
+    'IMAD': (2, "Sichtbare Grafik-Glitches: Abrupte Farbsprünge bei Post-Processing oder Bildschirm-Filtern."),
+    'IMGS': (2, "Sichtbare Grafik-Glitches: Abrupte Farbsprünge bei Post-Processing oder Bildschirm-Filtern."),
+    'SOUN': (2, "Akustische Aussetzer: Waffensounds verstummen, Kampfmusik läuft nach Gefechten endlos weiter oder Geräusche brechen ab."),
+    'MUSC': (2, "Akustische Aussetzer: Waffensounds verstummen, Kampfmusik läuft nach Gefechten endlos weiter oder Geräusche brechen ab."),
+    'SDLT': (2, "Akustische Aussetzer: Soundeffekte oder Umgebungstöne brechen ab."),
+    'ACTI': (2, "Interaktionsstörung: Schalter lassen sich nicht betätigen, Hebel blockieren oder Skripte lösen nicht aus."),
+    'TACT': (2, "Interaktionsstörung: Schalter lassen sich nicht betätigen, Hebel blockieren oder Skripte lösen nicht aus."),
+    'TERM': (2, "Interaktionsstörung: Terminalbildschirme bleiben schwarz oder Menüeinträge fehlen."),
+    'CONT': (2, "Interaktionsstörung: Behälter-Inhalte fehlen oder Inventar wird geleert."),
+    'FLOR': (2, "Erntebare Vegetation oder Pflanzen wachsen nicht nach oder lassen sich nicht abernten."),
+    'STBH': (2, "Modul- oder Fahrzeugkonflikt: Schiffsteile docken versetzt an, Snap-Nodes fehlen oder Kollisionsgrenzen brechen."),
+    'STMP': (2, "Modul- oder Fahrzeugkonflikt: Schiffsteile docken versetzt an, Snap-Nodes fehlen oder Kollisionsgrenzen brechen."),
+    'STND': (2, "Modul- oder Fahrzeugkonflikt: Schiffsteile docken versetzt an, Snap-Nodes fehlen oder Kollisionsgrenzen brechen."),
+    'GBFM': (2, "Modul- oder Fahrzeugkonflikt: Bodenfahrzeuge (REV-8) oder Passantendichte glitcht."),
+
+    # Typ 1: Leicht (Harmloser Wertestreit)
+    'WEAP': (1, "Waffen-Attribute und Projektilwerte werden von der späteren Mod übernommen."),
+    'PROJ': (1, "Waffen-Attribute und Projektilwerte werden von der späteren Mod übernommen."),
+    'ARMO': (1, "Rüstungswerte und Trageslots werden von der späteren Mod übernommen."),
+    'ARMA': (1, "Rüstungswerte und Trageslots werden von der späteren Mod übernommen."),
+    'AMMO': (1, "Schadens- und Gewichtsangaben werden von der späteren Mod übernommen."),
+    'OMOD': (1, "Aufsatz- und Modifikationswerte werden von der späteren Mod übernommen."),
+    'MISC': (1, "Bezeichnungen, Preise oder Notizentexte werden von der späteren Mod übernommen."),
+    'KEYM': (1, "Bezeichnungen, Preise oder Notizentexte werden von der späteren Mod übernommen."),
+    'BOOK': (1, "Bezeichnungen, Preise oder Notizentexte werden von der späteren Mod übernommen."),
+    'COBJ': (1, "Baupläne, Chems- oder Rezeptwerte werden von der späteren Mod übernommen."),
+    'ALCH': (1, "Baupläne, Chems- oder Rezeptwerte werden von der späteren Mod übernommen."),
+    'INGR': (1, "Baupläne, Chems- oder Rezeptwerte werden von der späteren Mod übernommen."),
+    'LVLI': (1, "Loot- oder Spawntabellen werden von der späteren Mod überschrieben."),
+    'LVLN': (1, "Loot- oder Spawntabellen werden von der späteren Mod überschrieben."),
+    'LVLP': (1, "Loot- oder Spawntabellen werden von der späteren Mod überschrieben."),
+    'LVLB': (1, "Loot- oder Spawntabellen werden von der späteren Mod überschrieben."),
+    'FLST': (1, "Loot- oder Spawntabellen werden von der späteren Mod überschrieben."),
+    'GLOB': (1, "Globale Spieleinstellungen oder Benennungsregeln werden von der späteren Mod übernommen."),
+    'GMST': (1, "Globale Spieleinstellungen oder Benennungsregeln werden von der späteren Mod übernommen."),
+    'INNR': (1, "Globale Spieleinstellungen oder Benennungsregeln werden von der späteren Mod übernommen."),
+    'HDPT': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'CLFM': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'CAMS': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'CPTH': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'MOVT': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'CSTY': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
+    'IDLE': (1, "Visuelle Farbtöne, Frisuren oder Animationen werden von der späteren Mod übernommen."),
 }
 
 
@@ -95,7 +139,7 @@ def _step_baseline_typification(cur, step_id, step_desc, reporter=None):
         if sig in SIG_BASELINE_CONFIG:
             c_type, reason = SIG_BASELINE_CONFIG[sig]
         else:
-            c_type, reason = 2, f"Normal: Kollidierender Mod-Override auf Signatur {sig}"
+            c_type, reason = 2, "Wirkungskonflikt: Eigenschaften und Spielmechaniken der früheren Mod werden im Spiel durch die spätere Mod verdrängt."
 
         cur.execute("""
             UPDATE Mods_Conflicts
@@ -120,10 +164,7 @@ def _step_direct_requirements(cur, step_id, step_desc, reporter=None):
     """
     cur.execute("""
         SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               CASE 
-                   WHEN mr_b.ID_Mod IS NOT NULL THEN 'Beabsichtigtes Prerequisite-Override (Regel 1: ''' || mc.Mod_Name_B || ''' setzt ''' || mc.Mod_Name_A || ''' voraus)'
-                   ELSE 'Beabsichtigtes Prerequisite-Override (Regel 1: ''' || mc.Mod_Name_A || ''' setzt ''' || mc.Mod_Name_B || ''' voraus)'
-               END AS Reason
+               'Beabsichtigtes Prerequisite-Override (deklarierte Mod-Voraussetzung): Kein Spielfehler zu erwarten.' AS Reason
         FROM Mods_Conflicts mc
         LEFT JOIN Mods_Requirements mr_b 
                ON mr_b.ID_Mod = mc.Mod_ID_B AND mr_b.ID_Mod_Requirement = mc.Mod_ID_A
@@ -148,9 +189,9 @@ def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
     cur.execute("""
         SELECT 
             mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-            'Beabsichtigte Schiedsrichter-Auflösung (Regel 2: Patch ''' || 
+            'Konflikt durch nachgelagerten Patch harmonisiert (''' || 
             COALESCE(mP.Name_Online, mP.Name_ContentCatalog, 'Mod ' || mP.ID) || 
-            ''' [ID ' || mP.ID || '])' AS Reason
+            ''' [ID ' || mP.ID || ']): Beide Mods greifen wie vorgesehen.' AS Reason
         FROM Mods_Conflicts mc
         JOIN Mods_Requirements mrA ON mrA.ID_Mod_Requirement = mc.Mod_ID_A
         JOIN Mods_Requirements mrB ON mrB.ID_Mod_Requirement = mc.Mod_ID_B AND mrA.ID_Mod = mrB.ID_Mod
@@ -211,7 +252,7 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
 
         if data_a is not None and data_b is not None and data_a == data_b:
             # Beide Mods haben 100% identische Steuerdaten -> Reiner Mitläufer!
-            reason = "Identischer Mitläufer: Steuer-Subrecords (WRLD) beider Mods sind zu 100% deckungsgleich"
+            reason = "Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel."
             demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
         # Bei abweichenden Daten bleibt der Datensatz unverändert auf Step 1, Typ 2
 

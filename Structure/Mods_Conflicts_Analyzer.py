@@ -565,12 +565,19 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
             qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
             continue
 
-        # 2. Rollen-Array-Vergleich (ACSR / ACPR)
+        # 2. Rollen-Array-Vergleich (ACSR / LCSR)
         def _get_acsr_formids(subdict):
             acsr = subdict.get('ACSR') or subdict.get('LCSR') or b''
             fids = set()
-            for i in range(0, len(acsr) - 3, 4):
-                fids.add(struct.unpack('<I', acsr[i:i+4])[0] & 0x00FFFFFF)
+            # Jedes ACSR/LCSR-Element ist ein 20-Byte Struct:
+            # Bytes 0..4: LocRefType (LCRT)
+            # Bytes 4..8: Target Reference FormID (REFR/ACHR)
+            # Bytes 8..12: Cell FormID
+            for i in range(0, len(acsr) - 19, 20):
+                target_ref = struct.unpack('<I', acsr[i+4:i+8])[0]
+                # Nur Referenzen mit Mod-Präfix >= 1 berücksichtigen (Vanilla = 0x00)
+                if (target_ref >> 24) >= 1:
+                    fids.add(target_ref & 0x00FFFFFF)
             return fids
 
         cur.execute("SELECT FormID_Local FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Is_Override = 0;", (comp_id_a,))

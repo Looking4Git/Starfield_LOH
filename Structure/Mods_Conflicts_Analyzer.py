@@ -539,6 +539,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     array_keys = ['ACSR', 'ACPR', 'ACUN', 'LCSR', 'LCPR', 'LCUN']
 
     demoted_type_0 = []
+    demoted_type_1 = []
     qualified_type_2 = []
 
     for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b, name_a, name_b in lctn_rows:
@@ -592,9 +593,27 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
         custom_b = acsr_fids_b.intersection(local_fids_b)
 
         if custom_a and custom_b:
-            # Beide Mods fügen aktiv eigene Rollen-Referenzen hinzu -> Konkurrenz
-            reason = f"Rollen-Konflikt in Location: Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu ({len(custom_a)} vs. {len(custom_b)}). Die spätere Mod verdrängt die Rollenzuweisungen der früheren Mod."
-            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            # Beide Mods fügen aktiv eigene Rollen-Referenzen hinzu -> Option C (Inhalts- & Risikoprüfung)
+            cur.execute("""
+                SELECT 1 FROM Components_ESM_FormIDs 
+                WHERE Component_ID IN (?, ?) AND Sig IN ('QUST', 'SMQN', 'SMBN', 'SMEN') 
+                LIMIT 1;
+            """, (comp_id_a, comp_id_b))
+            has_quest_system = cur.fetchone() is not None
+
+            if has_quest_system:
+                reason = (
+                    f"Rollen-Konflikt in Location (Quest-/Story-Bezug): Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu "
+                    f"({len(custom_a)} vs. {len(custom_b)}). Die spätere Mod verdrängt Rollenzuweisungen der früheren Mod im Story Manager; "
+                    f"Missionsabläufe können beeinträchtigt werden."
+                )
+                qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            else:
+                reason = (
+                    f"Rollen-Zuweisung in Location (ACSR): Beide Mods deklarieren eigene Rollen/Referenzen ({len(custom_a)} vs. {len(custom_b)}). "
+                    f"Die spätere Mod gewinnt ihre Zuweisungen im Story Manager; Stabilität und Raumgeometrie bleiben unberührt."
+                )
+                demoted_type_1.append((mod_id_a, mod_id_b, form_id, sig, reason))
         else:
             # Mindestens eine Mod ist ein reines CK-Resave (fügt keine eigenen Rollen hinzu)
             if not custom_a and not custom_b:
@@ -606,9 +625,10 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
             demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_1 = _update_conflicts_batch(cur, step_id, step_desc, 1, demoted_type_1)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    print(f"      - Schritt 6: {cnt_0} LCTN-Datensätze als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
-    return cnt_0 + cnt_2
+    print(f"      - Schritt 6: {cnt_0} LCTN-Datensätze als identische Mitläufer (Typ 0), {cnt_1} als harmlose Rollen-Zuweisungen (Typ 1) und {cnt_2} als reale Kollisionen (Typ 2) qualifiziert.")
+    return cnt_0 + cnt_1 + cnt_2
 
 
 # Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung

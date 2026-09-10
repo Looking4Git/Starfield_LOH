@@ -118,11 +118,13 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
      * Bei abweichenden Steuerdaten oder kollidierenden Objektplatzierungen: Fortschreibung auf `Conflict_Type = 2` mit präziser, symptomorientierter Begründung.
 
 6. **Schritt 6: `_step_lctn_resaves` (Location-Subrecord- & Rollen-Analyse)**
-   * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der dynamischen Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) durch.
+   * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der 20-Byte-Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) via `File_ESM_Parser_Dynamic` durch.
    * **Ergebnis:**
-     * Wenn Primärdaten identisch sind und mindestens eine der beiden Mods keine eigenen FormIDs in den Rollen-Arrays (`ACSR`) ergänzt (reines Creation-Kit-Resave / Dirty Edit): Abstufung auf `Step_ID = 6`, `Step_Description = 'Location-Subrecord- & Rollen-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '<Mod-Name>' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."*).
-     * Wenn beide Mods aktiv konkurrierende Rollen registrieren: Qualifizierung als `Conflict_Type = 2` (*"Rollen-Konflikt in Location: Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu..."*).
-     * Wenn Primärattribute abweichen: Qualifizierung als `Conflict_Type = 2` (*"Standortdaten weichen ab..."*).
+     * **Identischer Mitläufer (CK-Resave):** Wenn Primärdaten identisch sind und mindestens eine der beiden Mods keine eigenen FormIDs in den Rollen-Arrays (`ACSR`, 20-Byte Structs, Target-Ref-Präfix $\ge 1$) ergänzt: Abstufung auf `Step_ID = 6`, `Step_Description = 'Location-Subrecord- & Rollen-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '<Mod-Name>' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."*).
+     * **Konkurrierende Rollen-Zuweisungen (Option C – Inhalts- & Risikoprüfung):** Wenn beide Mods aktiv eigene Rollen-Referenzen in `ACSR` registrieren:
+       * *Mit Quest-/Story-Bezug:* Enthält mindestens eine der beteiligten Mods Quests oder Story-Manager-Knoten (`QUST`, `SMQN`, `SMBN`, `SMEN`), wird der Konflikt als `Conflict_Type = 2` eingestuft (*"Rollen-Konflikt in Location (Quest-/Story-Bezug): Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu... Die spätere Mod verdrängt Rollenzuweisungen der früheren Mod im Story Manager; Missionsabläufe können beeinträchtigt werden."*).
+       * *Reine Welt-/Interior-Mods:* Besitzen beide Mods keine Queststrukturen, wird der Konflikt als harmloser Wertekonflikt auf `Conflict_Type = 1` eingestuft (*"Rollen-Zuweisung in Location (ACSR): Beide Mods deklarieren eigene Rollen/Referenzen... Die spätere Mod gewinnt ihre Zuweisungen im Story Manager; Stabilität und Raumgeometrie bleiben unberührt."*).
+     * **Abweichende Primärattribute:** Weichen Keywords, Parent-Locations (`PNAM`) oder Flags (`DATA`) ab: Einstufung auf `Conflict_Type = 2` (*"Standortdaten weichen ab: Unterschiedliche Keywords, Parent-Location oder Standort-Flags..."*).
 
 ---
 

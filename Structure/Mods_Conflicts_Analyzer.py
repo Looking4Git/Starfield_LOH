@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import struct
 import sqlite3
 import logging
 
@@ -298,12 +299,319 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     return cnt_0 + cnt_2
 
 
+def _get_cell_bbox(comp_id, cell_form_id, cur, cache):
+    """
+    Ermittelt die 2D-Bounding-Box [min_x, max_x, min_y, max_y] aller neu platzierten
+    Objekte (Is_Override = 0, Sig IN ('REFR', 'ACHR')) einer Komponente in einer Zelle.
+    Nutzt Caching und schnelles lineares Record-Scanning.
+    """
+    cache_key = (comp_id, cell_form_id)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    cur.execute("""
+        SELECT FormID_Local FROM Components_ESM_FormIDs
+        WHERE Component_ID = ? AND Cell_FormID = ? AND Is_Override = 0 AND Sig IN ('REFR', 'ACHR');
+    """, (comp_id, cell_form_id))
+    rows = cur.fetchall()
+    if not rows:
+        cache[cache_key] = None
+        return None
+
+    target_fids = set(r[0] for r in rows)
+    from Structure.File_ESM_Parser_Dynamic import resolve_component_path
+    file_path = resolve_component_path(comp_id)
+    if not file_path or not os.path.exists(file_path):
+        cache[cache_key] = None
+        return None
+
+    xs, ys = [], []
+    file_size = os.path.getsize(file_path)
+    import zlib
+
+    with open(file_path, 'rb') as f:
+        hdr = f.read(24)
+        if len(hdr) < 24 or hdr[:4] != b'TES4':
+            cache[cache_key] = None
+            return None
+        tes4_size, = struct.unpack('<I', hdr[4:8])
+        f.seek(24 + tes4_size)
+
+        while f.tell() < file_size:
+            rec_hdr = f.read(24)
+            if len(rec_hdr) < 24:
+                break
+            sig = rec_hdr[:4]
+            size, = struct.unpack('<I', rec_hdr[4:8])
+            if sig == b'GRUP':
+                continue
+            fid, = struct.unpack('<I', rec_hdr[12:16])
+            local_fid = fid & 0x00FFFFFF
+
+            if sig in (b'REFR', b'ACHR') and local_fid in target_fids:
+                flags, = struct.unpack('<I', rec_hdr[8:12])
+                is_comp = bool(flags & 0x00040000)
+                data = f.read(size)
+                if is_comp:
+                    try:
+                        data = zlib.decompress(data[4:])
+                    except Exception:
+                        continue
+                off = 0
+                while off + 6 <= len(data):
+                    ssig = data[off:off+4]
+                    ssize, = struct.unpack('<H', data[off+4:off+6])
+                    sdata = data[off+6:off+6+ssize]
+                    off += 6 + ssize
+                    if ssig == b'DATA' and len(sdata) >= 12:
+                        pos = struct.unpack('<fff', sdata[:12])
+                        xs.append(pos[0])
+                        ys.append(pos[1])
+            else:
+                f.seek(size, 1)
+
+    bbox = (min(xs), max(xs), min(ys), max(ys)) if xs else None
+    cache[cache_key] = bbox
+    return bbox
+
+
+def _check_bbox_overlap(box_a, box_b, margin=5.0):
+    """
+    Prüft, ob sich zwei 2D-Bounding-Boxes unter Berücksichtigung einer Toleranz überschneiden.
+    """
+    if not box_a or not box_b:
+        return False
+    min_x_a, max_x_a, min_y_a, max_y_a = box_a
+    min_x_b, max_x_b, min_y_b, max_y_b = box_b
+    no_overlap = (
+        max_x_a + margin < min_x_b or
+        max_x_b + margin < min_x_a or
+        max_y_a + margin < min_y_b or
+        max_y_b + margin < min_y_a
+    )
+    return not no_overlap
+
+
+def _step_cell_containers(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 5: Zellen-Subrecord- & Platzierungs-Analyse
+    Qualifiziert aktive CELL-Kollisionen nach 3 orthogonalen Kriterien:
+    1. Abweichende Steuerdaten (DATA, LTMP, XCLW, XCLL, XILS, XCAS, XEZN, XCMT, XCLC)
+    2. Bestehende Objekt-Overrides (kollidierende Vanilla-REFR/ACHR in dieser Zelle)
+    3. Räumliche Neubau-Überlappung (Bounding-Box-Overlap neuer Platzierungen)
+    """
+    from Structure.File_ESM_Parser_Dynamic import get_subrecords
+
+    cur.execute("""
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+               c1.File AS File_A, c2.File AS File_B,
+               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B
+        FROM Mods_Conflicts mc
+        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
+        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
+        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
+        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
+        WHERE mc.Sig = 'CELL' AND mc.Conflict_Type > 0
+        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+    """)
+    cell_rows = cur.fetchall()
+
+    cell_cache = {}
+    bbox_cache = {}
+    target_cell_subrecords = ['DATA', 'LTMP', 'XCLW', 'XCLL', 'XILS', 'XCAS', 'XEZN', 'XCMT']
+
+    demoted_type_0 = []
+    qualified_type_2 = []
+
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b in cell_rows:
+        key_a = (file_a, form_id)
+        if key_a not in cell_cache:
+            subs = get_subrecords(file_a, form_id, target_cell_subrecords + ['XCLC'], target_sig='CELL')
+            cell_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+
+        key_b = (file_b, form_id)
+        if key_b not in cell_cache:
+            subs = get_subrecords(file_b, form_id, target_cell_subrecords + ['XCLC'], target_sig='CELL')
+            cell_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+
+        data_a = cell_cache[key_a]
+        data_b = cell_cache[key_b]
+
+        # 1. Steuerdaten-Vergleich
+        diff_keys = [k for k in target_cell_subrecords if data_a.get(k) != data_b.get(k)]
+        xclc_a = data_a.get('XCLC')
+        xclc_b = data_b.get('XCLC')
+        if xclc_a and xclc_b and len(xclc_a) >= 8 and len(xclc_b) >= 8:
+            if xclc_a[:8] != xclc_b[:8]:
+                diff_keys.append('XCLC')
+        elif xclc_a != xclc_b:
+            diff_keys.append('XCLC')
+
+        has_cell_diff = len(diff_keys) > 0
+
+        # 2. Bestehende Objekt-Overrides in dieser Zelle prüfen
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM Components_ESM_FormIDs f1
+            JOIN Components_ESM_FormIDs f2
+              ON f1.FormID_Local = f2.FormID_Local
+             AND f1.Master_Component_ID = f2.Master_Component_ID
+             AND f1.Master_Is_System = f2.Master_Is_System
+            WHERE f1.Component_ID = ? AND f2.Component_ID = ?
+              AND f1.Cell_FormID = ? AND f2.Cell_FormID = ?
+              AND f1.Is_Override = 1 AND f2.Is_Override = 1
+              AND f1.Sig IN ('REFR', 'ACHR');
+        """, (comp_id_a, comp_id_b, form_id, form_id))
+        refr_override_count = cur.fetchone()[0]
+        has_refr_override_conflict = refr_override_count > 0
+
+        # 3. Bounding-Box-Überlappung für Neubauten (Is_Override = 0)
+        # Nur berechnen, wenn beide Komponenten überhaupt neue Platzierungen in dieser Zelle haben
+        cur.execute("""
+            SELECT 
+                (SELECT 1 FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Cell_FormID = ? AND Is_Override = 0 AND Sig IN ('REFR', 'ACHR') LIMIT 1),
+                (SELECT 1 FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Cell_FormID = ? AND Is_Override = 0 AND Sig IN ('REFR', 'ACHR') LIMIT 1);
+        """, (comp_id_a, form_id, comp_id_b, form_id))
+        has_new_a, has_new_b = cur.fetchone()
+
+        if has_new_a and has_new_b:
+            box_a = _get_cell_bbox(comp_id_a, form_id, cur, bbox_cache)
+            box_b = _get_cell_bbox(comp_id_b, form_id, cur, bbox_cache)
+            has_bbox_overlap = _check_bbox_overlap(box_a, box_b, margin=5.0)
+        else:
+            has_bbox_overlap = False
+
+        # 4. Diagnose-Synthese
+        if not has_cell_diff and not has_refr_override_conflict and not has_bbox_overlap:
+            reason = "Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."
+            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+        else:
+            diff_str = f" ({', '.join(sorted(diff_keys))})" if diff_keys else ""
+            if not has_cell_diff and has_refr_override_conflict and not has_bbox_overlap:
+                reason = "Objekt-Konflikt im Raum: Steuerdaten sind identisch, jedoch überschreiben beide Mods dieselben bestehenden Vanilla-Objekte (REFR). Bauliche Elemente werden verdrängt oder blockiert."
+            elif not has_cell_diff and not has_refr_override_conflict and has_bbox_overlap:
+                reason = "Räumliche Überlappung: Steuerdaten sind identisch, jedoch platzieren beide Mods neue Objekte im selben Baubereich. Akute Gefahr von ineinander clippenden Gebäuden."
+            elif not has_cell_diff and has_refr_override_conflict and has_bbox_overlap:
+                reason = "Kollidierende und überlappende Objektplatzierungen: Beide Mods überschreiben dieselben bestehenden Vanilla-Objekte (REFR) UND platzieren Neubauten im selben Baubereich."
+            elif has_cell_diff and not has_refr_override_conflict and not has_bbox_overlap:
+                reason = f"Raumdaten weichen ab: Unterschiedliche Steuer-Subrecords{diff_str}; Objektplatzierungen sind getrennt."
+            else:
+                reason = f"Kombinierter Raum- und Platzierungskonflikt: Abweichende Raumdaten{diff_str} UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."
+            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+
+    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
+    print(f"      - Schritt 5: {cnt_0} CELL-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
+    return cnt_0 + cnt_2
+
+
+def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 6: Location-Subrecord- & Rollen-Analyse
+    Prüft verbleibende aktive LCTN-Kollisionen über File_ESM_Parser_Dynamic.
+    - Primärattribute (FULL, KWDA, DATA, PNAM, RNAM, ANAM, TNAM)
+    - Rollen- und Referenz-Arrays (ACSR, ACPR, ACUN, LCSR, LCPR, LCUN)
+    Wenn Primärdaten identisch sind und mindestens eine Mod ein reines CK-Resave
+    (keine konkurrierenden Rollen-Overrides) darstellt -> Typ 0.
+    """
+    from Structure.File_ESM_Parser_Dynamic import get_subrecords
+
+    cur.execute("""
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+               c1.File AS File_A, c2.File AS File_B,
+               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B,
+               COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_A) AS Mod_Name_A,
+               COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_B) AS Mod_Name_B
+        FROM Mods_Conflicts mc
+        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
+        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
+        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
+        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
+        JOIN Mods m1 ON mc.Mod_ID_A = m1.ID
+        JOIN Mods m2 ON mc.Mod_ID_B = m2.ID
+        WHERE mc.Sig = 'LCTN' AND mc.Conflict_Type > 0
+        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+    """)
+    lctn_rows = cur.fetchall()
+
+    lctn_cache = {}
+    primary_keys = ['FULL', 'KWDA', 'DATA', 'PNAM', 'RNAM', 'ANAM', 'TNAM']
+    array_keys = ['ACSR', 'ACPR', 'ACUN', 'LCSR', 'LCPR', 'LCUN']
+
+    demoted_type_0 = []
+    qualified_type_2 = []
+
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b, name_a, name_b in lctn_rows:
+        key_a = (file_a, form_id)
+        if key_a not in lctn_cache:
+            subs = get_subrecords(file_a, form_id, primary_keys + array_keys, target_sig='LCTN')
+            lctn_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+
+        key_b = (file_b, form_id)
+        if key_b not in lctn_cache:
+            subs = get_subrecords(file_b, form_id, primary_keys + array_keys, target_sig='LCTN')
+            lctn_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+
+        data_a = lctn_cache[key_a]
+        data_b = lctn_cache[key_b]
+
+        # 1. Primärdaten-Vergleich
+        diff_primary = [k for k in primary_keys if data_a.get(k) != data_b.get(k)]
+        has_attr_diff = len(diff_primary) > 0
+
+        if has_attr_diff:
+            diff_str = f" ({', '.join(sorted(diff_primary))})"
+            reason = f"Standortdaten weichen ab: Unterschiedliche Keywords, Parent-Location oder Standort-Flags{diff_str}."
+            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            continue
+
+        # 2. Rollen-Array-Vergleich (ACSR / ACPR)
+        def _get_acsr_formids(subdict):
+            acsr = subdict.get('ACSR') or subdict.get('LCSR') or b''
+            fids = set()
+            for i in range(0, len(acsr) - 3, 4):
+                fids.add(struct.unpack('<I', acsr[i:i+4])[0] & 0x00FFFFFF)
+            return fids
+
+        cur.execute("SELECT FormID_Local FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Is_Override = 0;", (comp_id_a,))
+        local_fids_a = set(r[0] for r in cur.fetchall())
+        cur.execute("SELECT FormID_Local FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Is_Override = 0;", (comp_id_b,))
+        local_fids_b = set(r[0] for r in cur.fetchall())
+
+        acsr_fids_a = _get_acsr_formids(data_a)
+        acsr_fids_b = _get_acsr_formids(data_b)
+
+        custom_a = acsr_fids_a.intersection(local_fids_a)
+        custom_b = acsr_fids_b.intersection(local_fids_b)
+
+        if custom_a and custom_b:
+            # Beide Mods fügen aktiv eigene Rollen-Referenzen hinzu -> Konkurrenz
+            reason = f"Rollen-Konflikt in Location: Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu ({len(custom_a)} vs. {len(custom_b)}). Die spätere Mod verdrängt die Rollenzuweisungen der früheren Mod."
+            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+        else:
+            # Mindestens eine Mod ist ein reines CK-Resave (fügt keine eigenen Rollen hinzu)
+            if not custom_a and not custom_b:
+                reason = "Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; beide Mods nutzen unberührte Rollen-Referenzlisten."
+            elif not custom_b:
+                reason = f"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '{name_b}' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."
+            else:
+                reason = f"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '{name_a}' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."
+            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+
+    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
+    print(f"      - Schritt 6: {cnt_0} LCTN-Datensätze als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
+    return cnt_0 + cnt_2
+
+
 # Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung
 CONFLICT_PIPELINE_STEPS = [
     (1, "Signatur-Basiseinstufung", _step_baseline_typification),
     (2, "Direkte Mod-Voraussetzungen", _step_direct_requirements),
     (3, "Schiedsrichter-Patches", _step_triangular_patches),
     (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
+    (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
+    (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
 ]
 
 

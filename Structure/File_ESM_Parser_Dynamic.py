@@ -135,7 +135,14 @@ def get_subrecords(component, form_id, subrecords=None, raw_bytes=True, target_s
             r_size, = struct.unpack('<I', rec_hdr[4:8])
 
             if r_sig == b'GRUP':
-                # In GRUP eintreten, kein Überspringen
+                if target_sig_bytes and len(rec_hdr) >= 16:
+                    g_label = rec_hdr[8:12]
+                    g_type, = struct.unpack('<I', rec_hdr[12:16])
+                    if g_type == 0:
+                        allowed_labels = (target_sig_bytes, b'WRLD') if target_sig_bytes in (b'CELL', b'REFR', b'ACHR', b'LAND', b'NAVM') else (target_sig_bytes,)
+                        if g_label not in allowed_labels:
+                            f.seek(r_size - 24, 1)
+                            continue
                 continue
 
             if target_sig_bytes and r_sig != target_sig_bytes:

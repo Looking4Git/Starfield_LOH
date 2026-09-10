@@ -78,6 +78,8 @@ CONFLICT_PIPELINE_STEPS = [
     (2, "Direkte Mod-Voraussetzungen", _step_direct_requirements),
     (3, "Schiedsrichter-Patches", _step_triangular_patches),
     (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
+    (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
+    (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
 ]
 ```
 
@@ -105,6 +107,22 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
    * Führt für verbleibende aktive WRLD-Kollisionen einen speichereffizienten Subrecord-Vergleich (`CNAM`, `DNAM`, `WNAM`, `DATA`, `NAM0`, `NAM9`) über `File_ESM_Parser_Dynamic` durch.
    * **Bei 100 % identischen Steuerdaten:** Wird der Datensatz als harmloser Creation-Kit-Mitläufer identifiziert und gestempelt mit `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 0` und `Reason = 'Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.'`.
    * **Bei abweichenden Steuerdaten:** Werden die exakt differierenden Subrecords (`diff_keys`) ermittelt und gezielte Symptome abgeleitet. Der Datensatz wird ebenfalls auf `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 2` fortgeschrieben (z. B. `Reason = 'Abweichende Steuer-Subrecords (CNAM, DATA, DNAM): Plötzliche Wetterabbrüche (Popping) oder veränderte Wetterzyklen sowie veränderte Standard-Geländehöhen oder verschobene Kartengrenzen möglich.'`).
+
+5. **Schritt 5: `_step_cell_containers` (Zellen-Subrecord- & Platzierungs-Analyse)**
+   * Führt für verbleibende aktive CELL-Kollisionen eine orthogonale Drei-Punkte-Diagnose durch:
+     1. **Steuerdaten-Vergleich:** Prüft `DATA`, `LTMP`, `XCLW`, `XCLL`, `XILS`, `XCAS`, `XEZN`, `XCMT` sowie die Raster-Koordinaten in `XCLC`.
+     2. **Bestehende Objekt-Overrides:** Prüft via `Components_ESM_FormIDs`, ob in dieser Zelle dieselben Vanilla-Objekte (`REFR`/`ACHR` mit `Is_Override = 1`) von beiden Mods überschrieben werden.
+     3. **Neubau-Überlappung (Bounding-Box):** Berechnet die 2D-Bounding-Boxes neu platzierter Objekte (`Is_Override = 0`) und prüft auf räumliche Überschneidungen zweier Neubauten im selben Baubereich.
+   * **Ergebnis:**
+     * Bei deckungsgleichen Steuerdaten ohne Objektkonflikte und ohne räumliche Überdeckung: Abstufung auf `Step_ID = 5`, `Step_Description = 'Zellen-Subrecord- & Platzierungs-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."*).
+     * Bei abweichenden Steuerdaten oder kollidierenden Objektplatzierungen: Fortschreibung auf `Conflict_Type = 2` mit präziser, symptomorientierter Begründung.
+
+6. **Schritt 6: `_step_lctn_resaves` (Location-Subrecord- & Rollen-Analyse)**
+   * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der dynamischen Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) durch.
+   * **Ergebnis:**
+     * Wenn Primärdaten identisch sind und mindestens eine der beiden Mods keine eigenen FormIDs in den Rollen-Arrays (`ACSR`) ergänzt (reines Creation-Kit-Resave / Dirty Edit): Abstufung auf `Step_ID = 6`, `Step_Description = 'Location-Subrecord- & Rollen-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '<Mod-Name>' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."*).
+     * Wenn beide Mods aktiv konkurrierende Rollen registrieren: Qualifizierung als `Conflict_Type = 2` (*"Rollen-Konflikt in Location: Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu..."*).
+     * Wenn Primärattribute abweichen: Qualifizierung als `Conflict_Type = 2` (*"Standortdaten weichen ab..."*).
 
 ---
 

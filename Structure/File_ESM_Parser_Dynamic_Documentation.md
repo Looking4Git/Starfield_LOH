@@ -12,6 +12,25 @@ Im Gegensatz zum statischen Scan-Prozess (`File_ESM_Parser.py`), welcher beim Hi
 * **Kein Datenbank-Bloat:** Spezifische Subrecords (wie Klima-, Wasser- oder Partikeldaten) müssen nicht für hunderttausende Records dauerhaft in der Datenbank gespeichert werden.
 * **Separation of Concerns:** Der dynamische Parser ist **völlig frei von Geschäftslogik**. Er bewertet keine Konflikte und kennt keine Schweregrade (Typ 0 bis 3). Er liefert ausschließlich neutrale Datenstrukturen zurück. Die fachliche Interpretation obliegt den aufrufenden Modulen (z. B. `Mods_Conflicts_Analyzer.py`, `Category_LOH_Classifier.py` oder GUI-Tools).
 
+### 1.2 Entscheidungs- & Erweiterungsrichtlinie: Universalität vs. Spezialisierung
+
+Sobald neue ESM-Abfragen oder Subrecord-Analysen für die Pipeline, den Classifier oder Tools benötigt werden, **muss stets verbindlich abgewogen werden**, ob die Funktionalität in die zentrale Bibliothek `File_ESM_Parser_Dynamic.py` gehört oder im aufrufenden Modul verbleibt:
+
+#### Kriterien für die Aufnahme in `File_ESM_Parser_Dynamic.py`:
+1. **Fachliche Neutralität:** Die Funktion liefert rein technische, rohe oder aggregierte Datenstrukturen (z. B. Subrecords, Eltern-Kind-Verknüpfungen, Zeiger-Sets, Byte-Unterschiede) ohne jede Interpretation.
+2. **Wiederverwendbarkeit:** Die Abfrage ist abstrakt genug, um potenziell von mehreren Konsumenten genutzt zu werden (z. B. Analyzer, Classifier, Sorter, Diagnosetools oder GUI).
+3. **Keine Domain-Regeln:** Die Funktion enthält keinerlei Annahmen über Mod-Autoren, Konflikttypen, Prioritäten oder Kategorisierungsregeln.
+*Beispiele:* `get_record_context()`, `get_child_records()`, `compare_records()`, `parse_nvnm_header()`.
+
+#### Kriterien für den Verbleib im aufrufenden Modul (Domain-Code):
+1. **Spezifische Bewertungslogik:** Die Auswertung verknüpft technische Daten mit Regeln der Anwendung (z. B. „Wenn Zelle X mehr als 5 Platzierungen hat, dann Typ 3, es sei denn Mod ist BGS“).
+2. **Einmaliger Sonderfall:** Eine hochgradig spezialisierte Heuristik, die ausschließlich für eine einzige Pipeline-Stufe oder ein bestimmtes K.O.-Kriterium relevant ist.
+3. **Datenbank- & Workflow-Bindung:** Schreib- und Aktualisierungsoperationen (z. B. `_update_conflicts_batch`, Transaktionssteuerung, SQL-Statements).
+*Beispiele:* `_step_navm_containers()` in `Mods_Conflicts_Analyzer.py`, Schritt 23 (Dummies) in `Category_LOH_Classifier.py`.
+
+> [!IMPORTANT]
+> **Grundsatz:** *Allgemeine Datenbeschaffung gehört in den Dynamic Parser – die fachliche Interpretation, Bewertung und Speicherung verbleibt strikt im aufrufenden Modul.*
+
 ---
 
 ## 2. API-Referenz der Funktionsbibliothek
@@ -151,3 +170,111 @@ created_item = cobj_data.get('CNAM')
 workbench = cobj_data.get('BNAM')
 print(f"Rezept erzeugt FormID {created_item} an Werkbank {workbench}")
 ```
+
+---
+
+### 2.4 `parse_nvnm_header()`
+
+Parst und dekodiert den Header eines Creation Engine 2 NavMesh (`NVNM`)-Subrecords.
+
+```python
+def parse_nvnm_header(data: bytes | bytearray) -> dict | None:
+```
+
+#### Parameter:
+* **`data`** (`bytes | bytearray`, *erforderlich*):  
+  Entweder der vollständige dekomprimierte Datensatz (sucht automatisch nach der 4-Byte Signatur `NVNM`) oder direkt der Roh-Payload des `NVNM`-Subrecords.
+
+#### Rückgabewert (`dict` oder `None`):
+Gibt `None` zurück, falls die Datenstruktur unvollständig oder ungültig ist. Andernfalls:
+* `version` (`int`): Versionsnummer des NavMeshes.
+* `magic` (`int`): Creation Engine Magie-Identifikator.
+* `world_candidate` (`int | None`): Zugeordnete Worldspace-FormID (falls Außenbereich) oder `None`.
+* `cell_candidate` (`int | None`): Zugeordnete Zell-FormID (insbesondere bei Innenräumen) oder `None`.
+
+---
+
+### 2.5 `get_record_context()`
+
+Ermittelt für einen gezielten Record dessen vollständigen hierarchischen `GRUP`-Kontext (Bottom-Up Auflösung von Elternzelle, Eltern-Worldspace und Gruppenpfad) aus einer ESM-Komponente.
+
+```python
+def get_record_context(component: str | int, form_id: int | str) -> dict | None:
+```
+
+#### Parameter:
+* **`component`** (`str | int`, *erforderlich*):  
+  Dateiname, absoluter/relativer Pfad oder numerische `Component_ID`.
+* **`form_id`** (`int | str`, *erforderlich*):  
+  FormID des gesuchten Records als Integer oder Hex-String.
+
+#### Rückgabewert (`dict` oder `None`):
+Gibt `None` zurück, falls der Datensatz in der Datei nicht existiert. Andernfalls:
+* `sig` (`str`): 4-Zeichen Signatur (z. B. `'NAVM'`, `'REFR'`, `'ACHR'`).
+* `form_id` (`int`): FormID des Records.
+* `form_id_local` (`int`): 24-Bit Basis-FormID ohne Master-Präfix.
+* `parent_cell` (`int | None`): FormID der übergeordneten Zelle (aus GRUP-Typen 6, 8, 9, 10 oder NavMesh-Header).
+* `parent_world` (`int | None`): FormID des übergeordneten Worldspaces (aus GRUP-Typ 1 oder NavMesh-Header).
+* `grup_path` (`list[tuple[int, int]]`): Kette aller Eltern-Gruppen `[(grup_type, label_form_id), ...]`.
+* `flags` (`int`): Record-Header Flags.
+* `is_compressed` (`bool`): Zeigt an, ob der Datensatz komprimiert vorlag.
+* `size` (`int`): Größe der dekomprimierten Nutzdaten in Bytes.
+* `data` (`bytes`): Die dekomprimierten Rohdaten.
+
+#### Anwendungsbeispiel:
+```python
+from Structure.File_ESM_Parser_Dynamic import get_record_context
+
+ctx = get_record_context('sfta01.esm', 0x00068F52)
+if ctx:
+    print(f"Record {ctx['sig']} 0x{ctx['form_id']:08X} gehört zu Zelle 0x{ctx['parent_cell']:08X}")
+```
+
+---
+
+### 2.6 `get_records_context()`
+
+Hochperformanter Einzelpass-Streaming-Scanner für ESM-Komponenten. Liest alle Datensätze einer Zielsignatur in einem einzigen Durchlauf inklusive ihrer übergeordneten Zelle und ihres Worldspaces ein. Ideal für Batch-Prüfungen (z. B. im Konflikt-Analyzer).
+
+```python
+def get_records_context(component: str | int, target_sig: str | None = None) -> dict[int, tuple[int | None, int | None, bytes]]:
+```
+
+#### Parameter:
+* **`component`** (`str | int`, *erforderlich*):  
+  Dateiname, Pfad oder `Component_ID`.
+* **`target_sig`** (`str | None`, *Standard: `None`*):  
+  Optionale Filtersignatur (z. B. `'NAVM'` oder `'REFR'`). Wenn `None`, werden alle Datensätze gecacht.
+
+#### Rückgabewert:
+Ein Dictionary mit lokalen 24-Bit-FormIDs als Schlüssel und einem Tupel als Wert:
+`{FormID_Local: (parent_cell_fid, parent_world_fid, decompressed_data)}`.
+
+---
+
+### 2.7 `compare_records()`
+
+Vergleicht einen bestimmten Record zwischen zwei ESM-Komponenten byte-genau und auf Subrecord-Ebene, um Modifikationen, Resaves oder Datenverluste präzise zu diagnostizieren.
+
+```python
+def compare_records(component_a: str | int, component_b: str | int, form_id: int | str, target_sig: str | None = None) -> dict:
+```
+
+#### Parameter:
+* **`component_a`** (`str | int`, *erforderlich*): Erste Mod-Komponente.
+* **`component_b`** (`str | int`, *erforderlich*): Zweite Mod-Komponente.
+* **`form_id`** (`int | str`, *erforderlich*): Zu vergleichende FormID.
+* **`target_sig`** (`str | None`, *Standard: `None`*): Optionale Signatur des Records.
+
+#### Rückgabewert (`dict`):
+* `form_id` (`int`): Untersuchte FormID.
+* `exists_in_a` (`bool`): In Mod A vorhanden.
+* `exists_in_b` (`bool`): In Mod B vorhanden.
+* `is_identical` (`bool`): `True`, wenn alle Subrecords und Daten 1:1 übereinstimmen.
+* `size_a` / `size_b` (`int`): Nutzdatengrößen in Bytes.
+* `diff_bytes` (`int`): Absolute Größendifferenz.
+* `subrecords_diff` (`dict`):
+  * `added`: Liste von Subrecords, die nur in Mod B existieren.
+  * `deleted`: Liste von Subrecords, die nur in Mod A existieren.
+  * `modified`: Dictionary der Subrecords mit inhaltlichen Abweichungen samt Größendifferenz (`size_a`, `size_b`, `size_diff`).
+

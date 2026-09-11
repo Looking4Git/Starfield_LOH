@@ -756,7 +756,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
        Ladereihenfolge-Empfehlung (setzt ID_Mod_Requirement und ID_Mod_Dependent)
     6. Reale Weltzelle ohne neue Platzierungen (reine NavMesh-Korrekturen) -> Typ 2 (Wegfindungs-Konkurrenz)
     """
-    from Structure.File_ESM_Parser_Dynamic import resolve_component_path
+    from Structure.File_ESM_Parser_Dynamic import get_records_context
 
     cur.execute("""
         SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
@@ -778,73 +778,16 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     if not navm_rows:
         return 0
 
-    # 1. Alle benötigten ESM-Komponenten ermitteln und deren NAVMs im linearen Durchlauf cachen
+    # 1. Alle benötigten ESM-Komponenten ermitteln und deren NAVMs via get_records_context cachen
     comp_ids = set()
     for r in navm_rows:
         comp_ids.add(r[6])
         comp_ids.add(r[7])
 
-    def load_component_navms(cid):
-        p = resolve_component_path(cid)
-        f_sz = os.path.getsize(p)
-        navms = {}
-        with open(p, 'rb') as f:
-            hdr = f.read(24)
-            t_sz, = struct.unpack('<I', hdr[4:8])
-            f.seek(24 + t_sz)
-
-            stack = []  # (end_pos, grup_type, label_fid)
-            while f.tell() < f_sz:
-                pos = f.tell()
-                while stack and pos >= stack[-1][0]:
-                    stack.pop()
-                h = f.read(24)
-                if len(h) < 24:
-                    break
-                sig = h[:4]
-                sz, = struct.unpack('<I', h[4:8])
-                if sig == b'GRUP':
-                    lbl = h[8:12]
-                    gt, = struct.unpack('<I', h[12:16])
-                    lbl_fid, = struct.unpack('<I', lbl)
-                    stack.append((pos + sz, gt, lbl_fid & 0x00FFFFFF))
-                    continue
-                fl, = struct.unpack('<I', h[8:12])
-                fid, = struct.unpack('<I', h[12:16])
-                local_fid = fid & 0x00FFFFFF
-                if sig == b'NAVM':
-                    d = f.read(sz)
-                    if fl & 0x00040000:
-                        try:
-                            d = zlib.decompress(d[4:])
-                        except Exception:
-                            pass
-                    p_cell = None
-                    p_wrld = None
-                    for end_pos, gt, lf in stack:
-                        if gt == 1:
-                            p_wrld = lf
-                        elif gt in (6, 9):
-                            p_cell = lf
-                    idx = d.find(b'NVNM')
-                    if idx >= 0 and len(d) >= idx + 22:
-                        nv = d[idx+6:]
-                        v, magic, w_cand, c_cand = struct.unpack('<IIII', nv[:16])
-                        w_cand = w_cand & 0x00FFFFFF
-                        c_cand = c_cand & 0x00FFFFFF
-                        if not p_wrld and w_cand != 0:
-                            p_wrld = w_cand
-                        if (c_cand & 0x0000FFFF) != 0xFFFF and c_cand != 0:
-                            p_cell = c_cand
-                    navms[local_fid] = (p_cell, p_wrld, d)
-                else:
-                    f.seek(sz, 1)
-        return navms
-
     navm_cache = {}
     for cid in comp_ids:
         try:
-            navm_cache[cid] = load_component_navms(cid)
+            navm_cache[cid] = get_records_context(cid, target_sig='NAVM')
         except Exception as e:
             logger.warning(f"Konnte NAVMs für Komponente {cid} nicht laden: {e}")
             navm_cache[cid] = {}

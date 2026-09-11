@@ -15,6 +15,14 @@ Funktionsumfang:
    Traversiert hierarchische GRUP-Baumstrukturen (z. B. Zellen unter WRLD oder Referenzen unter CELL).
 3. get_referenced_formids(component, form_id)
    Extrahiert alle ausgehenden 4-Byte FormID-Pointer eines Records.
+4. parse_nvnm_header(data)
+   Dekodiert den Header eines CE2 NavMesh (NVNM) Subrecords.
+5. get_record_context(component, form_id)
+   Ermittelt Elternzelle, Elternworldspace und GRUP-Pfadhierarchie für einen einzelnen Record.
+6. get_records_context(component, target_sig=None)
+   Performanter Einzelpass-Scanner für Batch-Abfragen (z. B. alle NAVMs einer Komponente).
+7. compare_records(component_a, component_b, form_id, target_sig=None)
+   Vergleicht einen Record zwischen zwei Mods byte-genau und auf Subrecord-Ebene.
 """
 
 import os
@@ -69,16 +77,28 @@ def iter_subrecords(decompressed_data):
     """
     Effizienter Iterator über alle Subrecords eines dekomprimierten Datensatz-Payloads.
     Liefert Tuples (sub_sig: bytes, sub_data: bytes).
+    Unterstützt standardmäßig den Bethesda XXXX-Prefix für Subrecords > 64 KB.
     """
     offset = 0
     total_len = len(decompressed_data)
+    large_size = None
     while offset + 6 <= total_len:
         sub_sig = decompressed_data[offset:offset+4]
         sub_size, = struct.unpack('<H', decompressed_data[offset+4:offset+6])
         offset += 6
-        sub_data = decompressed_data[offset:offset+sub_size]
-        offset += sub_size
+        if sub_sig == b'XXXX':
+            large_size, = struct.unpack('<I', decompressed_data[offset:offset+4])
+            offset += sub_size
+            continue
+        if large_size is not None:
+            actual_size = large_size
+            large_size = None
+        else:
+            actual_size = sub_size
+        sub_data = decompressed_data[offset:offset+actual_size]
+        offset += actual_size
         yield sub_sig, sub_data
+
 
 
 def get_subrecords(component, form_id, subrecords=None, raw_bytes=True, target_sig=None):
@@ -325,3 +345,334 @@ def get_referenced_formids(component, form_id):
                         referenced_ids.add(fid & 0x00FFFFFF)
 
     return referenced_ids
+
+
+def parse_nvnm_header(data):
+    """
+    Parst den Header eines NVNM-Subrecords (NavMesh) der Creation Engine 2.
+    Kann entweder den dekomprimierten Gesamtdatensatz (durchsucht nach b'NVNM')
+    oder direkt die reinen Subrecord-Nutzdaten übergeben bekommen.
+
+    Rückgabe:
+    ---------
+    dict | None : {
+        'version': int,
+        'magic': int,
+        'world_candidate': int | None,
+        'cell_candidate': int | None
+    }
+    """
+    if not data or not isinstance(data, (bytes, bytearray)):
+        return None
+
+    if data[:4] == b'NVNM':
+        nv = data[6:]
+    else:
+        idx = data.find(b'NVNM')
+        if idx >= 0 and len(data) >= idx + 22:
+            nv = data[idx + 6:]
+        elif len(data) >= 16:
+            nv = data
+        else:
+            return None
+
+    if len(nv) < 16:
+        return None
+
+    v, magic, w_cand, c_cand = struct.unpack('<IIII', nv[:16])
+    w_cand = w_cand & 0x00FFFFFF
+    c_cand = c_cand & 0x00FFFFFF
+
+    world_res = w_cand if w_cand != 0 else None
+    cell_res = c_cand if (c_cand & 0x0000FFFF) != 0xFFFF and c_cand != 0 else None
+
+    return {
+        'version': v,
+        'magic': magic,
+        'world_candidate': world_res,
+        'cell_candidate': cell_res
+    }
+
+
+def get_record_context(component, form_id):
+    """
+    Ermittelt für einen gezielten Record dessen vollständigen hierarchischen
+    GRUP-Kontext (Eltern-Zelle, Eltern-Worldspace und Pfadhierarchie) aus einer ESM-Komponente.
+
+    Parameter:
+    ----------
+    component : str | int
+        Dateiname, Pfad oder Component_ID.
+    form_id : int | str
+        FormID des gesuchten Records als Integer oder Hex-String.
+
+    Rückgabe:
+    ---------
+    dict | None : Metadaten und hierarchischer Kontext des Records, oder None falls nicht gefunden.
+        {
+            'sig': str,
+            'form_id': int,
+            'form_id_local': int,
+            'parent_cell': int | None,
+            'parent_world': int | None,
+            'grup_path': list[tuple[int, int]],
+            'flags': int,
+            'is_compressed': bool,
+            'size': int,
+            'data': bytes
+        }
+    """
+    file_path = resolve_component_path(component)
+
+    if isinstance(form_id, str):
+        target_fid = int(form_id, 16) if form_id.lower().startswith('0x') else int(form_id, 16)
+    else:
+        target_fid = int(form_id)
+
+    target_local_fid = target_fid & 0x00FFFFFF
+    file_size = os.path.getsize(file_path)
+
+    with open(file_path, 'rb') as f:
+        hdr = f.read(24)
+        if len(hdr) < 24 or hdr[:4] != b'TES4':
+            return None
+        tes4_size, = struct.unpack('<I', hdr[4:8])
+        f.seek(24 + tes4_size)
+
+        stack = []  # (end_pos, grup_type, label_fid)
+
+        while f.tell() < file_size:
+            pos = f.tell()
+            while stack and pos >= stack[-1][0]:
+                stack.pop()
+
+            h = f.read(24)
+            if len(h) < 24:
+                break
+            sig = h[:4]
+            sz, = struct.unpack('<I', h[4:8])
+
+            if sig == b'GRUP':
+                lbl = h[8:12]
+                gt, = struct.unpack('<I', h[12:16])
+                lbl_fid, = struct.unpack('<I', lbl)
+                stack.append((pos + sz, gt, lbl_fid & 0x00FFFFFF))
+                continue
+
+            fl, fid = struct.unpack('<II', h[8:16])
+            cur_local_fid = fid & 0x00FFFFFF
+
+            if fid == target_fid or cur_local_fid == target_local_fid:
+                raw_payload = f.read(sz)
+                is_comp = bool(fl & 0x00040000)
+                if is_comp:
+                    try:
+                        decomp_data = zlib.decompress(raw_payload[4:])
+                    except Exception:
+                        decomp_data = raw_payload
+                else:
+                    decomp_data = raw_payload
+
+                p_cell = None
+                p_wrld = None
+                for _, gt, lf in stack:
+                    if gt == 1:
+                        p_wrld = lf
+                    elif gt in (6, 8, 9, 10):
+                        p_cell = lf
+
+                if sig == b'NAVM':
+                    nv_info = parse_nvnm_header(decomp_data)
+                    if nv_info:
+                        if not p_wrld and nv_info['world_candidate']:
+                            p_wrld = nv_info['world_candidate']
+                        if nv_info['cell_candidate']:
+                            p_cell = nv_info['cell_candidate']
+
+                return {
+                    'sig': sig.decode('ascii', errors='replace'),
+                    'form_id': fid,
+                    'form_id_local': cur_local_fid,
+                    'parent_cell': p_cell,
+                    'parent_world': p_wrld,
+                    'grup_path': [(gt, lf) for _, gt, lf in stack],
+                    'flags': fl,
+                    'is_compressed': is_comp,
+                    'size': len(decomp_data),
+                    'data': decomp_data
+                }
+
+            f.seek(sz, 1)
+
+    return None
+
+
+def get_records_context(component, target_sig=None):
+    """
+    Performanter Einzelpass-Scanner für ESM-Komponenten: Liest alle Records
+    einer Zielsignatur (z. B. 'NAVM') in einem linearen Durchlauf inklusive ihrer
+    Elternzelle und ihres Worldspaces ein.
+
+    Parameter:
+    ----------
+    component : str | int
+        Dateiname, Pfad oder Component_ID.
+    target_sig : str | None
+        Optionale Zielsignatur (z. B. 'NAVM' oder 'REFR'). Wenn None, werden alle Records gecacht.
+
+    Rückgabe:
+    ---------
+    dict[int, tuple[int | None, int | None, bytes]] :
+        Mapping von FormID_Local -> (parent_cell_fid, parent_world_fid, decompressed_data)
+    """
+    file_path = resolve_component_path(component)
+    file_size = os.path.getsize(file_path)
+    target_sig_bytes = target_sig.encode('ascii') if isinstance(target_sig, str) else target_sig
+
+    records = {}
+
+    with open(file_path, 'rb') as f:
+        hdr = f.read(24)
+        if len(hdr) < 24 or hdr[:4] != b'TES4':
+            return records
+        tes4_size, = struct.unpack('<I', hdr[4:8])
+        f.seek(24 + tes4_size)
+
+        stack = []  # (end_pos, grup_type, label_fid)
+
+        while f.tell() < file_size:
+            pos = f.tell()
+            while stack and pos >= stack[-1][0]:
+                stack.pop()
+
+            h = f.read(24)
+            if len(h) < 24:
+                break
+            sig = h[:4]
+            sz, = struct.unpack('<I', h[4:8])
+
+            if sig == b'GRUP':
+                lbl = h[8:12]
+                gt, = struct.unpack('<I', h[12:16])
+                lbl_fid, = struct.unpack('<I', lbl)
+                stack.append((pos + sz, gt, lbl_fid & 0x00FFFFFF))
+                continue
+
+            fl, fid = struct.unpack('<II', h[8:16])
+            local_fid = fid & 0x00FFFFFF
+
+            if target_sig_bytes is None or sig == target_sig_bytes:
+                d = f.read(sz)
+                if fl & 0x00040000:
+                    try:
+                        d = zlib.decompress(d[4:])
+                    except Exception:
+                        pass
+
+                p_cell = None
+                p_wrld = None
+                for _, gt, lf in stack:
+                    if gt == 1:
+                        p_wrld = lf
+                    elif gt in (6, 8, 9, 10):
+                        p_cell = lf
+
+                if sig == b'NAVM':
+                    nv_info = parse_nvnm_header(d)
+                    if nv_info:
+                        if not p_wrld and nv_info['world_candidate']:
+                            p_wrld = nv_info['world_candidate']
+                        if nv_info['cell_candidate']:
+                            p_cell = nv_info['cell_candidate']
+
+                records[local_fid] = (p_cell, p_wrld, d)
+            else:
+                f.seek(sz, 1)
+
+    return records
+
+
+def compare_records(component_a, component_b, form_id, target_sig=None):
+    """
+    Vergleicht einen Record zwischen zwei ESM-Komponenten byte-genau und auf Subrecord-Ebene.
+
+    Parameter:
+    ----------
+    component_a : str | int
+        Erste Mod-Komponente.
+    component_b : str | int
+        Zweite Mod-Komponente.
+    form_id : int | str
+        FormID des zu vergleichenden Records.
+    target_sig : str | None, optional
+        Optionale Signatur des Records zur eindeutigen Adressierung.
+
+    Rückgabe:
+    ---------
+    dict : Detaillierte Vergleichsanalyse
+        {
+            'form_id': int,
+            'exists_in_a': bool,
+            'exists_in_b': bool,
+            'is_identical': bool,
+            'size_a': int,
+            'size_b': int,
+            'diff_bytes': int,
+            'subrecords_diff': {
+                'added': list[str],      # Subrecords nur in B
+                'deleted': list[str],    # Subrecords nur in A
+                'modified': dict[str, dict] # Subrecords mit veränderten Inhalten/Größen
+            }
+        }
+    """
+    rec_a = get_subrecords(component_a, form_id, raw_bytes=True, target_sig=target_sig)
+    rec_b = get_subrecords(component_b, form_id, raw_bytes=True, target_sig=target_sig)
+
+    fid_int = int(form_id, 16) if isinstance(form_id, str) and form_id.lower().startswith('0x') else int(form_id)
+
+    res = {
+        'form_id': fid_int,
+        'exists_in_a': rec_a is not None,
+        'exists_in_b': rec_b is not None,
+        'is_identical': False,
+        'size_a': rec_a['_header']['size'] if rec_a else 0,
+        'size_b': rec_b['_header']['size'] if rec_b else 0,
+        'diff_bytes': 0,
+        'subrecords_diff': {
+            'added': [],
+            'deleted': [],
+            'modified': {}
+        }
+    }
+
+    if not rec_a or not rec_b:
+        return res
+
+    data_a = {k: v for k, v in rec_a.items() if not k.startswith('_')}
+    data_b = {k: v for k, v in rec_b.items() if not k.startswith('_')}
+
+    res['diff_bytes'] = abs(res['size_a'] - res['size_b'])
+
+    if data_a == data_b:
+        res['is_identical'] = True
+        return res
+
+    keys_a = set(data_a.keys())
+    keys_b = set(data_b.keys())
+
+    res['subrecords_diff']['deleted'] = sorted(list(keys_a - keys_b))
+    res['subrecords_diff']['added'] = sorted(list(keys_b - keys_a))
+
+    for common_k in sorted(list(keys_a.intersection(keys_b))):
+        val_a = data_a[common_k]
+        val_b = data_b[common_k]
+        if val_a != val_b:
+            len_a = len(val_a) if isinstance(val_a, (bytes, bytearray)) else sum(len(x) for x in val_a)
+            len_b = len(val_b) if isinstance(val_b, (bytes, bytearray)) else sum(len(x) for x in val_b)
+            res['subrecords_diff']['modified'][common_k] = {
+                'size_a': len_a,
+                'size_b': len_b,
+                'size_diff': len_b - len_a
+            }
+
+    return res

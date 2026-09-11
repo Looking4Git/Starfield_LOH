@@ -109,19 +109,51 @@ SIG_BASELINE_CONFIG = {
 def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
     """
     Modularisierte Hilfsfunktion zur batchweisen Aktualisierung modifizierter Konfliktdatensätze.
-    records: Liste von Tupeln (mod_id_a, mod_id_b, form_id, sig, reason)
+    records: Liste von Tupeln:
+      - 5er: (mod_id_a, mod_id_b, form_id, sig, reason)
+      - 7er: (mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep)
+      - 9er: (mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid)
     """
     if not records:
         return 0
-    data = [(step_id, step_desc, conflict_type, reason, a, b, f, s) for a, b, f, s, reason in records]
-    cur.executemany("""
-        UPDATE Mods_Conflicts
-        SET Step_ID = ?,
-            Step_Description = ?,
-            Conflict_Type = ?,
-            Reason = ?
-        WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
-    """, data)
+
+    sample_len = len(records[0])
+    if sample_len == 5:
+        data = [(step_id, step_desc, conflict_type, reason, a, b, f, s) for a, b, f, s, reason in records]
+        cur.executemany("""
+            UPDATE Mods_Conflicts
+            SET Step_ID = ?,
+                Step_Description = ?,
+                Conflict_Type = ?,
+                Reason = ?
+            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+        """, data)
+    elif sample_len == 7:
+        data = [(step_id, step_desc, conflict_type, reason, req, dep, a, b, f, s) for a, b, f, s, reason, req, dep in records]
+        cur.executemany("""
+            UPDATE Mods_Conflicts
+            SET Step_ID = ?,
+                Step_Description = ?,
+                Conflict_Type = ?,
+                Reason = ?,
+                ID_Mod_Requirement = ?,
+                ID_Mod_Dependent = ?
+            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+        """, data)
+    elif sample_len >= 9:
+        data = [(step_id, step_desc, conflict_type, reason, req, dep, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, c_fid, c_edid in records]
+        cur.executemany("""
+            UPDATE Mods_Conflicts
+            SET Step_ID = ?,
+                Step_Description = ?,
+                Conflict_Type = ?,
+                Reason = ?,
+                ID_Mod_Requirement = ?,
+                ID_Mod_Dependent = ?,
+                Cell_FormID = COALESCE(Cell_FormID, ?),
+                Cell_EDID = COALESCE(Cell_EDID, ?)
+            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+        """, data)
     return len(records)
 
 
@@ -392,6 +424,51 @@ def _check_bbox_overlap(box_a, box_b, margin=5.0):
     return not no_overlap
 
 
+def _build_cell_diff_reason(diff_keys, context="separate"):
+    """
+    Synthetisiert eine präzise Symptom- und Konsequenzbegründung
+    anhand der tatsächlich abweichenden Subrecords eines CELL-Datensatzes
+    unter Berücksichtigung des Platzierungskontexts ('separate' vs. 'combined').
+    """
+    if not diff_keys:
+        return "Identische Steuerdaten (CELL): Keine Auswirkung im Spiel."
+
+    diff_set = set(diff_keys)
+    has_lighting = bool({'LTMP', 'XCLL', 'XILS'} & diff_set)
+    has_water = 'XCLW' in diff_set
+    has_audio = bool({'XCAS', 'XCMT'} & diff_set)
+    has_scaling = 'XEZN' in diff_set
+    has_flags = 'DATA' in diff_set
+    has_grid = 'XCLC' in diff_set
+
+    symptoms = []
+    if has_lighting:
+        symptoms.append("abrupte Helligkeits-, Nebel- oder Kontrastsprünge beim Raumwechsel und veränderte Raumlicht-Stimmungen")
+    if has_water:
+        symptoms.append("abweichende Wasserpegel (Gefahr von unsichtbaren Wasserflächen oder Ertrinken in trockenen Zonen)")
+    if has_audio:
+        symptoms.append("springende Raumhall-Zonen oder abbrechende Hintergrundmusik")
+    if has_scaling:
+        symptoms.append("veränderte Gegner-Level-Skalierung oder abweichendes Zonen-Respawn-Verhalten")
+    if has_flags:
+        symptoms.append("abweichende Raum-Flags (Gefahr von unpassenden Schnellreise-Sperren oder unberechtigten Trespass-Warnungen)")
+    if has_grid:
+        symptoms.append("Koordinaten-Versatz im Worldspace-Raster (Gefahr von Nahtstellenrissen im Außengelände)")
+
+    if not symptoms:
+        symptoms.append("abweichende Raum-Steuerungsdaten")
+
+    symptoms_text = " sowie ".join(symptoms) + " möglich"
+    diff_str = ", ".join(sorted(diff_keys))
+
+    if context == "separate":
+        return f"Raumdaten weichen ab ({diff_str}): {symptoms_text[0].upper() + symptoms_text[1:]}; Objektplatzierungen sind getrennt."
+    elif context == "combined":
+        return f"Kombinierter Raum- und Platzierungskonflikt ({diff_str}): {symptoms_text[0].upper() + symptoms_text[1:]} UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."
+    else:
+        return f"Abweichende Raum-Steuerungsdaten ({diff_str}): {symptoms_text[0].upper() + symptoms_text[1:]}."
+
+
 def _step_cell_containers(cur, step_id, step_desc, reporter=None):
     """
     Schritt 5: Zellen-Subrecord- & Platzierungs-Analyse
@@ -486,7 +563,6 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
             reason = "Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."
             demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
         else:
-            diff_str = f" ({', '.join(sorted(diff_keys))})" if diff_keys else ""
             if not has_cell_diff and has_refr_override_conflict and not has_bbox_overlap:
                 reason = "Objekt-Konflikt im Raum: Steuerdaten sind identisch, jedoch überschreiben beide Mods dieselben bestehenden Vanilla-Objekte (REFR). Bauliche Elemente werden verdrängt oder blockiert."
             elif not has_cell_diff and not has_refr_override_conflict and has_bbox_overlap:
@@ -494,15 +570,53 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
             elif not has_cell_diff and has_refr_override_conflict and has_bbox_overlap:
                 reason = "Kollidierende und überlappende Objektplatzierungen: Beide Mods überschreiben dieselben bestehenden Vanilla-Objekte (REFR) UND platzieren Neubauten im selben Baubereich."
             elif has_cell_diff and not has_refr_override_conflict and not has_bbox_overlap:
-                reason = f"Raumdaten weichen ab: Unterschiedliche Steuer-Subrecords{diff_str}; Objektplatzierungen sind getrennt."
+                reason = _build_cell_diff_reason(diff_keys, context="separate")
             else:
-                reason = f"Kombinierter Raum- und Platzierungskonflikt: Abweichende Raumdaten{diff_str} UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."
+                reason = _build_cell_diff_reason(diff_keys, context="combined")
             qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
     print(f"      - Schritt 5: {cnt_0} CELL-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
     return cnt_0 + cnt_2
+
+
+def _build_lctn_diff_reason(diff_keys):
+    """
+    Synthetisiert eine präzise Symptom- und Konsequenzbegründung
+    anhand der tatsächlich abweichenden Primär-Subrecords eines LCTN-Datensatzes.
+    """
+    if not diff_keys:
+        return "Identische Primärdaten (LCTN): Keine Auswirkung im Spiel."
+
+    diff_set = set(diff_keys)
+    has_keywords = 'KWDA' in diff_set
+    has_hierarchy = bool({'PNAM', 'RNAM'} & diff_set)
+    has_owner = 'ANAM' in diff_set
+    has_flags = 'DATA' in diff_set
+    has_name = 'FULL' in diff_set
+    has_audio = 'TNAM' in diff_set
+
+    symptoms = []
+    if has_keywords:
+        symptoms.append("Fehlschlagen dynamischer Story-Events, Radiant-Quests oder standortbezogener Perk-Boni")
+    if has_hierarchy:
+        symptoms.append("gestörte Zuordnung zum übergeordneten Planeten/System (Vererbung von Regions- und Umweltregeln bricht ab)")
+    if has_owner:
+        symptoms.append("gestörte Freund-/Feind-Erkennung vor Ort (Wachen-Reaktionen oder Sicherheitsberechtigungen betroffen)")
+    if has_flags:
+        symptoms.append("unpassender 'Bereinigt'-Status oder gestörtes Neuspawnen feindlicher Lager")
+    if has_name:
+        symptoms.append("abweichender Standort-Name im HUD, auf der Sternenkarte oder im Schnellreise-Menü")
+    if has_audio:
+        symptoms.append("abweichende auditive Orts-Atmosphäre oder Hintergrundmusik")
+
+    if not symptoms:
+        symptoms.append("abweichende Standort-Stammdaten")
+
+    symptoms_text = " sowie ".join(symptoms) + " möglich."
+    diff_str = ", ".join(sorted(diff_keys))
+    return f"Standortdaten weichen ab ({diff_str}): {symptoms_text[0].upper() + symptoms_text[1:]}"
 
 
 def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
@@ -561,8 +675,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
         has_attr_diff = len(diff_primary) > 0
 
         if has_attr_diff:
-            diff_str = f" ({', '.join(sorted(diff_primary))})"
-            reason = f"Standortdaten weichen ab: Unterschiedliche Keywords, Parent-Location oder Standort-Flags{diff_str}."
+            reason = _build_lctn_diff_reason(diff_primary)
             qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
             continue
 
@@ -631,6 +744,266 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     return cnt_0 + cnt_1 + cnt_2
 
 
+def _step_navm_containers(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 7: Wegfindungs- & NavMesh-Container-Analyse
+    Qualifiziert NAVM-Konflikte der Creation Engine 2 nach präzisen topologischen Kriterien:
+    1. Identitätsprüfung (data_a == data_b -> Typ 0 Mitläufer)
+    2. Pack-In Vorlagen ohne Weltplatzierungen -> Typ 0 (Mitläufer)
+    3. Pack-In Vorlagen mit Weltplatzierungen -> Typ 2 (Layout-Abweichung)
+    4. Reale Weltzelle mit beidseitigen Platzierungen (REFR/ACHR > 0 bei beiden) -> Typ 3 (Geometrie- & Wegfindungs-Clash)
+    5. Reale Weltzelle mit asymmetrischen Platzierungen (eine Mod baut, die andere resaved) -> Typ 3 mit konkreter
+       Ladereihenfolge-Empfehlung (setzt ID_Mod_Requirement und ID_Mod_Dependent)
+    6. Reale Weltzelle ohne neue Platzierungen (reine NavMesh-Korrekturen) -> Typ 2 (Wegfindungs-Konkurrenz)
+    """
+    from Structure.File_ESM_Parser_Dynamic import resolve_component_path
+
+    cur.execute("""
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+               c1.File AS File_A, c2.File AS File_B,
+               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B,
+               COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_A) AS Mod_Name_A,
+               COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_B) AS Mod_Name_B
+        FROM Mods_Conflicts mc
+        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
+        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
+        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
+        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
+        JOIN Mods m1 ON mc.Mod_ID_A = m1.ID
+        JOIN Mods m2 ON mc.Mod_ID_B = m2.ID
+        WHERE mc.Sig = 'NAVM' AND mc.Conflict_Type > 0
+        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+    """)
+    navm_rows = cur.fetchall()
+    if not navm_rows:
+        return 0
+
+    # 1. Alle benötigten ESM-Komponenten ermitteln und deren NAVMs im linearen Durchlauf cachen
+    comp_ids = set()
+    for r in navm_rows:
+        comp_ids.add(r[6])
+        comp_ids.add(r[7])
+
+    def load_component_navms(cid):
+        p = resolve_component_path(cid)
+        f_sz = os.path.getsize(p)
+        navms = {}
+        with open(p, 'rb') as f:
+            hdr = f.read(24)
+            t_sz, = struct.unpack('<I', hdr[4:8])
+            f.seek(24 + t_sz)
+
+            stack = []  # (end_pos, grup_type, label_fid)
+            while f.tell() < f_sz:
+                pos = f.tell()
+                while stack and pos >= stack[-1][0]:
+                    stack.pop()
+                h = f.read(24)
+                if len(h) < 24:
+                    break
+                sig = h[:4]
+                sz, = struct.unpack('<I', h[4:8])
+                if sig == b'GRUP':
+                    lbl = h[8:12]
+                    gt, = struct.unpack('<I', h[12:16])
+                    lbl_fid, = struct.unpack('<I', lbl)
+                    stack.append((pos + sz, gt, lbl_fid & 0x00FFFFFF))
+                    continue
+                fl, = struct.unpack('<I', h[8:12])
+                fid, = struct.unpack('<I', h[12:16])
+                local_fid = fid & 0x00FFFFFF
+                if sig == b'NAVM':
+                    d = f.read(sz)
+                    if fl & 0x00040000:
+                        try:
+                            d = zlib.decompress(d[4:])
+                        except Exception:
+                            pass
+                    p_cell = None
+                    p_wrld = None
+                    for end_pos, gt, lf in stack:
+                        if gt == 1:
+                            p_wrld = lf
+                        elif gt in (6, 9):
+                            p_cell = lf
+                    idx = d.find(b'NVNM')
+                    if idx >= 0 and len(d) >= idx + 22:
+                        nv = d[idx+6:]
+                        v, magic, w_cand, c_cand = struct.unpack('<IIII', nv[:16])
+                        w_cand = w_cand & 0x00FFFFFF
+                        c_cand = c_cand & 0x00FFFFFF
+                        if not p_wrld and w_cand != 0:
+                            p_wrld = w_cand
+                        if (c_cand & 0x0000FFFF) != 0xFFFF and c_cand != 0:
+                            p_cell = c_cand
+                    navms[local_fid] = (p_cell, p_wrld, d)
+                else:
+                    f.seek(sz, 1)
+        return navms
+
+    navm_cache = {}
+    for cid in comp_ids:
+        try:
+            navm_cache[cid] = load_component_navms(cid)
+        except Exception as e:
+            logger.warning(f"Konnte NAVMs für Komponente {cid} nicht laden: {e}")
+            navm_cache[cid] = {}
+
+    cell_cache = {}
+    world_cache = {}
+    ref_cache = {}
+
+    cur.execute("SELECT ID FROM Mods WHERE Author = 'BethesdaGameStudios';")
+    bgs_mod_ids = set(r[0] for r in cur.fetchall())
+
+    def get_cell_info(cell_fid):
+        if not cell_fid:
+            return False, None
+        if cell_fid in cell_cache:
+            return cell_cache[cell_fid]
+        cur.execute("""
+            SELECT EDID FROM Components_ESM_FormIDs WHERE FormID_Local = ? AND Sig = 'CELL' AND EDID IS NOT NULL AND EDID != ''
+            UNION ALL
+            SELECT EDID FROM Components_System_FormIDs WHERE FormID_Local = ? AND Sig = 'CELL' AND EDID IS NOT NULL AND EDID != ''
+            LIMIT 1;
+        """, (cell_fid, cell_fid))
+        row = cur.fetchone()
+        edid = row[0] if row else None
+        is_packin = bool(edid and edid.startswith('PackIn'))
+        cell_cache[cell_fid] = (is_packin, edid)
+        return is_packin, edid
+
+    def get_world_name(wrld_fid):
+        if not wrld_fid:
+            return None
+        if wrld_fid in world_cache:
+            return world_cache[wrld_fid]
+        cur.execute("""
+            SELECT EDID FROM Components_ESM_FormIDs WHERE FormID_Local = ? AND Sig = 'WRLD' AND EDID IS NOT NULL AND EDID != ''
+            UNION ALL
+            SELECT EDID FROM Components_System_FormIDs WHERE FormID_Local = ? AND Sig = 'WRLD' AND EDID IS NOT NULL AND EDID != ''
+            LIMIT 1;
+        """, (wrld_fid, wrld_fid))
+        row = cur.fetchone()
+        edid = row[0] if row else f"0x{wrld_fid:08X}"
+        world_cache[wrld_fid] = edid
+        return edid
+
+    def count_cell_refs(cid, cell_fid):
+        if not cell_fid:
+            return 0
+        k = (cid, cell_fid)
+        if k in ref_cache:
+            return ref_cache[k]
+        cur.execute("""
+            SELECT count(*) FROM Components_ESM_FormIDs
+            WHERE Component_ID = ? AND Cell_FormID = ? AND Sig IN ('REFR', 'ACHR');
+        """, (cid, cell_fid))
+        cnt = cur.fetchone()[0]
+        ref_cache[k] = cnt
+        return cnt
+
+    demoted_type_0 = []
+    qualified_type_2 = []
+    qualified_type_3 = []
+
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b, name_a, name_b in navm_rows:
+        entry_a = navm_cache.get(comp_id_a, {}).get(form_id)
+        entry_b = navm_cache.get(comp_id_b, {}).get(form_id)
+
+        cell_a, wrld_a, data_a = entry_a if entry_a else (None, None, None)
+        cell_b, wrld_b, data_b = entry_b if entry_b else (None, None, None)
+
+        cell_fid = cell_a or cell_b
+        wrld_fid = wrld_a or wrld_b
+
+        # 1. Identitätsprüfung
+        if data_a and data_b and data_a == data_b:
+            reason = "Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel."
+            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, None))
+            continue
+
+        is_packin, cell_edid = get_cell_info(cell_fid)
+        loc_desc = []
+        if wrld_fid:
+            wname = get_world_name(wrld_fid)
+            loc_desc.append(wname)
+        if cell_edid:
+            loc_desc.append(cell_edid)
+        elif cell_fid:
+            loc_desc.append(f"Zelle 0x{cell_fid:08X}")
+        loc_str = f" in {' / '.join(loc_desc)}" if loc_desc else ""
+
+        # 2. Pack-In Vorlagen
+        if is_packin:
+            cnt_a = count_cell_refs(comp_id_a, cell_fid)
+            cnt_b = count_cell_refs(comp_id_b, cell_fid)
+            if cnt_a == 0 and cnt_b == 0:
+                reason = f"Pack-In Wegfindungs-Resave{loc_str}: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn). Keine festen Weltplatzierungen; Auswirkung beschränkt sich auf das platzierte Einzelbauteil."
+                demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            else:
+                reason = f"Pack-In Layout-Konflikt{loc_str}: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf. Die spätere Mod bestimmt das NavMesh des Bauteils."
+                qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            continue
+
+        # 3. Reale Weltzelle
+        cnt_a = count_cell_refs(comp_id_a, cell_fid)
+        cnt_b = count_cell_refs(comp_id_b, cell_fid)
+
+        if cnt_a > 0 and cnt_b > 0:
+            # Beidseitiger Neubau-Clash
+            reason = (
+                f"Kritischer Wegfindungs- und Platzierungskonflikt{loc_str}: "
+                f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
+                f"Gegenseitige Zerstörung des Wegnetzes; nur durch Kompatibilitätspatch lösbar."
+            )
+            qualified_type_3.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+        elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):
+            # Asymmetrisch: Eine Mod baut, die andere resaved
+            if cnt_a > 0:
+                id_req, id_dep = mod_id_b, mod_id_a
+                name_bld, name_res = name_a, name_b
+                cnt_bld = cnt_a
+            else:
+                id_req, id_dep = mod_id_a, mod_id_b
+                name_bld, name_res = name_b, name_a
+                cnt_bld = cnt_b
+
+            is_bgs_req = id_req in bgs_mod_ids
+            if is_bgs_req:
+                reason = (
+                    f"Asynchrone Wegfindungs-Überschreibung systembedingt unkritisch{loc_str}: "
+                    f"'{name_bld}' platziert neue Objekte/NPCs ({cnt_bld} Referenzen) mit angepasstem Wegfindungsnetz in dieser Zelle, "
+                    f"während '{name_res}' (Bethesda Game Studios) keine eigenen Neubauten besitzt.\n"
+                    f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
+                    f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
+                )
+                demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+            else:
+                reason = (
+                    f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
+                    f"'{name_bld}' platziert neue Objekte/NPCs ({cnt_bld} Referenzen) mit angepasstem Wegfindungsnetz, "
+                    f"während '{name_res}' keine eigenen Neubauten besitzt.\n"
+                    f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
+                    f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
+                )
+                qualified_type_3.append((mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+        else:
+            # Reine NavMesh-Optimierung (keine neuen Referenzen)
+            reason = (
+                f"Konkurrierende Wegfindungsoptimierung{loc_str}: "
+                f"Beide Mods überarbeiten das NavMesh ohne bauliche Veränderungen. "
+                f"Die spätere Mod überschreibt die Wegfindungskorrekturen der früheren Mod."
+            )
+            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+
+    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
+    cnt_3 = _update_conflicts_batch(cur, step_id, step_desc, 3, qualified_type_3)
+    print(f"      - Schritt 7: {cnt_0} NAVM als identische Mitläufer (Typ 0), {cnt_2} als Optimierungen/Pack-Ins (Typ 2) und {cnt_3} als reale Wegfindungs-Konflikte (Typ 3) qualifiziert.")
+    return cnt_0 + cnt_2 + cnt_3
+
+
 # Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung
 CONFLICT_PIPELINE_STEPS = [
     (1, "Signatur-Basiseinstufung", _step_baseline_typification),
@@ -639,6 +1012,7 @@ CONFLICT_PIPELINE_STEPS = [
     (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
     (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
     (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
+    (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
 ]
 
 
@@ -753,21 +1127,23 @@ def analyze_conflicts(db_path=None, reporter=None):
         cur.execute("DROP TABLE IF EXISTS Mods_Conflicts;")
         cur.execute("""
         CREATE TABLE Mods_Conflicts (
-            Mod_ID_A          INTEGER NOT NULL,
-            Mod_Name_A        TEXT,
-            Mod_ID_B          INTEGER NOT NULL,
-            Mod_Name_B        TEXT,
-            Sig               TEXT NOT NULL,
-            FormID            INTEGER NOT NULL,
-            EDID              TEXT,
-            Cell_FormID       INTEGER,
-            Cell_EDID         TEXT,
-            Base_FormID       INTEGER,
-            Base_EDID         TEXT,
-            Step_ID           INTEGER NOT NULL DEFAULT 0,
-            Step_Description  TEXT,
-            Conflict_Type     INTEGER NOT NULL DEFAULT 2,
-            Reason            TEXT,
+            Mod_ID_A             INTEGER NOT NULL,
+            Mod_Name_A           TEXT,
+            Mod_ID_B             INTEGER NOT NULL,
+            Mod_Name_B           TEXT,
+            Sig                  TEXT NOT NULL,
+            FormID               INTEGER NOT NULL,
+            EDID                 TEXT,
+            Cell_FormID          INTEGER,
+            Cell_EDID            TEXT,
+            Base_FormID          INTEGER,
+            Base_EDID            TEXT,
+            Step_ID              INTEGER NOT NULL DEFAULT 0,
+            Step_Description     TEXT,
+            Conflict_Type        INTEGER NOT NULL DEFAULT 2,
+            Reason               TEXT,
+            ID_Mod_Requirement   INTEGER,
+            ID_Mod_Dependent     INTEGER,
             PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
         );
         """)
@@ -811,6 +1187,7 @@ def analyze_conflicts(db_path=None, reporter=None):
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sig ON Mods_Conflicts (Sig);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_type ON Mods_Conflicts (Conflict_Type);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sort_deps ON Mods_Conflicts (ID_Mod_Requirement, ID_Mod_Dependent);")
 
         conn.commit()
 

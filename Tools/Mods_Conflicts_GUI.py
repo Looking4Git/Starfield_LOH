@@ -600,7 +600,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
             where_sql = "WHERE " + " AND ".join(where_conditions)
 
             query = f"""
-                SELECT Step_Description, Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason
+                SELECT Step_Description, Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason, ID_Mod_Requirement, ID_Mod_Dependent
                 FROM Mods_Conflicts
                 {where_sql}
                 ORDER BY Conflict_Type DESC, Sig ASC, FormID ASC;
@@ -611,12 +611,17 @@ class ModsConflictsInspectorWindow(QMainWindow):
             self.model.removeRows(0, self.model.rowCount())
 
             for row in rows:
-                step_desc, ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason = row
+                step_desc, ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason, id_req, id_dep = row
 
                 # 0. Prüfschritt-Item
                 item_step = QStandardItem(step_desc if step_desc else "-")
+                tip_parts = []
                 if step_desc:
-                    item_step.setToolTip(f"Qualifizierender Prüfschritt: {step_desc}")
+                    tip_parts.append(f"Qualifizierender Prüfschritt: {step_desc}")
+                if id_req and id_dep:
+                    tip_parts.append(f"Ladereihenfolge-Regel: Mod {id_req} muss VOR Mod {id_dep} geladen werden.")
+                if tip_parts:
+                    item_step.setToolTip("\n".join(tip_parts))
 
                 # 1. Typ-Item
                 ctype_name = CONFLICT_TYPES.get(ctype, "Unbekannt")

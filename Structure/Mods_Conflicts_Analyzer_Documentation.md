@@ -47,6 +47,8 @@ CREATE TABLE Mods_Conflicts (
     Step_Description  TEXT,
     Conflict_Type     INTEGER NOT NULL DEFAULT 2,
     Reason            TEXT,
+    ID_Mod_Requirement INTEGER,
+    ID_Mod_Dependent   INTEGER,
     PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
 );
 ```
@@ -59,12 +61,14 @@ CREATE TABLE Mods_Conflicts (
 | `Sig` | `TEXT` | 4-stellige CE2-Recordsignatur (z. B. `CELL`, `WEAP`, `QUST`). |
 | `FormID` | `INTEGER` | Lokale 24-Bit FormID des Datensatzes. |
 | `EDID` | `TEXT` | Editor-ID des Datensatzes. |
-| `Cell_FormID` / `Cell_EDID` | `INTEGER` / `TEXT` | Zell-Koordinaten bei platzierten Objekten. |
+| `Cell_FormID` / `Cell_EDID` | `INTEGER` / `TEXT` | Zell-Koordinaten bei platzierten Objekten bzw. übergeordnete Zelle bei NavMeshes. |
 | `Base_FormID` / `Base_EDID` | `INTEGER` / `TEXT` | Blueprint / Vorlage des Objekts. |
 | **`Step_ID`** | `INTEGER` | Nummer des Prüfschritts, der die letzte Änderung durchgeführt hat. |
 | **`Step_Description`** | `TEXT` | Semantische Bezeichnung des qualifizierenden Prüfschritts. |
 | **`Conflict_Type`** | `INTEGER` | Schweregrad (`3` = Kritisch, `2` = Normal, `1` = Leicht, `0` = Kein Konflikt). |
 | **`Reason`** | `TEXT` | Ausführliche Begründung der Einstufung. |
+| **`ID_Mod_Requirement`** | `INTEGER` | Mod-ID derjenigen Mod, die in der Ladereihenfolge ZUERST geladen werden muss (z. B. Resave-Mod). |
+| **`ID_Mod_Dependent`** | `INTEGER` | Mod-ID derjenigen Mod, die in der Ladereihenfolge DANACH geladen werden muss (z. B. Bau-Mod mit intaktem NavMesh). |
 
 ---
 
@@ -80,13 +84,14 @@ CONFLICT_PIPELINE_STEPS = [
     (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
     (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
     (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
+    (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
 ]
 ```
 
 ### Modulare Rückspeicher-Schnittstelle:
 Alle Prüfschritte delegieren ihre Datenbank-Aktualisierungen an die zentrale Funktion:
 * `_update_conflicts_batch(cur, step_id, step_desc, conflict_type, update_rows)`
-Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_Type` und `Reason` über alle Prüfschritte hinweg garantiert.
+Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_Type`, `Reason`, `ID_Mod_Requirement` und `ID_Mod_Dependent` über alle Prüfschritte hinweg garantiert.
 
 ### Die Prüfschritte im Detail:
 
@@ -113,18 +118,56 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
      1. **Steuerdaten-Vergleich:** Prüft `DATA`, `LTMP`, `XCLW`, `XCLL`, `XILS`, `XCAS`, `XEZN`, `XCMT` sowie die Raster-Koordinaten in `XCLC`.
      2. **Bestehende Objekt-Overrides:** Prüft via `Components_ESM_FormIDs`, ob in dieser Zelle dieselben Vanilla-Objekte (`REFR`/`ACHR` mit `Is_Override = 1`) von beiden Mods überschrieben werden.
      3. **Neubau-Überlappung (Bounding-Box):** Berechnet die 2D-Bounding-Boxes neu platzierter Objekte (`Is_Override = 0`) und prüft auf räumliche Überschneidungen zweier Neubauten im selben Baubereich.
+   * **Synthese der Symptombegründung (`_build_cell_diff_reason`):**  
+     Abweichende Subrecords werden analog zu Schritt 4 in 6 funktionale Symptom-Cluster überführt:
+     * *Beleuchtung & Bildfilter (`LTMP`, `XCLL`, `XILS`):* Abrupte Helligkeits-, Nebel- oder Kontrastsprünge beim Raumwechsel sowie veränderte Raumlicht-Stimmungen.
+     * *Wasserdaten (`XCLW`):* Abweichende Wasserpegel (Gefahr von unsichtbaren Wasserflächen oder Ertrinken in trockenen Zonen).
+     * *Akustik & Musik (`XCAS`, `XCMT`):* Springende Raumhall-Zonen oder abbrechende Hintergrundmusik.
+     * *Zonenskalierung (`XEZN`):* Veränderte Gegner-Level-Skalierung oder abweichendes Zonen-Respawn-Verhalten.
+     * *Raum-Flags (`DATA`):* Abweichende Raum-Flags (Gefahr von unpassenden Schnellreise-Sperren oder unberechtigten Trespass-Warnungen).
+     * *Worldspace-Raster (`XCLC`):* Koordinaten-Versatz im Worldspace-Raster (Gefahr von Nahtstellenrissen im Außengelände).
    * **Ergebnis:**
      * Bei deckungsgleichen Steuerdaten ohne Objektkonflikte und ohne räumliche Überdeckung: Abstufung auf `Step_ID = 5`, `Step_Description = 'Zellen-Subrecord- & Platzierungs-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."*).
-     * Bei abweichenden Steuerdaten oder kollidierenden Objektplatzierungen: Fortschreibung auf `Conflict_Type = 2` mit präziser, symptomorientierter Begründung.
+     * Bei abweichenden Steuerdaten bei getrennten Baustellen: Fortschreibung auf `Conflict_Type = 2` mit präziser Symptombegründung (*"Raumdaten weichen ab (<Subrecords>): <Symptome>; Objektplatzierungen sind getrennt."*).
+     * Bei kombinierten Raum- und Platzierungskonflikten: Fortschreibung auf `Conflict_Type = 2` (*"Kombinierter Raum- und Platzierungskonflikt (<Subrecords>): <Symptome> UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."*).
 
 6. **Schritt 6: `_step_lctn_resaves` (Location-Subrecord- & Rollen-Analyse)**
    * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der 20-Byte-Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) via `File_ESM_Parser_Dynamic` durch.
+   * **Synthese der Symptombegründung (`_build_lctn_diff_reason`):**  
+     Abweichende Primärattribute werden in 6 funktionale Cluster übersetzt:
+     * *Keywords & Story Manager (`KWDA`):* Dynamische Story-Events, Radiant-Quests oder standortbezogene Perk-Boni können fehlschlagen.
+     * *Standorthierarchie (`PNAM`, `RNAM`):* Zuordnung zum übergeordneten Planeten/System gestört (Vererbung von Regions- und Umweltregeln bricht ab).
+     * *Besitz- & Fraktionsstatus (`ANAM`):* Freund-/Feind-Erkennung vor Ort gestört (Wachen-Reaktionen oder Sicherheitsberechtigungen betroffen).
+     * *Reset- & Statusflags (`DATA`):* Unpassender 'Bereinigt'-Status oder gestörtes Neuspawnen feindlicher Lager.
+     * *Anzeigename (`FULL`):* Abweichender Standort-Name im HUD, auf der Sternenkarte oder im Schnellreise-Menü.
+     * *Standort-Audio (`TNAM`):* Abweichende auditive Orts-Atmosphäre oder Hintergrundmusik.
    * **Ergebnis:**
      * **Identischer Mitläufer (CK-Resave):** Wenn Primärdaten identisch sind und mindestens eine der beiden Mods keine eigenen FormIDs in den Rollen-Arrays (`ACSR`, 20-Byte Structs, Target-Ref-Präfix $\ge 1$) ergänzt: Abstufung auf `Step_ID = 6`, `Step_Description = 'Location-Subrecord- & Rollen-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '<Mod-Name>' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."*).
      * **Konkurrierende Rollen-Zuweisungen (Option C – Inhalts- & Risikoprüfung):** Wenn beide Mods aktiv eigene Rollen-Referenzen in `ACSR` registrieren:
        * *Mit Quest-/Story-Bezug:* Enthält mindestens eine der beteiligten Mods Quests oder Story-Manager-Knoten (`QUST`, `SMQN`, `SMBN`, `SMEN`), wird der Konflikt als `Conflict_Type = 2` eingestuft (*"Rollen-Konflikt in Location (Quest-/Story-Bezug): Beide Mods fügen eigene statische Referenzen/Rollen (ACSR) hinzu... Die spätere Mod verdrängt Rollenzuweisungen der früheren Mod im Story Manager; Missionsabläufe können beeinträchtigt werden."*).
        * *Reine Welt-/Interior-Mods:* Besitzen beide Mods keine Queststrukturen, wird der Konflikt als harmloser Wertekonflikt auf `Conflict_Type = 1` eingestuft (*"Rollen-Zuweisung in Location (ACSR): Beide Mods deklarieren eigene Rollen/Referenzen... Die spätere Mod gewinnt ihre Zuweisungen im Story Manager; Stabilität und Raumgeometrie bleiben unberührt."*).
-     * **Abweichende Primärattribute:** Weichen Keywords, Parent-Locations (`PNAM`) oder Flags (`DATA`) ab: Einstufung auf `Conflict_Type = 2` (*"Standortdaten weichen ab: Unterschiedliche Keywords, Parent-Location oder Standort-Flags..."*).
+     * **Abweichende Primärattribute:** Einstufung auf `Conflict_Type = 2` mit präziser Symptombegründung (*"Standortdaten weichen ab (<Subrecords>): <Symptome> möglich."*).
+
+7. **Schritt 7: `_step_navm_containers` (Wegfindungs- & NavMesh-Container-Analyse)**
+   * Untersucht alle aktiven Wegfindungs-Kollisionen (`NAVM`) der Creation Engine 2 auf Container-, Geometrie- und Platzierungsebene in einem speichereffizienten Durchlauf.
+   * **Entscheidungsbaum:**
+     1. **Identitätsprüfung (`data_a == data_b`):** 100% binär identische NavMeshes werden als unschädliche Creation-Kit-Mitläufer erkannt $\rightarrow$ `Step_ID = 7`, `Conflict_Type = 0`, `Reason = 'Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel.'`.
+     2. **Pack-In-Vorlagen (`CELL_PackIn == 1` oder Vorlagenzelle):**
+        * Ohne feste Weltplatzierungen (`REFR == 0` bei beiden) $\rightarrow$ `Conflict_Type = 0`, `Reason = 'Pack-In Wegfindungs-Resave: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn)...'`.
+        * Mit Platzierungen $\rightarrow$ `Conflict_Type = 2`, `Reason = 'Pack-In Layout-Konflikt: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf...'`.
+     3. **Reale Weltzellen (Exterior Worldspaces & persistente Interiors):**
+        * Ermittelt die Elternzelle und den Worldspace via `NVNM`-Header und `GRUP`-Hierarchie (`GRUP Typ 9/6`) und reichert `Cell_FormID` und `Cell_EDID` an.
+        * Prüft die Anzahl platzierter Referenzen (`REFR`, `ACHR`) beider Mods in der Zelle:
+          * **Beidseitiger Neubau (`count_a > 0` UND `count_b > 0`):** Beide Mods verändern die Geometrie und erfordern konkurrierende NavMeshes (z. B. Mod 27 vs. Mod 40 in Neon City). Verbleibt als unlösbarer `Conflict_Type = 3` (nur durch Kompatibilitätspatch lösbar).
+          * **Asymmetrische Überschreibung (Genau eine Mod baut in der Zelle):**
+            * **Wenn die Resave-Mod eine offizielle BGS-Mod ist (`Author = 'BethesdaGameStudios'`):**  
+              Da die Creation Engine 2 alle offiziellen Bethesda-Creations zwingend an die obersten Plätze der Ladereihenfolge (vor Community-Mods) setzt, lädt die Bau-Mod im laufenden Spiel garantiert immer danach. Ein fehlerhafter Zustand ist technisch ausgeschlossen $\rightarrow$ Einstufung als `Conflict_Type = 0` (*"Asynchrone Wegfindungs-Überschreibung systembedingt unkritisch... Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, lädt '<Bau-Mod>' garantiert danach."*). Die Kante `ID_Mod_Requirement` und `ID_Mod_Dependent` bleibt für die Graph-Konsistenz erhalten.
+            * **Wenn beide Mods reguläre Community-Mods sind:**  
+              Hier besteht akute Gefahr bei manueller Falschsortierung $\rightarrow$ Verbleibt als `Conflict_Type = 3`, generiert jedoch eine **konkrete Ladereihenfolge-Regel**:
+              * `ID_Mod_Requirement = [Resave-Mod]` (muss zuerst laden)
+              * `ID_Mod_Dependent = [Bau-Mod]` (muss danach laden)
+              * Begründung mit konkreter Ladereihenfolge-Empfehlung und Nennung beider Mod-Namen.
+          * **Reine NavMesh-Optimierung (`count_a == 0` und `count_b == 0`):** Beide Mods optimieren das Vanilla-Netz ohne Neubauten $\rightarrow$ `Conflict_Type = 2`.
 
 ---
 
@@ -190,4 +233,30 @@ Die Bewertung von Kollisionen erfolgt nach einer wirkungs- und risikobasierten H
     * ├── **Gelöster Konflikt:** *Konflikt durch nachgelagerten Patch harmonisiert ('<Patch-Name>' [ID <Patch-ID>]): Beide Mods greifen wie vorgesehen.*
     * ├── **Identischer Mitläufer:** *Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel.*
     * └── **Reine Engine-Metadaten:** `TES4` (Plugin-Header) und `NAVI` (Globaler NavMesh-Index).
+
+---
+
+## 6. Schnittstelle zur automatisierten Sortierung (`LoadOrder_Sorter`)
+
+Die materialisierten Spalten `ID_Mod_Requirement` und `ID_Mod_Dependent` in der Tabelle `Mods_Conflicts` bilden eine direkte datenbankgestützte Schnittstelle zur automatischen Ableitung topologischer Sortierregeln:
+
+```sql
+SELECT DISTINCT 
+    mc.ID_Mod_Requirement, 
+    m_req.Name_Online AS Mod_Name_Requirement,
+    mc.ID_Mod_Dependent,
+    m_dep.Name_Online AS Mod_Name_Dependent,
+    COUNT(*) AS Conflict_Count
+FROM Mods_Conflicts mc
+JOIN Mods m_req ON mc.ID_Mod_Requirement = m_req.ID
+JOIN Mods m_dep ON mc.ID_Mod_Dependent = m_dep.ID
+WHERE mc.ID_Mod_Requirement IS NOT NULL
+GROUP BY mc.ID_Mod_Requirement, mc.ID_Mod_Dependent;
+```
+
+### Funktionsweise im `LoadOrder_Sorter`:
+1. **DAG-Kanten (Directed Acyclic Graph):** Jede Zeile mit gesetztem `ID_Mod_Requirement` und `ID_Mod_Dependent` definiert eine zwingende Kante `(ID_Mod_Requirement -> ID_Mod_Dependent)`.
+2. **Topologische Sortierung:** Der Sortieralgorithmus platziert die Resave-Mod (`ID_Mod_Requirement`) zwingend vor der Bau-Mod (`ID_Mod_Dependent`).
+3. **Automatische Konfliktvermeidung:** Dadurch wird verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören, ohne dass der Anwender händische Regeln definieren muss.
+
 

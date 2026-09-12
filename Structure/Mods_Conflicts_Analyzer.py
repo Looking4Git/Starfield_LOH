@@ -907,7 +907,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
             reason = (
                 f"Kritischer Wegfindungs- und Platzierungskonflikt{loc_str}: "
                 f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
-                f"Gegenseitige Zerstörung des Wegnetzes; nur durch Kompatibilitätspatch lösbar."
+                f"Gegenseitige Zerstörung des Wegnetzes."
             )
             qualified_type_3.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
         elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):

@@ -1000,21 +1000,227 @@ def _check_refr_navmesh_splines(file_a, file_b, form_id, base_fid, base_edid, ca
         return True, 2, reason
 
 
+def _parse_refr_coords(raw_data):
+    """Extrahiert X, Y, Z, RotX, RotY, RotZ aus einem 24-Byte DATA-Subrecord."""
+    if not raw_data or len(raw_data) < 24:
+        return None
+    try:
+        return struct.unpack('<ffffff', raw_data[:24])
+    except Exception:
+        return None
+
+
+def _build_refr_diff_reason(base_edid, name_a, name_b, sub_a, sub_b):
+    """
+    Synthetisiert eine präzise, subrecord-gestützte Fehler- und Symptombeschreibung
+    für reale REFR-Konflikte (Typ 2).
+    """
+    flags_a = sub_a.get('_header', {}).get('flags', 0) if sub_a else 0
+    flags_b = sub_b.get('_header', {}).get('flags', 0) if sub_b else 0
+
+    is_del_a = bool(flags_a & 0x20)
+    is_del_b = bool(flags_b & 0x20)
+    is_dis_a = bool(flags_a & 0x800)
+    is_dis_b = bool(flags_b & 0x800)
+
+    data_a = sub_a.get('DATA') if sub_a else None
+    data_b = sub_b.get('DATA') if sub_b else None
+
+    xtel_a = sub_a.get('XTEL') if sub_a else None
+    xtel_b = sub_b.get('XTEL') if sub_b else None
+
+    xesp_a = sub_a.get('XESP') if sub_a else None
+    xesp_b = sub_b.get('XESP') if sub_b else None
+
+    name_fid_a = sub_a.get('NAME') if sub_a else None
+    name_fid_b = sub_b.get('NAME') if sub_b else None
+
+    xscl_a = sub_a.get('XSCL') if sub_a else None
+    xscl_b = sub_b.get('XSCL') if sub_b else None
+
+    # Objektkategorie aus Base_EDID bestimmen
+    base_label = base_edid if base_edid else "Objektplatzierung"
+    base_lower = (base_edid or "").lower()
+
+    is_light = base_lower.startswith('lgt_') or 'light' in base_lower or 'spot' in base_lower
+    is_arch = any(k in base_lower for k in ['wall', 'floor', 'win', 'ceil', 'stair', 'roof', 'plug', 'beam'])
+    is_nature = any(k in base_lower for k in ['shrub', 'tree', 'rock', 'flora', 'grass', 'plant'])
+
+    # 1. Fall: Delete vs. Disable / Ausblenden
+    if (is_del_a != is_del_b) or (is_dis_a != is_dis_b) or (xesp_a != xesp_b and (is_del_a or is_del_b or is_dis_a or is_dis_b)):
+        del_mod = name_a if is_del_a else (name_b if is_del_b else None)
+        dis_mod = name_a if (is_dis_a or xesp_a) else (name_b if (is_dis_b or xesp_b) else None)
+
+        if del_mod and dis_mod and del_mod != dis_mod:
+            cat_text = "Geländebereinigung" if is_nature else ("Architektur-Entfernung" if is_arch else "Bereinigungskonflikt")
+            return (
+                f"{cat_text} (Delete vs. Disable): '{del_mod}' löscht dieses Element ({base_label}) physisch aus der Zelle, "
+                f"während '{dis_mod}' es über einen Steuer-Marker (XESP) ausblendet. "
+                f"Beide Mods beanspruchen denselben Bauplatz; Risiko von Verwaisten Skript-Pointer."
+            )
+        elif del_mod:
+            other_mod = name_b if del_mod == name_a else name_a
+            cat_text = "Baulicher Abriss" if is_arch else "Objektlöschung"
+            return (
+                f"{cat_text}: '{del_mod}' löscht das Element '{base_label}' aus der Welt, "
+                f"während '{other_mod}' die Zelle voraussetzt oder weiterverwendet."
+            )
+        elif dis_mod:
+            other_mod = name_b if dis_mod == name_a else name_a
+            return (
+                f"Objekt-Deaktivierung: '{dis_mod}' blendet '{base_label}' aus (Initially Disabled / XESP), "
+                f"während '{other_mod}' das Objekt aktiv belässt."
+            )
+
+    # 2. Fall: Teleport-Ziel (Türen / Aufzüge)
+    if xtel_a != xtel_b and (xtel_a or xtel_b):
+        return (
+            f"Kritischer Teleport-Konflikt (XTEL): Beide Mods verlinken diese Tür ({base_label}) zu unterschiedlichen "
+            f"Zielzellen oder Ladezonen. Je nach Ladereihenfolge bricht der Zellenübergang ab oder führt in einen falschen Raum."
+        )
+
+    # 3. Fall: Basisobjekt ausgetauscht
+    if name_fid_a != name_fid_b and name_fid_a and name_fid_b:
+        return (
+            f"Objektaustausch (NAME): Beide Mods weisen dieser Referenz unterschiedliche 3D-Basisobjekte zu. "
+            f"Gefahr von Geometrie- und Kollisionskonflikten."
+        )
+
+    # 4. Fall: 3D-Koordinaten / Rotation weichen ab
+    if data_a != data_b and data_a and data_b:
+        coords_a = _parse_refr_coords(data_a)
+        coords_b = _parse_refr_coords(data_b)
+        dist_str = ""
+        if coords_a and coords_b:
+            dx = coords_a[0] - coords_b[0]
+            dy = coords_a[1] - coords_b[1]
+            dz = coords_a[2] - coords_b[2]
+            dist = (dx**2 + dy**2 + dz**2)**0.5
+            dist_str = f" (Positionsdifferenz: {dist:.2f} m)"
+
+        if is_light:
+            return (
+                f"Lichtquellen-Verschiebung{dist_str}: Beide Mods verändern die 3D-Position oder Ausrichtung "
+                f"dieses Strahlers ({base_label}). Die Beleuchtung von '{name_a}' wird durch '{name_b}' überschrieben."
+            )
+        elif is_arch:
+            return (
+                f"Widersprüchliche Bauteil-Platzierung{dist_str}: Beide Mods verschieben dieses Architekturelement "
+                f"({base_label}) an abweichende Koordinaten. Akute Gefahr von clippenden Wänden oder Raumrissen."
+            )
+        else:
+            return (
+                f"Widersprüchliche 3D-Platzierung{dist_str}: Beide Mods verschieben das Objekt '{base_label}' "
+                f"an unterschiedliche Positionen. Ein Mod verdrängt die Koordinaten des anderen."
+            )
+
+    # 5. Fall: Skalierung weicht ab
+    if xscl_a != xscl_b and (xscl_a or xscl_b):
+        return (
+            f"Skalierungs-Konflikt (XSCL): Beide Mods weisen diesem Objekt ({base_label}) unterschiedliche "
+            f"Größenskalierungen zu."
+        )
+
+    # Fallback
+    return (
+        f"Realer Platzierungskonflikt ({base_label}): Eigenschaften oder Platzierung weichen zwischen "
+        f"'{name_a}' und '{name_b}' ab."
+    )
+
+
+def _check_refr_identical_resaves(file_a, file_b, form_id, base_fid, base_edid, name_a, name_b, cache):
+    """
+    Sub-Handler 8.2: Erkennt identische REFR-Resaves (Typ 0) und qualifiziert reale
+    Platzierungskonflikte (Typ 2) mit detaillierten Subrecord-Begründungen.
+
+    1. Stufe: 100% Bit-Identität (Fast-Path via compare_records) -> Typ 0
+    2. Stufe: Semantische Identität (DATA, NAME, XTEL, Flags, XESP, XSCL identisch) -> Typ 0
+    3. Stufe: Reale Kollision -> Typ 2 mit dynamischer Subrecord-Begründung via _build_refr_diff_reason
+    """
+    from Structure.File_ESM_Parser_Dynamic import compare_records, get_subrecords
+
+    # Fast-Path: Bit-Identität über gesamten Record
+    cmp_key = (file_a, file_b, form_id)
+    if cmp_key not in cache:
+        cache[cmp_key] = compare_records(file_a, file_b, form_id, target_sig='REFR')
+    cmp_res = cache[cmp_key]
+
+    if cmp_res.get('is_identical'):
+        reason = (
+            "Identischer Mitläufer: 100% binäre Deckungsgleichheit aller Platzierungs- und Verknüpfungsdaten; "
+            "keine Auswirkung im Spiel."
+        )
+        return True, 0, reason
+
+    # Semantischer Abgleich der funktions- und sichtbarkeitsrelevanten Subrecords
+    key_a = (file_a, form_id)
+    if key_a not in cache:
+        cache[key_a] = get_subrecords(file_a, form_id, target_sig='REFR')
+    sub_a = cache[key_a]
+
+    key_b = (file_b, form_id)
+    if key_b not in cache:
+        cache[key_b] = get_subrecords(file_b, form_id, target_sig='REFR')
+    sub_b = cache[key_b]
+
+    if not sub_a or not sub_b:
+        # Falls ein Record in der Komponente nicht lesbar ist: Fallback auf Basiseinstufung
+        return False, None, None
+
+    data_a = sub_a.get('DATA')
+    data_b = sub_b.get('DATA')
+    name_a_fid = sub_a.get('NAME')
+    name_b_fid = sub_b.get('NAME')
+
+    flags_a = sub_a.get('_header', {}).get('flags', 0)
+    flags_b = sub_b.get('_header', {}).get('flags', 0)
+    is_del_a = bool(flags_a & 0x20)
+    is_del_b = bool(flags_b & 0x20)
+    is_dis_a = bool(flags_a & 0x800)
+    is_dis_b = bool(flags_b & 0x800)
+
+    xtel_a = sub_a.get('XTEL')
+    xtel_b = sub_b.get('XTEL')
+    xesp_a = sub_a.get('XESP')
+    xesp_b = sub_b.get('XESP')
+    xscl_a = sub_a.get('XSCL')
+    xscl_b = sub_b.get('XSCL')
+
+    is_same_geo = (data_a is not None and data_b is not None and data_a == data_b and name_a_fid == name_b_fid)
+    is_same_flags = (is_del_a == is_del_b and is_dis_a == is_dis_b)
+    is_same_tel = (xtel_a == xtel_b)
+    is_same_esp = (xesp_a == xesp_b)
+    is_same_scl = (xscl_a == xscl_b)
+
+    if is_same_geo and is_same_flags and is_same_tel and is_same_esp and is_same_scl:
+        reason = (
+            "Identisches Platzierungs-Resave: 3D-Koordinaten und Basisobjekt sind deckungsgleich; "
+            "Abweichung beschränkt sich auf unkritische Editor-Metadaten (z. B. XLRL/XLYR)."
+        )
+        return True, 0, reason
+
+    # Stufe 3: Reale Kollision mit dynamischer Subrecord-Begründung
+    reason = _build_refr_diff_reason(base_edid, name_a, name_b, sub_a, sub_b)
+    return True, 2, reason
+
+
 def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     """
     Schritt 8: Platzierungs- & Referenz-Analyse
     Untersucht alle aktiven REFR-Kollisionen nach dem modularen Sub-Handler-Prinzip:
-    1. Sub-Handler: _check_refr_navmesh_splines (Base-FormID 505 / NavMeshSpline)
+    1. Sub-Handler 8.1: _check_refr_navmesh_splines (Base-FormID 505 / NavMeshSpline)
        - Bit-genauer Abgleich von DATA (Koordinaten) und XNSE (Spline-Parameter).
-       - Identisch -> Typ 0 (Mitläufer).
-       - Abweichend -> Typ 2 (Wegfindungs-Konflikt).
-    2. Künftige Sub-Handler (offen für spezialisierte Erweiterungen, z.B. Wände/Türen).
+       - Identisch -> Typ 0 (Mitläufer), Abweichend -> Typ 2.
+    2. Sub-Handler 8.2: _check_refr_identical_resaves (Allgemeine REFR-Resaves & echte Kollisionen)
+       - 100% bit-identisch oder deckungsgleiche Kern-Subrecords (DATA, NAME, XTEL, Flags) -> Typ 0.
+       - Reale Kollisionen -> Typ 2 mit präziser subrecord-gestützter Fehlerbegründung.
     3. Fallback: Unbehandelte REFR verbleiben in der bisherigen Basiseinstufung.
     """
     cur.execute("""
         SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
                c1.File AS File_A, c2.File AS File_B,
-               mc.Base_FormID, mc.Base_EDID, mc.Cell_FormID, mc.Cell_EDID
+               mc.Base_FormID, mc.Base_EDID, mc.Cell_FormID, mc.Cell_EDID,
+               mc.Mod_Name_A, mc.Mod_Name_B
         FROM Mods_Conflicts mc
         JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
         JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
@@ -1029,8 +1235,8 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     qualified_type_2 = []
     sub_cache = {}
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, base_fid, base_edid, cell_fid, cell_edid in refr_rows:
-        # Sub-Handler 1: NavMeshSplines (Base 505)
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, base_fid, base_edid, cell_fid, cell_edid, name_a, name_b in refr_rows:
+        # Sub-Handler 8.1: NavMeshSplines (Base 505)
         handled, c_type, reason = _check_refr_navmesh_splines(
             file_a, file_b, form_id, base_fid, base_edid, sub_cache
         )
@@ -1042,9 +1248,17 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
                 qualified_type_2.append(rec_tuple)
             continue
 
-        # Künftige Sub-Handler können hier nach demselben Schema eingehängt werden:
-        # handled, c_type, reason = _check_refr_static_walls(...)
-        # if handled: ...
+        # Sub-Handler 8.2: Identische Resaves & Reale Platzierungskonflikte
+        handled, c_type, reason = _check_refr_identical_resaves(
+            file_a, file_b, form_id, base_fid, base_edid, name_a, name_b, sub_cache
+        )
+        if handled:
+            rec_tuple = (mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
+            if c_type == 0:
+                demoted_type_0.append(rec_tuple)
+            elif c_type == 2:
+                qualified_type_2.append(rec_tuple)
+            continue
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)

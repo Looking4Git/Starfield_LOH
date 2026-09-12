@@ -177,10 +177,18 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
      * Vergleicht via `get_subrecords` die 3D-Koordinaten (`DATA`: Position $X, Y, Z$ und Rotation $X, Y, Z$) sowie die Pfad- und Knotenparameter (`XNSE`: `NavMeshSplineExtraData`, `XBSD`: Extents).
      * **Identischer Mitläufer (Typ 0):** Wenn `DATA` und `XNSE` zu 100% deckungsgleich sind, handelt es sich um eine unschädliche Creation-Kit-Mitnahme (z. B. durch duplizierte Zellen oder Level-Vorlagen) ohne jede bauliche oder geometrische Auswirkung $\rightarrow$ `Step_ID = 8`, `Conflict_Type = 0`, `Reason = 'Identische Navigations-Leitlinie (NavMeshSpline): 3D-Koordinaten und Kurveneigenschaften (XNSE) sind 100% deckungsgleich; unkritische Location-Zuordnung.'`. (Neutralisiert 187 Kollisionen in der Datenbank!).
      * **Abweichende Spline-Führung (Typ 2):** Weichen Koordinaten oder Pfadknoten ab $\rightarrow$ Einstufung auf `Conflict_Type = 2`.
+   * **Sub-Handler 8.2: `_check_refr_identical_resaves` (Allgemeine REFR-Resaves & Subrecord-Konfliktqualifizierung):**
+     * **Stufe 1 (Fast-Path via `compare_records`):** Ist der gesamte Record zu 100% bit-identisch, erfolgt sofortige Abstufung auf `Conflict_Type = 0` (*"Identischer Mitläufer: 100% binäre Deckungsgleichheit aller Platzierungs- und Verknüpfungsdaten; keine Auswirkung im Spiel."*). (Neutralisiert u. a. die Paradiso-Hotelaufzugstüren zwischen Mod 47 und Mod 44).
+     * **Stufe 2 (Semantische Geometrie- & Funktionsprüfung):** Sind `DATA` (3D-Koordinaten & Rotation), `NAME` (Basis-Objekt), Header-Flags (`Deleted`, `Initially Disabled`), `XESP` (Enable-Parent), `XTEL` (Teleport-Ziel) und `XSCL` (Skalierung) identisch und weichen lediglich unkritische CK-Metadaten wie `XLRL` (Location-Pointer) oder `XLYR` (Editor-Layer) ab $\rightarrow$ Abstufung auf `Conflict_Type = 0` (*"Identisches Platzierungs-Resave: 3D-Koordinaten und Basisobjekt sind deckungsgleich; Abweichung beschränkt sich auf unkritische Editor-Metadaten (z. B. XLRL/XLYR)."*).
+     * **Stufe 3 (Reale Kollisionen mit dynamischer Synthese `_build_refr_diff_reason`):** Verbleibt als `Conflict_Type = 2`, generiert jedoch eine hochpräzise Fehlerursache und Konsequenz:
+       * *Delete vs. Disable (`XESP` / `Deleted`):* Benennt konkret, welche Mod das Objekt ausblendet und welche es physisch löscht (Gefahr verwaister Skript-Pointer).
+       * *3D-Positionsabweichung (`DATA`):* Berechnet die euklidische Distanz $\Delta d = \sqrt{\Delta x^2 + \Delta y^2 + \Delta z^2}$ und unterscheidet zwischen Beleuchtungsstrahlern (`LGT_`), Architekturelementen (`Wall`/`Floor`) und allgemeiner Deko.
+       * *Teleport-Zielkonflikt (`XTEL`):* Weist darauf hin, dass Türen oder Aufzüge in unterschiedliche Innenzellen führen.
+       * *Objektaustausch (`NAME`):* Zeigt an, dass einer Referenz unterschiedliche 3D-Meshes zugewiesen wurden.
    * **Zukünftige Sub-Handler (Erweiterungsslots):**
-     * Vorbereitet für die modulare Aufnahme weiterer Sub-Handler (z. B. für Wände `IndIntRmSmWallMid`, unsichtbare Aufzugtüren `LoadElevator_InvisibleDoor` oder Möbel).
+     * Vorbereitet für die modulare Aufnahme weiterer Sub-Handler (z. B. spezialisierte Möbel- oder Container-Prüfungen).
    * **Fallback:**
-     * Alle `REFR`-Datensätze, für die noch kein spezialisierter Sub-Handler existiert, verbleiben transparent in ihrer bisherigen Basiseinstufung (Schritt 1).
+     * Alle `REFR`-Datensätze, für die kein Sub-Handler greift, verbleiben transparent in ihrer bisherigen Basiseinstufung (Schritt 1).
 
 9. **Architektur-Methodik: Das Sub-Handler-Regelketten-Muster für Pipeline-Prüfschritte**
    * Um den Analyzer bei wachsender Datenbasis wartbar und schrittweise erweiterbar zu halten, verzichtet die Pipeline auf starre, tief verschachtelte `if-then-else`-Monolithe.
@@ -308,14 +316,14 @@ Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integra
 * 🟢 **Schritt 5 (`CELL`):** Dreistufige Raumzellen-Analyse (Steuerdaten, Vanilla-Objekt-Overrides `REFR`/`ACHR`, 2D-Bounding-Box Überlappung bei Neubauten). 321 Mitläufer als Typ 0 neutralisiert, 146 echte Raumkollisionen qualifiziert.
 * 🟢 **Schritt 6 (`LCTN`):** Standort-Primärdaten und 20-Byte-Rollenanalyse (`ACSR`/`LCSR` Option C). Semantische `FULL`-Textnormalisierung integriert. 7 Mitläufer als Typ 0, 1 Wertekonflikt als Typ 1 und 97 reale Kollisionen qualifiziert.
 * 🟢 **Schritt 7 (`NAVM`):** Wegfindungs- & Geometrieanalyse. Erkennt 100% binäre Mitläufer (Typ 0), Pack-In Vorlagen (Typ 0/2), asymmetrische BGS-Creations (Typ 0) und generiert zwingende Ladereihenfolge-Regeln (`ID_Mod_Requirement` -> `ID_Mod_Dependent`).
-* 🟢 **Schritt 8 (`REFR`):** Objektplatzierungs- & Spline-Analyse nach modularem Sub-Handler-Entwurfsmuster. Sub-Handler 8.1 erkennt und neutralisiert identisch platzierte `NavMeshSpline`-Mitläufer (`Base_FormID = 505` / `0x1F9`) anhand von 3D-Koordinaten (`DATA`) und Spline-Parametern (`XNSE`). 187 Scheinkonflikte als Typ 0 neutralisiert (u. a. 116 Kollisionen zwischen Mod 20 und Mod 23 vollständig bereinigt).
+* 🟢 **Schritt 8 (`REFR`):** Objektplatzierungs- & Referenz-Analyse nach modularem Sub-Handler-Entwurfsmuster. Sub-Handler 8.1 neutralisiert `NavMeshSpline`-Mitläufer (187 Typ 0). Sub-Handler 8.2 neutralisiert 100% bit-identische Platzierungen und semantische Resaves (88 Typ 0, u. a. Paradiso-Hotelaufzüge) und qualifiziert verbleibende 69 reale Kollisionen (u. a. HopeTown Delete-vs-Disable, Kreet-Spotlight mit 3D-Distanzangaben) mit präzisen, subrecord-gestützten Diagnosen.
 * 🟡 **`QUST` (Quest-Steuerung):** Tiefenanalyse gegen Vanilla (`Starfield.esm`) und den *Community Patch (SFCP)* durchgeführt. Ergebnis: Aktuell nur 3 Fälle im Setup, alle inhaltlich begründet. Kein separater Pipeline-Schritt erforderlich; stattdessen universelle Text- und VMAD-Diagnosewerkzeuge bereitgestellt.
 
 ---
 
 ### 7.3 Hierarchischer Referenz-Baum (102 Hauptreferenzen)
 
-* 🟢 **1. Eigener Pipeline-Prüfschritt aktiv (5 Datentypen | 2.687 DB-Kollisionen | 1.175 aktive Konflikte qualifiziert | 1.512 Mitläufer neutralisiert)**
+* 🟢 **1. Eigener Pipeline-Prüfschritt aktiv (5 Datentypen | 2.687 DB-Kollisionen | 1.078 aktive Konflikte qualifiziert | 1.609 Mitläufer neutralisiert)**
   * ├── `WRLD` **[Schritt 4]**: Worldspace (Außenwelten & Planeten) — [Total: 247 | Aktiv: 57 | Typ 0: 190]
   * │   └── *Methodik:* compare_records Diff (Klima-, Wetter- und Wasser-Subrecords)
   * ├── `CELL` **[Schritt 5]**: Cell (Raumzellen Interior & Exterior) — [Total: 467 | Aktiv: 146 | Typ 0: 321]
@@ -324,8 +332,8 @@ Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integra
   * │   └── *Methodik:* Primärdaten-Diff, Option C Rollen-Arrays (ACSR), semantische FULL-Normalisierung
   * ├── `NAVM` **[Schritt 7]**: NavMesh (Wegfindungsnetze pro Zelle) — [Total: 1,462 | Aktiv: 708 | Typ 0: 754]
   * │   └── *Methodik:* 100% Identität, Pack-In Vorlagen, BGS-Creations-Filter, Kanten für Sorter (Req/Dep)
-  * └── `REFR` **[Schritt 8]**: Reference (Objektplatzierungen in Zellen) — [Total: 406 | Aktiv: 166 | Typ 0: 240]
-      * └── *Methodik:* Modulare Sub-Handler-Kette. Sub-Handler 8.1: NavMeshSpline-Vergleich (Identität von 3D-Koordinaten DATA und Spline-Parametern XNSE)
+  * └── `REFR` **[Schritt 8]**: Reference (Objektplatzierungen in Zellen) — [Total: 406 | Aktiv: 69 | Typ 0: 337]
+      * └── *Methodik:* Modulare Sub-Handler-Kette. Sub-Handler 8.1: NavMeshSpline-Vergleich (DATA/XNSE). Sub-Handler 8.2: 100% Bit-Identität & semantische Resaves (Typ 0) sowie subrecord-gestützte Fehlerdiagnose für reale Kollisionen (Delete vs. Disable, 3D-Distanz Δd, XTEL, Licht/Architektur)
 *
 * 🟡 **2. Tiefenanalysiert auf Subrecord-Ebene (1 Datentyp | Aktuell kein separater Pipeline-Schritt erforderlich)**
   * └── `QUST`: Quest (Missionssteuerung & Quests) — [Total: 3 | Aktiv: 3 | Typ 0: 0] (Basis-Typ 3)

@@ -170,7 +170,10 @@ def get_subrecords(component, form_id, subrecords=None, raw_bytes=True, target_s
                     g_label = rec_hdr[8:12]
                     g_type, = struct.unpack('<I', rec_hdr[12:16])
                     if g_type == 0:
-                        allowed_labels = (target_sig_bytes, b'WRLD') if target_sig_bytes in (b'CELL', b'REFR', b'ACHR', b'LAND', b'NAVM') else (target_sig_bytes,)
+                        if target_sig_bytes in (b'CELL', b'REFR', b'ACHR', b'LAND', b'NAVM'):
+                            allowed_labels = (b'CELL', b'WRLD')
+                        else:
+                            allowed_labels = (target_sig_bytes,)
                         if g_label not in allowed_labels:
                             f.seek(r_size - 24, 1)
                             continue

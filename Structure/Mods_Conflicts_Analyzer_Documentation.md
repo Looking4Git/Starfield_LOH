@@ -170,6 +170,32 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
               * Begründung mit konkreter Ladereihenfolge-Empfehlung und Nennung beider Mod-Namen.
           * **Reine NavMesh-Optimierung (`count_a == 0` und `count_b == 0`):** Beide Mods optimieren das Vanilla-Netz ohne Neubauten $\rightarrow$ `Conflict_Type = 2`.
 
+8. **Schritt 8: `_step_refr_placements` (Platzierungs- & Referenz-Analyse)**
+   * Untersucht alle aktiven `REFR`-Kollisionen der Creation Engine 2 nach dem modularen **Sub-Handler-Regelketten-Prinzip**.
+   * **Sub-Handler 8.1: `_check_refr_navmesh_splines` (NavMeshSpline-Leitlinien / Base-FormID 505 / `0x1F9`):**
+     * Prüft, ob der Datensatz auf das Basis-Objekt `0x000001F9` (`NavMeshSpline`) verweist.
+     * Vergleicht via `get_subrecords` die 3D-Koordinaten (`DATA`: Position $X, Y, Z$ und Rotation $X, Y, Z$) sowie die Pfad- und Knotenparameter (`XNSE`: `NavMeshSplineExtraData`, `XBSD`: Extents).
+     * **Identischer Mitläufer (Typ 0):** Wenn `DATA` und `XNSE` zu 100% deckungsgleich sind, handelt es sich um eine unschädliche Creation-Kit-Mitnahme (z. B. durch duplizierte Zellen oder Level-Vorlagen) ohne jede bauliche oder geometrische Auswirkung $\rightarrow$ `Step_ID = 8`, `Conflict_Type = 0`, `Reason = 'Identische Navigations-Leitlinie (NavMeshSpline): 3D-Koordinaten und Kurveneigenschaften (XNSE) sind 100% deckungsgleich; unkritische Location-Zuordnung.'`. (Neutralisiert 187 Kollisionen in der Datenbank!).
+     * **Abweichende Spline-Führung (Typ 2):** Weichen Koordinaten oder Pfadknoten ab $\rightarrow$ Einstufung auf `Conflict_Type = 2`.
+   * **Zukünftige Sub-Handler (Erweiterungsslots):**
+     * Vorbereitet für die modulare Aufnahme weiterer Sub-Handler (z. B. für Wände `IndIntRmSmWallMid`, unsichtbare Aufzugtüren `LoadElevator_InvisibleDoor` oder Möbel).
+   * **Fallback:**
+     * Alle `REFR`-Datensätze, für die noch kein spezialisierter Sub-Handler existiert, verbleiben transparent in ihrer bisherigen Basiseinstufung (Schritt 1).
+
+9. **Architektur-Methodik: Das Sub-Handler-Regelketten-Muster für Pipeline-Prüfschritte**
+   * Um den Analyzer bei wachsender Datenbasis wartbar und schrittweise erweiterbar zu halten, verzichtet die Pipeline auf starre, tief verschachtelte `if-then-else`-Monolithe.
+   * Stattdessen folgt jeder Prüfschritt (insbesondere Schritte 4, 5, 6, 7 und 8) dem **Sub-Handler-Muster**:
+     1. **Kompakte Hauptschleife:** Iteriert über die Ziel-Kollisionen der jeweiligen Signatur.
+     2. **Modulare Regelfilter (Sub-Handler):** Jeder Sub-Handler ist eine fokussierte, isoliert testbare Prüffunktion (z. B. `_check_refr_navmesh_splines`), die `(handled: bool, conflict_type: int, reason: str)` zurückliefert.
+     3. **Priorisierte Abarbeitung:** Der erste zutreffende Sub-Handler qualifiziert den Datensatz und beendet die Kette für diesen Record.
+     4. **Transparenter Fallback:** Nicht spezialisiert behandelte Records verbleiben in der Basiseinstufung, bis für deren Objektklasse ein neuer Sub-Handler ergänzt wird.
+     5. **Batch-Materialisierung:** Alle Ergebnisse werden über `_update_conflicts_batch` performant in die Datenbank geschrieben.
+
+10. **Dynamische EDID-Anreicherung (`enrich_conflicts_missing_edids`)**
+    * Eine eigenständige, modular vor den Pipeline-Schritten ausgeführte Funktion.
+    * Ermittelt in `Mods_Conflicts` alle Datensätze mit fehlendem `EDID` oder `Base_EDID` und liest die Klarnamen direkt über `File_ESM_Parser_Dynamic.get_edids_for_formids` aus `Starfield.esm` und aktiven Mod-Komponenten im schnellen Single-Pass nach.
+    * Beseitigt fehlende Klarnamen (z. B. FormID 505 $\rightarrow$ `'NavMeshSpline'`), wodurch auch die Benutzeroberfläche und Diagnosetools sofort sprechende Bezeichner darstellen.
+
 ---
 
 ## 5. Vollständige CE2-Typisierungshierarchie (`Conflict_Type`)
@@ -268,10 +294,10 @@ Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integra
 
 ### 7.1 Legende der Status-Kategorien
 
-* 🟢 **Eigener Pipeline-Prüfschritt aktiv:** Eigener spezialisierter Prüfschritt (Schritte 4–7) in der Pipeline aktiv. Führt tiefe Subrecord-, Geometrie- oder Rollenanalysen durch und neutralisiert Creation-Kit-Mitläufer (Typ 0).
+* 🟢 **Eigener Pipeline-Prüfschritt aktiv:** Eigener spezialisierter Prüfschritt (Schritte 4–8) in der Pipeline aktiv. Führt tiefe Subrecord-, Geometrie-, Spline- oder Rollenanalysen durch und neutralisiert Creation-Kit-Mitläufer (Typ 0).
 * 🟡 **Tiefenanalysiert (Ohne separaten Schritt):** Eingehend auf Byte- und Subrecord-Ebene durchleuchtet. Aktuell kein separater Schritt erforderlich (z. B. geringe Fallzahl oder über universelle Diagnosewerkzeuge abgedeckt).
 * ⚪ **Systemweit neutralisiert:** Reine Dateiköpfe oder globale Routing-Indizes, die technisch bedingt immer konfliktfrei sind (Typ 0).
-* 🔴 **Schritt 1: Basiseinstufung mit aktiven Konflikten:** Datensätze mit aktiven Kollisionen in der Datenbank, die aktuell über die CE2-Hierarchie (Schritt 1) mit Basissymptomen typisiert werden. Potenzielle Kandidaten für künftige Pipeline-Erweiterungen.
+* 🔴 **Schritt 1: Basiseinstufung mit aktiven Konflikten:** Datensätze mit aktiven Konflikten in der Datenbank, die aktuell über die CE2-Hierarchie (Schritt 1) mit Basissymptomen typisiert werden. Potenzielle Kandidaten für künftige Pipeline-Erweiterungen.
 * ⚪ **Schritt 1: Basiseinstufung ohne aktive Konflikte:** Datensätze im CE2-Hierarchiekatalog vorbereitet und typisiert, die im aktuellen Setup keine Kollisionen aufweisen.
 
 ---
@@ -282,34 +308,36 @@ Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integra
 * 🟢 **Schritt 5 (`CELL`):** Dreistufige Raumzellen-Analyse (Steuerdaten, Vanilla-Objekt-Overrides `REFR`/`ACHR`, 2D-Bounding-Box Überlappung bei Neubauten). 321 Mitläufer als Typ 0 neutralisiert, 146 echte Raumkollisionen qualifiziert.
 * 🟢 **Schritt 6 (`LCTN`):** Standort-Primärdaten und 20-Byte-Rollenanalyse (`ACSR`/`LCSR` Option C). Semantische `FULL`-Textnormalisierung integriert. 7 Mitläufer als Typ 0, 1 Wertekonflikt als Typ 1 und 97 reale Kollisionen qualifiziert.
 * 🟢 **Schritt 7 (`NAVM`):** Wegfindungs- & Geometrieanalyse. Erkennt 100% binäre Mitläufer (Typ 0), Pack-In Vorlagen (Typ 0/2), asymmetrische BGS-Creations (Typ 0) und generiert zwingende Ladereihenfolge-Regeln (`ID_Mod_Requirement` -> `ID_Mod_Dependent`).
+* 🟢 **Schritt 8 (`REFR`):** Objektplatzierungs- & Spline-Analyse nach modularem Sub-Handler-Entwurfsmuster. Sub-Handler 8.1 erkennt und neutralisiert identisch platzierte `NavMeshSpline`-Mitläufer (`Base_FormID = 505` / `0x1F9`) anhand von 3D-Koordinaten (`DATA`) und Spline-Parametern (`XNSE`). 187 Scheinkonflikte als Typ 0 neutralisiert (u. a. 116 Kollisionen zwischen Mod 20 und Mod 23 vollständig bereinigt).
 * 🟡 **`QUST` (Quest-Steuerung):** Tiefenanalyse gegen Vanilla (`Starfield.esm`) und den *Community Patch (SFCP)* durchgeführt. Ergebnis: Aktuell nur 3 Fälle im Setup, alle inhaltlich begründet. Kein separater Pipeline-Schritt erforderlich; stattdessen universelle Text- und VMAD-Diagnosewerkzeuge bereitgestellt.
 
 ---
 
 ### 7.3 Hierarchischer Referenz-Baum (102 Hauptreferenzen)
 
-* 🟢 **1. Eigener Pipeline-Prüfschritt aktiv (4 Datentypen | 2.281 DB-Kollisionen | 1.009 aktive Konflikte qualifiziert | 1.272 Mitläufer neutralisiert)**
+* 🟢 **1. Eigener Pipeline-Prüfschritt aktiv (5 Datentypen | 2.687 DB-Kollisionen | 1.175 aktive Konflikte qualifiziert | 1.512 Mitläufer neutralisiert)**
   * ├── `WRLD` **[Schritt 4]**: Worldspace (Außenwelten & Planeten) — [Total: 247 | Aktiv: 57 | Typ 0: 190]
   * │   └── *Methodik:* compare_records Diff (Klima-, Wetter- und Wasser-Subrecords)
   * ├── `CELL` **[Schritt 5]**: Cell (Raumzellen Interior & Exterior) — [Total: 467 | Aktiv: 146 | Typ 0: 321]
   * │   └── *Methodik:* Dreistufige Prüfung: Steuerdaten, persistente REFR/ACHR-Overrides, 2D-Bounding-Box Überlappung
   * ├── `LCTN` **[Schritt 6]**: Location (Orte, POIs & Systeme) — [Total: 105 | Aktiv: 98 | Typ 0: 7]
   * │   └── *Methodik:* Primärdaten-Diff, Option C Rollen-Arrays (ACSR), semantische FULL-Normalisierung
-  * └── `NAVM` **[Schritt 7]**: NavMesh (Wegfindungsnetze pro Zelle) — [Total: 1,462 | Aktiv: 708 | Typ 0: 754]
-  *     └── *Methodik:* 100% Identität, Pack-In Vorlagen, BGS-Creations-Filter, Kanten für Sorter (Req/Dep)
+  * ├── `NAVM` **[Schritt 7]**: NavMesh (Wegfindungsnetze pro Zelle) — [Total: 1,462 | Aktiv: 708 | Typ 0: 754]
+  * │   └── *Methodik:* 100% Identität, Pack-In Vorlagen, BGS-Creations-Filter, Kanten für Sorter (Req/Dep)
+  * └── `REFR` **[Schritt 8]**: Reference (Objektplatzierungen in Zellen) — [Total: 406 | Aktiv: 166 | Typ 0: 240]
+      * └── *Methodik:* Modulare Sub-Handler-Kette. Sub-Handler 8.1: NavMeshSpline-Vergleich (Identität von 3D-Koordinaten DATA und Spline-Parametern XNSE)
 *
 * 🟡 **2. Tiefenanalysiert auf Subrecord-Ebene (1 Datentyp | Aktuell kein separater Pipeline-Schritt erforderlich)**
   * └── `QUST`: Quest (Missionssteuerung & Quests) — [Total: 3 | Aktiv: 3 | Typ 0: 0] (Basis-Typ 3)
-  *     ├── *Befund:* Alle 3 Kollisionen betreffen Starfield Community Patch (SFCP-Overrides). Keine CK-Mitläufer oder Scheinkonflikte.
-  *     └── *Diagnosewerkzeuge:* Über semantischen Text-Subrecord-Parser (FULL/NNAM/DESC) & VMAD/CTDA-Tools universell im CLI-Tool abgedeckt.
+      * ├── *Befund:* Alle 3 Kollisionen betreffen Starfield Community Patch (SFCP-Overrides). Keine CK-Mitläufer oder Scheinkonflikte.
+      * └── *Diagnosewerkzeuge:* Über semantischen Text-Subrecord-Parser (FULL/NNAM/DESC) & VMAD/CTDA-Tools universell im CLI-Tool abgedeckt.
 *
 * ⚪ **3. Systembedingt neutralisiert (2 Datentypen | Reine Engine-Routing-Strukturen)**
   * ├── `TES4`: Plugin Header (Dateikopf & Master-Dateilisten; systemweit Typ 0) — [Konflikte: -]
   * └── `NAVI`: Navigation Index (Globales NavMesh-Routing-Verzeichnis; systemweit Typ 0) — [Konflikte: -]
 *
-* 🔴 **4. Schritt 1: Basiseinstufung mit aktiven Konflikten (26 Datentypen | 622 aktive Konflikte | Potenzielle Pipeline-Kandidaten)**
+* 🔴 **4. Schritt 1: Basiseinstufung mit aktiven Konflikten (25 Datentypen | 269 aktive Konflikte | Potenzielle Pipeline-Kandidaten)**
   * ├── **3D-Welt, Platzierung & Beleuchtung (Typ 2)**
-  * │   ├── `REFR`: Reference (Objektplatzierungen in Zellen) — [Aktiv: 353 (Total: 406, Typ 0: 53) | Typ 2]
   * │   ├── `LAYR`: Layer (Editor- & Platzierungsebenen) — [Aktiv: 25 | Typ 2]
   * │   └── `LIGH`: Light (Lichtquellen & Spotlights) — [Aktiv: 1 | Typ 2]
   * ├── **Planeten, POIs & Generierung (Typ 2)**

@@ -27,6 +27,8 @@ Funktionsumfang:
    Interpretiert Subrecord-Bytes als Klartext oder 4-Byte String-ID Pointer.
 9. compare_text_subrecords(val_a, val_b, encoding='utf-8')
    Semantischer Textabgleich für FULL, NNAM, DESC (Klartext-Gleichlauf vs. Sprachkonflikte).
+10. get_edids_for_formids(component, form_ids)
+   Liest in einem schnellen Single-Pass alle Klartext-EditorIDs (EDID) für eine Menge von FormIDs.
 """
 
 import os
@@ -53,6 +55,11 @@ def resolve_component_path(component):
         cur = conn.cursor()
         cur.execute("SELECT File FROM Components WHERE ID = ?", (component,))
         row = cur.fetchone()
+        if not row or not row[0] or not row[0].lower().endswith(('.esm', '.esp', '.esl')):
+            cur.execute("SELECT File FROM Components_System WHERE ID = ?", (component,))
+            sys_row = cur.fetchone()
+            if sys_row and sys_row[0]:
+                row = sys_row
         conn.close()
         if not row or not row[0]:
             raise FileNotFoundError(f"Component_ID {component} nicht in der Datenbank gefunden.")
@@ -823,3 +830,86 @@ def compare_records(component_a, component_b, form_id, target_sig=None):
         res['is_identical'] = True
 
     return res
+
+
+def get_edids_for_formids(component, form_ids):
+    """
+    Liest performant in einem einzigen sequenziellen Durchlauf (Single-Pass)
+    alle Klartext-EditorIDs (EDID) für eine Menge übergebener FormIDs aus einer ESM-Datei.
+
+    Parameter:
+    ----------
+    component : str oder int
+        Dateiname (z. B. 'Starfield.esm'), relativer Pfad oder numerische Component_ID.
+    form_ids : iterable[int]
+        Menge oder Liste von FormIDs (Integer).
+
+    Rückgabe:
+    ---------
+    dict : Mapping {form_id: edid_string} für alle gefundenen FormIDs mit vorhandener EDID.
+    """
+    if not form_ids:
+        return {}
+
+    target_set = {int(f) & 0x00FFFFFF for f in form_ids if f is not None and int(f) > 0}
+    if not target_set:
+        return {}
+
+    try:
+        file_path = resolve_component_path(component)
+        if not os.path.exists(file_path):
+            return {}
+    except Exception:
+        return {}
+
+    results = {}
+    remaining = set(target_set)
+
+    with open(file_path, 'rb') as f:
+        # TES4-Header überspringen
+        hdr = f.read(24)
+        if len(hdr) < 24 or hdr[:4] != b'TES4':
+            return {}
+        tes4_size, = struct.unpack('<I', hdr[4:8])
+        f.seek(24 + tes4_size)
+
+        file_size = os.path.getsize(file_path)
+
+        while f.tell() < file_size and remaining:
+            rec_hdr = f.read(24)
+            if len(rec_hdr) < 24:
+                break
+            r_sig = rec_hdr[:4]
+            r_size, = struct.unpack('<I', rec_hdr[4:8])
+
+            if r_sig == b'GRUP':
+                # Gruppenkopf: Nicht überspringen, da Records darin liegen
+                continue
+
+            r_flags, r_fid = struct.unpack('<II', rec_hdr[8:16])
+            cur_local_fid = r_fid & 0x00FFFFFF
+
+            if cur_local_fid in remaining:
+                is_comp = bool(r_flags & 0x00040000)
+                rec_data = f.read(r_size)
+
+                if is_comp:
+                    try:
+                        rec_data = zlib.decompress(rec_data[4:])
+                    except Exception:
+                        rec_data = None
+
+                if rec_data:
+                    for s_sig, s_data in iter_subrecords(rec_data):
+                        if s_sig == b'EDID':
+                            edid_str = s_data.split(b'\x00')[0].decode('utf-8', errors='ignore').strip()
+                            if edid_str:
+                                results[cur_local_fid] = edid_str
+                            break
+
+                remaining.discard(cur_local_fid)
+            else:
+                # Payload überspringen
+                f.seek(r_size, 1)
+
+    return results

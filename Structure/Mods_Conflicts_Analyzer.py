@@ -956,6 +956,197 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     return cnt_0 + cnt_2 + cnt_3
 
 
+def _check_refr_navmesh_splines(file_a, file_b, form_id, base_fid, base_edid, cache):
+    """
+    Sub-Handler 8.1: NavMeshSpline-Leitlinien
+    Prüft, ob der REFR auf Base-FormID 505 (0x1F9 / NavMeshSpline) verweist und ob
+    3D-Koordinaten (DATA) sowie Pfadeigenschaften (XNSE, XBSD) deckungsgleich sind.
+    """
+    if base_fid != 505 and base_edid != 'NavMeshSpline':
+        return False, None, None
+
+    from Structure.File_ESM_Parser_Dynamic import get_subrecords
+
+    key_a = (file_a, form_id)
+    if key_a not in cache:
+        cache[key_a] = get_subrecords(file_a, form_id, subrecords=['DATA', 'XNSE', 'XBSD'], target_sig='REFR')
+
+    key_b = (file_b, form_id)
+    if key_b not in cache:
+        cache[key_b] = get_subrecords(file_b, form_id, subrecords=['DATA', 'XNSE', 'XBSD'], target_sig='REFR')
+
+    data_a = cache[key_a] or {}
+    data_b = cache[key_b] or {}
+
+    data_sub_a = data_a.get('DATA')
+    data_sub_b = data_b.get('DATA')
+    xnse_sub_a = data_a.get('XNSE')
+    xnse_sub_b = data_b.get('XNSE')
+
+    is_identical_geo = (data_sub_a == data_sub_b)
+    is_identical_spline = (xnse_sub_a == xnse_sub_b)
+
+    if is_identical_geo and is_identical_spline:
+        reason = (
+            "Identische Navigations-Leitlinie (NavMeshSpline): 3D-Koordinaten und Kurveneigenschaften "
+            "(XNSE) sind 100% deckungsgleich; unkritische Location-Zuordnung."
+        )
+        return True, 0, reason
+    else:
+        reason = (
+            "Konkurrierende Navigations-Leitlinie (NavMeshSpline): Spline-Koordinaten oder "
+            "Pfadeigenschaften weichen ab. Gefahr inkonsistenter KI-Laufwege."
+        )
+        return True, 2, reason
+
+
+def _step_refr_placements(cur, step_id, step_desc, reporter=None):
+    """
+    Schritt 8: Platzierungs- & Referenz-Analyse
+    Untersucht alle aktiven REFR-Kollisionen nach dem modularen Sub-Handler-Prinzip:
+    1. Sub-Handler: _check_refr_navmesh_splines (Base-FormID 505 / NavMeshSpline)
+       - Bit-genauer Abgleich von DATA (Koordinaten) und XNSE (Spline-Parameter).
+       - Identisch -> Typ 0 (Mitläufer).
+       - Abweichend -> Typ 2 (Wegfindungs-Konflikt).
+    2. Künftige Sub-Handler (offen für spezialisierte Erweiterungen, z.B. Wände/Türen).
+    3. Fallback: Unbehandelte REFR verbleiben in der bisherigen Basiseinstufung.
+    """
+    cur.execute("""
+        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+               c1.File AS File_A, c2.File AS File_B,
+               mc.Base_FormID, mc.Base_EDID, mc.Cell_FormID, mc.Cell_EDID
+        FROM Mods_Conflicts mc
+        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
+        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
+        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
+        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
+        WHERE mc.Sig = 'REFR' AND mc.Conflict_Type > 0
+        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+    """)
+    refr_rows = cur.fetchall()
+
+    demoted_type_0 = []
+    qualified_type_2 = []
+    sub_cache = {}
+
+    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, base_fid, base_edid, cell_fid, cell_edid in refr_rows:
+        # Sub-Handler 1: NavMeshSplines (Base 505)
+        handled, c_type, reason = _check_refr_navmesh_splines(
+            file_a, file_b, form_id, base_fid, base_edid, sub_cache
+        )
+        if handled:
+            rec_tuple = (mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
+            if c_type == 0:
+                demoted_type_0.append(rec_tuple)
+            elif c_type == 2:
+                qualified_type_2.append(rec_tuple)
+            continue
+
+        # Künftige Sub-Handler können hier nach demselben Schema eingehängt werden:
+        # handled, c_type, reason = _check_refr_static_walls(...)
+        # if handled: ...
+
+    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
+    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
+    print(f"      - Schritt 8: {cnt_0} REFR als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen (Typ 2) qualifiziert.")
+    return cnt_0 + cnt_2
+
+
+def enrich_conflicts_missing_edids(cur, reporter=None):
+    """
+    Eigenständige Funktion zur dynamischen EDID-Anreicherung:
+    Liest fehlende Klartext-EditorIDs (EDID und Base_EDID) für alle in Mods_Conflicts
+    vertretenen Datensätze direkt über den dynamischen Parser nach (Single-Pass).
+    Vermeidet 'None' / '-' in der Konfliktmatrix und der GUI.
+    """
+    from Structure.File_ESM_Parser_Dynamic import get_edids_for_formids
+
+    # 1. Fehlende Base_EDIDs ermitteln
+    cur.execute("""
+        SELECT DISTINCT Base_FormID 
+        FROM Mods_Conflicts 
+        WHERE (Base_EDID IS NULL OR Base_EDID = '') 
+          AND Base_FormID IS NOT NULL AND Base_FormID > 0;
+    """)
+    missing_base_fids = [r[0] for r in cur.fetchall()]
+
+    resolved_base = {}
+    if missing_base_fids:
+        # Zuerst aus Starfield.esm (deckt 99% aller Base-Objekte ab)
+        resolved_base = get_edids_for_formids('Starfield.esm', missing_base_fids)
+
+        # Falls noch Base_FormIDs offen sind: Suche in aktiven Mod-Dateien
+        unresolved = set(missing_base_fids) - set(resolved_base.keys())
+        if unresolved:
+            cur.execute("""
+                SELECT DISTINCT c.File 
+                FROM Components c
+                JOIN Mods_Components mc ON c.ID = mc.Component_ID
+                JOIN Mods m ON mc.Mod_ID = m.ID
+                WHERE c.File LIKE '%.esm' AND m.State = 'Aktiv';
+            """)
+            for (esm_file,) in cur.fetchall():
+                try:
+                    mod_edids = get_edids_for_formids(esm_file, unresolved)
+                    resolved_base.update(mod_edids)
+                    unresolved -= set(mod_edids.keys())
+                    if not unresolved:
+                        break
+                except Exception:
+                    continue
+
+        if resolved_base:
+            cur.executemany("""
+                UPDATE Mods_Conflicts 
+                SET Base_EDID = ? 
+                WHERE Base_FormID = ? AND (Base_EDID IS NULL OR Base_EDID = '');
+            """, [(name, fid) for fid, name in resolved_base.items()])
+
+    # 2. Fehlende EDIDs (Referenz-Ebene) ermitteln (nur relevante Signaturen mit Text-EDIDs)
+    cur.execute("""
+        SELECT DISTINCT FormID 
+        FROM Mods_Conflicts 
+        WHERE (EDID IS NULL OR EDID = '') 
+          AND FormID IS NOT NULL AND FormID > 0
+          AND Sig NOT IN ('NAVM', 'CELL', 'REFR');
+    """)
+    missing_ref_rows = cur.fetchall()
+    resolved_refs = {}
+    if missing_ref_rows:
+        missing_ref_fids = [r[0] for r in missing_ref_rows]
+        resolved_refs = get_edids_for_formids('Starfield.esm', missing_ref_fids)
+        unresolved_refs = set(missing_ref_fids) - set(resolved_refs.keys())
+        if unresolved_refs:
+            cur.execute("""
+                SELECT DISTINCT c.File 
+                FROM Components c
+                JOIN Mods_Components mc ON c.ID = mc.Component_ID
+                JOIN Mods m ON mc.Mod_ID = m.ID
+                WHERE c.File LIKE '%.esm' AND m.State = 'Aktiv';
+            """)
+            for (esm_file,) in cur.fetchall():
+                try:
+                    mod_edids = get_edids_for_formids(esm_file, unresolved_refs)
+                    resolved_refs.update(mod_edids)
+                    unresolved_refs -= set(mod_edids.keys())
+                    if not unresolved_refs:
+                        break
+                except Exception:
+                    continue
+
+        if resolved_refs:
+            cur.executemany("""
+                UPDATE Mods_Conflicts 
+                SET EDID = ? 
+                WHERE FormID = ? AND (EDID IS NULL OR EDID = '');
+            """, [(name, fid) for fid, name in resolved_refs.items()])
+
+    total_enriched = len(resolved_base) + len(resolved_refs)
+    if total_enriched > 0:
+        print(f"   -> EDID-Anreicherung: {len(resolved_base)} Basis-Objekte und {len(resolved_refs)} Referenzen mit Klarnamen ergänzt.")
+    return total_enriched
+
+
 # Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung
 CONFLICT_PIPELINE_STEPS = [
     (1, "Signatur-Basiseinstufung", _step_baseline_typification),
@@ -965,6 +1156,7 @@ CONFLICT_PIPELINE_STEPS = [
     (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
     (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
     (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
+    (8, "Platzierungs- & Referenz-Analyse", _step_refr_placements),
 ]
 
 
@@ -1121,6 +1313,9 @@ def analyze_conflicts(db_path=None, reporter=None):
             'Unbewerteter Override' AS Reason
         FROM View_Mods_Conflicts_FormID_Base;
         """)
+
+        # 3b. Fehlende EDID- und Base_EDID-Klarnamen dynamisch anreichern
+        enrich_conflicts_missing_edids(cur, reporter)
 
         # 4. Pipeline-Schritte sequenziell ausführen
         for step_id, step_desc, step_func in CONFLICT_PIPELINE_STEPS:

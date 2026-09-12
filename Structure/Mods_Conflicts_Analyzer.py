@@ -628,7 +628,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     Wenn Primärdaten identisch sind und mindestens eine Mod ein reines CK-Resave
     (keine konkurrierenden Rollen-Overrides) darstellt -> Typ 0.
     """
-    from Structure.File_ESM_Parser_Dynamic import get_subrecords
+    from Structure.File_ESM_Parser_Dynamic import get_subrecords, compare_text_subrecords
 
     cur.execute("""
         SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
@@ -671,7 +671,16 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
         data_b = lctn_cache[key_b]
 
         # 1. Primärdaten-Vergleich
-        diff_primary = [k for k in primary_keys if data_a.get(k) != data_b.get(k)]
+        diff_primary = []
+        for k in primary_keys:
+            val_a = data_a.get(k)
+            val_b = data_b.get(k)
+            if val_a != val_b:
+                if k == 'FULL':
+                    text_cmp = compare_text_subrecords(val_a, val_b)
+                    if text_cmp['is_identical']:
+                        continue
+                diff_primary.append(k)
         has_attr_diff = len(diff_primary) > 0
 
         if has_attr_diff:

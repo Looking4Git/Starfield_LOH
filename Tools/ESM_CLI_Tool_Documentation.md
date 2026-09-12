@@ -63,6 +63,8 @@ py Tools/ESM_CLI_Tool.py diff --mod1 <M1> --mod2 <M2> --fid <FormID>
 #### Ausgabe:
 * Status: `1:1 IDENTISCHER MITLÄUFER` (Typ 0) oder `INHALTLICH ABWEICHEND`.
 * Deltas: Hinzugefügte, gelöschte oder modifizierte Subrecords inklusive Byte-Größenänderung.
+* Text-Gleichlauf (`[=]`): Hebt Text-Subrecords (`FULL`, `NNAM`, `DESC`, `DNAM`) hervor, die trotz Byte-Differenzen (z. B. Padding) textuell 100% identisch sind.
+* Semantische Text-Deltas: Zeigt bei abweichenden Text-Subrecords direkt die Klartextinhalte beider Mods und den Differenz-Typ (z. B. Sprach-/Übersetzungs-Konflikt oder String-ID-Auflösung) an.
 
 #### Beispiel:
 ```powershell

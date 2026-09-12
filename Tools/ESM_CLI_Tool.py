@@ -42,7 +42,9 @@ from Structure.File_ESM_Parser_Dynamic import (
     get_records_context,
     compare_records,
     parse_nvnm_header,
-    iter_subrecords
+    iter_subrecords,
+    compare_text_subrecords,
+    parse_text_value
 )
 
 
@@ -259,6 +261,11 @@ def cmd_diff(args, cur):
     if diffs['added']:
         print(f"\n [+] Nur in Mod B vorhanden (in Mod A nicht existent): {', '.join(diffs['added'])}")
 
+    if diffs.get('identical_text'):
+        print("\n [=] Textgleiche Subrecords (Klartext-Gleichlauf ohne Konflikt):")
+        for sig_name, t_info in diffs['identical_text'].items():
+            print(f"  {sig_name:<6} | Text: '{t_info['text_a']}'")
+
     if diffs['modified']:
         print("\n [~] Inhaltlich modifizierte Subrecords:")
         print(f"  {'SIG':<6} | {'Größe Mod A':>12} | {'Größe Mod B':>12} | {'Delta':>10}")
@@ -266,6 +273,10 @@ def cmd_diff(args, cur):
         for sig_name, s_info in diffs['modified'].items():
             delta_str = f"{s_info['size_diff']:+d} B" if s_info['size_diff'] != 0 else "0 B (Bytes dyn.)"
             print(f"  {sig_name:<6} | {s_info['size_a']:>10,} B | {s_info['size_b']:>10,} B | {delta_str:>10}")
+            if 'text_analysis' in s_info:
+                t = s_info['text_analysis']
+                print(f"         └─ Text A: '{t['text_a']}'")
+                print(f"         └─ Text B: '{t['text_b']}' ({t['diff_type']})")
         print("  " + "-" * 50)
 
     print()

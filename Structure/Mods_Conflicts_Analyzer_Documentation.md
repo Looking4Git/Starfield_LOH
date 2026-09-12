@@ -133,6 +133,7 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
 
 6. **Schritt 6: `_step_lctn_resaves` (Location-Subrecord- & Rollen-Analyse)**
    * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der 20-Byte-Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) via `File_ESM_Parser_Dynamic` durch.
+   * **Semantische Text-Prüfung (`compare_text_subrecords`):** Für den Anzeigenamen (`FULL`) wird eine automatische Normalisierung durchgeführt. Verwenden beide Mods denselben Standort-Namen (unabhängig von Nullbyte-Padding oder Creation-Kit-String-Auflösungen), wird `FULL` als textgleich erkannt und erzeugt keinen Schein-Konflikt.
    * **Synthese der Symptombegründung (`_build_lctn_diff_reason`):**  
      Abweichende Primärattribute werden in 6 funktionale Cluster übersetzt:
      * *Keywords & Story Manager (`KWDA`):* Dynamische Story-Events, Radiant-Quests oder standortbezogene Perk-Boni können fehlschlagen.
@@ -259,4 +260,161 @@ GROUP BY mc.ID_Mod_Requirement, mc.ID_Mod_Dependent;
 2. **Topologische Sortierung:** Der Sortieralgorithmus platziert die Resave-Mod (`ID_Mod_Requirement`) zwingend vor der Bau-Mod (`ID_Mod_Dependent`).
 3. **Automatische Konfliktvermeidung:** Dadurch wird verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören, ohne dass der Anwender händische Regeln definieren muss.
 
+---
 
+## 7. Status- & Abdeckungsmatrix der Hauptreferenzen (Tracking-Baum)
+
+Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integrationsstatus aller **102 Hauptreferenzen** der Creation Engine 2 in der Konfliktanalyse-Pipeline. Sie dient Entwicklern und dem AI-Agenten als transparente Arbeitsgrundlage, um auf einen Blick zu erkennen, welche Datentypen bereits mit spezialisierten Prüfschritten untersetzt sind, welche bereits tiefenanalysiert wurden und wo künftige Optimierungspotenziale liegen.
+
+### 7.1 Legende der Status-Kategorien
+
+* 🟢 **Eigener Pipeline-Prüfschritt aktiv:** Eigener spezialisierter Prüfschritt (Schritte 4–7) in der Pipeline aktiv. Führt tiefe Subrecord-, Geometrie- oder Rollenanalysen durch und neutralisiert Creation-Kit-Mitläufer (Typ 0).
+* 🟡 **Tiefenanalysiert (Ohne separaten Schritt):** Eingehend auf Byte- und Subrecord-Ebene durchleuchtet. Aktuell kein separater Schritt erforderlich (z. B. geringe Fallzahl oder über universelle Diagnosewerkzeuge abgedeckt).
+* ⚪ **Systemweit neutralisiert:** Reine Dateiköpfe oder globale Routing-Indizes, die technisch bedingt immer konfliktfrei sind (Typ 0).
+* 🔴 **Schritt 1: Basiseinstufung mit aktiven Konflikten:** Datensätze mit aktiven Kollisionen in der Datenbank, die aktuell über die CE2-Hierarchie (Schritt 1) mit Basissymptomen typisiert werden. Potenzielle Kandidaten für künftige Pipeline-Erweiterungen.
+* ⚪ **Schritt 1: Basiseinstufung ohne aktive Konflikte:** Datensätze im CE2-Hierarchiekatalog vorbereitet und typisiert, die im aktuellen Setup keine Kollisionen aufweisen.
+
+---
+
+### 7.2 Meilensteine & Bearbeitungshistorie
+
+* 🟢 **Schritt 4 (`WRLD`):** Worldspace-Container-Analyse via `compare_records` (Klima, Wasser, Wetter). 190 Mitläufer als Typ 0 neutralisiert, 57 echte Wetter-/Wasserkollisionen qualifiziert.
+* 🟢 **Schritt 5 (`CELL`):** Dreistufige Raumzellen-Analyse (Steuerdaten, Vanilla-Objekt-Overrides `REFR`/`ACHR`, 2D-Bounding-Box Überlappung bei Neubauten). 321 Mitläufer als Typ 0 neutralisiert, 146 echte Raumkollisionen qualifiziert.
+* 🟢 **Schritt 6 (`LCTN`):** Standort-Primärdaten und 20-Byte-Rollenanalyse (`ACSR`/`LCSR` Option C). Semantische `FULL`-Textnormalisierung integriert. 7 Mitläufer als Typ 0, 1 Wertekonflikt als Typ 1 und 97 reale Kollisionen qualifiziert.
+* 🟢 **Schritt 7 (`NAVM`):** Wegfindungs- & Geometrieanalyse. Erkennt 100% binäre Mitläufer (Typ 0), Pack-In Vorlagen (Typ 0/2), asymmetrische BGS-Creations (Typ 0) und generiert zwingende Ladereihenfolge-Regeln (`ID_Mod_Requirement` -> `ID_Mod_Dependent`).
+* 🟡 **`QUST` (Quest-Steuerung):** Tiefenanalyse gegen Vanilla (`Starfield.esm`) und den *Community Patch (SFCP)* durchgeführt. Ergebnis: Aktuell nur 3 Fälle im Setup, alle inhaltlich begründet. Kein separater Pipeline-Schritt erforderlich; stattdessen universelle Text- und VMAD-Diagnosewerkzeuge bereitgestellt.
+
+---
+
+### 7.3 Hierarchischer Referenz-Baum (102 Hauptreferenzen)
+
+* 🟢 **1. Eigener Pipeline-Prüfschritt aktiv (4 Datentypen | 2.281 DB-Kollisionen | 1.009 aktive Konflikte qualifiziert | 1.272 Mitläufer neutralisiert)**
+  * ├── `WRLD` **[Schritt 4]**: Worldspace (Außenwelten & Planeten) — [Total: 247 | Aktiv: 57 | Typ 0: 190]
+  * │   └── *Methodik:* compare_records Diff (Klima-, Wetter- und Wasser-Subrecords)
+  * ├── `CELL` **[Schritt 5]**: Cell (Raumzellen Interior & Exterior) — [Total: 467 | Aktiv: 146 | Typ 0: 321]
+  * │   └── *Methodik:* Dreistufige Prüfung: Steuerdaten, persistente REFR/ACHR-Overrides, 2D-Bounding-Box Überlappung
+  * ├── `LCTN` **[Schritt 6]**: Location (Orte, POIs & Systeme) — [Total: 105 | Aktiv: 98 | Typ 0: 7]
+  * │   └── *Methodik:* Primärdaten-Diff, Option C Rollen-Arrays (ACSR), semantische FULL-Normalisierung
+  * └── `NAVM` **[Schritt 7]**: NavMesh (Wegfindungsnetze pro Zelle) — [Total: 1,462 | Aktiv: 708 | Typ 0: 754]
+  *     └── *Methodik:* 100% Identität, Pack-In Vorlagen, BGS-Creations-Filter, Kanten für Sorter (Req/Dep)
+*
+* 🟡 **2. Tiefenanalysiert auf Subrecord-Ebene (1 Datentyp | Aktuell kein separater Pipeline-Schritt erforderlich)**
+  * └── `QUST`: Quest (Missionssteuerung & Quests) — [Total: 3 | Aktiv: 3 | Typ 0: 0] (Basis-Typ 3)
+  *     ├── *Befund:* Alle 3 Kollisionen betreffen Starfield Community Patch (SFCP-Overrides). Keine CK-Mitläufer oder Scheinkonflikte.
+  *     └── *Diagnosewerkzeuge:* Über semantischen Text-Subrecord-Parser (FULL/NNAM/DESC) & VMAD/CTDA-Tools universell im CLI-Tool abgedeckt.
+*
+* ⚪ **3. Systembedingt neutralisiert (2 Datentypen | Reine Engine-Routing-Strukturen)**
+  * ├── `TES4`: Plugin Header (Dateikopf & Master-Dateilisten; systemweit Typ 0) — [Konflikte: -]
+  * └── `NAVI`: Navigation Index (Globales NavMesh-Routing-Verzeichnis; systemweit Typ 0) — [Konflikte: -]
+*
+* 🔴 **4. Schritt 1: Basiseinstufung mit aktiven Konflikten (26 Datentypen | 622 aktive Konflikte | Potenzielle Pipeline-Kandidaten)**
+  * ├── **3D-Welt, Platzierung & Beleuchtung (Typ 2)**
+  * │   ├── `REFR`: Reference (Objektplatzierungen in Zellen) — [Aktiv: 353 (Total: 406, Typ 0: 53) | Typ 2]
+  * │   ├── `LAYR`: Layer (Editor- & Platzierungsebenen) — [Aktiv: 25 | Typ 2]
+  * │   └── `LIGH`: Light (Lichtquellen & Spotlights) — [Aktiv: 1 | Typ 2]
+  * ├── **Planeten, POIs & Generierung (Typ 2)**
+  * │   ├── `LMSW`: Leveled Material Swap (Stufen-Materialwechsel) — [Aktiv: 61 (Total: 62, Typ 0: 1) | Typ 2]
+  * │   ├── `PNDT`: Planet Node Data (Planetengenerierung) — [Aktiv: 18 | Typ 2]
+  * │   ├── `PCCN`: Planet Content Connection (Spawn-Pfade) — [Aktiv: 5 | Typ 2]
+  * │   ├── `PCBN`: Planet Content Block Node (POIs) — [Aktiv: 3 | Typ 2]
+  * │   └── `PCMT`: Planet Content Material (Oberflächen-Shader) — [Aktiv: 1 | Typ 2]
+  * ├── **Items, Handwerk & Ausrüstung (Typ 1)**
+  * │   ├── `WEAP`: Weapon (Schuss- & Nahkampfwaffen) — [Aktiv: 13 (Total: 35, Typ 0: 22) | Typ 1]
+  * │   ├── `OMOD`: Object Modification (Waffen-/Rüstungsaufsätze) — [Aktiv: 22 | Typ 1]
+  * │   ├── `COBJ`: Constructible Object (Handwerksrezepte) — [Aktiv: 19 | Typ 1]
+  * │   ├── `ALCH`: Alchemy (Nahrung, Chems, Medizin) — [Aktiv: 14 | Typ 1]
+  * │   ├── `INNR`: Instance Naming Rules (Namensgenerierung) — [Aktiv: 7 | Typ 1]
+  * │   ├── `MISC`: Misc Object (Schrott, Ressourcen, Trays) — [Aktiv: 2 | Typ 1]
+  * │   ├── `LVLB`: Leveled List Sub-Table (Unter-Beutetabellen) — [Aktiv: 2 | Typ 1]
+  * │   └── `LVLI`: Leveled Item (Dynamische Beutetabellen) — [Aktiv: 1 | Typ 1]
+  * ├── **Akteure & Begleiter (Typ 2)**
+  * │   ├── `NPC_`: Non-Player Character (Akteure, Begleiter) — [Aktiv: 18 | Typ 2]
+  * │   └── `AFFE`: Affection (Begleiter-Zuneigung & Romance) — [Aktiv: 10 | Typ 2]
+  * ├── **Spielmechanik, Globals & Effekte (Typ 1 & Typ 2)**
+  * │   ├── `CONT`: Container (Behälter, Kisten) — [Aktiv: 3 | Typ 2]
+  * │   ├── `GMST`: Game Setting (Systemeinstellungen) — [Aktiv: 3 | Typ 1]
+  * │   ├── `MGEF`: Magic Effect (Effektbasis, Buffs, Debuffs) — [Aktiv: 3 | Typ 2]
+  * │   ├── `GLOB`: Global Variable (Globale Spielvariablen) — [Aktiv: 2 | Typ 1]
+  * │   ├── `SPEL`: Spell (Zauber, Fähigkeiten, Krankheiten) — [Aktiv: 2 | Typ 2]
+  * │   ├── `MOVT`: Movement Type (Geschwindigkeit, Bewegung) — [Aktiv: 1 | Typ 1]
+  * │   └── `PROJ`: Projectile (Projektile & Flugbahnen) — [Aktiv: 1 | Typ 1]
+  * └── **Story- & Quest-Knoten (Typ 3)**
+  *     └── `SMQN`: Story Manager Quest Node (Quest-Knoten) — [Aktiv: 1 | Typ 3]
+*
+* ⚪ **5. Schritt 1: Basiseinstufung ohne aktive Konflikte (69 Datentypen | Vollständig im Katalog vorbereitet | 0 Kollisionen im Setup)**
+  * ├── **Quests, Szenen & Dialoge** (5 Signaturen)
+  * │   ├── `DIAL`: Dialogue Topic (Dialogthemen & Zweige) (Typ 2)
+  * │   ├── `INFO`: Dialogue Info (Gesprochene Dialogzeilen) (Typ 2)
+  * │   ├── `SCEN`: Scene (Inszenierte Dialogsequenzen) (Typ 3)
+  * │   ├── `SMBN`: Story Manager Branch Node (Event-Zweige) (Typ 3)
+  * │   └── `SMEN`: Story Manager Event Node (Ereignis-Knoten) (Typ 3)
+  * ├── **Akteure, KI & Verhalten** (12 Signaturen)
+  * │   ├── `ACHR`: Actor Reference (NPC-Platzierung) (Typ 2)
+  * │   ├── `CLAS`: Class (Charakter- & NPC-Klassen) (Typ 2)
+  * │   ├── `CSTY`: Combat Style (Kampfverhalten NPCs) (Typ 1)
+  * │   ├── `FACT`: Faction (Fraktionen & Freund/Feind) (Typ 2)
+  * │   ├── `FURN`: Furniture (Möbel, Arbeitsplätze, Fahrzeugsitze) (Typ 2)
+  * │   ├── `HDPT`: Head Part (Frisuren, Bärte, Gesichtsformen) (Typ 1)
+  * │   ├── `IDLE`: Idle Animation (Ruhe-Animationen) (Typ 1)
+  * │   ├── `LVLN`: Leveled NPC (Dynamische Gegner-Spawns) (Typ 1)
+  * │   ├── `OTFT`: Outfit (NPC-Startkleidung/Ausrüstung) (Typ 1)
+  * │   ├── `PACK`: Package (KI-Tagesabläufe & Wegpunkte) (Typ 2)
+  * │   ├── `PERK`: Perk (Fertigkeiten & Talente) (Typ 2)
+  * │   └── `RACE`: Race (Rassen, Spezies, Skelette) (Typ 2)
+  * ├── **Items, Inventar & Beute** (8 Signaturen)
+  * │   ├── `AMMO`: Ammunition (Munition) (Typ 1)
+  * │   ├── `ARMA`: Armor Addon (3D-Modelldefinition Rüstung) (Typ 1)
+  * │   ├── `ARMO`: Armor (Raumanzüge, Kleidung, Helme) (Typ 1)
+  * │   ├── `BOOK`: Book (Notizen, Datenpads, Slates) (Typ 1)
+  * │   ├── `FLST`: FormID List (Sammellisten) (Typ 1)
+  * │   ├── `INGR`: Ingredient (Alchemistische Zutaten) (Typ 1)
+  * │   ├── `KEYM`: Key (Schlüssel & Codekarten) (Typ 1)
+  * │   └── `LVLP`: Leveled Pack-In (Dynamische Bauvorlagen) (Typ 1)
+  * ├── **Welt, Umwelt, Flora & Geometrie** (26 Signaturen)
+  * │   ├── `ACTI`: Activator (Interaktiver Schalter/Trigger) (Typ 2)
+  * │   ├── `BIOM`: Biome (Planetenbiom-Definition) (Typ 2)
+  * │   ├── `CLFM`: Color Form (Farbpaletten, Skins, Haare) (Typ 1)
+  * │   ├── `CLMT`: Climate (Klimazyklus, Tag/Nacht) (Typ 2)
+  * │   ├── `COLL`: Collision Layer (Physikalische Kollision) (Typ 2)
+  * │   ├── `DOOR`: Door (Türen & Teleport-Marker) (Typ 2)
+  * │   ├── `EFSH`: Effect Shader (Visuelle Shader-Effekte) (Typ 2)
+  * │   ├── `EFSQ`: Effect Sequence (Shader-Sequenzen) (Typ 2)
+  * │   ├── `FLOR`: Flora (Erntebare Vegetation/Pflanzen) (Typ 2)
+  * │   ├── `GBFM`: Gameplay Blueprint (Fahrzeuge, Crowds) (Typ 2)
+  * │   ├── `HAZD`: Hazard (Gefahrenzonen, Strahlung, Gift) (Typ 2)
+  * │   ├── `IMAD`: Image Space Modifier (Post-Processing) (Typ 2)
+  * │   ├── `IMGS`: Image Space (Farbfilter, Sättigung) (Typ 2)
+  * │   ├── `KYWD`: Keyword (Schlagwörter & Klassifizierung) (Typ 2)
+  * │   ├── `MATO`: Material Object (Material- & Textur-Shader) (Typ 2)
+  * │   ├── `MATT`: Material Type (Physikalische Materialtypen) (Typ 2)
+  * │   ├── `MSTT`: Movable Static (Physik-Deko-Objekte) (Typ 2)
+  * │   ├── `PKIN`: Pack-In (Modulare Fertigbauteile) (Typ 2)
+  * │   ├── `REGN`: Region (Klima- & Geografiezonen) (Typ 2)
+  * │   ├── `RSPJ`: Space Project (Sternensystem-Projektionen) (Typ 2)
+  * │   ├── `SFBK`: Starfield Planet Block (POI-Blöcke) (Typ 2)
+  * │   ├── `SFTR`: Starfield Terrain (Gelände-Definition) (Typ 2)
+  * │   ├── `STAT`: Static (Unbewegliche 3D-Modelle/Häuser) (Typ 2)
+  * │   ├── `TXST`: Texture Set (Material- & Textursätze) (Typ 2)
+  * │   ├── `WATR`: Water (Wasserflächen, Trübung, Strömung) (Typ 2)
+  * │   └── `WTHS`: Weather (Wetter, Regen, Wind, Stürme) (Typ 2)
+  * ├── **Audio, Kameras & Immersion** (6 Signaturen)
+  * │   ├── `CAMS`: Camera Shot (Kameraperspektiven) (Typ 1)
+  * │   ├── `CPTH`: Camera Path (Kamerafahrten/Sequenzen) (Typ 1)
+  * │   ├── `MUSC`: Music Type (Hintergrund- & Kampfmusik) (Typ 2)
+  * │   ├── `SDLT`: Sound Category (Lautstärke-Kategorien) (Typ 2)
+  * │   ├── `SOUN`: Sound (Soundeffekte & Audio-Events) (Typ 2)
+  * │   └── `TACT`: Talking Activator (Sprechende Schalter/Gegensprechanlagen) (Typ 2)
+  * ├── **Schiffsbau & Raumfahrt** (4 Signaturen)
+  * │   ├── `STBH`: Ship Behavior (Schiffsbau-Luken & Habs) (Typ 2)
+  * │   ├── `STDT`: Star (Sterne & Sonnendaten) (Typ 2)
+  * │   ├── `STMP`: Ship Template (Schiffsvorlagen) (Typ 2)
+  * │   └── `STND`: Ship Node (Snap-Nodes für Module) (Typ 2)
+  * └── **Engine-Kern, UI & Systeme** (8 Signaturen)
+  *     ├── `AVIF`: Actor Value Information (Attribute, Formeln) (Typ 3)
+  *     ├── `CNDF`: Condition Form (Bedingungs-Vorlagen) (Typ 2)
+  *     ├── `DFOB`: Default Object (Engine-Objektzeiger) (Typ 3)
+  *     ├── `DOBJ`: Default Object (Globale System-Zeiger) (Typ 3)
+  *     ├── `ENCH`: Enchantment (Objekt-Effekte & Verzauberungen) (Typ 2)
+  *     ├── `EXPL`: Explosion (Explosionseffekte) (Typ 2)
+  *     ├── `MESG`: Message (UI-Meldungen & HUD-Texte) (Typ 1)
+  *     └── `TERM`: Terminal (Computer-Konsolen) (Typ 2)

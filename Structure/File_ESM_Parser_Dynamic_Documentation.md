@@ -276,5 +276,51 @@ def compare_records(component_a: str | int, component_b: str | int, form_id: int
 * `subrecords_diff` (`dict`):
   * `added`: Liste von Subrecords, die nur in Mod B existieren.
   * `deleted`: Liste von Subrecords, die nur in Mod A existieren.
-  * `modified`: Dictionary der Subrecords mit inhaltlichen Abweichungen samt Größendifferenz (`size_a`, `size_b`, `size_diff`).
+  * `modified`: Dictionary der Subrecords mit inhaltlichen Abweichungen samt Größendifferenz (`size_a`, `size_b`, `size_diff`) und optionaler semantischer `text_analysis`.
+  * `identical_text`: Dictionary von Text-Subrecords (`FULL`, `NNAM`, `DESC`, `DNAM`), die trotz abweichender Binärformate zu 100 % denselben bereinigten Klartext enthalten.
+
+---
+
+### 2.8 `parse_text_value()`
+
+Interpretiert Subrecord-Bytes als Klartext oder als 4-Byte-String-ID-Pointer.
+
+```python
+def parse_text_value(val: bytes | bytearray | list | Any, encoding: str = 'utf-8') -> tuple[str | None, bool]:
+```
+
+#### Parameter:
+* **`val`**: Der zu parsende Rohwert des Subrecords (z. B. aus `get_subrecords`).
+* **`encoding`** (`str`, *Standard: `'utf-8'`*): Primäres Encoding für Klartext-Strings.
+
+#### Rückgabewert:
+Ein Tupel `(text_string, is_string_id)`.
+* Wenn es sich um eine 32-Bit String-ID handelt: `("StringID:0x0002D92E", True)`.
+* Wenn es sich um Klartext handelt: `("Akila City", False)`.
+
+---
+
+### 2.9 `compare_text_subrecords()`
+
+Führt einen semantischen Textabgleich zweier Subrecord-Werte (z. B. `FULL`, `NNAM`, `DESC`, `DNAM`) durch.
+
+```python
+def compare_text_subrecords(val_a, val_b, encoding: str = 'utf-8') -> dict:
+```
+
+#### Merkmale & Erkennungslogik:
+1. **Nullbyte- & Whitespace-Bereinigung:** Entfernt Formatierungsartefakte und Padding des Creation Kits.
+2. **Robustes Multi-Encoding:** Versucht Dekodierung über UTF-8, CP1252 und Latin-1 mit Fehlertoleranz.
+3. **Erkennung von String-IDs vs. Klartext:** Unterscheidet, ob beide Seiten Klartext nutzen, beide String-IDs sind oder ein Exportunterschied vorliegt.
+
+#### Rückgabewert (`dict`):
+* `is_identical` (`bool`): `True`, wenn beide Texte nach Normalisierung inhaltsgleich sind.
+* `diff_type` (`str`):
+  * `'IDENTICAL'`: Beide Werte repräsentieren denselben Text.
+  * `'DIFFERENT_TEXT'`: Reale inhaltliche Text- oder Sprachabweichung.
+  * `'STRING_ID_VS_TEXT'`: Eine Mod verwendet die String-ID, die andere Klartext.
+  * `'ONE_MISSING'` / `'BOTH_MISSING'`: Ein oder beide Subrecords fehlen.
+* `text_a` / `text_b` (`str | None`): Dekodierte Textinhalte.
+* `is_string_id_a` / `is_string_id_b` (`bool`): Flag für String-ID Pointer.
+
 

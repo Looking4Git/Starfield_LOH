@@ -23,6 +23,10 @@ Funktionsumfang:
    Performanter Einzelpass-Scanner für Batch-Abfragen (z. B. alle NAVMs einer Komponente).
 7. compare_records(component_a, component_b, form_id, target_sig=None)
    Vergleicht einen Record zwischen zwei Mods byte-genau und auf Subrecord-Ebene.
+8. parse_text_value(val, encoding='utf-8')
+   Interpretiert Subrecord-Bytes als Klartext oder 4-Byte String-ID Pointer.
+9. compare_text_subrecords(val_a, val_b, encoding='utf-8')
+   Semantischer Textabgleich für FULL, NNAM, DESC (Klartext-Gleichlauf vs. Sprachkonflikte).
 """
 
 import os
@@ -592,9 +596,133 @@ def get_records_context(component, target_sig=None):
     return records
 
 
+def parse_text_value(val, encoding='utf-8'):
+    """
+    Interpretiert Subrecord-Bytes als Klartext oder 4-Byte String-ID Pointer.
+
+    Parameter:
+    ----------
+    val : bytes | bytearray | list | Any
+        Der zu parsende Rohwert des Subrecords.
+    encoding : str, default 'utf-8'
+        Primäres Encoding für Klartext-Strings.
+
+    Rückgabe:
+    ---------
+    tuple[str | None, bool] : (text_string, is_string_id)
+    """
+    if val is None:
+        return None, False
+    if isinstance(val, list):
+        val = val[0] if val else None
+        if val is None:
+            return None, False
+    if not isinstance(val, (bytes, bytearray)):
+        return str(val).strip(), False
+    if len(val) == 0:
+        return "", False
+
+    # 4-Byte String-ID Pointer Prüfung:
+    # Im Creation Kit / Starfield.esm sind String-IDs 32-Bit Unsigned Integers.
+    # Sie zeichnen sich dadurch aus, dass sie entweder nicht null-terminiert sind
+    # oder nicht-druckbare Byte-Sequenzen (< 0x20 außer Whitespace) aufweisen.
+    if len(val) == 4:
+        is_printable_ascii = all(32 <= b <= 126 for b in val[:3]) and val[3] == 0
+        if not is_printable_ascii:
+            str_id = struct.unpack('<I', val)[0]
+            return f"StringID:0x{str_id:08X}", True
+
+    # Als Klartext dekodieren (Fallback-Kette UTF-8 -> CP1252 -> Latin-1)
+    try:
+        s = val.decode(encoding).rstrip('\x00').strip()
+    except UnicodeDecodeError:
+        try:
+            s = val.decode('cp1252').rstrip('\x00').strip()
+        except UnicodeDecodeError:
+            s = val.decode('latin-1', errors='replace').rstrip('\x00').strip()
+    return s, False
+
+
+def compare_text_subrecords(val_a, val_b, encoding='utf-8'):
+    """
+    Vergleicht zwei Text-Subrecord-Werte (z. B. FULL, NNAM, DESC) semantisch.
+    Erkennt identischen Klartext unabhängig von Nullbyte-Padding, unterscheidet
+    reale Sprach-/Textänderungen und markiert String-ID-Konvertierungen.
+
+    Rückgabe:
+    ---------
+    dict :
+        {
+            'is_identical': bool,
+            'diff_type': str,  # 'IDENTICAL', 'DIFFERENT_TEXT', 'STRING_ID_VS_TEXT', 'ONE_MISSING', 'BOTH_MISSING'
+            'text_a': str | None,
+            'text_b': str | None,
+            'is_string_id_a': bool,
+            'is_string_id_b': bool
+        }
+    """
+    if val_a is None and val_b is None:
+        return {
+            'is_identical': True,
+            'diff_type': 'BOTH_MISSING',
+            'text_a': None,
+            'text_b': None,
+            'is_string_id_a': False,
+            'is_string_id_b': False
+        }
+
+    text_a, id_a = parse_text_value(val_a, encoding)
+    text_b, id_b = parse_text_value(val_b, encoding)
+
+    if val_a is None or val_b is None:
+        return {
+            'is_identical': False,
+            'diff_type': 'ONE_MISSING',
+            'text_a': text_a,
+            'text_b': text_b,
+            'is_string_id_a': id_a,
+            'is_string_id_b': id_b
+        }
+
+    # Beide sind String-IDs
+    if id_a and id_b:
+        is_ident = (text_a == text_b)
+        return {
+            'is_identical': is_ident,
+            'diff_type': 'IDENTICAL' if is_ident else 'DIFFERENT_TEXT',
+            'text_a': text_a,
+            'text_b': text_b,
+            'is_string_id_a': True,
+            'is_string_id_b': True
+        }
+
+    # Eine Mod hat String-ID, die andere hat Klartext
+    if id_a != id_b:
+        return {
+            'is_identical': False,
+            'diff_type': 'STRING_ID_VS_TEXT',
+            'text_a': text_a,
+            'text_b': text_b,
+            'is_string_id_a': id_a,
+            'is_string_id_b': id_b
+        }
+
+    # Beide sind Klartext
+    is_ident = (text_a == text_b)
+    return {
+        'is_identical': is_ident,
+        'diff_type': 'IDENTICAL' if is_ident else 'DIFFERENT_TEXT',
+        'text_a': text_a,
+        'text_b': text_b,
+        'is_string_id_a': False,
+        'is_string_id_b': False
+    }
+
+
 def compare_records(component_a, component_b, form_id, target_sig=None):
     """
     Vergleicht einen Record zwischen zwei ESM-Komponenten byte-genau und auf Subrecord-Ebene.
+    Führt für Text-Subrecords (FULL, NNAM, DESC, DNAM) eine semantische Inhaltsprüfung durch.
 
     Parameter:
     ----------
@@ -619,9 +747,10 @@ def compare_records(component_a, component_b, form_id, target_sig=None):
             'size_b': int,
             'diff_bytes': int,
             'subrecords_diff': {
-                'added': list[str],      # Subrecords nur in B
-                'deleted': list[str],    # Subrecords nur in A
-                'modified': dict[str, dict] # Subrecords mit veränderten Inhalten/Größen
+                'added': list[str],          # Subrecords nur in B
+                'deleted': list[str],        # Subrecords nur in A
+                'modified': dict[str, dict], # Subrecords mit veränderten Inhalten/Größen
+                'identical_text': dict[str, dict] # Text-Subrecords mit 100% Textgleichlauf
             }
         }
     """
@@ -641,7 +770,8 @@ def compare_records(component_a, component_b, form_id, target_sig=None):
         'subrecords_diff': {
             'added': [],
             'deleted': [],
-            'modified': {}
+            'modified': {},
+            'identical_text': {}
         }
     }
 
@@ -663,16 +793,33 @@ def compare_records(component_a, component_b, form_id, target_sig=None):
     res['subrecords_diff']['deleted'] = sorted(list(keys_a - keys_b))
     res['subrecords_diff']['added'] = sorted(list(keys_b - keys_a))
 
+    TEXT_SUBRECORDS = {'FULL', 'NNAM', 'DESC', 'DNAM'}
+
     for common_k in sorted(list(keys_a.intersection(keys_b))):
         val_a = data_a[common_k]
         val_b = data_b[common_k]
         if val_a != val_b:
+            # Semantischer Abgleich für Text-Subrecords
+            if common_k in TEXT_SUBRECORDS:
+                text_cmp = compare_text_subrecords(val_a, val_b)
+                if text_cmp['is_identical']:
+                    res['subrecords_diff']['identical_text'][common_k] = text_cmp
+                    continue
+
             len_a = len(val_a) if isinstance(val_a, (bytes, bytearray)) else sum(len(x) for x in val_a)
             len_b = len(val_b) if isinstance(val_b, (bytes, bytearray)) else sum(len(x) for x in val_b)
-            res['subrecords_diff']['modified'][common_k] = {
+            mod_info = {
                 'size_a': len_a,
                 'size_b': len_b,
                 'size_diff': len_b - len_a
             }
+            if common_k in TEXT_SUBRECORDS:
+                mod_info['text_analysis'] = compare_text_subrecords(val_a, val_b)
+
+            res['subrecords_diff']['modified'][common_k] = mod_info
+
+    # Falls alle abweichenden Subrecords rein textidentisch waren und sonst keine Diffs existieren:
+    if not res['subrecords_diff']['deleted'] and not res['subrecords_diff']['added'] and not res['subrecords_diff']['modified']:
+        res['is_identical'] = True
 
     return res

@@ -400,3 +400,28 @@ QTableView::indicator:unchecked, QTreeView::indicator:unchecked {
 QTableView::indicator:selected, QTreeView::indicator:selected {
     border: 1px solid #ffffff;
 }
+
+/* =========================================================
+   Einstellungen Seite (Page_Settings)
+   ========================================================= */
+#Page_Settings QLabel#lbl_setting_title {
+    color: #ECECEC;
+    font-size: 22px;
+    font-weight: bold;
+    padding-bottom: 2px;
+}
+
+#Page_Settings #detail_view QLineEdit:read-only {
+    background-color: #ffffff;
+    color: #1e1e1e;
+}
+
+#Page_Settings QTreeView#settings_tree {
+    font-size: 14px;
+    padding: 4px;
+}
+
+#Page_Settings QTreeView#settings_tree::item {
+    height: 36px;
+    padding-left: 6px;
+}

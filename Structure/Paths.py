@@ -67,3 +67,35 @@ def get_setting(key, default=None):
     except Exception:
         pass
     return default
+
+def set_setting(section: str, key: str, value):
+    """
+    Hilfsfunktion zum Speichern eines Einstellungs-Wertes in Starfield_LOH_Settings.json.
+    Aktualisiert auch dynamisch geladene Laufzeitvariablen (z. B. STARFIELD_GAME_DATA_PATH).
+    """
+    global STARFIELD_GAME_DATA_PATH
+    try:
+        cfg = {}
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            except Exception:
+                cfg = {}
+        
+        if section:
+            if section not in cfg or not isinstance(cfg[section], dict):
+                cfg[section] = {}
+            cfg[section][key] = value
+        else:
+            cfg[key] = value
+
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+
+        if section == "paths" and key == "starfield_data":
+            STARFIELD_GAME_DATA_PATH = value
+        return True
+    except Exception as e:
+        print(f"Fehler beim Speichern der Einstellung {section}.{key}: {e}")
+        return False

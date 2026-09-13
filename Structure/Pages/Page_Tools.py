@@ -7,7 +7,7 @@ from Structure.Starfield_Check_New import run_local_check
 from Structure.Starfield_Check_Deleted import run_deleted_check
 from Structure.Starfield_LoadOrder_Check import run_load_order_check
 from Structure.Bethesda_Fetch import run_fetch
-from Structure.Starfield_LOH_Reset import reset_database
+from Structure.Mods_Conflicts_Analyzer import analyze_conflicts
 from Structure.Nexus_Fetch import run_nexus_fetch
 from Structure.Category_LOH_Classifier import run_classifier
 from Structure.Pages.Widget_LogConsole import Widget_LogConsole
@@ -71,12 +71,12 @@ class Page_Tools(QWidget):
         self.btn_classifier.clicked.connect(self.start_classifier)
         self.layout.addWidget(self.btn_classifier)
 
-        # Button für den Reset
-        self.btn_db_reset = QPushButton("Datenbank zurücksetzen (Bewegungsdaten löschen)")
-        self.btn_db_reset.setMinimumHeight(40)
-        self.btn_db_reset.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_db_reset.clicked.connect(self.start_db_reset)
-        self.layout.addWidget(self.btn_db_reset)
+        # Button für die Konfliktanalyse
+        self.btn_conflict_check = QPushButton("Mod-Konfliktanalyse (Mods Conflicts Analyzer) starten")
+        self.btn_conflict_check.setMinimumHeight(40)
+        self.btn_conflict_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_conflict_check.clicked.connect(self.start_conflict_check)
+        self.layout.addWidget(self.btn_conflict_check)
 
         # Log-Fenster
         log_label = QLabel("Protokoll-Ausgabe:")
@@ -140,11 +140,39 @@ class Page_Tools(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
-    def start_db_reset(self):
+    def start_conflict_check(self):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(reset_database, start_message="Thread gestartet: Datenbank-Reset...")
+        def run_conflict_task(log_signal):
+            import io
+            import sys
+
+            class StreamRedirector(io.StringIO):
+                def __init__(self, sig):
+                    super().__init__()
+                    self.sig = sig
+                def write(self, s):
+                    text = s.strip()
+                    if text and self.sig:
+                        self.sig.emit(text)
+                def flush(self):
+                    pass
+
+            old_stdout = sys.stdout
+            sys.stdout = StreamRedirector(log_signal)
+            try:
+                res = analyze_conflicts(db_path=None)
+                if isinstance(res, tuple):
+                    success, active_conflicts, active_pairs = res
+                    if log_signal:
+                        log_signal.emit(f"\n--> Konfliktanalyse erfolgreich: {active_conflicts} aktive Konflikte über {active_pairs} Mod-Paare.")
+                    return success
+                return bool(res)
+            finally:
+                sys.stdout = old_stdout
+
+        self.worker = TaskWorker(run_conflict_task, start_message="Thread gestartet: Mod-Konfliktanalyse (Mods Conflicts Analyzer)...")
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
@@ -156,7 +184,7 @@ class Page_Tools(QWidget):
         self.btn_fetch.setEnabled(enabled)
         self.btn_nexus_fetch.setEnabled(enabled)
         self.btn_classifier.setEnabled(enabled)
-        self.btn_db_reset.setEnabled(enabled)
+        self.btn_conflict_check.setEnabled(enabled)
 
     def append_log(self, text):
         """Delegiert an die Konsole (für Rückwärtskompatibilität)."""

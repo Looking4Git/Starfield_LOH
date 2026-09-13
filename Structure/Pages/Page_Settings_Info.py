@@ -64,25 +64,19 @@ class Page_Settings_Info(QWidget):
         lbl_section.setObjectName("lbl_details")
         layout.addWidget(lbl_section)
 
-        # 2. Beschreibung
-        lbl_desc = QLabel(
-            "Übersicht über die aktuelle Anwendungsversion, Systemumgebung und Software-Bibliotheken."
-        )
-        lbl_desc.setWordWrap(True)
-        lbl_desc.setStyleSheet("color: #aaaaaa; font-size: 12px; margin-bottom: 4px;")
-        layout.addWidget(lbl_desc)
-
-        # 3. Formularfelder mit Systemdaten
+        # 2. Formularfelder mit Systemdaten
         form_layout = QFormLayout()
-        form_layout.setSpacing(10)
+        form_layout.setContentsMargins(0, 6, 0, 0)
+        form_layout.setSpacing(12)
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
         def make_field(label_text: str, value_text: str) -> tuple[QLabel, QLineEdit]:
             lbl = QLabel(label_text)
-            lbl.setStyleSheet("color: #ECECEC; font-size: 13px; font-weight: bold;")
+            lbl.setStyleSheet("color: #ECECEC; font-size: 14px; font-weight: bold;")
             inp = QLineEdit(value_text)
             inp.setReadOnly(True)
-            inp.setFixedHeight(30)
+            inp.setFixedHeight(32)
+            inp.setStyleSheet("font-size: 14px;")
             return lbl, inp
 
         lbl_app, self.inp_app = make_field("Anwendungsname:", "Starfield Load Order Helper (LOH)")

@@ -116,7 +116,6 @@ class StarfieldLOH(QMainWindow):
         
         self.sidebar_layout = QVBoxLayout(self.sidebar)
         self.sidebar_layout.setContentsMargins(0, 10, 0, 10)
-        self.sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.btn_toggle = SidebarButton("Menü", "Icon_Menu.svg", self.graphics_path)
         self.btn_toggle.clicked.connect(self.toggle_sidebar)
@@ -134,6 +133,8 @@ class StarfieldLOH(QMainWindow):
 
         self.btn_tools = SidebarButton("Tools", "Icon_Tools.svg", self.graphics_path)
         self.sidebar_layout.addWidget(self.btn_tools)
+
+        self.sidebar_layout.addStretch()
 
         self.btn_settings = SidebarButton("Einstellungen", "Icon_Gear.svg", self.graphics_path)
         self.sidebar_layout.addWidget(self.btn_settings)

@@ -411,17 +411,70 @@ QTableView::indicator:selected, QTreeView::indicator:selected {
     padding-bottom: 2px;
 }
 
+#Page_Settings #detail_view QLineEdit {
+    font-size: 14px;
+}
+
 #Page_Settings #detail_view QLineEdit:read-only {
     background-color: #ffffff;
     color: #1e1e1e;
+    font-size: 14px;
 }
 
 #Page_Settings QTreeView#settings_tree {
+    background-color: #181818;
+    alternate-background-color: #1e1e1e;
+    color: #cccccc;
+    border: none;
+    border-right: 1px solid #2b2b2b;
+    outline: none;
     font-size: 14px;
-    padding: 4px;
+    padding: 6px 0px;
 }
 
 #Page_Settings QTreeView#settings_tree::item {
-    height: 36px;
-    padding-left: 6px;
-}
+    height: 38px;
+    padding-left: 10px;
+    color: #cccccc;
+    border: none;
+}
+
+#Page_Settings QTreeView#settings_tree::item:hover {
+    background-color: #282828;
+    color: #ececec;
+}
+
+#Page_Settings QTreeView#settings_tree::item:selected,
+#Page_Settings QTreeView#settings_tree::item:selected:active,
+#Page_Settings QTreeView#settings_tree::item:selected:!active {
+    background-color: #304C7A;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+/* Kompakter Icon-Only Button für Durchsuchen */
+#Page_Settings QPushButton#btn_browse {
+    padding: 0px;
+    text-align: center;
+}
+
+/* Gefahrenbutton (Starfield-Rot, formatiert wie Tools-Seite) */
+QPushButton#btn_danger {
+    background-color: #C72138;
+    color: #ECECEC;
+    border: none;
+    border-radius: 2px;
+    min-height: 40px;
+    padding: 4px 8px;
+    text-align: left;
+}
+
+QPushButton#btn_danger:hover {
+    background-color: #E03048;
+}
+
+QPushButton#btn_danger:pressed {
+    background-color: #A0182B;
+}
+
+

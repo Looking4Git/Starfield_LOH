@@ -7,7 +7,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtCore import Qt, QSize, Signal
 
 from Structure.Paths import GRAPHICS_DIR
-from Structure.Pages.Page_Settings_Paths import Page_Settings_Paths
+from Structure.Pages.Page_Settings_General import Page_Settings_General
 from Structure.Pages.Page_Settings_Info import Page_Settings_Info
 
 
@@ -71,7 +71,7 @@ class Page_Settings(QWidget):
 
         # Zweistufiges Überschriften-Design:
         # Tier 1: Knoten-Titel (groß, weiß)
-        self.lbl_node_title = QLabel("Dateipfade")
+        self.lbl_node_title = QLabel("Allgemein")
         self.lbl_node_title.setObjectName("lbl_setting_title")
         detail_layout.addWidget(self.lbl_node_title)
 
@@ -88,11 +88,12 @@ class Page_Settings(QWidget):
         self.stack = QStackedWidget()
         self.stack.setObjectName("settings_stack")
 
-        self.page_paths = Page_Settings_Paths()
+        self.page_general = Page_Settings_General()
+        self.page_general.data_updated.connect(self.data_updated)
         self.page_info = Page_Settings_Info()
 
-        self.stack.addWidget(self.page_paths)  # Index 0
-        self.stack.addWidget(self.page_info)   # Index 1
+        self.stack.addWidget(self.page_general)  # Index 0
+        self.stack.addWidget(self.page_info)     # Index 1
 
         detail_layout.addWidget(self.stack)
 
@@ -110,13 +111,13 @@ class Page_Settings(QWidget):
 
     def populate_tree(self):
         """Erstellt die Knotenstruktur im Einstellungs-Treeview."""
-        # 1. Dateipfade
-        item_paths = QStandardItem(
+        # 1. Allgemein
+        item_general = QStandardItem(
             QIcon(os.path.join(GRAPHICS_DIR, "Icon_Folder.svg")),
-            "Dateipfade"
+            "Allgemein"
         )
-        item_paths.setData(0, Qt.ItemDataRole.UserRole)
-        self.tree_model.appendRow(item_paths)
+        item_general.setData(0, Qt.ItemDataRole.UserRole)
+        self.tree_model.appendRow(item_general)
 
         # 2. Info
         item_info = QStandardItem(

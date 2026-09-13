@@ -1384,6 +1384,18 @@ def analyze_conflicts(db_path=None, reporter=None):
     4. Führt die Prüfschritte der CONFLICT_PIPELINE_STEPS sequenziell aus.
     5. Indiziert die Tabelle für Millisekunden-Lookups in der GUI.
     """
+    # Falls über TaskWorker oder Qt-Signal aufgerufen, Signal als Reporter-Adapter nutzen
+    if db_path is not None and not isinstance(db_path, (str, bytes, os.PathLike)):
+        if hasattr(db_path, "emit") and reporter is None:
+            log_sig = db_path
+            class SignalReporter:
+                def print(self, msg):
+                    log_sig.emit(str(msg))
+                def progress(self, *args, **kwargs):
+                    pass
+            reporter = SignalReporter()
+        db_path = None
+
     target_db = db_path if db_path else DB_FILE
     if not os.path.exists(target_db):
         msg = f"Fehler: Datenbankdatei '{target_db}' nicht gefunden."

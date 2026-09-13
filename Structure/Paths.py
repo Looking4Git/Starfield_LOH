@@ -20,6 +20,7 @@ for directory in [LOGS_DIR, BACKUPS_DIR, MOD_IMAGES_DIR]:
 # 3. Spezifische Dateien der Anwendung
 DB_FILE = os.path.join(DATA_DIR, "Starfield_LOH.db")
 SETTINGS_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.json")
+VERSION_FILE = os.path.join(APP_ROOT, "version.json")
 MAIN_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Main.log")
 CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Check.log")
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")

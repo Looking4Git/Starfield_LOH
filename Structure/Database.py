@@ -96,6 +96,69 @@ def get_mods_by_state(state_id: int) -> list[dict]:
         if conn:
             conn.close()
 
+def get_mods_with_updates() -> list[dict]:
+    """
+    Holt alle installierten Mods, für welche Date_available > Date_installed ist.
+    Unterstützt sowohl ISO- (YYYY-MM-DD) als auch deutsches Datumsformat (DD.MM.YYYY)
+    für den exakten chronologischen Vergleich.
+    """
+    query = """
+        SELECT 
+            m.ID, 
+            p.Name AS Platform_Name,
+            m.Platform AS Platform_ID,
+            m.Name_Online,
+            c.Name AS Category_Name,
+            m.Category_LOH AS Category_ID,
+            m.Category_LOH_Classifier AS Category_Classifier_ID,
+            m.Date_installed,
+            m.Version_installed,
+            m.Name_ContentCatalog,
+            m.ID_ContentCatalog,
+            m.URL,
+            m.Author,
+            m.Note,
+            m.Date_available,
+            m.Version_available,
+            m.Assessment AS Assessment_ID,
+            a.Description AS Assessment_Name,
+            a.Number_of_Stars
+        FROM Mods m
+        JOIN Mods_State ms ON m.State = ms.ID
+        LEFT JOIN Platforms p ON m.Platform = p.ID
+        LEFT JOIN Categories_LOH c ON m.Category_LOH = c.ID
+        LEFT JOIN Assessments a ON m.Assessment = a.ID
+        WHERE LOWER(ms.State) = 'installiert'
+          AND m.Date_available IS NOT NULL AND TRIM(m.Date_available) != ''
+          AND m.Date_installed IS NOT NULL AND TRIM(m.Date_installed) != ''
+          AND (
+              CASE 
+                  WHEN m.Date_available LIKE '__.__.____' 
+                  THEN substr(m.Date_available, 7, 4) || '-' || substr(m.Date_available, 4, 2) || '-' || substr(m.Date_available, 1, 2) 
+                  ELSE m.Date_available 
+              END
+          ) > (
+              CASE 
+                  WHEN m.Date_installed LIKE '__.__.____' 
+                  THEN substr(m.Date_installed, 7, 4) || '-' || substr(m.Date_installed, 4, 2) || '-' || substr(m.Date_installed, 1, 2) 
+                  ELSE m.Date_installed 
+              END
+          )
+        ORDER BY m.Name_Online COLLATE NOCASE ASC
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Abrufen der Mods mit Updates: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
 def get_mod_image(mod_id: int) -> bytes | None:
     """Holt das Vorschaubild (entweder als BLOB aus der DB oder aus dem Dateisystem) für eine Mod anhand ihrer ID."""
     query = "SELECT Image FROM Mods WHERE ID = ?"

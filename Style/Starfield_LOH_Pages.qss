@@ -245,6 +245,18 @@ QFrame#detail_separator {
     color: #000000;
 }
 
+#Page_Update #detail_view QLineEdit:read-only,
+#Page_Update #detail_view QTextEdit:read-only {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+#Page_Update #detail_view QLineEdit#inp_name_catalog,
+#Page_Update #detail_view QLineEdit#inp_id_catalog {
+    background-color: #D7A64B; 
+    color: #000000;
+}
+
 /* =========================================================
    Komboboxen im Detail-View
    ========================================================= */

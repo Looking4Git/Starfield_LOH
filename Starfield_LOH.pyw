@@ -10,6 +10,7 @@ from PySide6.QtGui import QIcon, QPixmap
 from Structure.Pages.Page_Mods import Page_Mods
 from Structure.Pages.Page_LoadOrder import Page_LoadOrder
 from Structure.Pages.Page_Update import Page_Update
+from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Paths import SETTINGS_FILE
 from Structure.Database import ensure_default_database_mode
 
@@ -130,8 +131,11 @@ class StarfieldLOH(QMainWindow):
         self.btn_update = SidebarButton("Update", "Icon_Update.svg", self.graphics_path)
         self.sidebar_layout.addWidget(self.btn_update)
 
+        self.btn_tools = SidebarButton("Tools", "Icon_Tools.svg", self.graphics_path)
+        self.sidebar_layout.addWidget(self.btn_tools)
+
         if self.sidebar_collapsed:
-            for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_toggle]:
+            for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_toggle]:
                 btn.set_compact_mode(True)
 
         self.content_stack = QStackedWidget()
@@ -140,7 +144,8 @@ class StarfieldLOH(QMainWindow):
         # Status für die Datenaktualisierung der Seiten (Dictionary wie gewünscht)
         self.page_update_flags = {
             "Page_Mods": False,
-            "Page_LoadOrder": False
+            "Page_LoadOrder": False,
+            "Page_Update": False
         }
 
         # Seiten initialisieren und hinzufügen
@@ -155,10 +160,14 @@ class StarfieldLOH(QMainWindow):
         self.btn_lo.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_lo))
 
         self.page_update = Page_Update()
-        # Signal verbinden: Wenn Page_Update ein Update meldet, Flags setzen
         self.page_update.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_update)
         self.btn_update.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_update))
+
+        self.page_tools = Page_Tools()
+        self.page_tools.data_updated.connect(self.mark_data_changed)
+        self.content_stack.addWidget(self.page_tools)
+        self.btn_tools.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_tools))
 
         # Signal für Seitenwechsel verbinden
         self.content_stack.currentChanged.connect(self.on_page_changed)
@@ -193,7 +202,7 @@ class StarfieldLOH(QMainWindow):
         self.previous_page = current_widget
         
         # 1. Menü-Button Hervorhebung aktualisieren
-        for btn in [self.btn_mods, self.btn_lo, self.btn_update]:
+        for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools]:
             btn.setProperty("active", False)
             btn.style().unpolish(btn)
             btn.style().polish(btn)
@@ -207,6 +216,8 @@ class StarfieldLOH(QMainWindow):
             active_btn = self.btn_lo
         elif current_widget == self.page_update:
             active_btn = self.btn_update
+        elif current_widget == getattr(self, 'page_tools', None):
+            active_btn = self.btn_tools
             
         if active_btn:
             active_btn.setProperty("active", True)
@@ -223,6 +234,10 @@ class StarfieldLOH(QMainWindow):
         elif current_widget == getattr(self, 'page_lo', None) and self.page_update_flags.get("Page_LoadOrder"):
             self.page_lo.load_data()
             self.page_update_flags["Page_LoadOrder"] = False
+
+        elif current_widget == getattr(self, 'page_update', None) and self.page_update_flags.get("Page_Update"):
+            self.page_update.load_data()
+            self.page_update_flags["Page_Update"] = False
 
     def closeEvent(self, event):
         """Speichert den aktuellen Zustand in die Settings-Datei."""
@@ -293,11 +308,11 @@ class StarfieldLOH(QMainWindow):
         self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.sidebar.setMaximumWidth(new_width)
         if self.sidebar_collapsed:
-            for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_toggle]:
+            for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_toggle]:
                 btn.set_compact_mode(True)
         self.animation.start()
         if not self.sidebar_collapsed:
-            self.animation.finished.connect(lambda: [btn.set_compact_mode(False) for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_toggle]])
+            self.animation.finished.connect(lambda: [btn.set_compact_mode(False) for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_toggle]])
 
     def set_dark_title_bar(self):
         if sys.platform == "win32":

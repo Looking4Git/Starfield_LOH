@@ -402,6 +402,7 @@ def cmd_conflict(args, cur):
         edid_suffix = f" ({r['EDID']})" if r['EDID'] else ""
         cell_suffix = f" ({r['Cell_EDID']})" if r['Cell_EDID'] else ""
         print(f"\n [Konflikt #{r['rowid']}] {r['Mod_Name_A']} (ID {r['Mod_ID_A']}) vs. {r['Mod_Name_B']} (ID {r['Mod_ID_B']})")
+        print(f" Komponenten  : {r['Component_File_A']} vs. {r['Component_File_B']}")
         print(f" Record        : {r['Sig']} 0x{r['FormID']:08X}{edid_suffix}")
         print(f" Einstufung    : {TYPE_LABELS.get(r['Conflict_Type'], str(r['Conflict_Type']))} (Schritt {r['Step_ID']}: {r['Step_Description']})")
         if r['Cell_FormID']:
@@ -413,9 +414,8 @@ def cmd_conflict(args, cur):
         if args.diff:
             # Automatischen Subrecord-Diff für diesen Record anhängen
             try:
-                cur2 = get_db_connection().cursor()
-                _, _, c1, f1 = resolve_mod_or_comp(r['Mod_ID_A'], cur2)
-                _, _, c2, f2 = resolve_mod_or_comp(r['Mod_ID_B'], cur2)
+                c1 = r['Component_File_A']
+                c2 = r['Component_File_B']
                 diff_res = compare_records(c1, c2, r['FormID'])
                 if diff_res['is_identical']:
                     print(" Live-Diff     : Records sind 1:1 binär identisch.")

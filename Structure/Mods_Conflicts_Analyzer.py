@@ -110,9 +110,9 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
     """
     Modularisierte Hilfsfunktion zur batchweisen Aktualisierung modifizierter Konfliktdatensätze.
     records: Liste von Tupeln:
-      - 5er: (mod_id_a, mod_id_b, form_id, sig, reason)
-      - 7er: (mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep)
-      - 9er: (mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid)
+      - 5er: (comp_id_a, comp_id_b, form_id, sig, reason)
+      - 7er: (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep)
+      - 9er: (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid)
     """
     if not records:
         return 0
@@ -126,7 +126,7 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
                 Step_Description = ?,
                 Conflict_Type = ?,
                 Reason = ?
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
         """, data)
     elif sample_len == 7:
         data = [(step_id, step_desc, conflict_type, reason, req, dep, a, b, f, s) for a, b, f, s, reason, req, dep in records]
@@ -138,7 +138,7 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
                 Reason = ?,
                 ID_Mod_Requirement = ?,
                 ID_Mod_Dependent = ?
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
         """, data)
     elif sample_len >= 9:
         data = [(step_id, step_desc, conflict_type, reason, req, dep, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, c_fid, c_edid in records]
@@ -152,7 +152,7 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
                 ID_Mod_Dependent = ?,
                 Cell_FormID = COALESCE(Cell_FormID, ?),
                 Cell_EDID = COALESCE(Cell_EDID, ?)
-            WHERE Mod_ID_A = ? AND Mod_ID_B = ? AND FormID = ? AND Sig = ?;
+            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
         """, data)
     return len(records)
 
@@ -196,7 +196,7 @@ def _step_direct_requirements(cur, step_id, step_desc, reporter=None):
     Nur tatsächlich zutreffende Datensätze werden auf Step 2 aktualisiert.
     """
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
                'Beabsichtigtes Prerequisite-Override (deklarierte Mod-Voraussetzung): Kein Spielfehler zu erwarten.' AS Reason
         FROM Mods_Conflicts mc
         LEFT JOIN Mods_Requirements mr_b 
@@ -221,7 +221,7 @@ def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
     """
     cur.execute("""
         SELECT 
-            mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
+            mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
             'Konflikt durch nachgelagerten Patch harmonisiert (''' || 
             COALESCE(mP.Name_Online, mP.Name_ContentCatalog, 'Mod ' || mP.ID) || 
             ''' [ID ' || mP.ID || ']): Beide Mods greifen wie vorgesehen.' AS Reason
@@ -234,7 +234,7 @@ def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
         WHERE mc.Conflict_Type > 0
           AND fP.FormID_Local = mc.FormID
           AND fP.Is_Override = 1
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig;
+        GROUP BY mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig;
     """)
     rows = cur.fetchall()
     count = _update_conflicts_batch(cur, step_id, step_desc, 0, rows)
@@ -283,15 +283,10 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     from Structure.File_ESM_Parser_Dynamic import get_subrecords
 
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               c1.File AS File_A, c2.File AS File_B
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
+               mc.Component_File_A AS File_A, mc.Component_File_B AS File_B
         FROM Mods_Conflicts mc
-        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
-        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
-        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
-        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
-        WHERE mc.Sig = 'WRLD' AND mc.Conflict_Type > 0
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        WHERE mc.Sig = 'WRLD' AND mc.Conflict_Type > 0;
     """)
     wrld_rows = cur.fetchall()
 
@@ -300,7 +295,7 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
     demoted_type_0 = []
     qualified_type_2 = []
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b in wrld_rows:
+    for comp_id_a, comp_id_b, form_id, sig, file_a, file_b in wrld_rows:
         key_a = (file_a, form_id)
         if key_a not in wrld_cache:
             subs = get_subrecords(file_a, form_id, target_subrecords, target_sig='WRLD')
@@ -319,11 +314,11 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
         if not diff_keys:
             # Beide Mods haben 100% identische Steuerdaten -> Reiner Mitläufer!
             reason = "Identische Steuer-Subrecords (Klima, Wasser, Wetter): Keine Auswirkung im Spiel."
-            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason))
         else:
             # Reale Kollision mit differenzierter Subrecord-Begründung
             reason = _build_wrld_diff_reason(diff_keys)
-            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
@@ -480,16 +475,11 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
     from Structure.File_ESM_Parser_Dynamic import get_subrecords
 
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               c1.File AS File_A, c2.File AS File_B,
-               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
+               mc.Component_File_A AS File_A, mc.Component_File_B AS File_B,
+               mc.Mod_Name_A, mc.Mod_Name_B
         FROM Mods_Conflicts mc
-        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
-        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
-        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
-        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
-        WHERE mc.Sig = 'CELL' AND mc.Conflict_Type > 0
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        WHERE mc.Sig = 'CELL' AND mc.Conflict_Type > 0;
     """)
     cell_rows = cur.fetchall()
 
@@ -500,31 +490,45 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
     demoted_type_0 = []
     qualified_type_2 = []
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b in cell_rows:
+    for comp_id_a, comp_id_b, form_id, sig, file_a, file_b, name_a, name_b in cell_rows:
         key_a = (file_a, form_id)
         if key_a not in cell_cache:
             subs = get_subrecords(file_a, form_id, target_cell_subrecords + ['XCLC'], target_sig='CELL')
-            cell_cache[key_a] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+            fl = subs['_header']['flags'] if (subs and '_header' in subs) else 0
+            sub_dict = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+            cell_cache[key_a] = (sub_dict, fl)
 
         key_b = (file_b, form_id)
         if key_b not in cell_cache:
             subs = get_subrecords(file_b, form_id, target_cell_subrecords + ['XCLC'], target_sig='CELL')
-            cell_cache[key_b] = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+            fl = subs['_header']['flags'] if (subs and '_header' in subs) else 0
+            sub_dict = {k: v for k, v in subs.items() if not k.startswith('_')} if subs else {}
+            cell_cache[key_b] = (sub_dict, fl)
 
-        data_a = cell_cache[key_a]
-        data_b = cell_cache[key_b]
+        data_a, flags_a = cell_cache[key_a]
+        data_b, flags_b = cell_cache[key_b]
+
+        is_partial_a = bool(flags_a & 0x00004000)
+        is_partial_b = bool(flags_b & 0x00004000)
+        has_partial = is_partial_a or is_partial_b
 
         # 1. Steuerdaten-Vergleich
-        diff_keys = [k for k in target_cell_subrecords if data_a.get(k) != data_b.get(k)]
-        xclc_a = data_a.get('XCLC')
-        xclc_b = data_b.get('XCLC')
-        if xclc_a and xclc_b and len(xclc_a) >= 8 and len(xclc_b) >= 8:
-            if xclc_a[:8] != xclc_b[:8]:
+        if has_partial:
+            # Bei gesetztem Partial-Form-Flag ignoriert die Engine den Datensatzkörper der Mod;
+            # es existieren keine Raumdaten-Kollisionen (Licht, Wasser, Nebel, Resets).
+            diff_keys = []
+            has_cell_diff = False
+        else:
+            diff_keys = [k for k in target_cell_subrecords if data_a.get(k) != data_b.get(k)]
+            xclc_a = data_a.get('XCLC')
+            xclc_b = data_b.get('XCLC')
+            if xclc_a and xclc_b and len(xclc_a) >= 8 and len(xclc_b) >= 8:
+                if xclc_a[:8] != xclc_b[:8]:
+                    diff_keys.append('XCLC')
+            elif xclc_a != xclc_b:
                 diff_keys.append('XCLC')
-        elif xclc_a != xclc_b:
-            diff_keys.append('XCLC')
 
-        has_cell_diff = len(diff_keys) > 0
+            has_cell_diff = len(diff_keys) > 0
 
         # 2. Bestehende Objekt-Overrides in dieser Zelle prüfen
         cur.execute("""
@@ -543,7 +547,6 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
         has_refr_override_conflict = refr_override_count > 0
 
         # 3. Bounding-Box-Überlappung für Neubauten (Is_Override = 0)
-        # Nur berechnen, wenn beide Komponenten überhaupt neue Platzierungen in dieser Zelle haben
         cur.execute("""
             SELECT 
                 (SELECT 1 FROM Components_ESM_FormIDs WHERE Component_ID = ? AND Cell_FormID = ? AND Is_Override = 0 AND Sig IN ('REFR', 'ACHR') LIMIT 1),
@@ -559,9 +562,37 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
             has_bbox_overlap = False
 
         # 4. Diagnose-Synthese
-        if not has_cell_diff and not has_refr_override_conflict and not has_bbox_overlap:
+        if has_partial:
+            partial_who = (
+                f"beide Mods ('{name_a}' / '{name_b}')" if (is_partial_a and is_partial_b)
+                else (f"'{name_a}'" if is_partial_a else f"'{name_b}'")
+            )
+            if not has_refr_override_conflict and not has_bbox_overlap:
+                reason = (
+                    f"Partieller Anker-Container ({partial_who}): Record nutzt das Partial-Form-Flag (0x4000); "
+                    "Raum- und Umweltdaten werden im Spiel ignoriert. Keine Objekt- oder Wegfindungs-Kollisionen in dieser Zelle."
+                )
+                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason))
+            else:
+                if has_refr_override_conflict and not has_bbox_overlap:
+                    reason = (
+                        f"Partieller Anker-Container (Partial Form 0x4000): Raumdaten bleiben unberührt, "
+                        "jedoch überschreiben beide Mods dieselben bestehenden Vanilla-Objekte (REFR). Bauliche Elemente werden verdrängt oder blockiert."
+                    )
+                elif not has_refr_override_conflict and has_bbox_overlap:
+                    reason = (
+                        f"Partieller Anker-Container (Partial Form 0x4000): Raumdaten bleiben unberührt, "
+                        "jedoch platzieren beide Mods neue Objekte im selben Baubereich. Akute Gefahr von ineinander clippenden Gebäuden."
+                    )
+                else:
+                    reason = (
+                        f"Partieller Anker-Container (Partial Form 0x4000): Raumdaten bleiben unberührt; "
+                        "jedoch kombinierte REFR-Overrides und Bounding-Box-Überlappung im selben Baubereich."
+                    )
+                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason))
+        elif not has_cell_diff and not has_refr_override_conflict and not has_bbox_overlap:
             reason = "Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."
-            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason))
         else:
             if not has_cell_diff and has_refr_override_conflict and not has_bbox_overlap:
                 reason = "Objekt-Konflikt im Raum: Steuerdaten sind identisch, jedoch überschreiben beide Mods dieselben bestehenden Vanilla-Objekte (REFR). Bauliche Elemente werden verdrängt oder blockiert."
@@ -573,7 +604,7 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
                 reason = _build_cell_diff_reason(diff_keys, context="separate")
             else:
                 reason = _build_cell_diff_reason(diff_keys, context="combined")
-            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
@@ -631,20 +662,11 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     from Structure.File_ESM_Parser_Dynamic import get_subrecords, compare_text_subrecords
 
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               c1.File AS File_A, c2.File AS File_B,
-               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B,
-               COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_A) AS Mod_Name_A,
-               COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_B) AS Mod_Name_B
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
+               mc.Component_File_A AS File_A, mc.Component_File_B AS File_B,
+               mc.Mod_Name_A, mc.Mod_Name_B
         FROM Mods_Conflicts mc
-        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
-        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
-        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
-        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
-        JOIN Mods m1 ON mc.Mod_ID_A = m1.ID
-        JOIN Mods m2 ON mc.Mod_ID_B = m2.ID
-        WHERE mc.Sig = 'LCTN' AND mc.Conflict_Type > 0
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        WHERE mc.Sig = 'LCTN' AND mc.Conflict_Type > 0;
     """)
     lctn_rows = cur.fetchall()
 
@@ -656,7 +678,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     demoted_type_1 = []
     qualified_type_2 = []
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b, name_a, name_b in lctn_rows:
+    for comp_id_a, comp_id_b, form_id, sig, file_a, file_b, name_a, name_b in lctn_rows:
         key_a = (file_a, form_id)
         if key_a not in lctn_cache:
             subs = get_subrecords(file_a, form_id, primary_keys + array_keys, target_sig='LCTN')
@@ -685,7 +707,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
 
         if has_attr_diff:
             reason = _build_lctn_diff_reason(diff_primary)
-            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason))
             continue
 
         # 2. Rollen-Array-Vergleich (ACSR / LCSR)
@@ -729,13 +751,13 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
                     f"({len(custom_a)} vs. {len(custom_b)}). Die spätere Mod verdrängt Rollenzuweisungen der früheren Mod im Story Manager; "
                     f"Missionsabläufe können beeinträchtigt werden."
                 )
-                qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason))
+                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason))
             else:
                 reason = (
                     f"Rollen-Zuweisung in Location (ACSR): Beide Mods deklarieren eigene Rollen/Referenzen ({len(custom_a)} vs. {len(custom_b)}). "
                     f"Die spätere Mod gewinnt ihre Zuweisungen im Story Manager; Stabilität und Raumgeometrie bleiben unberührt."
                 )
-                demoted_type_1.append((mod_id_a, mod_id_b, form_id, sig, reason))
+                demoted_type_1.append((comp_id_a, comp_id_b, form_id, sig, reason))
         else:
             # Mindestens eine Mod ist ein reines CK-Resave (fügt keine eigenen Rollen hinzu)
             if not custom_a and not custom_b:
@@ -744,7 +766,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
                 reason = f"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '{name_b}' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."
             else:
                 reason = f"Identischer Mitläufer (CK-Resave): Primärdaten sind identisch; '{name_a}' fügt keine eigenen Rollen/FormIDs (ACSR) hinzu."
-            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason))
+            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_1 = _update_conflicts_batch(cur, step_id, step_desc, 1, demoted_type_1)
@@ -768,20 +790,12 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     from Structure.File_ESM_Parser_Dynamic import get_records_context
 
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               c1.File AS File_A, c2.File AS File_B,
-               c1.ID AS Comp_ID_A, c2.ID AS Comp_ID_B,
-               COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_A) AS Mod_Name_A,
-               COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || mc.Mod_ID_B) AS Mod_Name_B
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
+               mc.Component_File_A AS File_A, mc.Component_File_B AS File_B,
+               mc.Mod_ID_A, mc.Mod_ID_B,
+               mc.Mod_Name_A, mc.Mod_Name_B
         FROM Mods_Conflicts mc
-        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
-        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
-        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
-        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
-        JOIN Mods m1 ON mc.Mod_ID_A = m1.ID
-        JOIN Mods m2 ON mc.Mod_ID_B = m2.ID
-        WHERE mc.Sig = 'NAVM' AND mc.Conflict_Type > 0
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        WHERE mc.Sig = 'NAVM' AND mc.Conflict_Type > 0;
     """)
     navm_rows = cur.fetchall()
     if not navm_rows:
@@ -790,8 +804,8 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     # 1. Alle benötigten ESM-Komponenten ermitteln und deren NAVMs via get_records_context cachen
     comp_ids = set()
     for r in navm_rows:
-        comp_ids.add(r[6])
-        comp_ids.add(r[7])
+        comp_ids.add(r[0])
+        comp_ids.add(r[1])
 
     navm_cache = {}
     for cid in comp_ids:
@@ -859,7 +873,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     qualified_type_2 = []
     qualified_type_3 = []
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, comp_id_a, comp_id_b, name_a, name_b in navm_rows:
+    for comp_id_a, comp_id_b, form_id, sig, file_a, file_b, mod_id_a, mod_id_b, name_a, name_b in navm_rows:
         entry_a = navm_cache.get(comp_id_a, {}).get(form_id)
         entry_b = navm_cache.get(comp_id_b, {}).get(form_id)
 
@@ -872,7 +886,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
         # 1. Identitätsprüfung
         if data_a and data_b and data_a == data_b:
             reason = "Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel."
-            demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, None))
+            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, None))
             continue
 
         is_packin, cell_edid = get_cell_info(cell_fid)
@@ -892,10 +906,10 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
             cnt_b = count_cell_refs(comp_id_b, cell_fid)
             if cnt_a == 0 and cnt_b == 0:
                 reason = f"Pack-In Wegfindungs-Resave{loc_str}: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn). Keine festen Weltplatzierungen; Auswirkung beschränkt sich auf das platzierte Einzelbauteil."
-                demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
             else:
                 reason = f"Pack-In Layout-Konflikt{loc_str}: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf. Die spätere Mod bestimmt das NavMesh des Bauteils."
-                qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
             continue
 
         # 3. Reale Weltzelle
@@ -909,7 +923,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
                 f"Gegenseitige Zerstörung des Wegnetzes."
             )
-            qualified_type_3.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
         elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):
             # Asymmetrisch: Eine Mod baut, die andere resaved
             if cnt_a > 0:
@@ -930,7 +944,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
                     f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
                 )
-                demoted_type_0.append((mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
             else:
                 reason = (
                     f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
@@ -939,7 +953,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
                     f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
                 )
-                qualified_type_3.append((mod_id_a, mod_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+                qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
         else:
             # Reine NavMesh-Optimierung (keine neuen Referenzen)
             reason = (
@@ -947,7 +961,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods überarbeiten das NavMesh ohne bauliche Veränderungen. "
                 f"Die spätere Mod überschreibt die Wegfindungskorrekturen der früheren Mod."
             )
-            qualified_type_2.append((mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
@@ -1217,17 +1231,12 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     3. Fallback: Unbehandelte REFR verbleiben in der bisherigen Basiseinstufung.
     """
     cur.execute("""
-        SELECT mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID, mc.Sig,
-               c1.File AS File_A, c2.File AS File_B,
+        SELECT mc.Component_ID_A, mc.Component_ID_B, mc.FormID, mc.Sig,
+               mc.Component_File_A AS File_A, mc.Component_File_B AS File_B,
                mc.Base_FormID, mc.Base_EDID, mc.Cell_FormID, mc.Cell_EDID,
                mc.Mod_Name_A, mc.Mod_Name_B
         FROM Mods_Conflicts mc
-        JOIN Mods_Components mcomp1 ON mc.Mod_ID_A = mcomp1.Mod_ID
-        JOIN Components c1 ON mcomp1.Component_ID = c1.ID AND c1.File LIKE '%.esm'
-        JOIN Mods_Components mcomp2 ON mc.Mod_ID_B = mcomp2.Mod_ID
-        JOIN Components c2 ON mcomp2.Component_ID = c2.ID AND c2.File LIKE '%.esm'
-        WHERE mc.Sig = 'REFR' AND mc.Conflict_Type > 0
-        GROUP BY mc.Mod_ID_A, mc.Mod_ID_B, mc.FormID;
+        WHERE mc.Sig = 'REFR' AND mc.Conflict_Type > 0;
     """)
     refr_rows = cur.fetchall()
 
@@ -1235,13 +1244,13 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     qualified_type_2 = []
     sub_cache = {}
 
-    for mod_id_a, mod_id_b, form_id, sig, file_a, file_b, base_fid, base_edid, cell_fid, cell_edid, name_a, name_b in refr_rows:
+    for comp_id_a, comp_id_b, form_id, sig, file_a, file_b, base_fid, base_edid, cell_fid, cell_edid, name_a, name_b in refr_rows:
         # Sub-Handler 8.1: NavMeshSplines (Base 505)
         handled, c_type, reason = _check_refr_navmesh_splines(
             file_a, file_b, form_id, base_fid, base_edid, sub_cache
         )
         if handled:
-            rec_tuple = (mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
+            rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
             if c_type == 0:
                 demoted_type_0.append(rec_tuple)
             elif c_type == 2:
@@ -1253,7 +1262,7 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
             file_a, file_b, form_id, base_fid, base_edid, name_a, name_b, sub_cache
         )
         if handled:
-            rec_tuple = (mod_id_a, mod_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
+            rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
             if c_type == 0:
                 demoted_type_0.append(rec_tuple)
             elif c_type == 2:
@@ -1416,12 +1425,15 @@ def analyze_conflicts(db_path=None, reporter=None):
         cur.execute("PRAGMA synchronous = NORMAL;")
 
         # 1. Sicherstellen, dass der Basis-View existiert
+        cur.execute("DROP VIEW IF EXISTS View_Mods_Conflicts_FormID_Base;")
         cur.execute("""
-        CREATE VIEW IF NOT EXISTS View_Mods_Conflicts_FormID_Base AS
+        CREATE VIEW View_Mods_Conflicts_FormID_Base AS
         WITH RawPairs AS (
             SELECT DISTINCT
                 CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN mc1.Mod_ID ELSE mc2.Mod_ID END AS Mod_ID_A,
+                CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN f1.Component_ID ELSE f2.Component_ID END AS Component_ID_A,
                 CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN mc2.Mod_ID ELSE mc1.Mod_ID END AS Mod_ID_B,
+                CASE WHEN mc1.Mod_ID < mc2.Mod_ID THEN f2.Component_ID ELSE f1.Component_ID END AS Component_ID_B,
                 f1.Master_Component_ID,
                 f1.Master_Is_System,
                 f1.FormID_Local,
@@ -1445,8 +1457,12 @@ def analyze_conflicts(db_path=None, reporter=None):
         SELECT 
             p.Mod_ID_A,
             COALESCE(m1.Name_Online, m1.Name_ContentCatalog, 'Mod ' || p.Mod_ID_A) AS Mod_Name_A,
+            p.Component_ID_A,
+            c1.File AS Component_File_A,
             p.Mod_ID_B,
             COALESCE(m2.Name_Online, m2.Name_ContentCatalog, 'Mod ' || p.Mod_ID_B) AS Mod_Name_B,
+            p.Component_ID_B,
+            c2.File AS Component_File_B,
             p.Sig,
             p.FormID_Local AS FormID,
             COALESCE(
@@ -1470,13 +1486,15 @@ def analyze_conflicts(db_path=None, reporter=None):
         FROM RawPairs p
         JOIN Mods m1 ON p.Mod_ID_A = m1.ID
         JOIN Mods m2 ON p.Mod_ID_B = m2.ID
+        JOIN Components c1 ON p.Component_ID_A = c1.ID
+        JOIN Components c2 ON p.Component_ID_B = c2.ID
         LEFT JOIN Components_ESM_FormIDs f1 
           ON p.FormID_Local = f1.FormID_Local 
-         AND f1.Component_ID IN (SELECT Component_ID FROM Mods_Components WHERE Mod_ID = p.Mod_ID_A)
+         AND f1.Component_ID = p.Component_ID_A
          AND f1.Is_Override = 1
         LEFT JOIN Components_ESM_FormIDs f2 
           ON p.FormID_Local = f2.FormID_Local 
-         AND f2.Component_ID IN (SELECT Component_ID FROM Mods_Components WHERE Mod_ID = p.Mod_ID_B)
+         AND f2.Component_ID = p.Component_ID_B
          AND f2.Is_Override = 1
         LEFT JOIN Components_System_FormIDs sys 
           ON p.FormID_Local = sys.FormID_Local AND p.Sig = sys.Sig
@@ -1490,7 +1508,7 @@ def analyze_conflicts(db_path=None, reporter=None):
           ON b_mod.FormID_Local = COALESCE(f1.Base_FormID, f2.Base_FormID)
         LEFT JOIN Components_System_FormIDs b_sys
           ON b_sys.FormID_Local = COALESCE(f1.Base_FormID, f2.Base_FormID)
-        GROUP BY p.Mod_ID_A, p.Mod_ID_B, p.FormID_Local, p.Sig;
+        GROUP BY p.Component_ID_A, p.Component_ID_B, p.FormID_Local, p.Sig;
         """)
 
         # 2. DROP TABLE IF EXISTS & CREATE TABLE Mods_Conflicts
@@ -1499,8 +1517,12 @@ def analyze_conflicts(db_path=None, reporter=None):
         CREATE TABLE Mods_Conflicts (
             Mod_ID_A             INTEGER NOT NULL,
             Mod_Name_A           TEXT,
+            Component_ID_A       INTEGER NOT NULL,
+            Component_File_A     TEXT,
             Mod_ID_B             INTEGER NOT NULL,
             Mod_Name_B           TEXT,
+            Component_ID_B       INTEGER NOT NULL,
+            Component_File_B     TEXT,
             Sig                  TEXT NOT NULL,
             FormID               INTEGER NOT NULL,
             EDID                 TEXT,
@@ -1514,7 +1536,7 @@ def analyze_conflicts(db_path=None, reporter=None):
             Reason               TEXT,
             ID_Mod_Requirement   INTEGER,
             ID_Mod_Dependent     INTEGER,
-            PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
+            PRIMARY KEY (Component_ID_A, Component_ID_B, FormID, Sig)
         );
         """)
 
@@ -1522,14 +1544,16 @@ def analyze_conflicts(db_path=None, reporter=None):
         print("   -> Lese Datensätze aus View_Mods_Conflicts_FormID_Base ein...")
         cur.execute("""
         INSERT INTO Mods_Conflicts (
-            Mod_ID_A, Mod_Name_A, Mod_ID_B, Mod_Name_B,
+            Mod_ID_A, Mod_Name_A, Component_ID_A, Component_File_A,
+            Mod_ID_B, Mod_Name_B, Component_ID_B, Component_File_B,
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
             Base_FormID, Base_EDID,
             Step_ID, Step_Description, Conflict_Type, Reason
         )
         SELECT 
-            Mod_ID_A, Mod_Name_A, Mod_ID_B, Mod_Name_B,
+            Mod_ID_A, Mod_Name_A, Component_ID_A, Component_File_A,
+            Mod_ID_B, Mod_Name_B, Component_ID_B, Component_File_B,
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
             Base_FormID, Base_EDID,
@@ -1556,9 +1580,12 @@ def analyze_conflicts(db_path=None, reporter=None):
         # 5. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
         print("   -> Erstelle Indizes auf Mods_Conflicts...")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_pair ON Mods_Conflicts (Mod_ID_A, Mod_ID_B);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_comp ON Mods_Conflicts (Component_ID_A, Component_ID_B);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_formid ON Mods_Conflicts (FormID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sig ON Mods_Conflicts (Sig);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_type ON Mods_Conflicts (Conflict_Type);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sort_deps ON Mods_Conflicts (ID_Mod_Requirement, ID_Mod_Dependent);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sort_deps ON Mods_Conflicts (ID_Mod_Requirement, ID_Mod_Dependent);")
 

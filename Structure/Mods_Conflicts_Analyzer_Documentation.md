@@ -32,8 +32,12 @@ Die Tabelle wird bei jedem Durchlauf des Analyzers frisch erstellt und indiziert
 
 ```sql
 CREATE TABLE Mods_Conflicts (
+    Component_ID_A    INTEGER NOT NULL,
+    Component_File_A  TEXT NOT NULL,
     Mod_ID_A          INTEGER NOT NULL,
     Mod_Name_A        TEXT,
+    Component_ID_B    INTEGER NOT NULL,
+    Component_File_B  TEXT NOT NULL,
     Mod_ID_B          INTEGER NOT NULL,
     Mod_Name_B        TEXT,
     Sig               TEXT NOT NULL,
@@ -49,15 +53,18 @@ CREATE TABLE Mods_Conflicts (
     Reason            TEXT,
     ID_Mod_Requirement INTEGER,
     ID_Mod_Dependent   INTEGER,
-    PRIMARY KEY (Mod_ID_A, Mod_ID_B, FormID, Sig)
+    PRIMARY KEY (Component_ID_A, Component_ID_B, FormID, Sig)
 );
+CREATE INDEX IF NOT EXISTS idx_mods_conflicts_comp ON Mods_Conflicts (Component_ID_A, Component_ID_B);
 ```
 
 ### Spaltenbeschreibung:
 | Spalte | Datentyp | Beschreibung |
 | :--- | :--- | :--- |
-| `Mod_ID_A` / `Mod_Name_A` | `INTEGER` / `TEXT` | Erste Mod des Paares (`Mod_ID_A < Mod_ID_B`). |
-| `Mod_ID_B` / `Mod_Name_B` | `INTEGER` / `TEXT` | Zweite Mod des Paares. |
+| `Component_ID_A` / `Component_File_A` | `INTEGER` / `TEXT` | Erste Mod-Komponente (ESM-Datei) des Paares (`Component_ID_A < Component_ID_B`). |
+| `Mod_ID_A` / `Mod_Name_A` | `INTEGER` / `TEXT` | Übergeordnete Mod von Komponente A. |
+| `Component_ID_B` / `Component_File_B` | `INTEGER` / `TEXT` | Zweite Mod-Komponente (ESM-Datei) des Paares. |
+| `Mod_ID_B` / `Mod_Name_B` | `INTEGER` / `TEXT` | Übergeordnete Mod von Komponente B. |
 | `Sig` | `TEXT` | 4-stellige CE2-Recordsignatur (z. B. `CELL`, `WEAP`, `QUST`). |
 | `FormID` | `INTEGER` | Lokale 24-Bit FormID des Datensatzes. |
 | `EDID` | `TEXT` | Editor-ID des Datensatzes. |
@@ -85,8 +92,16 @@ CONFLICT_PIPELINE_STEPS = [
     (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
     (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
     (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
+    (8, "Platzierungs- & Referenz-Analyse", _step_refr_placements),
 ]
 ```
+
+### Komponenten-Präzision bei Multi-ESM-Mods:
+Frühere Versionen verknüpften die Master-Kollisionen ausschließlich über `Mod_ID_A` und `Mod_ID_B` und wählten bei Multi-ESM-Mods (z. B. Mod 1 *Trackerallianz* mit 6 ESM-Dateien) über `JOIN Mods_Components ... GROUP BY Mod_ID_A, Mod_ID_B, FormID` eine willkürliche Dateikomponente. Dies führte bei Unterobjekt- und Subrecord-Prüfungen (Schritte 4–8) zu leeren Diffs und falschen Einstufungen.
+Durch die Verankerung von `Component_ID_A`, `Component_File_A`, `Component_ID_B` und `Component_File_B` in `View_Mods_Conflicts_FormID_Base` und `Mods_Conflicts`:
+1. Entfallen in allen Schritten 4–8 fehleranfällige und langsame Joins auf `Mods_Components`.
+2. Werden exakt diejenigen ESM-Komponentendateien verglichen, die den Record tatsächlich überschreiben.
+3. Bleibt die Aggregation auf Mod-Ebene für die Benutzeroberfläche und die Ladereihenfolge-Regeln (`Mod_ID_A`, `Mod_ID_B`, `Mod_Name_A`, `Mod_Name_B`) vollständig erhalten.
 
 ### Modulare Rückspeicher-Schnittstelle:
 Alle Prüfschritte delegieren ihre Datenbank-Aktualisierungen an die zentrale Funktion:
@@ -114,10 +129,11 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
    * **Bei abweichenden Steuerdaten:** Werden die exakt differierenden Subrecords (`diff_keys`) ermittelt und gezielte Symptome abgeleitet. Der Datensatz wird ebenfalls auf `Step_ID = 4`, `Step_Description = 'Worldspace-Subrecord-Analyse'`, `Conflict_Type = 2` fortgeschrieben (z. B. `Reason = 'Abweichende Steuer-Subrecords (CNAM, DATA, DNAM): Plötzliche Wetterabbrüche (Popping) oder veränderte Wetterzyklen sowie veränderte Standard-Geländehöhen oder verschobene Kartengrenzen möglich.'`).
 
 5. **Schritt 5: `_step_cell_containers` (Zellen-Subrecord- & Platzierungs-Analyse)**
-   * Führt für verbleibende aktive CELL-Kollisionen eine orthogonale Drei-Punkte-Diagnose durch:
-     1. **Steuerdaten-Vergleich:** Prüft `DATA`, `LTMP`, `XCLW`, `XCLL`, `XILS`, `XCAS`, `XEZN`, `XCMT` sowie die Raster-Koordinaten in `XCLC`.
-     2. **Bestehende Objekt-Overrides:** Prüft via `Components_ESM_FormIDs`, ob in dieser Zelle dieselben Vanilla-Objekte (`REFR`/`ACHR` mit `Is_Override = 1`) von beiden Mods überschrieben werden.
-     3. **Neubau-Überlappung (Bounding-Box):** Berechnet die 2D-Bounding-Boxes neu platzierter Objekte (`Is_Override = 0`) und prüft auf räumliche Überschneidungen zweier Neubauten im selben Baubereich.
+   * Führt für verbleibende aktive CELL-Kollisionen eine orthogonale Vier-Punkte-Diagnose durch:
+     1. **Partial-Form Erkennung (`0x4000` / Bit 14):** Liest die Record-Header-Flags beider Datensätze via `File_ESM_Parser_Dynamic`. Wenn mindestens eine Mod das Partial-Form-Flag gesetzt hat, signalisiert sie der Creation Engine 2, dass die Raum- und Beleuchtungsdaten der Master-Zelle erhalten bleiben und der Record lediglich als Container/Anker für neu platzierte Unterobjekte dient. Der Engine-seitige Raumdaten-Vergleich entfällt hierbei (`has_cell_diff = False`).
+     2. **Steuerdaten-Vergleich (bei Nicht-Partial-Zellen):** Prüft `DATA`, `LTMP`, `XCLW`, `XCLL`, `XILS`, `XCAS`, `XEZN`, `XCMT` sowie die Raster-Koordinaten in `XCLC`.
+     3. **Bestehende Objekt-Overrides:** Prüft via `Components_ESM_FormIDs`, ob in dieser Zelle dieselben Vanilla-Objekte (`REFR`/`ACHR` mit `Is_Override = 1`) von beiden Mods überschrieben werden.
+     4. **Neubau-Überlappung (Bounding-Box):** Berechnet die 2D-Bounding-Boxes neu platzierter Objekte (`Is_Override = 0`) und prüft auf räumliche Überschneidungen zweier Neubauten im selben Baubereich.
    * **Synthese der Symptombegründung (`_build_cell_diff_reason`):**  
      Abweichende Subrecords werden analog zu Schritt 4 in 6 funktionale Symptom-Cluster überführt:
      * *Beleuchtung & Bildfilter (`LTMP`, `XCLL`, `XILS`):* Abrupte Helligkeits-, Nebel- oder Kontrastsprünge beim Raumwechsel sowie veränderte Raumlicht-Stimmungen.
@@ -127,9 +143,11 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
      * *Raum-Flags (`DATA`):* Abweichende Raum-Flags (Gefahr von unpassenden Schnellreise-Sperren oder unberechtigten Trespass-Warnungen).
      * *Worldspace-Raster (`XCLC`):* Koordinaten-Versatz im Worldspace-Raster (Gefahr von Nahtstellenrissen im Außengelände).
    * **Ergebnis:**
-     * Bei deckungsgleichen Steuerdaten ohne Objektkonflikte und ohne räumliche Überdeckung: Abstufung auf `Step_ID = 5`, `Step_Description = 'Zellen-Subrecord- & Platzierungs-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."*).
-     * Bei abweichenden Steuerdaten bei getrennten Baustellen: Fortschreibung auf `Conflict_Type = 2` mit präziser Symptombegründung (*"Raumdaten weichen ab (<Subrecords>): <Symptome>; Objektplatzierungen sind getrennt."*).
-     * Bei kombinierten Raum- und Platzierungskonflikten: Fortschreibung auf `Conflict_Type = 2` (*"Kombinierter Raum- und Platzierungskonflikt (<Subrecords>): <Symptome> UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."*).
+     * **Partial-Form Zelle ohne Platzierungskonflikt:** Abstufung auf `Step_ID = 5`, `Step_Description = 'Zellen-Subrecord- & Platzierungs-Analyse'`, `Conflict_Type = 0` (*"Partial-Form Zelle: Raumdaten werden engine-seitig ignoriert; getrennte Baustellen ohne Raum- oder Objektkonflikte."*).
+     * **Partial-Form Zelle mit kollidierenden Platzierungen:** Einstufung auf `Conflict_Type = 2` (*"Partial-Form Zelle: Raumdaten ignoriert, jedoch konkurrierende Platzierungen..."*).
+     * **Deckungsgleiche Voll-Zellen (ohne Platzierungskonflikte):** Abstufung auf `Step_ID = 5`, `Step_Description = 'Zellen-Subrecord- & Platzierungs-Analyse'`, `Conflict_Type = 0` (*"Identischer Mitläufer: Steuerdaten (CELL) sind 100% deckungsgleich; getrennte Baustellen ohne Raum- oder Objektkonflikte."*).
+     * **Abweichende Steuerdaten bei getrennten Baustellen:** Fortschreibung auf `Conflict_Type = 2` mit präziser Symptombegründung (*"Raumdaten weichen ab (<Subrecords>): <Symptome>; Objektplatzierungen sind getrennt."*).
+     * **Kombinierte Raum- und Platzierungskonflikte:** Fortschreibung auf `Conflict_Type = 2` (*"Kombinierter Raum- und Platzierungskonflikt (<Subrecords>): <Symptome> UND konkurrierende Objektplatzierungen (REFR) in derselben Zelle."*).
 
 6. **Schritt 6: `_step_lctn_resaves` (Location-Subrecord- & Rollen-Analyse)**
    * Führt für verbleibende aktive LCTN-Kollisionen einen Abgleich der Primärattribute (`FULL`, `KWDA`, `DATA`, `PNAM`, `RNAM`, `ANAM`, `TNAM`) und der 20-Byte-Referenzlisten (`ACSR`, `ACPR`, `ACUN`, `LCSR`, `LCPR`, `LCUN`) via `File_ESM_Parser_Dynamic` durch.

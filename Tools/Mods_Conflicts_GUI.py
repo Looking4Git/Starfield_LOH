@@ -600,7 +600,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
             where_sql = "WHERE " + " AND ".join(where_conditions)
 
             query = f"""
-                SELECT Step_Description, Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason, ID_Mod_Requirement, ID_Mod_Dependent
+                SELECT Step_Description, Conflict_Type, Sig, FormID, EDID, Cell_FormID, Cell_EDID, Base_FormID, Base_EDID, Reason, ID_Mod_Requirement, ID_Mod_Dependent, Component_File_A, Component_File_B
                 FROM Mods_Conflicts
                 {where_sql}
                 ORDER BY Conflict_Type DESC, Sig ASC, FormID ASC;
@@ -611,13 +611,15 @@ class ModsConflictsInspectorWindow(QMainWindow):
             self.model.removeRows(0, self.model.rowCount())
 
             for row in rows:
-                step_desc, ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason, id_req, id_dep = row
+                step_desc, ctype, sig, formid, edid, cell_fid, cell_edid, base_fid, base_edid, reason, id_req, id_dep, comp_file_a, comp_file_b = row
 
                 # 0. Prüfschritt-Item
                 item_step = QStandardItem(step_desc if step_desc else "-")
                 tip_parts = []
                 if step_desc:
                     tip_parts.append(f"Qualifizierender Prüfschritt: {step_desc}")
+                if comp_file_a and comp_file_b:
+                    tip_parts.append(f"Beteiligte ESM-Dateien: {comp_file_a}  ⚡  {comp_file_b}")
                 if id_req and id_dep:
                     tip_parts.append(f"Ladereihenfolge-Regel: Mod {id_req} muss VOR Mod {id_dep} geladen werden.")
                 if tip_parts:
@@ -652,7 +654,10 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 item_base_edid = QStandardItem(base_edid if base_edid else "-")
                 item_reason = QStandardItem(reason if reason else "-")
                 if reason:
-                    item_reason.setToolTip(reason)
+                    reason_tip = reason
+                    if comp_file_a and comp_file_b:
+                        reason_tip = f"[{comp_file_a} vs {comp_file_b}]\n{reason}"
+                    item_reason.setToolTip(reason_tip)
 
                 # Dezent ausgrauen, falls Typ 0 eingeblendet ist
                 if ctype == 0:

@@ -2161,3 +2161,10 @@ CREATE INDEX "idx_mods_conflicts_pair" ON "Mods_Conflicts" ("Mod_ID_A", "Mod_ID_
 CREATE INDEX "idx_mods_conflicts_formid" ON "Mods_Conflicts" ("FormID");
 CREATE INDEX "idx_mods_conflicts_sig" ON "Mods_Conflicts" ("Sig");
 CREATE INDEX "idx_mods_conflicts_type" ON "Mods_Conflicts" ("Conflict_Type");
+
+CREATE TABLE "LOH_Executions" (
+    "Script_Name" TEXT PRIMARY KEY,
+    "Date"        TEXT NOT NULL,
+    "Time_Start"  TEXT NOT NULL,
+    "Time_End"    TEXT
+);

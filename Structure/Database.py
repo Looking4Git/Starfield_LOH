@@ -3,6 +3,7 @@
 import os
 import sqlite3
 import logging
+from datetime import datetime, date
 
 from Structure.Paths import DB_FILE, MOD_IMAGES_DIR
 
@@ -915,6 +916,276 @@ def get_mod_conflicts_matrix(mod_id: int) -> list[dict]:
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_mod_conflicts_matrix für Mod ID {mod_id}: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+def init_loh_executions_table() -> bool:
+    """
+    Erstellt die Tabelle LOH_Executions idempotent in der SQLite-Datenbank,
+    falls diese noch nicht existiert. Time_End ist NULL-fähig (für gestartete, aber abgebrochene Läufe).
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS LOH_Executions (
+                Script_Name TEXT PRIMARY KEY,
+                Date        TEXT NOT NULL,
+                Time_Start  TEXT NOT NULL,
+                Time_End    TEXT
+            );
+        """)
+        # Migration falls Alttabelle Time_End als NOT NULL angelegt hatte
+        cursor.execute("PRAGMA table_info(LOH_Executions)")
+        cols = cursor.fetchall()
+        for c in cols:
+            if c["name"] == "Time_End" and c["notnull"] == 1:
+                cursor.execute("""
+                    CREATE TABLE LOH_Executions_migrated (
+                        Script_Name TEXT PRIMARY KEY,
+                        Date        TEXT NOT NULL,
+                        Time_Start  TEXT NOT NULL,
+                        Time_End    TEXT
+                    );
+                """)
+                cursor.execute("INSERT INTO LOH_Executions_migrated SELECT Script_Name, Date, Time_Start, Time_End FROM LOH_Executions;")
+                cursor.execute("DROP TABLE LOH_Executions;")
+                cursor.execute("ALTER TABLE LOH_Executions_migrated RENAME TO LOH_Executions;")
+                break
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei init_loh_executions_table: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
+    """
+    Wird beim Start eines Skripts aufgerufen.
+    Setzt Date und Time_Start und löscht Time_End (setzt es auf NULL).
+    """
+    if start_dt is None:
+        start_dt = datetime.now()
+    init_loh_executions_table()
+    date_str = start_dt.strftime("%Y-%m-%d")
+    time_start_str = start_dt.strftime("%H:%M:%S")
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End)
+            VALUES (?, ?, ?, NULL)
+            ON CONFLICT(Script_Name) DO UPDATE SET
+                Date = excluded.Date,
+                Time_Start = excluded.Time_Start,
+                Time_End = NULL;
+        """, (script_name, date_str, time_start_str))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei record_script_start für {script_name}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def record_script_end(script_name: str, end_dt: datetime = None) -> bool:
+    """
+    Wird bei erfolgreichem Abschluss eines Skripts aufgerufen.
+    Setzt Time_End für das Skript.
+    """
+    if end_dt is None:
+        end_dt = datetime.now()
+    init_loh_executions_table()
+    time_end_str = end_dt.strftime("%H:%M:%S")
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE LOH_Executions
+            SET Time_End = ?
+            WHERE Script_Name = ?;
+        """, (time_end_str, script_name))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei record_script_end für {script_name}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def record_script_execution(script_name: str, start_dt: datetime, end_dt: datetime = None) -> bool:
+    """
+    Kombinierte Hilfsfunktion: Setzt Startzeit (löscht Time_End) und trägt optional direkt Time_End ein.
+    """
+    ok = record_script_start(script_name, start_dt)
+    if ok and end_dt is not None:
+        return record_script_end(script_name, end_dt)
+    return ok
+
+def set_script_execution_manual(script_name: str, date_str: str, time_start: str = "12:00:00", time_end: str = "12:05:00") -> bool:
+    """
+    Setzt manuell ein Ausführungsdatum in LOH_Executions für Test- und Simulationszwecke.
+    """
+    init_loh_executions_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End)
+            VALUES (?, ?, ?, ?)
+        """, (script_name, date_str, time_start, time_end))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei set_script_execution_manual für {script_name}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def get_script_last_execution(script_name: str) -> dict | None:
+    """
+    Liest den letzten protokollierten Ausführungszeitpunkt eines Skripts aus LOH_Executions aus.
+    """
+    init_loh_executions_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End FROM LOH_Executions WHERE Script_Name = ?", (script_name,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+        return None
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_script_last_execution für {script_name}: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def check_sorter_prerequisites() -> dict:
+    """
+    Prüft alle Vorbedingungen für den LoadOrder_Sorter:
+    - Anzahl installierter Mods (State = 1)
+    - Anzahl unvollständiger Kategorien (Category_LOH IS NULL oder 0)
+    - Anzahl unvollständiger Kategorisierer-Werte (Category_LOH_Classifier IS NULL oder 0)
+    - Anzahl Abweichungen zwischen Category_LOH und Category_LOH_Classifier
+    - Datumsprüfung: Neu installierte Creations-Mods (Platform = 1) neuer als letzter Kategorisierer- oder Konflikt-Lauf
+    """
+    init_loh_executions_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Installierte Mods (State = 1)
+        cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1")
+        installed_mods_count = cursor.fetchone()[0]
+        
+        # 2. Unvollständige Category_LOH
+        cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1 AND (Category_LOH IS NULL OR Category_LOH = 0)")
+        unassigned_loh_count = cursor.fetchone()[0]
+        
+        # 3. Unvollständige Category_LOH_Classifier
+        cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1 AND (Category_LOH_Classifier IS NULL OR Category_LOH_Classifier = 0)")
+        unassigned_classifier_count = cursor.fetchone()[0]
+        
+        # 4. Abweichungen zwischen Category_LOH und Category_LOH_Classifier
+        cursor.execute("""
+            SELECT COUNT(*) FROM Mods 
+            WHERE State = 1 
+              AND Category_LOH IS NOT NULL AND Category_LOH != 0
+              AND Category_LOH_Classifier IS NOT NULL AND Category_LOH_Classifier != 0
+              AND Category_LOH != Category_LOH_Classifier
+        """)
+        diff_categories_count = cursor.fetchone()[0]
+        
+        # 5. Letzte Ausführungsdaten ermitteln (nur erfolgreich beendete mit Time_End)
+        cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End FROM LOH_Executions WHERE Time_End IS NOT NULL AND TRIM(Time_End) != ''")
+        executions = {row["Script_Name"]: dict(row) for row in cursor.fetchall()}
+        
+        classifier_exec = executions.get("Category_LOH_Classifier.py")
+        conflicts_exec = executions.get("Mods_Conflicts_Analyzer.py")
+        
+        def parse_date_str(val: str) -> date | None:
+            if not val:
+                return None
+            val = val.strip()
+            for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+                try:
+                    return datetime.strptime(val, fmt).date()
+                except ValueError:
+                    pass
+            return None
+
+        classifier_date = parse_date_str(classifier_exec["Date"]) if classifier_exec else None
+        conflicts_date = parse_date_str(conflicts_exec["Date"]) if conflicts_exec else None
+        
+        # 6. Creations-Mods (Platform = 1) auf neuere Installationsdaten prüfen
+        cursor.execute("""
+            SELECT ID, COALESCE(Name_Online, Name_ContentCatalog, 'Mod ' || ID) AS Name, Date_installed
+            FROM Mods
+            WHERE State = 1 AND Platform = 1 AND Date_installed IS NOT NULL AND TRIM(Date_installed) != ''
+        """)
+        creation_mods = cursor.fetchall()
+        
+        newer_mods_classifier = []
+        newer_mods_conflicts = []
+        
+        for mod in creation_mods:
+            mod_date = parse_date_str(mod["Date_installed"])
+            if mod_date:
+                if classifier_date is None or mod_date > classifier_date:
+                    newer_mods_classifier.append(mod["Name"])
+                if conflicts_date is None or mod_date > conflicts_date:
+                    newer_mods_conflicts.append(mod["Name"])
+            elif classifier_date is None:
+                newer_mods_classifier.append(mod["Name"])
+                newer_mods_conflicts.append(mod["Name"])
+        
+        # Falls gar keine Executions vorliegen, aber Mods vorhanden sind
+        if installed_mods_count > 0:
+            if classifier_date is None:
+                newer_mods_classifier = ["(Kategorisierer wurde noch nie ausgeführt)"]
+            if conflicts_date is None:
+                newer_mods_conflicts = ["(Konfliktanalyse wurde noch nie ausgeführt)"]
+        
+        has_newer_mods = bool(newer_mods_classifier or newer_mods_conflicts)
+        
+        return {
+            "installed_mods_count": installed_mods_count,
+            "unassigned_loh_count": unassigned_loh_count,
+            "unassigned_classifier_count": unassigned_classifier_count,
+            "diff_categories_count": diff_categories_count,
+            "classifier_last_execution": classifier_exec,
+            "conflicts_last_execution": conflicts_exec,
+            "newer_mods_classifier": newer_mods_classifier,
+            "newer_mods_conflicts": newer_mods_conflicts,
+            "has_newer_mods": has_newer_mods
+        }
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei check_sorter_prerequisites: {e}")
+        return {
+            "installed_mods_count": 0,
+            "unassigned_loh_count": 0,
+            "unassigned_classifier_count": 0,
+            "diff_categories_count": 0,
+            "classifier_last_execution": None,
+            "conflicts_last_execution": None,
+            "newer_mods_classifier": [],
+            "newer_mods_conflicts": [],
+            "has_newer_mods": False
+        }
     finally:
         if conn:
             conn.close()

@@ -10,7 +10,8 @@ import math
 import re
 import sqlite3
 import logging
-from Structure.Database import get_db_connection
+from datetime import datetime
+from Structure.Database import get_db_connection, record_script_start, record_script_end
 
 
 def _log_result(cursor, step_id, mod_id, component_id, looser_id, winner_id, type_id, reason, step_description=None):
@@ -4030,6 +4031,8 @@ def run_classifier(log_signal=None):
             print(msg)
             
     conn = None
+    start_dt = datetime.now()
+    record_script_start("Category_LOH_Classifier.py", start_dt)
     try:
         log_msg("--- Category LOH Classifier Durchlauf gestartet ---")
         conn = get_db_connection()
@@ -4109,6 +4112,7 @@ def run_classifier(log_signal=None):
         log_msg(f"- {success_count} Mods erfolgreich klassifiziert.")
         log_msg(f"- {unresolved_count} Mods unbestimmt (NULL gesetzt, Matrix in DB gespeichert).")
         log_msg("--- Category LOH Classifier Durchlauf erfolgreich beendet ---\n")
+        record_script_end("Category_LOH_Classifier.py", datetime.now())
         return True
         
     except Exception as e:

@@ -18,7 +18,9 @@ from Structure.Database import (
     get_components_by_mod_id,
     get_db_connection,
     enable_db_performance_mode,
-    restore_db_default_mode
+    restore_db_default_mode,
+    record_script_start,
+    record_script_end
 )
 
 from Structure.File_ESM_Parser import (
@@ -704,6 +706,8 @@ def run_local_check(log_signal):
         log_signal.emit(msg)
         write_to_log(msg)
 
+    start_dt = datetime.datetime.now()
+    record_script_start("Starfield_Check_New.py", start_dt)
     conn = None
     try:
         log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
@@ -1034,6 +1038,7 @@ def run_local_check(log_signal):
         log_msg(f"- {new_mods_count} neue Mods importiert.")
         log_msg(f"- {update_mods_count} bestehende Mods verarbeitet.")
         log_msg("\nProzess erfolgreich abgeschlossen.\n")
+        record_script_end("Starfield_Check_New.py", datetime.datetime.now())
         return True
 
     except Exception as e:

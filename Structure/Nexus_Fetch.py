@@ -12,10 +12,11 @@ import sqlite3
 import logging
 import urllib.request
 import urllib.parse
+from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 from Structure.Paths import STARFIELD_GAME_DATA_PATH, NEXUS_LOG_FILE
-from Structure.Database import get_db_connection
+from Structure.Database import get_db_connection, record_script_start, record_script_end
 
 def get_nexus_logger():
     os.makedirs(os.path.dirname(NEXUS_LOG_FILE), exist_ok=True)
@@ -69,6 +70,8 @@ def run_nexus_fetch(log_signal=None):
             print(msg)
         write_to_log(msg)
 
+    start_dt = datetime.now()
+    record_script_start("Nexus_Fetch.py", start_dt)
     log("--- Nexus Mods Datenabgleich gestartet (API-Key-Frei via Playwright) ---")
     
     conn = None
@@ -635,6 +638,7 @@ def run_nexus_fetch(log_signal=None):
             browser.close()
             
         log(f"\n--- Nexus-Datenabgleich beendet. {success_count} von {processed_count} Mods erfolgreich aktualisiert. ---")
+        record_script_end("Nexus_Fetch.py", datetime.now())
         return True
     except Exception as e:
         log(f"KRITISCHER FEHLER im Nexus-Fetcher: {e}")

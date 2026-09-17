@@ -1,5 +1,5 @@
 import os
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QTextEdit, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
 from PySide6.QtCore import Qt, Signal
 
 from Structure.Workers import TaskWorker
@@ -10,6 +10,7 @@ from Structure.Bethesda_Fetch import run_fetch
 from Structure.Mods_Conflicts_Analyzer import analyze_conflicts
 from Structure.Nexus_Fetch import run_nexus_fetch
 from Structure.Category_LOH_Classifier import run_classifier
+from Structure.LoadOrder_Sorter import run_load_order_sorter, start_sorter_pre_checks
 from Structure.Pages.Widget_LogConsole import Widget_LogConsole
 
 
@@ -64,8 +65,8 @@ class Page_Tools(QWidget):
         self.btn_nexus_fetch.clicked.connect(self.start_nexus_fetch)
         self.layout.addWidget(self.btn_nexus_fetch)
 
-        # Button für den Classifier
-        self.btn_classifier = QPushButton("Kategorie-Klassifizierung (Category LOH Classifier) ausführen")
+        # Button für den Kategorisierer
+        self.btn_classifier = QPushButton("Kategorie-Kategorisierer (Category LOH Classifier) ausführen")
         self.btn_classifier.setMinimumHeight(40)
         self.btn_classifier.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_classifier.clicked.connect(self.start_classifier)
@@ -77,6 +78,13 @@ class Page_Tools(QWidget):
         self.btn_conflict_check.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_conflict_check.clicked.connect(self.start_conflict_check)
         self.layout.addWidget(self.btn_conflict_check)
+
+        # Button für den LoadOrder-Sorter
+        self.btn_load_order_sorter = QPushButton("Ladereihenfolge sortieren (LoadOrder Sorter) starten")
+        self.btn_load_order_sorter.setMinimumHeight(40)
+        self.btn_load_order_sorter.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_load_order_sorter.clicked.connect(self.start_load_order_sorter)
+        self.layout.addWidget(self.btn_load_order_sorter)
 
         # Log-Fenster
         log_label = QLabel("Protokoll-Ausgabe:")
@@ -177,6 +185,22 @@ class Page_Tools(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
+    def start_load_order_sorter(self):
+        confirmed = start_sorter_pre_checks(self)
+        if not confirmed:
+            return
+
+        self.set_buttons_enabled(False)
+        self.log_console.clear()
+
+        self.worker = TaskWorker(
+            run_load_order_sorter,
+            start_message="Thread gestartet: Ladereihenfolge sortieren (LoadOrder Sorter)..."
+        )
+        self.worker.log_signal.connect(self.log_console.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
     def set_buttons_enabled(self, enabled):
         self.btn_local_check.setEnabled(enabled)
         self.btn_deleted_check.setEnabled(enabled)
@@ -185,6 +209,7 @@ class Page_Tools(QWidget):
         self.btn_nexus_fetch.setEnabled(enabled)
         self.btn_classifier.setEnabled(enabled)
         self.btn_conflict_check.setEnabled(enabled)
+        self.btn_load_order_sorter.setEnabled(enabled)
 
     def append_log(self, text):
         """Delegiert an die Konsole (für Rückwärtskompatibilität)."""

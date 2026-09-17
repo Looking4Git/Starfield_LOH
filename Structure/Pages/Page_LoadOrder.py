@@ -679,7 +679,7 @@ class Page_LoadOrder(QWidget):
             if profile_id is None:
                 # Header trotzdem setzen, damit die Tabelle hübsch aussieht
                 self.model.setHorizontalHeaderLabels([
-                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Classifier"
+                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer"
                 ])
                 return
 
@@ -765,7 +765,7 @@ class Page_LoadOrder(QWidget):
  
         # Header nach dem Befüllen der Zeilen setzen
         self.model.setHorizontalHeaderLabels([
-            "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Classifier"
+            "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer"
         ])
         
         header = self.table_view.horizontalHeader()
@@ -778,7 +778,7 @@ class Page_LoadOrder(QWidget):
         self.table_view.resizeColumnToContents(2) # Name
         self.table_view.resizeColumnToContents(3) # Masterfile
         self.table_view.resizeColumnToContents(4) # Kategorie
-        self.table_view.resizeColumnToContents(5) # Classifier
+        self.table_view.resizeColumnToContents(5) # Kategorisierer
         
         from PySide6.QtWidgets import QHeaderView
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
@@ -1213,7 +1213,7 @@ class Page_LoadOrder(QWidget):
             return False
 
     def on_apply_classifier_mod_clicked(self):
-        """Überträgt die Classifier-Kategorie der ausgewählten Mod in das LOH-Kategorie-Feld."""
+        """Überträgt die Kategorisierer-Kategorie der ausgewählten Mod in das LOH-Kategorie-Feld."""
         if not self.current_mod_id or not hasattr(self, 'current_mod_data') or not self.current_mod_data:
             return
         classifier_id = self.current_mod_data.get("Category_Classifier_ID")
@@ -1224,14 +1224,14 @@ class Page_LoadOrder(QWidget):
         self.save_mod_details(reload_table=False)
 
     def on_apply_classifier_all_clicked(self):
-        """Überträgt nach Bestätigung die Classifier-Kategorien für alle installierten Mods."""
+        """Überträgt nach Bestätigung die Kategorisierer-Kategorien für alle installierten Mods."""
         text = (
             "Möchten Sie für alle installierten Mods die automatisch berechnete "
-            "Classifier-Kategorie als Kategorie (LOH) übernehmen?\n\n"
+            "Kategorisierer-Kategorie als Kategorie (LOH) übernehmen?\n\n"
             "Bereits manuell zugewiesene Kategorien werden dabei überschrieben."
         )
         confirmed = self.show_message_box(
-            "Classifier-Kategorien übernehmen",
+            "Kategorisierer-Kategorien übernehmen",
             text,
             icon=QMessageBox.Icon.Question,
             yes_no=True
@@ -1251,13 +1251,13 @@ class Page_LoadOrder(QWidget):
                                 break
                 self.show_message_box(
                     "Erfolg",
-                    f"Die Classifier-Kategorien wurden für {count} Mods erfolgreich übernommen.",
+                    f"Die Kategorisierer-Kategorien wurden für {count} Mods erfolgreich übernommen.",
                     icon=QMessageBox.Icon.Information
                 )
             else:
                 self.show_message_box(
                     "Fehler",
-                    "Beim Übernehmen der Classifier-Kategorien ist ein Datenbankfehler aufgetreten.",
+                    "Beim Übernehmen der Kategorisierer-Kategorien ist ein Datenbankfehler aufgetreten.",
                     icon=QMessageBox.Icon.Critical
                 )
 

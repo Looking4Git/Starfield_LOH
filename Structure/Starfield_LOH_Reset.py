@@ -39,7 +39,9 @@ def reset_database(log_signal=None):
             "Mods",
             "Profiles",
             "LoadOrder_Classifier_Results",
-            "LoadOrder_Classifier_Matrix"
+            "LoadOrder_Classifier_Matrix",
+            "Mods_Conflicts",
+            "LOH_Executions"
         ]
         
         for table in tables_to_clear:

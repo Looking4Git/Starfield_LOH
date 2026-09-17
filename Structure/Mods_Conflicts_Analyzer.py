@@ -8,7 +8,9 @@ import logging
 # Füge Root-Verzeichnis dem Python-Pfad hinzu
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from datetime import datetime
 from Structure.Paths import DB_FILE, LOGS_DIR
+from Structure.Database import record_script_start, record_script_end
 
 logger = logging.getLogger("Starfield_LOH")
 
@@ -1413,6 +1415,8 @@ def analyze_conflicts(db_path=None, reporter=None):
         return False, 0, 0
 
     start_time = time.time()
+    start_dt = datetime.now()
+    record_script_start("Mods_Conflicts_Analyzer.py", start_dt)
     msg_start = "Starte Mods_Conflicts_Analyzer: Pipeline-basierte Konfliktanalyse..."
     logger.info(msg_start)
     print(msg_start)
@@ -1611,6 +1615,7 @@ def analyze_conflicts(db_path=None, reporter=None):
         logger.info(msg_finish)
         print(f"   -> {msg_finish}")
 
+        record_script_end("Mods_Conflicts_Analyzer.py", datetime.now())
         return True, active_conflicts, active_pairs
 
     except Exception as e:

@@ -8,6 +8,7 @@ import logging
 import html
 import urllib.request
 from playwright.sync_api import sync_playwright
+from Structure.Database import record_script_start, record_script_end
 
 def setup_logging():
     log_dir = "Logs"
@@ -139,6 +140,7 @@ def run_fetch(log_signal=None):
     success_count = 0
     error_count = 0
     start_time = datetime.now()
+    record_script_start("Bethesda_Fetch.py", start_time)
     
     conn = None
     try:
@@ -340,6 +342,7 @@ def run_fetch(log_signal=None):
         summary = f"\nZusammenfassung (Dauer: {int(duration.total_seconds() // 60)} Min. {int(duration.total_seconds() % 60)} Sek.):\nErfolgreich: {success_count}\nFehler: {error_count}\n"
         log_msg(summary)
         
+        record_script_end("Bethesda_Fetch.py", datetime.now())
         return True
         
     except Exception as e:

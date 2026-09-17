@@ -321,7 +321,7 @@
          <item row="17" column="0">
           <widget class="QLabel" name="lbl_classifier_label">
            <property name="text">
-            <string>Classifier:</string>
+            <string>Kategorisierer:</string>
            </property>
           </widget>
          </item>

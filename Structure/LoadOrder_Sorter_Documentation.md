@@ -100,8 +100,78 @@ Treten bei den Prüfungen Auffälligkeiten auf, öffnet sich der modale Sicherhe
 
 ### 5. Sortier-Pipeline (`run_load_order_sorter`)
 
-Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_sorter(log_signal)`. Die einzelnen Sortierschritte werden modular über die Liste `SORTER_PIPELINE_STEPS` registriert und schrittweise abgearbeitet:
+Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_sorter(log_signal)`. Die einzelnen Sortierschritte werden modular über die Liste `SORTER_PIPELINE_STEPS` registriert und schrittweise abgearbeitet.
 
-* Jeder Schritt wird über das PySide-Signal `log_signal` an die UI übermittelt.
-* Nach Durchlauf aller Schritte wird die finale Sortierung validiert und in die Tabelle `LoadOrder` für das aktive Profil übertragen.
-* Nach erfolgreichem Durchlauf wird `record_script_end("LoadOrder_Sorter.py")` aufgerufen.
+#### Architektur-Grundsatz: Berechnung auf Profil 0 ("LOH Master-Vorlage")
+* **Profil 0 als Berechnungsziel:** Die Sortier-Pipeline rechnet und persistiert ausschließlich auf das fest reservierte Systemprofil `ID = 0` (`LOH Master-Vorlage`).
+* **Vollständigkeit & Aktivierung:** In Profil 0 sind grundsätzlich alle installierten Komponenten enthalten und ausnahmslos auf aktiv (`Is_Active = 1`) gesetzt. Die Aktivierung hat keinen Einfluss auf die relative Ladereihenfolge. Sollte ein Benutzer später eine Mod aktivieren, steht sie dadurch bereits an der exakten, berechneten Position.
+* **Kein destruktives Backup nötig:** Da Profil 0 isoliert als Referenz berechnet wird, bleiben bestehende Benutzerprofile (z. B. Profil 1) während des Sortierlaufs unberührt. Die spätere Übernahme der Master-Vorlage auf Benutzerprofile erfolgt über einen separaten Prozess.
+
+---
+
+### 6. Die 4 Sortierschritte der Pipeline
+
+```
+[Schritt 1: BGS-Basisblock]
+      │ (Fixierung Block 1, Position 1..N_bgs nach Subkategorie & Dateinummerierung)
+      ▼
+[Schritt 2: Wunsch-Ranking & Gravitation]
+      │ (Ideal_Rank = Basis-Kategorie + Masterfile-Typ + Subkategorie-Gravitation + Overrides)
+      ▼
+[Schritt 3: Topologische DAG-Sortierung]
+      │ (Vorrangkanten aus Requirements, Masterfiles, Conflicts; Zyklenprüfung & Schiedsrichter)
+      ▼
+[Schritt 4: Persistierung in Profil 0]
+      │ (Atomares Schreiben der lückenlosen Positionen 1..N in LoadOrder für Profil 0)
+```
+
+#### Schritt 1: BGS-Basisblock fixieren (`_step_bgs_block`)
+* **Status:** Offizielle Bethesda-Creations (`Author == 'Bethesda'`) bilden unverrückbar **Block 1** an der Spitze der Ladereihenfolge (Positionen `1` bis `N_bgs`).
+* **Sortierkriterien innerhalb von BGS:**
+  1. **Sub-Kategorie (`Category_LOH_Classifier_Sub`):** Die im Classifier in Pass 2 ermittelte fachliche Subkategorie steuert die Reihenfolge:
+     - Quests (`Category = 4`, z. B. Trackerallianz, Entkomme, Am Höllentor, Das perfekte Rezept)
+     - Outposts / Bausysteme (`Category = 30`, z. B. Observatorium)
+     - Fahrzeuge (`Category = 31`, z. B. Deimog)
+     - Texturen & Skins (`Category = 13/27`, z. B. Blackout-Waffenskins)
+  2. **Tracker-Allianz-Nummerierung & Mod-ID:** Für Mehrkomponenten-Creations (wie die Trackerallianz-Reihe) greift die sequentielle Dateinummerierung (`sfta01` bis `sfta06`), gefolgt von `blueprintships`.
+  3. **Dateiname:** Alphabetischer Fallback für deterministische Reihenfolge.
+
+#### Schritt 2: Wunsch-Ranking & Gravitation berechnen (`_step_calculate_community_ranks`)
+Berechnet für alle Community-Komponenten einen stetigen Gleitkomma-Wert `Ideal_Rank`. Dieser repräsentiert die optimale Wunschposition vor Auflösung zwingender Abhängigkeiten:
+
+$$\text{Ideal\_Rank} = \text{Basis\_Rang} + \text{Masterfile\_Offset} + \text{Gravitation} + \text{Override\_Score}$$
+
+1. **Basis-Rang nach Hauptkategorie:**
+   - $\text{Position}(\text{Kategorie}) \times 10000.0$ (z. B. Kategorie 2 Patches = 20.000, Kategorie 6 Städte = 60.000).
+2. **Masterfile-Typ Offset:**
+   - Full Master (`Is_Masterfile = 1`): $+0.0$
+   - Medium Master (`Is_Masterfile = 2`): $+100.0$
+   - Small Master (`Is_Masterfile = 3`): $+200.0$
+   - Reguläres Plugin (`Is_Masterfile = 0`): $+300.0$
+3. **Border-Clustering (Gravitation durch `Category_LOH_Classifier_Sub`):**
+   - Besitzt eine Mod eine Subkategorie, wird sie innerhalb ihrer Hauptkategorie feinfühlig in Richtung der Subkategorie geneigt:
+   - $\Delta = \text{Position}(\text{Sub}) - \text{Position}(\text{Main})$
+   - $\text{Gravitation} = \max(-400.0, \min(400.0, \Delta \times 40.0))$
+   - *Beispiel:* Mod in Kategorie 6 (Städte) mit Subkategorie 5 (Landschaften) erhält $-40.0$ (rückt nach oben). Mod mit Subkategorie 7 (Gebäude) erhält $+40.0$ (rückt nach unten).
+4. **Overrides-Priorisierung:**
+   - $\text{Override\_Score} = -\min(400.0, \text{Anzahl\_Overrides} \times 2.0)$
+   - Mods, die mehr Vanilla-FormIDs überschreiben, rücken innerhalb ihres Slots leicht nach oben, um von gezielten Patches sauber überschrieben werden zu können.
+
+#### Schritt 3: Topologische DAG-Sortierung & Konfliktauflösung (`_step_build_dag_and_topological_sort`)
+1. **Kantenaufbau:**
+   - **Harte Abhängigkeiten:** Kanten aus `Mods_Requirements` (Voraussetzung lädt vor Kind).
+   - **Header-Masterfiles:** Kanten aus `Mods_Requirements_Masterfile_List` (Masterfile lädt vor Plugin).
+   - **Konflikt- & NavMesh-Regeln:** Kanten aus `Mods_Conflicts` (Schiedsrichter-Empfehlungen).
+2. **Schiedsrichter & Zyklenvermeidung:**
+   - *Gegenseitige Konflikte:* Existieren für zwei Mods gegenseitige Schiedsrichter-Empfehlungen (z. B. asymmetrische NavMesh-Konflikte in unterschiedlichen Zellen wie bei Mod 27 vs Mod 35), gewinnt die Richtung mit der höheren Stimmenanzahl. Bei Stimmengleichheit entscheidet der bessere `Ideal_Rank`.
+   - *Zyklenerkennung:* Vor dem Hinzufügen einer Kante $u \to v$ prüft eine Tiefensuche (`would_create_cycle(u, v)`), ob bereits ein Pfad $v \to \dots \to u$ existiert. Kanten, die einen Zyklus schließen würden, werden verworfen.
+3. **Topologische Sortierung (Kahn-Algorithmus mit Prioritätswarteschlange):**
+   - Knoten mit Eingangsgrad 0 werden in einem Min-Heap nach ihrem `Ideal_Rank` verwaltet.
+   - Der Heap garantiert, dass immer der Knoten mit der besten Wunschposition entnommen wird, sobald alle seine Voraussetzungen erfüllt sind.
+   - Sollte im Extremfall ein Restzyklus verbleiben, sorgt ein deterministischer Fallback dafür, dass verbliebene Knoten sortiert nach `Ideal_Rank` angefügt werden.
+
+#### Schritt 4: Persistierung in Profil 0 (`_step_persist_profile_zero`)
+* Löscht alte Einträge in `LoadOrder` für `ID_Profile = 0`.
+* Fügt die Gesamtsequenz (Block 1 BGS + sortierte Community-Komponenten) atomar ein.
+* Positionen `1` bis `N` sind lückenlos durchnummeriert, alle Einträge erhalten `Is_Active = 1`.
+* Protokolliert den erfolgreichen Abschluss in `LOH_Executions` mit `record_script_end("LoadOrder_Sorter.py")`.

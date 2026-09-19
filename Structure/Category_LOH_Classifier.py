@@ -50,7 +50,7 @@ class StepContext:
     Kapselt Schrittnummer, Stufen-Progression, Kategorie-Mappings, optimierte
     Datenabfragen und Helper-Methoden zur Entkopplung der Fachlogik von Boilerplate.
     """
-    def __init__(self, step_id, step_name, prev_level, curr_level, log_msg_fn, cat_map=None, cat_ids=None):
+    def __init__(self, step_id, step_name, prev_level, curr_level, log_msg_fn, cat_map=None, cat_ids=None, is_sub_run=False, matrix_table="LoadOrder_Classifier_Matrix"):
         self.step_id = step_id
         self.name = step_name
         self.prev_level = prev_level
@@ -59,10 +59,19 @@ class StepContext:
         self.cat_map = cat_map or {}
         self.cat_ids = cat_ids or []
         self.id_to_name = {v: k for k, v in self.cat_map.items()}
+        self.is_sub_run = is_sub_run
+        self.matrix_table = matrix_table
+
+    @property
+    def unresolved_where(self):
+        if not self.is_sub_run:
+            return "Category_LOH_Classifier IS NULL"
+        return "Category_LOH_Classifier IS NOT NULL AND Category_LOH_Classifier_Sub IS NULL"
 
     def log_result(self, cursor, mod_id, component_id, looser_id, winner_id, type_id, reason):
-        """Trägt eine Entscheidung für den aktuellen Schritt ein."""
-        _log_result(cursor, self.step_id, mod_id, component_id, looser_id, winner_id, type_id, reason, step_description=self.name)
+        """Trägt eine Entscheidung für den aktuellen Schritt ein (nur im Hauptdurchlauf)."""
+        if not self.is_sub_run:
+            _log_result(cursor, self.step_id, mod_id, component_id, looser_id, winner_id, type_id, reason, step_description=self.name)
 
     def get_cat_name(self, cat_id):
         """Liefert den Namen einer Kategorie anhand ihrer ID."""
@@ -120,17 +129,17 @@ class StepContext:
         in einer einzigen performanten SQL-Abfrage.
         """
         col_select = ", ".join([f'lcm."{c}"' for c in self.cat_ids])
+        where_cond = f"m.{self.unresolved_where}"
         cursor.execute(f"""
             SELECT 
                 lcm.Mod_ID, 
                 lcm.Component_ID,
                 {col_select},
                 v.*
-            FROM LoadOrder_Classifier_Matrix lcm
+            FROM {self.matrix_table} lcm
             JOIN View_Components_References_Matrix v ON lcm.Component_ID = v.Component_ID
-            WHERE lcm.Mod_ID IN (
-                SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-            )
+            JOIN Mods m ON lcm.Mod_ID = m.ID
+            WHERE {where_cond}
         """)
         return [dict(r) for r in cursor.fetchall()]
 
@@ -146,7 +155,7 @@ class StepContext:
             set_clauses.append(f'"{non_id}" = CASE WHEN "{non_id}" = {self.prev_level} THEN {self.curr_level} ELSE "{non_id}" END')
         set_sql = ", ".join(set_clauses)
         cursor.execute(f"""
-            UPDATE LoadOrder_Classifier_Matrix
+            UPDATE {self.matrix_table}
             SET {set_sql}
             WHERE Mod_ID = ? AND Component_ID = ?
         """, (mod_id, component_id))
@@ -159,12 +168,12 @@ class StepContext:
         active_cat_ids = cat_ids or self.cat_ids
         col_select = col_select_quotes or ", ".join([f'"{c}"' for c in active_cat_ids])
         col_cases = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = {self.prev_level} THEN {self.curr_level} ELSE "{cid}" END' for cid in active_cat_ids])
+        where_cond = f"m.{self.unresolved_where}"
         cursor.execute(f"""
-            SELECT Mod_ID, Component_ID, {col_select}
-            FROM LoadOrder_Classifier_Matrix
-            WHERE Mod_ID IN (
-                SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
-            )
+            SELECT lcm.Mod_ID, lcm.Component_ID, {col_select}
+            FROM {self.matrix_table} lcm
+            JOIN Mods m ON lcm.Mod_ID = m.ID
+            WHERE {where_cond}
         """)
         rows = [dict(r) for r in cursor.fetchall()]
         for r in rows:
@@ -174,7 +183,7 @@ class StepContext:
             max_v = max(vals) if vals else 0
             if max_v == self.prev_level:
                 cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
+                    UPDATE {self.matrix_table}
                     SET {col_cases}
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
@@ -1810,13 +1819,17 @@ def apply_exclusion_rules(row, cursor=None, log_msg=None, cat_ids=None):
     return "Ausschlussmatrix angewendet (Klassifizierung ausstehend)."
 
 
-def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name=""):
+def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="", target_column="Category_LOH_Classifier", matrix_table="LoadOrder_Classifier_Matrix", is_sub_run=False):
     """
     Prüft die Matrix für bisher unbestimmte Mods, findet die Kategorie mit dem eindeutig
-    höchsten Wert (> 0) und trägt diese in 'Mods.Category_LOH_Classifier' ein.
+    höchsten Wert (> 0) und trägt diese in 'Mods.<target_column>' ein.
     Gibt ein Tuple (erfolgreiche_zuweisungen, verbleibende_unbestimmte) zurück.
     """
-    cursor.execute("""
+    where_unresolved = f"m.{target_column} IS NULL"
+    if is_sub_run:
+        where_unresolved += " AND m.Category_LOH_Classifier IS NOT NULL"
+
+    cursor.execute(f"""
         SELECT 
             m.ID AS Mod_ID,
             c.ID AS Component_ID,
@@ -1827,7 +1840,7 @@ def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="")
         JOIN Mods_Components mc ON m.ID = mc.Mod_ID
         JOIN Components c ON mc.Component_ID = c.ID
         WHERE m.State = 1 AND c.Is_Masterfile > 0
-          AND m.Category_LOH_Classifier IS NULL
+          AND {where_unresolved}
     """)
     unresolved_mods = [dict(r) for r in cursor.fetchall()]
     
@@ -1840,7 +1853,7 @@ def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="")
         mod_name = row['Name_Online'] or row['Name_ContentCatalog'] or f"Mod ID {mod_id}"
         masterfile_name = row['Masterfile_Name']
         
-        cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
+        cursor.execute(f'SELECT {col_select} FROM {matrix_table} WHERE Mod_ID = ? AND Component_ID = ?', (mod_id, component_id))
         matrix_row = cursor.fetchone()
         
         max_val = 0
@@ -1856,9 +1869,9 @@ def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="")
         
         if len(best_cats) == 1:
             final_cat_id = best_cats[0]
-            cursor.execute("""
+            cursor.execute(f"""
                 UPDATE Mods 
-                SET Category_LOH_Classifier = ?
+                SET {target_column} = ?
                 WHERE ID = ?
             """, (final_cat_id, mod_id))
             
@@ -1867,16 +1880,17 @@ def _evaluate_and_assign_classifications(cursor, cat_ids, log_msg, step_name="")
             cat_name = cat_name_row[0] if cat_name_row else str(final_cat_id)
             
             success_count += 1
-            log_msg(f"  [KLASSIFIZIERT - {step_name}] '{mod_name}' ({masterfile_name}) -> Kategorie: {cat_name} (Wert: {max_val})")
+            log_prefix = "[SUBKLASSIFIZIERT" if is_sub_run else "[KLASSIFIZIERT"
+            log_msg(f"  {log_prefix} - {step_name}] '{mod_name}' ({masterfile_name}) -> {'Subkategorie' if is_sub_run else 'Kategorie'}: {cat_name} (Wert: {max_val})")
             
     # Zähle verbleibende unbestimmte Mods
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT COUNT(DISTINCT m.ID) 
         FROM Mods m
         JOIN Mods_Components mc ON m.ID = mc.Mod_ID
         JOIN Components c ON mc.Component_ID = c.ID
         WHERE m.State = 1 AND c.Is_Masterfile > 0
-          AND m.Category_LOH_Classifier IS NULL
+          AND {where_unresolved}
     """)
     remaining_count = cursor.fetchone()[0] or 0
     
@@ -2056,9 +2070,9 @@ def _step_system_priority(cursor, cat_map, cat_ids, ctx, category_name, reason_t
 
     cursor.execute(f"""
         SELECT Mod_ID, Component_ID 
-        FROM LoadOrder_Classifier_Matrix
+        FROM {ctx.matrix_table}
         WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+            SELECT ID FROM Mods WHERE {ctx.unresolved_where}
         )
     """)
     candidates = cursor.fetchall()
@@ -2069,10 +2083,10 @@ def _step_system_priority(cursor, cat_map, cat_ids, ctx, category_name, reason_t
                 ctx.log_result(cursor, mid, cid, other_cid, cat_id, 2, reason_text)
 
     cursor.execute(f"""
-        UPDATE LoadOrder_Classifier_Matrix
+        UPDATE {ctx.matrix_table}
         SET "{cat_id}" = {ctx.curr_level}
         WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE Category_LOH_Classifier IS NULL
+            SELECT ID FROM Mods WHERE {ctx.unresolved_where}
         )
     """)
     ctx.lift_uncollided(cursor)
@@ -3922,7 +3936,7 @@ def _step_inheritance(cursor, cat_map, cat_ids, ctx):
     erbt sie die Kategorie der Voraussetzung mit der höchsten Ladeordnungsposition.
     In der Matrixtabelle erhält die Mod in dieser Kategorie den aktuellen Schrittwert (30).
     """
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT 
             m.ID AS Mod_ID,
             mc.Component_ID,
@@ -3932,7 +3946,7 @@ def _step_inheritance(cursor, cat_map, cat_ids, ctx):
         JOIN Mods_Components mc ON m.ID = mc.Mod_ID
         JOIN Components c ON mc.Component_ID = c.ID
         WHERE m.State = 1 AND c.Is_Masterfile > 0
-          AND m.Category_LOH_Classifier IS NULL
+          AND m.{ctx.unresolved_where}
     """)
     unresolved = [dict(r) for r in cursor.fetchall()]
     if not unresolved:
@@ -3971,16 +3985,17 @@ def _step_inheritance(cursor, cat_map, cat_ids, ctx):
             for c in cat_ids:
                 val = ctx.curr_level if c == winner_cid else 0
                 cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
+                    UPDATE {ctx.matrix_table}
                     SET "{c}" = ?
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (val, mid, cid))
 
-            # Lösche den fälschlichen Ausschluss der Gewinner-Kategorie aus Schritt 1
-            cursor.execute("""
-                DELETE FROM LoadOrder_Classifier_Results
-                WHERE Mod_ID = ? AND Component_ID = ? AND CategoryLOH_ID_Looser = ?
-            """, (mid, cid, winner_cid))
+            # Lösche den fälschlichen Ausschluss der Gewinner-Kategorie aus Schritt 1 (nur im Hauptlauf)
+            if not ctx.is_sub_run:
+                cursor.execute("""
+                    DELETE FROM LoadOrder_Classifier_Results
+                    WHERE Mod_ID = ? AND Component_ID = ? AND CategoryLOH_ID_Looser = ?
+                """, (mid, cid, winner_cid))
 
 
 # Zentrale, lückenlose Pipeline-Definition mit dynamischer Stufenverwaltung
@@ -4074,7 +4089,7 @@ def run_classifier(log_signal=None):
         
         # Zurücksetzen aller Klassifizierungen vor dem Durchlauf
         log_msg("-> Setze alte Klassifizierungen in der Datenbank (Mods) zurück...")
-        cursor.execute("UPDATE Mods SET Category_LOH_Classifier = NULL")
+        cursor.execute("UPDATE Mods SET Category_LOH_Classifier = NULL, Category_LOH_Classifier_Sub = NULL")
         
         # Initialer Zähler
         cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1")
@@ -4082,7 +4097,7 @@ def run_classifier(log_signal=None):
         unresolved_count = total_installed_mods
         success_count = 0
         
-        # 3. Pipeline sequentiell über dynamische Stufen durchlaufen
+        # 3. Pipeline sequentiell über dynamische Stufen durchlaufen (Pass 1 - Gold-Turnier)
         prev_level = 1
         for step_id, step_name, step_func in PIPELINE_STEPS:
             if unresolved_count == 0:
@@ -4098,13 +4113,142 @@ def run_classifier(log_signal=None):
             )
             log_msg(f"\n-> Schritt {step_id}: {step_name} ({unresolved_count})...")
             step_func(cursor, cat_map, cat_ids, ctx)
+
+            # NACH SCHRITT 2: Snapshot des unverfälschten Inhalts-Fingerabdrucks anlegen!
+            if step_id == 2:
+                cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Snapshot;")
+                cursor.execute("CREATE TABLE LoadOrder_Classifier_Matrix_Snapshot AS SELECT * FROM LoadOrder_Classifier_Matrix;")
+                log_msg("  [SNAPSHOT] Inhalts-Fingerabdruck nach Schritt 2 für Subklassifizierung gesichert.")
+
             newly_assigned, unresolved_count = _evaluate_and_assign_classifications(
                 cursor, cat_ids, log_msg, step_name=f"Schritt {step_id}: {step_name}"
             )
             success_count += newly_assigned
             prev_level = step_id
-            
-        # Ergebnistabelle Components_References_Matrix bereinigen
+
+        # ==============================================================================
+        # 4. DURCHLAUF 2: SUBKLASSIFIZIERUNG (Category_LOH_Classifier_Sub)
+        # ==============================================================================
+        log_msg("\n================================================================================")
+        log_msg("--- Starte 2. Durchlauf: Ermittlung der Subkategorie (Category_LOH_Classifier_Sub) ---")
+        log_msg("================================================================================")
+
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Sub;")
+        cursor.execute("CREATE TABLE LoadOrder_Classifier_Matrix_Sub AS SELECT * FROM LoadOrder_Classifier_Matrix_Snapshot;")
+
+        # Gold-Gewinner in der Sub-Matrix für jede klassifizierte Mod auf 0 sperren
+        cursor.execute("SELECT ID, Category_LOH_Classifier FROM Mods WHERE State = 1 AND Category_LOH_Classifier IS NOT NULL")
+        classified_mods = cursor.fetchall()
+        for m_row in classified_mods:
+            mid = m_row[0]
+            gold_id = m_row[1]
+            cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix_Sub SET "{gold_id}" = 0 WHERE Mod_ID = ?', (mid,))
+
+        # Prüfung der verbleibenden aktiven Kategorien (> 0)
+        col_select = ", ".join([f'"{cat_id}"' for cat_id in cat_ids])
+        cursor.execute(f"SELECT Mod_ID, Component_ID, {col_select} FROM LoadOrder_Classifier_Matrix_Sub")
+        sub_rows = [dict(r) for r in cursor.fetchall()]
+
+        candidates_for_sub_pipeline = set()
+        sub_single_assigned = 0
+        mono_count = 0
+
+        for srow in sub_rows:
+            mid = srow['Mod_ID']
+            cid = srow['Component_ID']
+            pos_cats = [c for c in cat_ids if (srow.get(str(c)) or 0) > 0]
+
+            if len(pos_cats) == 0:
+                # Mono-Mod: keine sekundären Inhalte vorhanden
+                cursor.execute("UPDATE Mods SET Category_LOH_Classifier_Sub = NULL WHERE ID = ?", (mid,))
+                mono_count += 1
+            elif len(pos_cats) == 1:
+                # Genau eine zweite Kategorie verbleibt -> kampflose Zuweisung
+                silver_cat = pos_cats[0]
+                cursor.execute("UPDATE Mods SET Category_LOH_Classifier_Sub = ? WHERE ID = ?", (silver_cat, mid))
+                sub_single_assigned += 1
+            else:
+                candidates_for_sub_pipeline.add(mid)
+
+        log_msg(f"-> Ausgangslage für Subkategorisierung:")
+        log_msg(f"   - {mono_count} Mono-Mods (keine sekundären Inhalte, Sub = NULL).")
+        log_msg(f"   - {sub_single_assigned} Mods mit genau einer eindeutigen Subkategorie kampflos zugewiesen.")
+        log_msg(f"   - {len(candidates_for_sub_pipeline)} Hybrid-Mods mit mehreren Kandidaten starten in das Silber-Turnier.")
+
+        # Falls Hybrid-Kandidaten vorliegen: Pipeline ab Schritt 3 isoliert durchlaufen
+        if candidates_for_sub_pipeline:
+            prev_sub_level = 2
+            for step_id, step_name, step_func in PIPELINE_STEPS[2:]:
+                id_list_str = ", ".join(str(i) for i in candidates_for_sub_pipeline)
+                cursor.execute(f"""
+                    SELECT COUNT(DISTINCT ID) FROM Mods 
+                    WHERE State = 1 AND Category_LOH_Classifier IS NOT NULL 
+                      AND Category_LOH_Classifier_Sub IS NULL 
+                      AND ID IN ({id_list_str})
+                """)
+                rem_candidates = cursor.fetchone()[0] or 0
+                if rem_candidates == 0:
+                    break
+
+                ctx_sub = StepContext(
+                    step_id=step_id,
+                    step_name=step_name,
+                    prev_level=prev_sub_level,
+                    curr_level=step_id,
+                    log_msg_fn=log_msg,
+                    cat_map=cat_map,
+                    cat_ids=cat_ids,
+                    is_sub_run=True,
+                    matrix_table="LoadOrder_Classifier_Matrix_Sub"
+                )
+                step_func(cursor, cat_map, cat_ids, ctx_sub)
+                _evaluate_and_assign_classifications(
+                    cursor, cat_ids, log_msg,
+                    step_name=f"Sub-Schritt {step_id}: {step_name}",
+                    target_column="Category_LOH_Classifier_Sub",
+                    matrix_table="LoadOrder_Classifier_Matrix_Sub",
+                    is_sub_run=True
+                )
+                prev_sub_level = step_id
+
+            # Fallback für etwaige unentschiedene Hybriden: höchster Netto-Inhaltswert (dim_calc_outer_*)
+            cursor.execute("""
+                SELECT m.ID, lcm.Component_ID
+                FROM Mods m
+                JOIN LoadOrder_Classifier_Matrix_Sub lcm ON m.ID = lcm.Mod_ID
+                WHERE m.State = 1 AND m.Category_LOH_Classifier IS NOT NULL AND m.Category_LOH_Classifier_Sub IS NULL
+            """)
+            unresolved_hybrids = cursor.fetchall()
+            for h_row in unresolved_hybrids:
+                h_mid = h_row[0]
+                h_cid = h_row[1]
+                cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix_Sub WHERE Mod_ID = ? AND Component_ID = ?', (h_mid, h_cid))
+                h_matrix = cursor.fetchone()
+                if h_matrix:
+                    remaining_active = [c for c in cat_ids if (h_matrix[str(c)] or 0) > 0]
+                    if remaining_active:
+                        cursor.execute("SELECT * FROM View_Components_References_Matrix WHERE Component_ID = ?", (h_cid,))
+                        v_row = cursor.fetchone()
+                        best_c = None
+                        best_score = -1
+                        if v_row:
+                            v_keys = v_row.keys()
+                            for c_cand in remaining_active:
+                                c_name = cat_map.get(c_cand) or ""
+                                dim_col = f"dim_calc_outer_{c_name}"
+                                dim_val = v_row[dim_col] if dim_col in v_keys else 0
+                                if dim_val > best_score:
+                                    best_score = dim_val
+                                    best_c = c_cand
+                        if best_c is None:
+                            best_c = remaining_active[0]
+                        cursor.execute("UPDATE Mods SET Category_LOH_Classifier_Sub = ? WHERE ID = ?", (best_c, h_mid))
+                        c_name_final = [k for k, v in cat_map.items() if v == best_c]
+                        log_msg(f"  [SUBKLASSIFIZIERT - Fallback] Mod ID {h_mid} -> Subkategorie: {c_name_final[0] if c_name_final else best_c}")
+
+        # Temporäre Tabellen und Snapshot bereinigen
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Snapshot;")
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Sub;")
         cursor.execute("DROP TABLE IF EXISTS Components_References_Matrix;")
         
         conn.commit()

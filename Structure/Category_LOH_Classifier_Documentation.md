@@ -119,3 +119,20 @@ Speichert für jede in einem Prüfschritt ausgeschiedene Kategorie genau einen D
 Stellt die Protokolldaten für die Benutzeroberfläche flach und chronologisch bereit:
 * **Spalten:** `Mod_ID`, `Mod_Name`, `Component_ID`, `Component_File`, `Step_ID`, `Step_Description`, `CategoryLOH_Position_Looser`, `CategoryLOH_Looser`, `CategoryLOH_Winner`, `Type`, `Reason`.
 * **Sortierung:** `ORDER BY Mod_ID, Component_ID, Step_ID, CategoryLOH_Position_Looser` (ermöglicht die lückenlose Nachverfolgung des Entscheidungsweges pro Mod/Komponente entlang aller Prüfschritte).
+
+#### Phase H: 2-Pass Subklassifizierung (`Category_LOH_Classifier_Sub`)
+
+Zur optimalen Feinpositionierung in der Ladereihenfolge ermittelt der Classifier für jede Modifikation neben der primären Hauptkategorie (`Category_LOH_Classifier`) eine fundierte Zweitkategorie (`Category_LOH_Classifier_Sub`). Diese dient zwei zentralen Aufgaben:
+1. **Subkategorisierung von BGS-Creations:** Offizielle Bethesda-Creations erhalten als Hauptkategorie zwingend Kategorie 1 (`Offizielle BGS-Creations`). Im zweiten Durchlauf wird ihr tatsächlicher inhaltlicher Fachbereich (z. B. Quests für Trackerallianz/Entkomme, Outposts für Observatorium, Fahrzeuge für Deimog, Texturen/Crafting für Skins) ermittelt.
+2. **Gravitation & Border-Clustering bei Community-Hybriden:** Für Community-Mods, die funktionale Schnittstellen zwischen zwei Kategorien bilden (z. B. Städtebau-Mod mit Innenräumen, Raumschiff-Mod mit Waffen etc.), spiegelt die Subkategorie den zweitplatzierten Gewinner wider. Der Sorter nutzt dies, um die Mod innerhalb ihrer Hauptkategorie feinfühlig in Richtung der Subkategorie zu neigen.
+
+##### Technischer Ablauf des 2-Pass-Verfahrens:
+* **Snapshot nach Phase A (Schritt 2):** Nach Durchführung der Rohdaten- und Dummy-Ausschlüsse (`_step_dummy_exclusions`) existiert der unverfälschte Zustand aller technisch berechtigten Netto-Kandidaten. Dieser Zustand wird im Speicher isoliert gesichert.
+* **Pass 1 (Hauptkategorie):** Durchläuft die vollständige Pipeline (Schritte 3 bis 30) mit persistenter Matrixtabelle `LoadOrder_Classifier_Matrix` und schreibt das Ergebnis in `Mods.Category_LOH_Classifier` sowie alle Begründungen in `LoadOrder_Classifier_Results`.
+* **Pass 2 (Subkategorie):**
+  * Erstellt eine separate, isolierte Matrix-Tabelle im Speicher (`_matrix_sub`) basierend auf dem Snapshot aus Schritt 2.
+  * **Gold-Sperre:** Für jede Komponente wird die in Pass 1 ermittelte Hauptkategorie zwingend auf `0` gesetzt.
+  * **BGS-Öffnung:** Schritt 3 (`_step_bgs_priority`) wird im zweiten Pass übersprungen (`is_sub_run = True`), sodass BGS-Creations ihren fachlichen Inhalt über die reguläre Pipeline ermitteln können.
+  * **Mono-Mod-Erkennung:** Komponenten, die nach Sperrung der Hauptkategorie keinen weiteren aktiven Kandidaten mit Netto-Inhalt mehr besitzen (reine Mono-Kategorie-Mods), scheiden unmittelbar aus. Ihre Subkategorie bleibt sauber auf `NULL`.
+  * **Hybrid-Resolution:** Alle verbleibenden Kandidaten durchlaufen die standardmäßigen Binnengruppen- und Gruppenduelle und ermitteln den stärksten Zweitplatzierten.
+  * **Isolierung:** Pass 2 verändert weder die Protokolltabelle `LoadOrder_Classifier_Results` noch die primäre Matrixtabelle. Das Ergebnis wird atomar in `Mods.Category_LOH_Classifier_Sub` persistiert.

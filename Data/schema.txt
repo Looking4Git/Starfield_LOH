@@ -1906,6 +1906,7 @@ CREATE TABLE "Mods" (
                 "Image"    BLOB,
                 "Category_LOH"    INTEGER,
                 "Category_LOH_Classifier"    INTEGER,
+                "Category_LOH_Classifier_Sub"    INTEGER,
                 "Assessment"    INTEGER DEFAULT 4,
                 "Note"    TEXT,
                 "Date_installed"    TEXT,
@@ -1918,6 +1919,7 @@ CREATE TABLE "Mods" (
                 FOREIGN KEY("Assessment") REFERENCES "Assessments"("ID"),
                 FOREIGN KEY("Category_LOH") REFERENCES "Categories_LOH"("ID"),
                 FOREIGN KEY("Category_LOH_Classifier") REFERENCES "Categories_LOH"("ID"),
+                FOREIGN KEY("Category_LOH_Classifier_Sub") REFERENCES "Categories_LOH"("ID"),
                 FOREIGN KEY("Platform") REFERENCES "Platforms"("ID"),
                 FOREIGN KEY("State") REFERENCES "Mods_State"("ID")
             );

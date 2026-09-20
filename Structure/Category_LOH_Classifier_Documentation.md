@@ -22,6 +22,7 @@ Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies,
 - `Crafting`: Ausgeschlossen, wenn alle Rezepte Schiffs- oder Außenpostenmodule sind.
 - `Einrichtung`: Ausgeschlossen, wenn alle Möbel Fahrzeug-Steuersitze sind.
 - `Gebäude`: Ausgeschlossen, wenn keine baulichen Strukturen außerhalb von Städten (`calc_CELL_Environment_Structural_Refs == 0` und `PKIN == 0`) existieren oder wenn vorhandene Zellen reine Workshop-PackIns oder Test-/Snapshoträume für Baupläne (`COBJ`/`PKIN`) ohne Worldspace (`WRLD == 0`), ohne Surface-Blocks (`SFBK == 0`) und ohne Dungeons (`LCTN_KYWD_Dungeon == 0`) sind. Reine Stadt-, Spielerheim- oder Schiff-Mods scheiden ebenfalls aus.
+- `Schiffe`: Ausgeschlossen, wenn keine eigenständige Schiffshardware (keine Schiffs-Rezepte `COBJ_BNAM_Ship`, keine Schiffswaffen `WEAP_KWDA_Ship`, keine Schiffszellen/-packins `qry_CELL_Ship`, kein Schiffs-Movement/GBFM und keine Schiffs-NPCs/CLFM) vorliegt und vorhandene Snap-Nodes (`STND`/`STMP`/`STBH`) ausschließlich als modulare Verbindungspunkte aktiver Außenposten-Strukturen dienen (`COBJ_BNAM_Outpost_* > 0`).
 
 #### Phase B: Zwingende System-Prioritäten (Typ 2)
 - **Priorität BGS:** Offizielle Bethesda-Mods (`Author == Bethesda`) setzen sich per System-KO (Typ 2) durch.
@@ -57,7 +58,7 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 - **Gruppenduell Transport vs. Charakter:** Echte Transportbauteile stechen Charakter-Styling per LLO-KO aus.
 - **Gruppenduell Transport vs. Systeme:** Transportkomponenten stechen Hilfssysteme (Tweaks, Sortierung, Interface) per KO aus; gegenüber Gameplay greift Architektur-KO für Hardware bzw. gewichteter Massevergleich.
 - **Gruppenduell Transport vs. Akteure:** Schiffsteile stechen reine Crew per Architektur-KO aus; Begleiter bleiben geschützt.
-- **Gruppenduell Transport vs. Welt:** Reine Habs ohne Welt-Navmesh -> Transport gewinnt; Städtische Nahverkehrssysteme, Dungeons oder echte Werft-Siedlungen -> Welt gewinnt.
+- **Gruppenduell Transport vs. Welt:** Reine Habs ohne Welt-Navmesh -> Transport gewinnt; Städtische Nahverkehrssysteme, Dungeons oder echte Werft-Siedlungen -> Welt gewinnt; bei Außenposten entscheidet der quantitative Massevergleich (`dim_calc_outer_Außenposten` vs. `dim_calc_outer_Transport`) zwischen echter Schiffshardware und Außenposten-Inhalten.
 
 ##### Block 2: Objekt-Duelle
 - **Gruppenduell Objekte vs. Charakter:** Handwaffen und Kleidung schlagen Charakter per KO; Skins unterliegen Charakter per KO; Crafting/Einrichtung/Items/Pflanzen vs. Charakter per gewichtetem Massevergleich.

@@ -109,69 +109,81 @@ Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_so
 
 ---
 
-### 6. Die 4 Sortierschritte der Pipeline
+### 6. Die 4 Sortierstufen der Pipeline
 
 ```
-[Schritt 1: BGS-Basisblock]
-      │ (Fixierung Block 1, Position 1..N_bgs nach Subkategorie & Dateinummerierung)
+[Schritt 1: Vorsortieren nach Kategorien]
+      │ (Grobe Zuordnung aller installierten Komponenten nach Hauptkategorie Pos 1..32)
       ▼
-[Schritt 2: Wunsch-Ranking & Gravitation]
-      │ (Ideal_Rank = Basis-Kategorie + Masterfile-Typ + Subkategorie-Gravitation + Overrides)
+[Schritt 2: Globale Abhängigkeitsauflösung]
+      │ (Auflösung übergeordneter Masterfiles, Requirements und Konflikte über Kategoriegrenzen)
       ▼
-[Schritt 3: Topologische DAG-Sortierung]
-      │ (Vorrangkanten aus Requirements, Masterfiles, Conflicts; Zyklenprüfung & Schiedsrichter)
+[Schritt 3: Kategorie-Feinsortierung & Binnen-Nachbesserung]
+      │ (Semantische Steuertabelle je Kategorie 01–32: 3a Vorläufer -> 3b Mono-Kern -> 3c Nachfolger)
+      │ └── Subkategorie-Clustering & wiederverwendbare Mod-Kohäsions-Sortierung
+      │ └── 3d: Binnen-Abhängigkeitsnachbesserung der Kategorie
       ▼
 [Schritt 4: Persistierung in Profil 0]
       │ (Atomares Schreiben der lückenlosen Positionen 1..N in LoadOrder für Profil 0)
 ```
 
-#### Schritt 1: BGS-Basisblock fixieren (`_step_bgs_block`)
-* **Status:** Offizielle Bethesda-Creations (`Author == 'Bethesda'`) bilden unverrückbar **Block 1** an der Spitze der Ladereihenfolge (Positionen `1` bis `N_bgs`).
-* **Sortierkriterien innerhalb von BGS:**
-  1. **Sub-Kategorie (`Category_LOH_Classifier_Sub`):** Die im Classifier in Pass 2 ermittelte fachliche Subkategorie steuert die Reihenfolge:
-     - Quests (`Category = 4`, z. B. Trackerallianz, Entkomme, Am Höllentor, Das perfekte Rezept)
-     - Outposts / Bausysteme (`Category = 30`, z. B. Observatorium)
-     - Fahrzeuge (`Category = 31`, z. B. Deimog)
-     - Texturen & Skins (`Category = 13/27`, z. B. Blackout-Waffenskins)
-  2. **Tracker-Allianz-Nummerierung & Mod-ID:** Für Mehrkomponenten-Creations (wie die Trackerallianz-Reihe) greift die sequentielle Dateinummerierung (`sfta01` bis `sfta06`), gefolgt von `blueprintships`.
-  3. **Dateiname:** Alphabetischer Fallback für deterministische Reihenfolge.
+#### Schritt 1: Vorsortieren nach Kategorien (`_step_presort_by_categories`)
+* Ordnet alle installierten Komponenten anhand ihrer Hauptkategorie (`coalesce(Category_LOH, Category_LOH_Classifier)`) in die LLO-Kategorien-Reihenfolge (Positionen 1 bis 32).
+* Offizielle BGS-Creations (`Author == 'BethesdaGameStudios'` oder `Category_LOH == 1`) fallen regulär in Kategorie 1 und bilden damit natürlich die Spitze der Ladereihenfolge (Positionen 1 bis $N_{bgs}$).
+* Lädt für jede Komponente die berechneten Matrix-Werte der kategoriespezifischen Eingriffstiefe (`dim_calc_inner_*`) und die Summe der Gesamt-Overrides (`calc_Total_Override_Val`).
 
-#### Schritt 2: Wunsch-Ranking & Gravitation berechnen (`_step_calculate_community_ranks`)
-Berechnet für alle Community-Komponenten einen stetigen Gleitkomma-Wert `Ideal_Rank`. Dieser repräsentiert die optimale Wunschposition vor Auflösung zwingender Abhängigkeiten:
+#### Schritt 2: Globale Abhängigkeitsauflösung (`_step_resolve_global_dependencies`)
+* Arbeitet über die gesamte Liste aller installierten Komponenten (Position 1 bis 32).
+* Prüft alle harten Vorgaben:
+  1. **Masterfile-Header (`MAST`):** Aus `Mods_Requirements_Masterfile_List`.
+  2. **Mod-Requirements:** Aus `Mods_Requirements`.
+  3. **Konflikt-Schiedsrichter:** Aus `Mods_Conflicts` (Zell- und FormID-Kollisionen).
+* Stellt sicher, dass kein abhängiges Plugin in einer früheren Kategorie geladen wird als seine Masterfiles oder Voraussetzungen. Sollte dies der Fall sein, wird das abhängige Plugin auf die Kategorie der Voraussetzung angehoben.
 
-$$\text{Ideal\_Rank} = \text{Basis\_Rang} + \text{Masterfile\_Offset} + \text{Gravitation} + \text{Override\_Score}$$
+#### Schritt 3: Kategorie-Feinsortierung (`_step_fine_sort_categories`)
+Iteriert über eine semantische Steuertabelle über alle 32 aktiven Kategorien (inkl. Kategorie 1 BGS) und führt für jede Kategorie `fine_sort_category(cat_id)` aus:
 
-1. **Basis-Rang nach Hauptkategorie:**
-   - $\text{Position}(\text{Kategorie}) \times 10000.0$ (z. B. Kategorie 2 Patches = 20.000, Kategorie 6 Städte = 60.000).
-2. **Masterfile-Typ Offset:**
-   - Full Master (`Is_Masterfile = 1`): $+0.0$
-   - Medium Master (`Is_Masterfile = 2`): $+100.0$
-   - Small Master (`Is_Masterfile = 3`): $+200.0$
-   - Reguläres Plugin (`Is_Masterfile = 0`): $+300.0$
-3. **Border-Clustering (Gravitation durch `Category_LOH_Classifier_Sub`):**
-   - Besitzt eine Mod eine Subkategorie, wird sie innerhalb ihrer Hauptkategorie feinfühlig in Richtung der Subkategorie geneigt:
-   - $\Delta = \text{Position}(\text{Sub}) - \text{Position}(\text{Main})$
-   - $\text{Gravitation} = \max(-400.0, \min(400.0, \Delta \times 40.0))$
-   - *Beispiel:* Mod in Kategorie 6 (Städte) mit Subkategorie 5 (Landschaften) erhält $-40.0$ (rückt nach oben). Mod mit Subkategorie 7 (Gebäude) erhält $+40.0$ (rückt nach unten).
-4. **Overrides-Priorisierung:**
-   - $\text{Override\_Score} = -\min(400.0, \text{Anzahl\_Overrides} \times 2.0)$
-   - Mods, die mehr Vanilla-FormIDs überschreiben, rücken innerhalb ihres Slots leicht nach oben, um von gezielten Patches sauber überschrieben werden zu können.
+##### A. Die 11 LLO-Gruppen der Strukturtabelle (`LLO_GROUPS`)
+Jede der 32 Kategorien ist lückenlos einer Gruppe zugeordnet. Einzelkategorien besitzen eine 1-Kategorie-Gruppe, um Sonderlocken zu vermeiden:
+* **GRP_01_BGS:** Pos 01 (`BGS` – Offizieller Bethesda-Content, 1 Inhaltskategorie)
+* **GRP_02_BUGFIX:** Pos 02 (`Bugfix` – Grundlegende Fixes, 1 Inhaltskategorie)
+* **GRP_03_OVERHAUL:** Pos 03 (`Overhaul` – Globale Spielsystem-Overhauls, 1 Inhaltskategorie)
+* **GRP_04_QUEST:** Pos 04 (`Quest` – Quests & Kampagnen, 1 Inhaltskategorie)
+* **GRP_05_WELT:** Pos 05–12 (`Umgebung`, `Städte`, `Gebäude`, `Spielerheime`, `Außenposten`, `Einrichtung`, `POIs`, `Pflanzen`)
+* **GRP_06_AKTEURE:** Pos 13–16 (`Gameplay`, `NPCs`, `Begleiter`, `Kreaturen`)
+* **GRP_07_SENSORIK:** Pos 17–20 (`Texturen`, `Licht`, `Effekte`, `Sound`)
+* **GRP_08_UI:** Pos 21–23 (`Interface`, `Sortierung`, `Tweaks`)
+* **GRP_09_AUSRUESTUNG:** Pos 24–27 (`Charakter`, `Kleidung`, `Waffen`, `Crafting`)
+* **GRP_10_TRANSPORT:** Pos 28–29 (`Schiffe`, `Fahrzeuge`)
+* **GRP_11_SPEZIAL:** Pos 30–32 (`Items`, `Skins`, `Remove`)
 
-#### Schritt 3: Topologische DAG-Sortierung & Konfliktauflösung (`_step_build_dag_and_topological_sort`)
-1. **Kantenaufbau:**
-   - **Harte Abhängigkeiten:** Kanten aus `Mods_Requirements` (Voraussetzung lädt vor Kind).
-   - **Header-Masterfiles:** Kanten aus `Mods_Requirements_Masterfile_List` (Masterfile lädt vor Plugin).
-   - **Konflikt- & NavMesh-Regeln:** Kanten aus `Mods_Conflicts` (Schiedsrichter-Empfehlungen).
-2. **Schiedsrichter & Zyklenvermeidung:**
-   - *Gegenseitige Konflikte:* Existieren für zwei Mods gegenseitige Schiedsrichter-Empfehlungen (z. B. asymmetrische NavMesh-Konflikte in unterschiedlichen Zellen wie bei Mod 27 vs Mod 35), gewinnt die Richtung mit der höheren Stimmenanzahl. Bei Stimmengleichheit entscheidet der bessere `Ideal_Rank`.
-   - *Zyklenerkennung:* Vor dem Hinzufügen einer Kante $u \to v$ prüft eine Tiefensuche (`would_create_cycle(u, v)`), ob bereits ein Pfad $v \to \dots \to u$ existiert. Kanten, die einen Zyklus schließen würden, werden verworfen.
-3. **Topologische Sortierung (Kahn-Algorithmus mit Prioritätswarteschlange):**
-   - Knoten mit Eingangsgrad 0 werden in einem Min-Heap nach ihrem `Ideal_Rank` verwaltet.
-   - Der Heap garantiert, dass immer der Knoten mit der besten Wunschposition entnommen wird, sobald alle seine Voraussetzungen erfüllt sind.
-   - Sollte im Extremfall ein Restzyklus verbleiben, sorgt ein deterministischer Fallback dafür, dass verbliebene Knoten sortiert nach `Ideal_Rank` angefügt werden.
+##### B. Teilschritte der Kategorie-Feinsortierung
+1. **Teilschritt 3a: Band Vorläufer (`_build_band_precursors`):**
+   * Filtert Komponenten, deren Subkategorie vor der Hauptkategorie steht ($\text{Sub\_Pos} < \text{Main\_Pos}$).
+   * Bildet den oberen Grenzsaum. Sortierung primär geclustert nach `Sub_Pos` aufsteigend, sekundär über die wiederverwendbare Mod-Kohäsions-Funktion.
+2. **Teilschritt 3b: Band Mono-Kern (`_build_band_core`):**
+   * Fasst alle reinen Mono-Mods der Kategorie zusammen (`Sub IS NULL` oder `Sub == Main_Pos`).
+   * Bildet das unverfälschte Zentrum der Kategorie.
+   * Sortierung über die wiederverwendbare Mod-Kohäsions-Funktion nach dem Override-Fundament-Prinzip.
+3. **Teilschritt 3c: Band Nachfolger (`_build_band_successors`):**
+   * Filtert Komponenten, deren Subkategorie nach der Hauptkategorie steht ($\text{Sub\_Pos} > \text{Main\_Pos}$).
+   * Bildet den unteren Grenzsaum (z. B. Quests mit Subkategorie Städte, Gebäude, Spielerheime, POIs oder BGS mit Quests, Außenposten, Fahrzeugen, Skins).
+   * Sortierung primär geclustert nach `Sub_Pos` aufsteigend, sekundär über die wiederverwendbare Mod-Kohäsions-Funktion.
+4. **Wiederverwendbare Mod-Kohäsions-Funktion (`_sort_components_with_mod_cohesion`):**
+   * **Mod-Kohäsion:** Alle Komponenten derselben Mod (`Mod_ID`) bleiben garantiert als zusammenhängender Block beieinander.
+   * **Inter-Mod-Sortierung (Reihenfolge verschiedener Mods):**
+     - Priorität 1: Maximaler kategoriespezifischer Override der Mod (`dim_calc_inner_<Kategorie>`) absteigend.
+     - Priorität 2: Maximaler Gesamt-Override der Mod (`calc_Total_Override_Val`) absteigend.
+     - Priorität 3: Mod-Name / Dateiname aufsteigend (deterministischer Fallback).
+   * **Intra-Mod-Sortierung (Reihenfolge der Komponenten innerhalb derselben Mod):**
+     - Natürliche alphanumerische Dateinamen-Sortierung über `_natural_sort_key` (z. B. `sfta01` vor `sfta02`, `Part1` vor `Part2`).
+5. **Teilschritt 3d: Binnen-Abhängigkeitsnachbesserung der Kategorie (`_resolve_category_internal_dependencies`):**
+   * Wird am Ende von `fine_sort_category` für die zusammengesetzte Liste ausgeführt.
+   * Prüft alle Requirements, mod-übergreifenden Masterfiles (`MAST`) und Schiedsrichter-Regeln *zwischen Komponenten derselben Kategorie*.
+   * Stellt stabil sicher, dass jede Voraussetzung vor ihrem abhängigen Plugin geladen wird, während die relative Bänder- und Override-Sortierung optimal erhalten bleibt.
 
 #### Schritt 4: Persistierung in Profil 0 (`_step_persist_profile_zero`)
 * Löscht alte Einträge in `LoadOrder` für `ID_Profile = 0`.
-* Fügt die Gesamtsequenz (Block 1 BGS + sortierte Community-Komponenten) atomar ein.
+* Fügt die Gesamtsequenz atomar ein.
 * Positionen `1` bis `N` sind lückenlos durchnummeriert, alle Einträge erhalten `Is_Active = 1`.
 * Protokolliert den erfolgreichen Abschluss in `LOH_Executions` mit `record_script_end("LoadOrder_Sorter.py")`.

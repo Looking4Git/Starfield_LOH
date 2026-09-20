@@ -1975,6 +1975,8 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
     crafting_id = cat_map.get('Crafting')
     furn_id = cat_map.get('Einrichtung')
     bld_id = cat_map.get('Gebäude')
+    ship_id = cat_map.get('Schiffe')
+    outpost_id = cat_map.get('Außenposten')
 
     for urow in unresolved_rows:
         mid = urow['Mod_ID']
@@ -2082,6 +2084,30 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             if is_workshop_decor_only:
                 cursor.execute(f'UPDATE {ctx.matrix_table} SET "{bld_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 ctx.log_result(cursor, mid, cid, bld_id, None, 1, f"Vorhandene Zellen sind reine Workshop-PackIns ({pkin}) oder Testräume zur Bereitstellung von Bauplänen ({cobj}); keine eigenständigen Gebäude oder Dungeons in der Spielwelt errichtet.")
+
+        # 9. Schiffe prüfen (Snap-Node-Ausschluss bei reinen Außenposten-Mods)
+        if ship_id and (urow.get(str(ship_id)) or 0) == ctx.prev_level:
+            cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
+            weap_ship = urow.get('WEAP_KWDA_Ship') or 0
+            clfm_ship = urow.get('CLFM_KYWD_Ship') or 0
+            cell_ship = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
+            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
+            outpost_active = outpost_id and (urow.get(str(outpost_id)) or 0) == ctx.prev_level
+
+            # Echte Schiffshardware erfordert Schiffs-Rezepte (COBJ_BNAM_Ship), Schiffsbewaffnung,
+            # Schiffslackierungen oder ein klares Übergewicht an Schiffs-Habs gegenüber Außenposten-Modulen.
+            # Reine Snap-Nodes, Landeplatz-PackIns oder Frachtschiff-Vorlagen begründen keine Schiffsklasse.
+            has_real_ship_hardware = (
+                cobj_ship > 0 or 
+                weap_ship > 0 or 
+                clfm_ship > 0 or 
+                (cell_ship > cobj_op and cell_ship >= 10)
+            )
+
+            if not has_real_ship_hardware and cobj_op > 0 and outpost_active:
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{ship_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                ctx.log_result(cursor, mid, cid, ship_id, None, 1, 
+                    "Vorhandene Snap-Nodes (STND/STMP/STBH) und Hilfsstrukturen dienen als modulare Verbindungspunkte bzw. Landeplatz-Infrastruktur für Außenposten; keine eigenständigen Schiffsbau-Komponenten vorhanden.")
 
         # Hebe alle verbleibenden aktiven Kategorien auf Stufe curr_level an
         set_clauses_2 = [f'"{c}" = CASE WHEN "{c}" = {ctx.prev_level} THEN {ctx.curr_level} ELSE "{c}" END' for c in cat_ids]
@@ -2931,11 +2957,9 @@ def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
             val_w = urow.get(f'dim_calc_outer_{w_name}') or 0
 
             cobj_ship = urow.get('COBJ_BNAM_Ship') or 0
-            cobj_op = (urow.get('COBJ_BNAM_Outpost_Heavy') or 0) + (urow.get('COBJ_BNAM_Outpost_Soft') or 0)
             wrld = urow.get('WRLD') or 0
             navm = urow.get('NAVM') or 0
             cell_city = (urow.get('qry_CELL_City') or 0) + (urow.get('qry_CELL_Override_City') or 0)
-            cell_ship = (urow.get('qry_CELL_Ship') or 0) + (urow.get('qry_CELL_Ship_PackIn') or 0)
 
             winner_cid = None
 
@@ -2967,30 +2991,13 @@ def _step_transport_vs_world(cursor, cat_map, cat_ids, ctx):
                     ctx.log_result(cursor, mid, cid, w_cid, t_cid, 3, "Schiffskomponenten stechen isolierte Raumhafen-Platzierungen ohne echte Stadtbauten aus.")
             # 4. Außenposten:
             elif w_cid == cat_map.get('Außenposten'):
-                override_ship_packin = urow.get('qry_CELL_Override_Ship_PackIn') or 0
-                weap_ship = urow.get('WEAP_KWDA_Ship') or 0
-                has_real_ship_hardware = (
-                    cobj_ship > 0 or 
-                    weap_ship > 0 or 
-                    (urow.get('qry_CELL_Ship') or 0) > 0 or 
-                    override_ship_packin >= 5 or 
-                    (cobj_ship >= cobj_op and cell_ship > 0)
-                )
-
-                if cobj_op > 0 and not has_real_ship_hardware:
+                val_op = urow.get('dim_calc_outer_Außenposten') or 0
+                if val_op > val_t:
                     winner_cid = w_cid
-                    ctx.log_result(cursor, mid, cid, t_cid, w_cid, 3, "Modulare Außenposten- und Werkbank-Strukturen besitzen Vorrang vor abgeleiteten Snap-Nodes.")
-                elif has_real_ship_hardware and cobj_op == 0:
-                    winner_cid = t_cid
-                    ctx.log_result(cursor, mid, cid, w_cid, t_cid, 3, "Reine Schiffsbau-Komponenten ohne Außenposten-Objekte: Transport gewinnt per Architektur.")
+                    ctx.log_result(cursor, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
                 else:
-                    val_op = urow.get('dim_calc_outer_Außenposten') or 0
-                    if val_op > val_t:
-                        winner_cid = w_cid
-                        ctx.log_result(cursor, mid, cid, t_cid, w_cid, 4, f"Massevergleich Außenposten vs. Transport: 'Außenposten' ({val_op:.1f}) übertrifft '{t_name}' ({val_t:.1f}).")
-                    else:
-                        winner_cid = t_cid
-                        ctx.log_result(cursor, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
+                    winner_cid = t_cid
+                    ctx.log_result(cursor, mid, cid, w_cid, t_cid, 4, f"Massevergleich Transport vs. Außenposten: '{t_name}' ({val_t:.1f}) übertrifft 'Außenposten' ({val_op:.1f}).")
             # 5. Gebäude:
             elif w_cid == cat_map.get('Gebäude'):
                 stbh = urow.get('STBH') or 0

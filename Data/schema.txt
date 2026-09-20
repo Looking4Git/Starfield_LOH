@@ -1292,8 +1292,10 @@ CREATE VIEW "View_Components_References_Matrix" AS
 SELECT 
     m.Name_Online AS Mod_Name,
     c.File AS Component_File,
+    lo0.Position AS Position_Profile_0,
     cat.Name AS Category_LOH,
     cat_class.Name AS Category_LOH_Classifier,
+    cat_sub.Name AS Category_LOH_Classifier_Sub,
     
     -- Matrix der LOH-Klassen
     mat."1" AS "BGS", mat."2" AS "Bugfix", mat."3" AS "Overhaul", mat."4" AS "Quest", 
@@ -1385,8 +1387,10 @@ FROM Components_ESM_References ref
 JOIN Components c ON ref.Component_ID = c.ID
 LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
 LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+LEFT JOIN LoadOrder lo0 ON lo0.ID_Profile = 0 AND lo0.ID_Component = c.ID
 LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID
 LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
+LEFT JOIN Categories_LOH cat_sub ON m.Category_LOH_Classifier_Sub = cat_sub.ID
 LEFT JOIN LoadOrder_Classifier_Matrix mat ON m.ID = mat.Mod_ID AND c.ID = mat.Component_ID
 LEFT JOIN Components_References_Base base ON ref.Component_ID = base.Component_ID
 WHERE c.Is_Blueprint = 0 AND c.Is_Masterfile > 0;

@@ -18,8 +18,9 @@ Der View `View_Components_References_Matrix` aggregiert Daten aus folgenden Quel
 *   **`Components_ESM_References`** (Spaltenpräfix `ref.*`): Alle Zählerwerte für deklarierte und überschriebene Records aus den ESM-Dateien (Statischer Speicherort der Rohdaten).
 *   **`Components_References_Base`** (Spaltenpräfix `base.*` bzw. `calc_` / `qry_`): Die zu Beginn des Classifiers berechneten und eingefrorenen Aggregatwerte und Spinnengrafik-Dimensionen.
 *   **`Components`**: Dateiname der Masterfile-Komponente (`Component_File`).
+*   **`LoadOrder`**: Berechnete Ladereihenfolgen-Position in Profil 0 (`Position_Profile_0`, `NULL` wenn noch kein Profil 0 berechnet wurde).
 *   **`Mods`**: Mod-Name aus dem Creations-Katalog (`Mod_Name`).
-*   **`Categories_LOH`**: Zugeordnete Kategorie der Mod (`Category_LOH`) sowie die vom automatischen Classifier vergebene Kategorie (`Category_LOH_Classifier`).
+*   **`Categories_LOH`**: Zugeordnete Kategorie der Mod (`Category_LOH`), die vom automatischen Classifier vergebene Hauptkategorie (`Category_LOH_Classifier`) sowie die ermittelte Subkategorie (`Category_LOH_Classifier_Sub`).
 *   **`LoadOrder_Classifier_Matrix`** (Klassenspalten `BGS`, `Bugfix` bis `Remove`): Die aktuelle Ausschlussmatrix für diese Komponente.
 
 > [!IMPORTANT]

@@ -65,8 +65,8 @@ class StepContext:
     @property
     def unresolved_where(self):
         if not self.is_sub_run:
-            return "Category_LOH_Classifier IS NULL"
-        return "Category_LOH_Classifier IS NOT NULL AND Category_LOH_Classifier_Sub IS NULL"
+            return "m.Category_LOH_Classifier IS NULL"
+        return "m.Category_LOH_Classifier IS NOT NULL AND m.Category_LOH_Classifier_Sub IS NULL"
 
     def log_result(self, cursor, mod_id, component_id, looser_id, winner_id, type_id, reason):
         """Trägt eine Entscheidung für den aktuellen Schritt ein (nur im Hauptdurchlauf)."""
@@ -129,7 +129,7 @@ class StepContext:
         in einer einzigen performanten SQL-Abfrage.
         """
         col_select = ", ".join([f'lcm."{c}"' for c in self.cat_ids])
-        where_cond = f"m.{self.unresolved_where}"
+        where_cond = self.unresolved_where
         cursor.execute(f"""
             SELECT 
                 lcm.Mod_ID, 
@@ -168,7 +168,7 @@ class StepContext:
         active_cat_ids = cat_ids or self.cat_ids
         col_select = col_select_quotes or ", ".join([f'"{c}"' for c in active_cat_ids])
         col_cases = ", ".join([f'"{cid}" = CASE WHEN "{cid}" = {self.prev_level} THEN {self.curr_level} ELSE "{cid}" END' for cid in active_cat_ids])
-        where_cond = f"m.{self.unresolved_where}"
+        where_cond = self.unresolved_where
         cursor.execute(f"""
             SELECT lcm.Mod_ID, lcm.Component_ID, {col_select}
             FROM {self.matrix_table} lcm
@@ -1968,7 +1968,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_Kleidung') or 0
             val_in = urow.get('dim_calc_inner_Kleidung') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{clothing_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{clothing_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 armo = urow.get('ARMO') or 0
                 armo_dummy = urow.get('ARMO_Dummy') or 0
                 ctx.log_result(cursor, mid, cid, clothing_id, None, 1, f"Alle {armo} Rüstungs-/Kleidungs-Datensätze sind interne Dummies oder Shader-Masken ('ARMO_Dummy': {armo_dummy}); keine tragbare Ausrüstung vorhanden.")
@@ -1978,7 +1978,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_NPCs') or 0
             val_in = urow.get('dim_calc_inner_NPCs') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{npcs_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{npcs_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 npc = urow.get('NPC_') or 0
                 npc_dummy = urow.get('NPC__Dummy') or 0
                 ctx.log_result(cursor, mid, cid, npcs_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen, Steuerungs-Dummies ('NPC__Dummy': {npc_dummy}) oder gehören zu Begleitern/Kreaturen; keine eigenständigen humanoiden NPCs vorhanden.")
@@ -1988,7 +1988,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_Begleiter') or 0
             val_in = urow.get('dim_calc_inner_Begleiter') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{companion_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{companion_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 npc = urow.get('NPC_') or 0
                 npc_dummy = urow.get('NPC__Dummy') or 0
                 ctx.log_result(cursor, mid, cid, companion_id, None, 1, f"Alle {npc} NPC-Datensätze sind Schaufensterpuppen oder Dummies ('NPC__Dummy': {npc_dummy}); keine lebendigen Begleiter mit KI-Paketen vorhanden.")
@@ -1998,7 +1998,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_Kreaturen') or 0
             val_in = urow.get('dim_calc_inner_Kreaturen') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{creature_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{creature_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 npc = urow.get('NPC_') or 0
                 npc_dummy = urow.get('NPC__Dummy') or 0
                 ctx.log_result(cursor, mid, cid, creature_id, None, 1, f"Keine lebendigen Kreaturen-Akteure vorhanden ('NPC__KYWD_Creature': 0, 'NPC__Dummy': {npc_dummy}); Rassen-Datensatz (RACE) dient rein als Gerüst für Schaufensterpuppen/Dummies.")
@@ -2008,7 +2008,7 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_Waffen') or 0
             val_in = urow.get('dim_calc_inner_Waffen') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{waffen_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{waffen_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 weap = urow.get('WEAP') or 0
                 weap_helper = urow.get('WEAP_KWDA_Helper') or 0
                 weap_ship = urow.get('WEAP_KWDA_Ship') or 0
@@ -2020,16 +2020,30 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
             val_out = urow.get('dim_calc_outer_Crafting') or 0
             val_in = urow.get('dim_calc_inner_Crafting') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{crafting_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{crafting_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 cobj = urow.get('COBJ') or 0
                 ctx.log_result(cursor, mid, cid, crafting_id, None, 1, f"Alle {cobj} Herstellungsrezepte (COBJ) sind Schiffs- oder Außenposten-Module; keine eigenständigen Werkbank-Rezepte vorhanden.")
+            elif (urow.get('dim_calc_outer_Skins') or 0) > 0:
+                # Prüfe, ob eigenständige herstellbare Realobjekte deklariert wurden
+                real_items = (
+                    (urow.get('WEAP') or 0) +
+                    max(0, (urow.get('ARMO') or 0) - (urow.get('ARMO_Dummy') or 0)) +
+                    (urow.get('AMMO') or 0) +
+                    (urow.get('ALCH') or 0) +
+                    (urow.get('MISC') or 0) +
+                    (urow.get('FURN') or 0)
+                )
+                if real_items == 0:
+                    cursor.execute(f'UPDATE {ctx.matrix_table} SET "{crafting_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                    cobj = urow.get('COBJ') or 0
+                    ctx.log_result(cursor, mid, cid, crafting_id, None, 1, f"Alle {cobj} Herstellungsrezepte (COBJ) dienen als reine Werkbank-Auswahlhilfen für Skins/Modifikationen (OMOD); keine eigenständigen herstellbaren Gegenstände (Waffen, Rüstungen, Chems, Munition oder Deko) vorhanden.")
 
         # 7. Einrichtung prüfen
         if furn_id and (urow.get(str(furn_id)) or 0) == ctx.prev_level:
             val_out = urow.get('dim_calc_outer_Einrichtung') or 0
             val_in = urow.get('dim_calc_inner_Einrichtung') or 0
             if val_out == 0 and val_in == 0:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{furn_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{furn_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 furn = urow.get('FURN') or 0
                 ctx.log_result(cursor, mid, cid, furn_id, None, 1, f"Alle {furn} Möbel-Datensätze (FURN) dienen als Fahrzeug-Steuersitze; keine Einrichtungs- oder Deko-Möbel vorhanden.")
 
@@ -2049,13 +2063,13 @@ def _step_dummy_exclusions(cursor, cat_map, cat_ids, ctx):
                 (cobj > 0 or pkin > 0 or cobj_outpost > 0)
             )
             if is_workshop_decor_only:
-                cursor.execute(f'UPDATE LoadOrder_Classifier_Matrix SET "{bld_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
+                cursor.execute(f'UPDATE {ctx.matrix_table} SET "{bld_id}" = 0 WHERE Mod_ID = ? AND Component_ID = ?', (mid, cid))
                 ctx.log_result(cursor, mid, cid, bld_id, None, 1, f"Vorhandene Zellen sind reine Workshop-PackIns ({pkin}) oder Testräume zur Bereitstellung von Bauplänen ({cobj}); keine eigenständigen Gebäude oder Dungeons in der Spielwelt errichtet.")
 
         # Hebe alle verbleibenden aktiven Kategorien auf Stufe curr_level an
         set_clauses_2 = [f'"{c}" = CASE WHEN "{c}" = {ctx.prev_level} THEN {ctx.curr_level} ELSE "{c}" END' for c in cat_ids]
         cursor.execute(f"""
-            UPDATE LoadOrder_Classifier_Matrix
+            UPDATE {ctx.matrix_table}
             SET {", ".join(set_clauses_2)}
             WHERE Mod_ID = ? AND Component_ID = ?
         """, (mid, cid))
@@ -2072,7 +2086,7 @@ def _step_system_priority(cursor, cat_map, cat_ids, ctx, category_name, reason_t
         SELECT Mod_ID, Component_ID 
         FROM {ctx.matrix_table}
         WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE {ctx.unresolved_where}
+            SELECT m.ID FROM Mods m WHERE {ctx.unresolved_where}
         )
     """)
     candidates = cursor.fetchall()
@@ -2086,7 +2100,7 @@ def _step_system_priority(cursor, cat_map, cat_ids, ctx, category_name, reason_t
         UPDATE {ctx.matrix_table}
         SET "{cat_id}" = {ctx.curr_level}
         WHERE "{cat_id}" = {ctx.prev_level} AND Mod_ID IN (
-            SELECT ID FROM Mods WHERE {ctx.unresolved_where}
+            SELECT m.ID FROM Mods m WHERE {ctx.unresolved_where}
         )
     """)
     ctx.lift_uncollided(cursor)
@@ -2489,7 +2503,7 @@ def _step_remover(cursor, cat_map, cat_ids, ctx):
             if set_clauses:
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
+                    UPDATE {ctx.matrix_table}
                     SET {set_sql}
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
@@ -2564,7 +2578,7 @@ def _step_sensory_override(cursor, cat_map, cat_ids, ctx):
             if set_clauses:
                 set_sql = ", ".join(set_clauses)
                 cursor.execute(f"""
-                    UPDATE LoadOrder_Classifier_Matrix
+                    UPDATE {ctx.matrix_table}
                     SET {set_sql}
                     WHERE Mod_ID = ? AND Component_ID = ?
                 """, (mid, cid))
@@ -3946,7 +3960,7 @@ def _step_inheritance(cursor, cat_map, cat_ids, ctx):
         JOIN Mods_Components mc ON m.ID = mc.Mod_ID
         JOIN Components c ON mc.Component_ID = c.ID
         WHERE m.State = 1 AND c.Is_Masterfile > 0
-          AND m.{ctx.unresolved_where}
+          AND {ctx.unresolved_where}
     """)
     unresolved = [dict(r) for r in cursor.fetchall()]
     if not unresolved:
@@ -4211,40 +4225,15 @@ def run_classifier(log_signal=None):
                 )
                 prev_sub_level = step_id
 
-            # Fallback für etwaige unentschiedene Hybriden: höchster Netto-Inhaltswert (dim_calc_outer_*)
+            # Option A: Kein Notpflaster / Fallback. Unentschiedene Hybride verbleiben mit Subkategorie NULL.
             cursor.execute("""
-                SELECT m.ID, lcm.Component_ID
+                SELECT m.ID, m.Name_Online, m.Name_ContentCatalog
                 FROM Mods m
-                JOIN LoadOrder_Classifier_Matrix_Sub lcm ON m.ID = lcm.Mod_ID
                 WHERE m.State = 1 AND m.Category_LOH_Classifier IS NOT NULL AND m.Category_LOH_Classifier_Sub IS NULL
             """)
-            unresolved_hybrids = cursor.fetchall()
-            for h_row in unresolved_hybrids:
-                h_mid = h_row[0]
-                h_cid = h_row[1]
-                cursor.execute(f'SELECT {col_select} FROM LoadOrder_Classifier_Matrix_Sub WHERE Mod_ID = ? AND Component_ID = ?', (h_mid, h_cid))
-                h_matrix = cursor.fetchone()
-                if h_matrix:
-                    remaining_active = [c for c in cat_ids if (h_matrix[str(c)] or 0) > 0]
-                    if remaining_active:
-                        cursor.execute("SELECT * FROM View_Components_References_Matrix WHERE Component_ID = ?", (h_cid,))
-                        v_row = cursor.fetchone()
-                        best_c = None
-                        best_score = -1
-                        if v_row:
-                            v_keys = v_row.keys()
-                            for c_cand in remaining_active:
-                                c_name = cat_map.get(c_cand) or ""
-                                dim_col = f"dim_calc_outer_{c_name}"
-                                dim_val = v_row[dim_col] if dim_col in v_keys else 0
-                                if dim_val > best_score:
-                                    best_score = dim_val
-                                    best_c = c_cand
-                        if best_c is None:
-                            best_c = remaining_active[0]
-                        cursor.execute("UPDATE Mods SET Category_LOH_Classifier_Sub = ? WHERE ID = ?", (best_c, h_mid))
-                        c_name_final = [k for k, v in cat_map.items() if v == best_c]
-                        log_msg(f"  [SUBKLASSIFIZIERT - Fallback] Mod ID {h_mid} -> Subkategorie: {c_name_final[0] if c_name_final else best_c}")
+            unresolved_remaining = cursor.fetchall()
+            if unresolved_remaining:
+                log_msg(f"-> {len(unresolved_remaining)} Mods besitzen keine sekundären Merkmale oder blieben unentschieden (Sub = NULL).")
 
         # Temporäre Tabellen und Snapshot bereinigen
         cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Snapshot;")

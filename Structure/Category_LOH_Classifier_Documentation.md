@@ -8,7 +8,8 @@ Die Klassifizierung erfolgt über eine dynamische, tabellengesteuerte Ausschluss
 ##### 1. Ausschlussregeln (Rohdaten)
 Schließt Kategorien auf Stufe 0 aus, falls grundlegende technische Record-Signaturen fehlen (z. B. keine Waffen-Forms für Waffen, keine Kleidungs-Forms für Kleidung etc.):
 - `Skins`: Ausgeschlossen, wenn keine Ausrüstungs-Modifikationen (`OMOD`), Textur-Sets (`TXST`), Skin-Keywords (`CLFM_Skin`) oder Ausrüstungs-Overrides vorliegen (isolierte `LMSW`-Material-Swaps ohne Ausrüstungsbezug gelten als reine Mesh-Shader).
-- `Städte`: Ausgeschlossen, wenn keine eigenen Stadt-Locations, keine Stadt-/Siedlungs-Zellen mit baulichen Strukturen vorliegen (reine Passanten-Zuweisungen `CrowdRegion` ohne Stadtzellen/Strukturen scheiden aus).
+- `Städte`: Ausgeschlossen, wenn weder eigene Stadt-Locations (`LCTN_KYWD_City` / `LCTN_KYWD_Settlement`) noch bauliche/strukturelle Platzierungen in Stadt-/Siedlungszellen (`calc_CELL_City_Structural_Refs > 0`) vorliegen (reine Passanten-Zuweisungen `CrowdRegion` ohne Stadtzellen/Strukturen scheiden aus).
+  - **Quest-Touchpoint-Regel:** Schließt `Städte` zusätzlich bei Quest-Mods aus, wenn in städtischen Zellen lediglich geringfügige Startmarker oder Türen (`calc_CELL_City_Structural_Refs <= 10`) deklariert sind, keine eigene Stadt-Location definiert ist, die Außenwelt-Präsenz dominant ist (`calc_CELL_Environment_Structural_Refs > 100`) und kein städtisches Lokal/Gebäude per PackIn mitgeliefert wird (reine Quest-Touchpoints wie bei *Vigilance* oder *Continuum* scheiden aus; Quests mit städtischen Lokalen oder echten Bauten bleiben erhalten).
 - `Schiffe`: Erkennt Schiffsbauteile (`COBJ_Ship`/`GBFM`), Schiffswaffen, Snap-Nodes (`STBH`/`STMP`) und Schiffs-Habs (`qry_CELL_Ship_PackIn`); reine Beleuchtungs-Overrides in Schiffszellen ohne Schiffshardware scheiden aus.
 
 ##### 2. Ausschlussregeln (Dummies & Hilfsobjekte)
@@ -20,7 +21,7 @@ Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies,
 - `Waffen`: Ausgeschlossen, wenn alle Waffen Script-Helper, Schiffs- oder Fahrzeugwaffen sind.
 - `Crafting`: Ausgeschlossen, wenn alle Rezepte Schiffs- oder Außenpostenmodule sind.
 - `Einrichtung`: Ausgeschlossen, wenn alle Möbel Fahrzeug-Steuersitze sind.
-- `Gebäude`: Ausgeschlossen, wenn vorhandene Zellen reine Workshop-PackIns oder Test-/Snapshoträume für Baupläne (`COBJ`/`PKIN`) ohne Worldspace (`WRLD == 0`), ohne Surface-Blocks (`SFBK == 0`) und ohne Dungeons (`LCTN_KYWD_Dungeon == 0`) sind.
+- `Gebäude`: Ausgeschlossen, wenn keine baulichen Strukturen außerhalb von Städten (`calc_CELL_Environment_Structural_Refs == 0` und `PKIN == 0`) existieren oder wenn vorhandene Zellen reine Workshop-PackIns oder Test-/Snapshoträume für Baupläne (`COBJ`/`PKIN`) ohne Worldspace (`WRLD == 0`), ohne Surface-Blocks (`SFBK == 0`) und ohne Dungeons (`LCTN_KYWD_Dungeon == 0`) sind. Reine Stadt-, Spielerheim- oder Schiff-Mods scheiden ebenfalls aus.
 
 #### Phase B: Zwingende System-Prioritäten (Typ 2)
 - **Priorität BGS:** Offizielle Bethesda-Mods (`Author == Bethesda`) setzen sich per System-KO (Typ 2) durch.
@@ -29,7 +30,7 @@ Prüft für alle noch aktiven Kategorien (Wert == 1), ob nach Abzug von Dummies,
 - **Priorität Quest:** Echte Quest-Definitionen (`QUST` mit Stufen-Logik) setzen sich per System-KO (Typ 2) durch.
 
 #### Phase C: Binnengruppen-Gewinner (Innergruppen-Resolution)
-- **Gewinner Gruppe Welt-Mods:** Kaskadierende Auswahl des stärksten Welt-Merkmals (`POIs`, `Städte`, `Spielerheime`, `Gebäude`, `Außenposten`, `Umgebung`).
+- **Gewinner Gruppe Welt-Mods (Schritt 7):** Kaskadierende Auswahl des stärksten Welt-Merkmals nach der strikten LLO-Ladeordnungshierarchie: `POIs > Städte > Spielerheime > Gebäude > Außenposten > Umgebung`. Der erste in der Kaskade noch aktive Kandidat gewinnt den Gruppenschritt (in Pass 1 für die Hauptkategorie, in Pass 2 für verbleibende Zweitplatzierte).
 - **Gewinner Gruppe Objekt-Mods:** LLO-Kaskade (`Waffen` > `Kleidung` > `Crafting` > `Items` / `Skins` / `Einrichtung` / `Pflanzen`) sowie Massevergleich `dim_calc_outer_*`.
 - **Gewinner Gruppe Sensorik:** LLO-Kaskade (`Licht` > `Effekte` > `Texturen` / `Sound`) sowie Massevergleich `dim_calc_outer_Texturen` vs. `dim_calc_outer_Sound`.
 - **Gewinner Gruppe Akteure:** Bereinigung von Kreaturen ohne echte Monster-/Alien-Akteure (`NPC__KYWD_Creature == 0`); LLO-Kaskade (`Begleiter` / echte `Kreaturen` > `NPCs`) sowie Massevergleich `dim_calc_outer_Begleiter` vs. `dim_calc_outer_Kreaturen`.
@@ -62,7 +63,7 @@ Nach der Bestimmung der Binnengruppen-Gewinner ist pro Meta-Gruppe maximal ein G
 - **Gruppenduell Objekte vs. Charakter:** Handwaffen und Kleidung schlagen Charakter per KO; Skins unterliegen Charakter per KO; Crafting/Einrichtung/Items/Pflanzen vs. Charakter per gewichtetem Massevergleich.
 - **Gruppenduell Objekte vs. Systeme:** Physische Objekte stechen Einstellungen (`Tweaks`), eigene Objekte `Sortierung` und Ausrüstung `Interface` per KO aus; `Gameplay`-Mechaniken stechen Beiwerk-Items/Skins per KO aus; Massevergleich bei Crafting/Einrichtung/Pflanzen vs. Gameplay.
 - **Gruppenduell Objekte vs. Akteure:** Dummies/Mannequins unterliegen Objekten per KO; dominante Objekt-Sammlungen übertreffen NPCs; ansonsten Massevergleich.
-- **Gruppenduell Objekte vs. Welt:** Mod-eigene Hilfsobjekte (Kisten/Werkbänke in bestehenden Zellen) dienen der Übergabe $\rightarrow$ Objekt gewinnt per KO; echte neue Raumstrukturen $\rightarrow$ Welt gewinnt per KO; ansonsten Massevergleich.
+- **Gruppenduell Objekte vs. Welt:** Mod-eigene Hilfsobjekte (Kisten/Werkbänke in bestehenden Zellen) dienen rein der Übergabe $\rightarrow$ Objekt gewinnt per KO; bei dominanter Ausrüstung (`Waffen`, `Kleidung`, `Skins`) vs. Welt-Eingriff entscheidet bei Überlegenheit der Ausrüstungsmasse der Massevergleich ($\text{Score}_{\text{Objekt}} \ge \text{Score}_{\text{Welt}}$) zu Gunsten des Objekts; ansonsten setzt sich der bauliche/landschaftliche Raumeingriff per Architektur-KO durch.
 
 ##### Block 3: Charakter-Duelle
 - **Gruppenduell Charakter vs. Systeme:** `Gameplay` gewinnt per Architektur-KO (Typ 3) vor `Charakter` (Funktionale Spiellogik/Zauber/Tränke vor reinem Aussehen); `Charakter` gewinnt per Architektur-KO (Typ 3) vor `Tweaks`, `Sortierung` und `Interface`.

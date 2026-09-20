@@ -673,39 +673,12 @@ def _has_city_cells(row, cursor=None, component_id=None):
     if has_own_city_lctn:
         return True
         
-    # 2. Prüfen, ob die Mod Zellen verändert, die zu einer Stadt/Siedlung gehören
-    cell_city = (row.get('qry_CELL_City') or 0) + (row.get('qry_CELL_Settlement') or 0)
-    
-    # 3. Prüfen, ob die Mod überhaupt strukturelle/dekorative Objekte besitzt (STAT, FURN, PKIN, WRLD)
-    stat = row.get('STAT') or 0
-    furn = row.get('FURN') or 0
-    pkin = row.get('PKIN') or 0
-    wrld = row.get('WRLD') or 0
-    has_structural_objects = (stat > 0 or furn > 0 or pkin > 0 or wrld > 0)
-    
-    # Reine CrowdRegion-NPC-Zuweisungen ohne Stadt-Zellen und ohne Strukturen sind keine Städte-Mods
-    crowd_region = (row.get('GBFM_EDID_CrowdRegion') or 0) > 0
-    if crowd_region and not (cell_city > 0 or has_structural_objects):
-        return False
-
-    if cell_city == 0 and not crowd_region:
-        return False
+    # 2. Prüfen, ob die Mod bauliche/strukturelle Platzierungen in Stadt-/Siedlungszellen besitzt
+    city_struct_refs = row.get('calc_CELL_City_Structural_Refs') or 0
+    if city_struct_refs > 0:
+        return True
         
-    if not has_structural_objects:
-        return False
-        
-    # Wenn die Mod Schiffsbauteile/Snap-Nodes/Schiffs-PackIns deklariert und keine Stadt-Location hat:
-    # Prüfe, ob es ein reines Schiffs-Paket ist, das lediglich einen leeren Spaceport-Header besitzt
-    cobj_ship = row.get('COBJ_BNAM_Ship') or 0
-    ship_cells = (row.get('qry_CELL_Ship') or 0) + (row.get('qry_CELL_Ship_PackIn') or 0)
-    stbh = row.get('STBH') or 0
-    
-    is_ship_vendor_only = (cobj_ship > 0 or ship_cells > 0 or stbh > 0) and cell_city <= 2 and wrld <= 1
-    # Ausnahme: Falkland Systems baut einen ganzen Plaza (WRLD=1, aber REFR=91.278)
-    if is_ship_vendor_only and (row.get('REFR') or 0) < 500:
-        return False
-    
-    return True
+    return False
 
 
 def _has_playerhome_cells(row, cursor=None, component_id=None):
@@ -752,7 +725,8 @@ def _has_ship_cells(row, cursor=None, component_id=None):
 
 def _exclude_non_city(row, cursor, cat_ids):
     """
-    Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen.
+    Schließt die Kategorie 'Städte' (ID 6) aus, wenn keine städtischen Merkmale vorliegen
+    oder wenn es sich um einen reinen Quest-Startmarker / Touchpoint handelt.
     """
     mod_id = row.get('Mod_ID') or row.get('ID')
     component_id = row.get('Component_ID')
@@ -773,6 +747,50 @@ def _exclude_non_city(row, cursor, cat_ids):
             reason = "Keine Stadt-Locations, urbanen Siedlungszellen oder Passanten-Zonen (CrowdRegion) mit baulichen Strukturen vorhanden."
             _log_result(cursor, 1, mod_id, component_id, city_id, None, 1, reason)
             return reason
+        return None
+
+    # Quest-Touchpoint-Regel:
+    # Wenn die Mod Quest-Merkmale besitzt, in Stadtzellen nur geringfügige Startmarker/Türen deklariert (<= 10),
+    # keine eigene Stadt-Location besitzt und eine dominante Außenwelt-/Dungeon-/Schiff-Masse hat:
+    has_own_city_lctn = (
+        (row.get('LCTN_KYWD_City') or 0) > 0 or 
+        (row.get('LCTN_KYWD_Settlement') or 0) > 0
+    )
+    if not has_own_city_lctn:
+        qust = (row.get('QUST') or 0)
+        is_quest = (qust > 0) or (row.get('Category_LOH_Classifier') == 4)
+        city_struct = (row.get('calc_CELL_City_Structural_Refs') or 0)
+        env_struct = (row.get('calc_CELL_Environment_Structural_Refs') or 0)
+        
+        if is_quest and (city_struct <= 10) and (env_struct > 100):
+            # Prüfen, ob die Mod ein städtisches Lokal / Restaurant / Gebäude via PackIn mitbringt (z. B. TG Galactic Harvest)
+            has_city_venue_packin = False
+            if cursor and component_id:
+                cursor.execute("""
+                    SELECT 1 FROM Components_ESM_FormIDs
+                    WHERE Component_ID = ? AND (
+                        (Sig IN ('PKIN', 'GPOF') AND (LOWER(EDID) LIKE '%restaurant%' OR LOWER(EDID) LIKE '%gallux%' OR LOWER(EDID) LIKE '%newatlantis%'))
+                        OR (Sig = 'CELL' AND (LOWER(EDID) LIKE '%restaurant%' OR LOWER(EDID) LIKE '%gallux%'))
+                    )
+                """, (component_id,))
+                if cursor.fetchone():
+                    has_city_venue_packin = True
+                    
+            if not has_city_venue_packin:
+                cursor.execute("SELECT ID FROM Categories_LOH WHERE Name = 'Städte'")
+                city_row = cursor.fetchone()
+                city_id = city_row[0] if city_row else 6
+                
+                if city_id and city_id in cat_ids:
+                    cursor.execute(f"""
+                        UPDATE LoadOrder_Classifier_Matrix 
+                        SET "{city_id}" = 0
+                        WHERE Mod_ID = ? AND Component_ID = ?
+                    """, (mod_id, component_id))
+                    reason = "Reiner Quest-Touchpoint/Startmarker in städtischer Zelle bei dominanter Außenwelt-Präsenz."
+                    _log_result(cursor, 1, mod_id, component_id, city_id, None, 1, reason)
+                    return reason
+
     return None
 
 
@@ -804,7 +822,8 @@ def _exclude_non_building(row, cursor, cat_ids):
         
         # Bestimme, ob verbleibende echte Wildnis-/Gebäudezellen existieren
         cell_env = row.get('calc_CELL_Environment') or 0
-        has_wilderness = (cell_env > 0)
+        env_struct_refs = row.get('calc_CELL_Environment_Structural_Refs') or 0
+        has_wilderness = (cell_env > 0 or env_struct_refs > 0)
         
         # Ein harter Ausschluss erfolgt nur, wenn es sich um eine REINE Stadt-, Spielerheim- 
         # oder Schiffsmod handelt (d.h. wenn diese Bereiche berührt werden, aber KEINE Wildniszellen existieren)
@@ -815,11 +834,9 @@ def _exclude_non_building(row, cursor, cat_ids):
         if is_pure_city or is_pure_playerhome or is_pure_ship:
             is_building = False
         else:
-            # 3. Vorhandensein von statischen/strukturellen Objekten prüfen
-            stat = row.get('STAT') or 0
-            furn = row.get('FURN') or 0
+            # 3. Vorhandensein von statischen/strukturellen Objekten außerhalb von Städten prüfen
             pkin = row.get('PKIN') or 0
-            has_structures = (stat > 0 or furn > 0 or pkin > 0)
+            has_structures = (env_struct_refs > 0 or pkin > 0)
             
             # 4. Echte Zellen-Überschreibungen (abzüglich Pack-In- und Dummy-Überschreibungen) oder Planetengenerierungs-Eingriffe prüfen
             sfbk = row.get('SFBK') or 0
@@ -2141,6 +2158,7 @@ def _step_world_cascade(cursor, cat_map, cat_ids, ctx):
         cid = urow['Component_ID']
 
         # Sequentielle Case-Hierarchie: Erstes aktives Weltkriterium auswählen
+        # POIs > Städte > Spielerheime > Gebäude > Außenposten > Umgebung
         selected_cat = None
         if poi_id and (urow.get(str(poi_id)) or 0) == ctx.prev_level:
             selected_cat = poi_id
@@ -3480,6 +3498,9 @@ def _step_objects_vs_world(cursor, cat_map, cat_ids, ctx):
                 if is_pure_helper:
                     winner_cid = o_cid
                     ctx.log_result(cursor, mid, cid, w_cid, o_cid, 3, f"Mod-eigene Hilfsobjekte (Kisten/Werkbänke/Dummies, Helper-Ratio: {helper_ratio:.2f}) dienen rein der Übergabe von '{o_name}'. '{w_name}' tritt per Architektur-KO zurück.")
+                elif o_name in ('Waffen', 'Kleidung', 'Skins') and val_o >= val_w:
+                    winner_cid = o_cid
+                    ctx.log_result(cursor, mid, cid, w_cid, o_cid, 4, f"Massevergleich {o_name} vs. {w_name}: Dominante Ausrüstung ('{o_name}': {val_o:.1f}) übertrifft Raumeingriff ('{w_name}': {val_w:.1f}).")
                 else:
                     winner_cid = w_cid
                     ctx.log_result(cursor, mid, cid, o_cid, w_cid, 3, f"Echter baulicher/landschaftlicher Raumeingriff ('{w_name}') besitzt Vorrang vor Beigabe-Objekten ('{o_name}').")

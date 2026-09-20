@@ -96,10 +96,20 @@ Diese Spalten führen mathematische Berechnungen direkt in SQL aus, um bereinigt
     *   **Bedeutung:** Die Anzahl der unterschiedlichen Kategorien (Signatur-Typen), in denen die Mod mindestens einen Override-Eintrag besitzt.
 *   **`calc_Overhaul_Active_Areas`**:
     *   **Bedeutung:** Die Anzahl der aktiven funktionalen Hauptbereiche (World, Actors, Effects, Items, Systems inkl. Kameras) mit mindestens einem Override. Wird im Classifier für die Overhaul-Erkennung genutzt.
+*   **`calc_CELL_City_Refs`**:
+    *   **Bedeutung:** Die Gesamtsumme aller deklarierten und platzierten Weltreferenzen der Mod in städtischen Siedlungszellen (`loctypesettlement`, Keyword `140817`, bereinigt um PackIn-Vorlagen).
+    *   **Ermittlung:** Subquery-Aggregation über `View_Components_CELL_Helper_Objects` verknüpft mit Stadtzellen aus `Components_ESM_CELL_LCTN`.
+*   **`calc_CELL_City_Structural_Refs`**:
+    *   **Bedeutung:** Die Anzahl baulicher und raumprägender Platzierungen (Statics, Möbel, Lichter etc.) der Mod in städtischen Siedlungszellen. Dient als zentraler Indikator zur Unterscheidung echter städtischer Bauten von reinen Quest-Startmarkern oder Item-Spawns.
+    *   **Ermittlung:** Subquery-Aggregation der baulichen Referenzen (`calc_Structural_Refs`) in Stadtzellen.
+*   **`calc_CELL_Environment_Refs`**:
+    *   **Bedeutung:** Die Gesamtsumme aller deklarierten und platzierten Weltreferenzen der Mod in nicht-städtischen Zellen (Wildnis, Außenwelt, Raumschiffe, Dungeons etc.).
+    *   **Ermittlung:** Subquery-Aggregation aller Referenzen außerhalb städtischer Locations.
+*   **`calc_CELL_Environment_Structural_Refs`**:
+    *   **Bedeutung:** Die Anzahl baulicher und raumprägender Platzierungen (Statics, Möbel, Lichter etc.) der Mod in nicht-städtischen Zellen. Ermöglicht den präzisen Nachweis echter Außenweltbauten (`Gebäude`) unabhängig von Stadtgebieten.
+    *   **Ermittlung:** Subquery-Aggregation der baulichen Referenzen (`calc_Structural_Refs`) außerhalb von Stadtzellen.
 
-
-
-Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung` oder `Gebäude`.
+Diese Spalten dienen dem Classifier in Python als direkter Indikator für den Ausschluss von Kategorien wie `Umgebung`, `Städte` oder `Gebäude`.
 
 ---
 
@@ -137,17 +147,17 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Die quantitative Gesamtmasse aller Umwelt-Inhalte der Mod (Worldspaces, Wildnis-Zellen, Klima, Wetter, Biome, Land, Raumobjekte und Sterne 1:1, Pflanzen und Bäume logarithmisch gedämpft).
     *   **Wert:** `WRLD + calc_CELL_Environment + CLMT + WTHS + REGN + BIOM + LAND + RSPJ + STDT + log10(FLOR)*2 + log10(TREE)*2`.
 *   **`dim_calc_inner_Städte`**:
-    *   **Bedeutung:** Das qualitative Konfliktpotenzial bzw. die Summe städtischer Overrides, geänderter städtischer Locations, PackIns und NavMesh-Dichte.
-    *   **Wert:** `qry_CELL_Override_City + qry_CELL_Override_Settlement + LCTN_KYWD_City_Override + LCTN_KYWD_Settlement_Override + log10(NAVM)*2 + log10(qry_CELL_Override_City_PackIn + qry_CELL_Override_Settlement_PackIn)*2`.
+    *   **Bedeutung:** Das qualitative Konfliktpotenzial bzw. die Summe städtischer Overrides, geänderter städtischer Locations, PackIns und baulicher Stadtreferenzen.
+    *   **Wert:** `qry_CELL_Override_City + qry_CELL_Override_Settlement + LCTN_KYWD_City_Override + LCTN_KYWD_Settlement_Override + log10(calc_CELL_City_Structural_Refs)*2 + log10(qry_CELL_Override_City_PackIn + qry_CELL_Override_Settlement_PackIn)*2`.
 *   **`dim_calc_outer_Städte`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller städtischen Inhalte (Stadt-/Siedlungs-Zellen, städtische Locations und Crowd-Regionen 1:1, PackIns und NavMesh-Dichte logarithmisch gedämpft).
-    *   **Wert:** `qry_CELL_City + qry_CELL_Settlement + LCTN_KYWD_City + LCTN_KYWD_Settlement + GBFM_EDID_CrowdRegion + log10(NAVM)*2 + log10(qry_CELL_City_PackIn + qry_CELL_Settlement_PackIn)*2`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller städtischen Inhalte (Stadt-/Siedlungs-Zellen, städtische Locations, Crowd-Regionen und bauliche Stadtreferenzen 1:1 bzw. logarithmisch gedämpft).
+    *   **Wert:** `qry_CELL_City + qry_CELL_Settlement + LCTN_KYWD_City + LCTN_KYWD_Settlement + GBFM_EDID_CrowdRegion + log10(calc_CELL_City_Structural_Refs)*2 + log10(qry_CELL_City_PackIn + qry_CELL_Settlement_PackIn)*2`.
 *   **`dim_calc_inner_Gebäude`**:
-    *   **Bedeutung:** Der qualitative Kernwert bzw. die Summe der Overrides (Dungeon-Locations, POIs und Wildnis-Zellen 1:1, Statics, Möbel und Pack-Ins logarithmisch gedämpft).
-    *   **Wert:** `LCTN_KYWD_Dungeon_Override + SFBK_Override + calc_CELL_Override_Environment + log10(STAT_Override)*2 + log10(FURN_Override)*2 + log10(PKIN)*2`.
+    *   **Bedeutung:** Der qualitative Kernwert bzw. die Summe der Overrides (Dungeon-Locations, POIs, Wildnis-Zellen und bauliche Außenwelt-Referenzen).
+    *   **Wert:** `LCTN_KYWD_Dungeon_Override + SFBK_Override + calc_CELL_Override_Environment + log10(calc_CELL_Environment_Structural_Refs)*2 + log10(PKIN)*2`.
 *   **`dim_calc_outer_Gebäude`**:
-    *   **Bedeutung:** Die quantitative Gesamtmasse aller Gebäude-Inhalte (Dungeon-Locations, POIs und Wildnis-Zellen 1:1, Statics, Möbel und Pack-Ins logarithmisch gedämpft).
-    *   **Wert:** `LCTN_KYWD_Dungeon + SFBK + calc_CELL_Environment + log10(STAT)*2 + log10(FURN)*2 + log10(PKIN)*2`.
+    *   **Bedeutung:** Die quantitative Gesamtmasse aller Gebäude-Inhalte (Dungeon-Locations, POIs, Wildnis-Zellen und bauliche Außenwelt-Referenzen).
+    *   **Wert:** `LCTN_KYWD_Dungeon + SFBK + calc_CELL_Environment + log10(calc_CELL_Environment_Structural_Refs)*2 + log10(PKIN)*2`.
 *   **`dim_calc_inner_Spielerheime`**:
     *   **Bedeutung:** Der qualitative Kernwert bzw. die Summe der Overrides auf bestehende Spielerheime (Locations und Zellen 1:1, Möbel-, Static- und PackIn-Overrides logarithmisch gedämpft).
     *   **Wert:** `LCTN_KYWD_Playerhome_Override + qry_CELL_Override_Playerhome + log10(FURN_Override)*2 + log10(STAT_Override)*2 + log10(qry_CELL_Override_Playerhome_PackIn)*2`.

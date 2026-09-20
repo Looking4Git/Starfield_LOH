@@ -751,7 +751,7 @@ SELECT
     COALESCE(qry.qry_CELL_Override_Settlement, 0) + 
     COALESCE(ref.LCTN_KYWD_City_Override, 0) + 
     COALESCE(ref.LCTN_KYWD_Settlement_Override, 0) + 
-    COALESCE(log10(NULLIF(ref.NAVM, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(calc.calc_CELL_City_Structural_Refs, 0)) * 2, 0) + 
     COALESCE(log10(NULLIF(COALESCE(qry.qry_CELL_Override_City_PackIn, 0) + COALESCE(qry.qry_CELL_Override_Settlement_PackIn, 0), 0)) * 2, 0) AS dim_calc_inner_Städte,
     
     COALESCE(qry.qry_CELL_City, 0) + 
@@ -759,21 +759,19 @@ SELECT
     COALESCE(ref.LCTN_KYWD_City, 0) + 
     COALESCE(ref.LCTN_KYWD_Settlement, 0) + 
     COALESCE(ref.GBFM_EDID_CrowdRegion, 0) + 
-    COALESCE(log10(NULLIF(ref.NAVM, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(calc.calc_CELL_City_Structural_Refs, 0)) * 2, 0) + 
     COALESCE(log10(NULLIF(COALESCE(qry.qry_CELL_City_PackIn, 0) + COALESCE(qry.qry_CELL_Settlement_PackIn, 0), 0)) * 2, 0) AS dim_calc_outer_Städte,
     
     COALESCE(ref.LCTN_KYWD_Dungeon_Override, 0) + 
     COALESCE(ref.SFBK_Override, 0) + 
     COALESCE(calc.calc_CELL_Override_Environment, 0) + 
-    COALESCE(log10(NULLIF(ref.STAT_Override, 0)) * 2, 0) + 
-    COALESCE(log10(NULLIF(ref.FURN_Override, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(calc.calc_CELL_Environment_Structural_Refs, 0)) * 2, 0) + 
     COALESCE(log10(NULLIF(ref.PKIN, 0)) * 2, 0) AS dim_calc_inner_Gebäude,
     
     COALESCE(ref.LCTN_KYWD_Dungeon, 0) + 
     COALESCE(ref.SFBK, 0) + 
     COALESCE(calc.calc_CELL_Environment, 0) + 
-    COALESCE(log10(NULLIF(ref.STAT, 0)) * 2, 0) + 
-    COALESCE(log10(NULLIF(ref.FURN, 0)) * 2, 0) + 
+    COALESCE(log10(NULLIF(calc.calc_CELL_Environment_Structural_Refs, 0)) * 2, 0) + 
     COALESCE(log10(NULLIF(ref.PKIN, 0)) * 2, 0) AS dim_calc_outer_Gebäude,
     
     COALESCE(ref.LCTN_KYWD_Playerhome_Override, 0) + 
@@ -1094,7 +1092,11 @@ SELECT
     calc.calc_CELL_Override_Environment,
     calc.calc_Helper_Objects,
     calc.calc_Helper_Objects_Ratio,
-    calc.calc_Override_Ratio
+    calc.calc_Override_Ratio,
+    calc.calc_CELL_City_Refs,
+    calc.calc_CELL_City_Structural_Refs,
+    calc.calc_CELL_Environment_Refs,
+    calc.calc_CELL_Environment_Structural_Refs
 
 FROM Components_ESM_References ref
 LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
@@ -1270,16 +1272,37 @@ SELECT
     ) AS calc_CELL_Override_Environment,
     
     COALESCE(helper.calc_Helper_Objects, 0) AS calc_Helper_Objects,
-    CAST(COALESCE(helper.calc_Helper_Objects, 0) AS REAL) / MAX(1, COALESCE(helper.calc_Helper_Refs_Netto, 0)) AS calc_Helper_Objects_Ratio
+    CAST(COALESCE(helper.calc_Helper_Objects, 0) AS REAL) / MAX(1, COALESCE(helper.calc_Helper_Refs_Netto, 0)) AS calc_Helper_Objects_Ratio,
+    
+    -- Neue zellspezifische Platzierungswerte
+    COALESCE(helper.calc_CELL_City_Refs, 0) AS calc_CELL_City_Refs,
+    COALESCE(helper.calc_CELL_City_Structural_Refs, 0) AS calc_CELL_City_Structural_Refs,
+    COALESCE(helper.calc_CELL_Environment_Refs, 0) AS calc_CELL_Environment_Refs,
+    COALESCE(helper.calc_CELL_Environment_Structural_Refs, 0) AS calc_CELL_Environment_Structural_Refs
 
 FROM Components_ESM_References ref
 LEFT JOIN (
+    WITH City_Cells AS (
+        SELECT DISTINCT cc.Component_ID, cc.Cell_FormID
+        FROM Components_ESM_CELL_LCTN cc
+        LEFT JOIN View_Components_System_LCTN sys 
+            ON cc.FormID_LCTN = sys.FormID_Local AND sys.FormID_Keyword = 140817
+        LEFT JOIN View_Components_ESM_LCTN esm 
+            ON cc.FormID_LCTN = esm.FormID_Local AND esm.FormID_Keyword = 140817
+        WHERE cc.Is_PackIn = 0
+          AND (sys.FormID_Local IS NOT NULL OR esm.FormID_Local IS NOT NULL)
+    )
     SELECT 
-        Component_ID,
-        SUM(calc_Helper_Objects) AS calc_Helper_Objects,
-        SUM(calc_CELL_Refs - calc_Deko_Objects) AS calc_Helper_Refs_Netto
-    FROM View_Components_CELL_Helper_Objects
-    GROUP BY Component_ID
+        h.Component_ID,
+        SUM(h.calc_Helper_Objects) AS calc_Helper_Objects,
+        SUM(h.calc_CELL_Refs - h.calc_Deko_Objects) AS calc_Helper_Refs_Netto,
+        SUM(CASE WHEN c.Cell_FormID IS NOT NULL THEN h.calc_CELL_Refs ELSE 0 END) AS calc_CELL_City_Refs,
+        SUM(CASE WHEN c.Cell_FormID IS NOT NULL THEN h.calc_Structural_Refs ELSE 0 END) AS calc_CELL_City_Structural_Refs,
+        SUM(CASE WHEN c.Cell_FormID IS NULL THEN h.calc_CELL_Refs ELSE 0 END) AS calc_CELL_Environment_Refs,
+        SUM(CASE WHEN c.Cell_FormID IS NULL THEN h.calc_Structural_Refs ELSE 0 END) AS calc_CELL_Environment_Structural_Refs
+    FROM View_Components_CELL_Helper_Objects h
+    LEFT JOIN City_Cells c ON h.Component_ID = c.Component_ID AND h.Cell_FormID = c.Cell_FormID
+    GROUP BY h.Component_ID
 ) helper ON ref.Component_ID = helper.Component_ID
 LEFT JOIN View_Components_References_Qry qry ON ref.Component_ID = qry.Component_ID
 -- Join für die BGS-Klassifizierung:
@@ -1380,6 +1403,10 @@ SELECT
     base.calc_Helper_Objects,
     base.calc_Helper_Objects_Ratio,
     base.calc_Override_Ratio,
+    base.calc_CELL_City_Refs,
+    base.calc_CELL_City_Structural_Refs,
+    base.calc_CELL_Environment_Refs,
+    base.calc_CELL_Environment_Structural_Refs,
     
     -- Alle originalen Zähler-Referenzen
     ref.*
@@ -1822,6 +1849,10 @@ CREATE TABLE "Components_References_Base" (
     "calc_Helper_Objects" INTEGER,
     "calc_Helper_Objects_Ratio" REAL,
     "calc_Override_Ratio" REAL,
+    "calc_CELL_City_Refs" INTEGER,
+    "calc_CELL_City_Structural_Refs" INTEGER,
+    "calc_CELL_Environment_Refs" INTEGER,
+    "calc_CELL_Environment_Structural_Refs" INTEGER,
     
     FOREIGN KEY("Component_ID") REFERENCES "Components"("ID") ON DELETE CASCADE
 );

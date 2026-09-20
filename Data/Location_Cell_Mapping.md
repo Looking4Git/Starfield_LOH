@@ -71,21 +71,11 @@ Bethesda nutzt das Keyword `loctypesettlement` (FormID `140817`) im Spiel univer
 Eine Mod wird als **Stadt-Mod** eingestuft (und somit *nicht* aus der Kategorie "Städte" ausgeschlossen), wenn mindestens einer der folgenden Punkte zutrifft:
 
 1.  **Eigene Stadt-Location:**
-    Die Mod definiert in `Components_ESM_LCTN` selbst eine neue Location mit dem Keyword `140817`.
-2.  **Zellen-Überschreibung in einer Stadt (mit zusätzlichen Kriterien):**
-    Die Mod verändert eine Zelle, die laut Datenbank (System oder Mod) mit einer Location verknüpft ist, welche das Keyword `140817` besitzt.
+    Die Mod definiert in `Components_ESM_LCTN` selbst eine neue Location mit dem Keyword `140817` (`LCTN_KYWD_City` / `LCTN_KYWD_Settlement`).
+2.  **Bauliche/strukturelle Platzierungen in städtischen Zellen (`calc_CELL_City_Structural_Refs > 0`):**
+    Die Mod platziert bauliche Objekte (Statics, Möbel, Lichter) in Zellen, die relational mit dem Keyword `140817` verknüpft sind.
     
-    Um **reine Item-Platzierungsmods** (die z. B. nur eine Waffe oder eine Slate in der Loge/einem Shop platzieren) auszuschließen, müssen bei einem Zellen-Eingriff zusätzlich folgende Bedingungen erfüllt sein:
-    *   **Strukturelle Objekte vorhanden:** Die Mod muss mindestens ein statisches Objekt (`STAT` / `STAT_Override`), Möbel (`FURN` / `FURN_Override`), Licht (`LIGH` / `LIGH_Override`) oder PackIns (`PKIN`) definieren (sonst handelt es sich um eine reine Item- oder NPC-Mod).
-    
-    *SQL-Abfrage für den Zell-Eingriff:*
-    ```sql
-    SELECT 1 FROM Components_ESM_CELL_LCTN cc
-    LEFT JOIN Components_System_LCTN sl ON cc.FormID_LCTN = sl.FormID_Local AND sl.FormID_Keyword = 140817
-    LEFT JOIN Components_ESM_LCTN el ON cc.FormID_LCTN = el.FormID_Local AND el.FormID_Keyword = 140817
-    WHERE cc.Component_ID = ?
-      AND (sl.FormID_Local IS NOT NULL OR el.FormID_Local IS NOT NULL)
-    LIMIT 1
-    ```
+    *Quest-Touchpoint-Ausschlussregel:*
+    Besitzt eine Mod Quest-Merkmale (`QUST > 0` oder `Category_LOH_Classifier == 4`), hat keine eigene Stadt-Location definiert und platziert in Stadtzellen lediglich bis zu 10 strukturelle Referenzen (`calc_CELL_City_Structural_Refs <= 10`), während ihre Außenwelt- oder Dungeon-Präsenz massiv ist (`calc_CELL_Environment_Structural_Refs > 100`), wird die Kategorie `Städte` ausgeschlossen. Reine Startmarker oder Übergangstüren (z. B. *Vigilance* oder *Continuum*) qualifizieren eine Mod nicht als Stadt-Mod. Bringt eine Quest-Mod hingegen ein mod-eigenes Lokal/Restaurant (z. B. *TG's Galactic Harvest*) oder eine eigene Stadt mit, bleibt `Städte` als Subkategorie-Kandidat aktiv.
 3.  **Crowd-Regionen:**
-    Die Mod besitzt Crowd-Region-Referenzen (`GBFM_EDID_CrowdRegion > 0`).
+    Die Mod besitzt Crowd-Region-Referenzen (`GBFM_EDID_CrowdRegion > 0`) in Verbindung mit Stadtinhalten.

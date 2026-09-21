@@ -103,6 +103,14 @@ def are_in_same_llo_group(pos_main: int, pos_sub: int) -> bool:
     return group_main is not None and group_main == group_sub
 
 
+def get_llo_group_name_for_position(pos: int) -> str:
+    """Ermittelt den Klarnamen der LLO-Gruppe für eine Position."""
+    group_key = get_llo_group_for_position(pos)
+    if group_key and group_key in LLO_GROUPS:
+        return LLO_GROUPS[group_key]["name"]
+    return ""
+
+
 class SorterContext:
     """Kontext-Objekt zur Übergabe von Zuständen zwischen den Sortierschritten."""
     def __init__(self):
@@ -237,17 +245,17 @@ def _natural_sort_key(s: str):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
 
-def _sort_components_with_mod_cohesion(components, cat_name):
+def _sort_components_with_mod_cohesion(components, cat_name, cohesion_step_id="3.4"):
     """
-    Eigenständige, modulare Funktion für Mod-Kohäsion und Fundament-Sortierung:
+    Eigenständige, modulare Funktion für Mod-Kohäsion und zweistufige Fundament-Sortierung:
     1. Alle Komponenten derselben Mod (Mod_ID) bleiben garantiert zusammenhängend.
-    2. Inter-Mod-Sortierung (Reihenfolge der Mod-Blöcke zueinander):
-       - Max kategoriespezifischer Override (dim_calc_inner_<Kategorie>) der Mod absteigend
-       - Max Gesamt-Override (calc_Total_Override_Val) der Mod absteigend
-       - Mod-Name bzw. Dateiname aufsteigend (deterministischer Fallback)
+    2. Inter-Mod-Sortierung (Reihenfolge der Mod-Blöcke zueinander über zweistufige Fundament-Hierarchie):
+       - Priorität 1 (Lokation / Kategoriespezifisch): Max kategoriespezifischer Override (dim_calc_inner_<Kategorie>) der Mod absteigend
+       - Priorität 2 (Allgemein): Max Gesamt-Override (calc_Total_Override_Val) der Mod absteigend
+       - Priorität 3 (Fallback): Mod-Name bzw. Dateiname aufsteigend
     3. Intra-Mod-Sortierung (Reihenfolge der Komponenten innerhalb derselben Mod):
        - Natürliche alphanumerische Dateinamen-Sortierung (z.B. sfta01 vor sfta02, Part1 vor Part2).
-       - Folge-Plugins erhalten die Begründung 'Mod-Kohäsion'.
+       - Folge-Plugins erhalten die dynamische Schrittkennung (Standard: '3.4') und Begründung 'Mod-Kohäsion'.
     """
     if not components:
         return []
@@ -269,7 +277,7 @@ def _sort_components_with_mod_cohesion(components, cat_name):
         mod_name = (first_comp.get('Name_ContentCatalog') or first_comp.get('Name_Online') or first_comp['File']).lower()
         mod_ranking.append((max_inner, max_total, mod_name, mid, comp_list))
 
-    # Inter-Mod: Höchste Overrides zuerst, dann Mod-Name A-Z
+    # Inter-Mod: Priorität 1 (Lokation/Kategorie) zuerst, dann Priorität 2 (Allgemein), dann Mod-Name A-Z
     mod_ranking.sort(key=lambda x: (-x[0], -x[1], x[2]))
 
     # 3. Innerhalb jeder Mod die Komponenten natürlich sortieren
@@ -279,7 +287,7 @@ def _sort_components_with_mod_cohesion(components, cat_name):
         first_file = sorted_comps[0]['File']
         for idx, c in enumerate(sorted_comps):
             if idx > 0:
-                c['sorter_step_id'] = 6
+                c['sorter_step_id'] = cohesion_step_id
                 c['sorter_step_desc'] = 'Mod-Kohäsion'
                 c['sorter_reason'] = f"Mod-Kohäsion: Komponente {idx+1} von {len(sorted_comps)} (Folge-Plugin nach '{first_file}')."
         result.extend(sorted_comps)
@@ -287,26 +295,30 @@ def _sort_components_with_mod_cohesion(components, cat_name):
     return result
 
 
-def _build_band_precursors(components, cat_pos, cat_name):
+def _build_band_precursors(components, cat_pos, cat_name, step_id="3.1", cohesion_step_id="3.4"):
     """
-    Teilschritt 3a: Band Vorläufer.
-    Filtert alle Komponenten, deren Subkategorie vor der Hauptkategorie steht (Sub_Pos < Main_Pos).
+    Teilschritt 3.1: Band Vorläufer.
+    Filtert alle Komponenten, deren Subkategorie in derselben Binnengruppe vor der Hauptkategorie steht (Sub_Pos < Main_Pos).
     Sortierung:
-    1. Primär: Subkategorie-Clustering aufsteigend nach Sub_Pos (z. B. Sub 3 vor Sub 5).
-    2. Sekundär: Innerhalb jedes Subkategorie-Blocks Mod-Kohäsion und Fundament-Sortierung.
+    1. Primär: Subkategorie-Clustering aufsteigend nach Sub_Pos (z. B. Sub 5 vor Sub 6).
+    2. Sekundär: Innerhalb jedes Subkategorie-Blocks zweistufige Fundament-Sortierung und Mod-Kohäsion.
     """
     precursor_comps = [
         c for c in components 
-        if c.get("Sub_Pos") is not None and c["Sub_Pos"] < cat_pos
+        if c.get("Sub_Pos") is not None 
+        and are_in_same_llo_group(cat_pos, c["Sub_Pos"])
+        and c["Sub_Pos"] < cat_pos
     ]
     if not precursor_comps:
         return []
 
+    group_name = get_llo_group_name_for_position(cat_pos)
     for c in precursor_comps:
         ovr = c.get('calc_Total_Override_Val') or 0
-        c['sorter_step_id'] = 3
+        c['sorter_step_id'] = step_id
         c['sorter_step_desc'] = 'Band Vorläufer'
-        c['sorter_reason'] = f"Vorläufer durch Subkategorie; zum oberen Grenzsaum geneigt ({ovr} Overrides)."
+        sub_name = c.get('Sub_Cat_Name') or ''
+        c['sorter_reason'] = f"Subkategorie '{sub_name}' als Vorläufer von '{group_name}' an den oberen Rand verschoben ({ovr} Overrides)"
 
     sub_groups = {}
     for c in precursor_comps:
@@ -315,55 +327,79 @@ def _build_band_precursors(components, cat_pos, cat_name):
     result = []
     for sub_pos in sorted(sub_groups.keys()):
         cluster = sub_groups[sub_pos]
-        sorted_cluster = _sort_components_with_mod_cohesion(cluster, cat_name)
+        sorted_cluster = _sort_components_with_mod_cohesion(cluster, cat_name, cohesion_step_id=cohesion_step_id)
         result.extend(sorted_cluster)
 
     return result
 
 
-def _build_band_core(components, cat_pos, cat_name):
+def _build_band_core(components, cat_pos, cat_name, step_id="3.2", cohesion_step_id="3.4"):
     """
-    Teilschritt 3b: Band Mono-Kern.
-    Filtert alle reinen Mono-Mods der Kategorie (Sub IS NULL oder Sub == Main_Pos).
+    Teilschritt 3.2: Band Kern.
+    Fasst alle Komponenten zusammen, die keine Gravitation an einen Rand der Binnengruppe ausüben:
+    - Kategorien ohne Mehrkategorien-Binnengruppe (BGS, Bugfix, Overhaul, Quest)
+    - Komponenten mit Subkategorie in einer anderen Binnengruppe
+    - Reine Mono-Mods der Kategorie (Sub IS NULL oder Sub == Main_Pos)
     Sortierung:
-    Mod-Kohäsion und Override-Fundament-Hierarchie (tiefe Fundamente zuerst).
+    1. Primär: Subkategorie-Clustering aufsteigend nach Sub_Pos (mit cat_pos als Zentrum für Mono-Mods).
+    2. Sekundär: Zweistufige Fundament-Sortierung (Lokation & Allgemein) und Mod-Kohäsion.
     """
     core_comps = [
         c for c in components 
-        if c.get("Sub_Pos") is None or c["Sub_Pos"] == cat_pos
+        if c.get("Sub_Pos") is None or not are_in_same_llo_group(cat_pos, c["Sub_Pos"])
     ]
     if not core_comps:
         return []
 
     for c in core_comps:
         ovr = c.get('calc_Total_Override_Val') or 0
-        c['sorter_step_id'] = 4
+        c['sorter_step_id'] = step_id
         c['sorter_step_desc'] = 'Band Kern'
-        c['sorter_reason'] = f"Mono-Mod; Positionierung nach Override-Fundament ({ovr} Overrides)."
+        if c.get('Sub_Cat_Name'):
+            sub_name = c['Sub_Cat_Name']
+            c['sorter_reason'] = f"Subkategorie '{sub_name}' ({ovr} Overrides)"
+        else:
+            c['sorter_reason'] = f"({ovr} Overrides)"
 
-    return _sort_components_with_mod_cohesion(core_comps, cat_name)
+    sub_groups = {}
+    for c in core_comps:
+        sub_p = c.get("Sub_Pos")
+        key = cat_pos if (sub_p is None or sub_p == cat_pos) else sub_p
+        sub_groups.setdefault(key, []).append(c)
+
+    result = []
+    for sub_key in sorted(sub_groups.keys()):
+        cluster = sub_groups[sub_key]
+        sorted_cluster = _sort_components_with_mod_cohesion(cluster, cat_name, cohesion_step_id=cohesion_step_id)
+        result.extend(sorted_cluster)
+
+    return result
 
 
-def _build_band_successors(components, cat_pos, cat_name):
+def _build_band_successors(components, cat_pos, cat_name, step_id="3.3", cohesion_step_id="3.4"):
     """
-    Teilschritt 3c: Band Nachfolger.
-    Filtert alle Komponenten, deren Subkategorie nach der Hauptkategorie steht (Sub_Pos > Main_Pos).
+    Teilschritt 3.3: Band Nachfolger.
+    Filtert alle Komponenten, deren Subkategorie in derselben Binnengruppe nach der Hauptkategorie steht (Sub_Pos > Main_Pos).
     Sortierung:
-    1. Primär: Subkategorie-Clustering aufsteigend nach Sub_Pos (z. B. Sub 6 vor Sub 7 vor Sub 8 vor Sub 11).
-    2. Sekundär: Innerhalb jedes Subkategorie-Blocks Mod-Kohäsion und Fundament-Sortierung.
+    1. Primär: Subkategorie-Clustering aufsteigend nach Sub_Pos (z. B. Sub 7 vor Sub 8).
+    2. Sekundär: Innerhalb jedes Subkategorie-Blocks zweistufige Fundament-Sortierung und Mod-Kohäsion.
     """
     successor_comps = [
         c for c in components 
-        if c.get("Sub_Pos") is not None and c["Sub_Pos"] > cat_pos
+        if c.get("Sub_Pos") is not None 
+        and are_in_same_llo_group(cat_pos, c["Sub_Pos"])
+        and c["Sub_Pos"] > cat_pos
     ]
     if not successor_comps:
         return []
 
+    group_name = get_llo_group_name_for_position(cat_pos)
     for c in successor_comps:
         ovr = c.get('calc_Total_Override_Val') or 0
-        c['sorter_step_id'] = 5
+        c['sorter_step_id'] = step_id
         c['sorter_step_desc'] = 'Band Nachfolger'
-        c['sorter_reason'] = f"Nachfolger durch Subkategorie; zum unteren Grenzsaum geneigt ({ovr} Overrides)."
+        sub_name = c.get('Sub_Cat_Name') or ''
+        c['sorter_reason'] = f"Subkategorie '{sub_name}' als Nachfolger von '{group_name}' an den unteren Rand verschoben ({ovr} Overrides)"
 
     sub_groups = {}
     for c in successor_comps:
@@ -372,26 +408,31 @@ def _build_band_successors(components, cat_pos, cat_name):
     result = []
     for sub_pos in sorted(sub_groups.keys()):
         cluster = sub_groups[sub_pos]
-        sorted_cluster = _sort_components_with_mod_cohesion(cluster, cat_name)
+        sorted_cluster = _sort_components_with_mod_cohesion(cluster, cat_name, cohesion_step_id=cohesion_step_id)
         result.extend(sorted_cluster)
 
     return result
 
 
 
-def _evaluate_intra_category_conflicts(cursor, log_msg, cat_id, cat_name, candidate_list):
+def _evaluate_intra_category_conflicts(cursor, log_msg, cat_id, cat_name, candidate_list, step_prefix="3.6"):
     """
     Kategorie-Binnen-Konfliktbewertung (Substruktur vor der DAG-Auflösung):
     Bewertet ungelöste FormID-Kollisionen (Typ 2 und Typ 3) zwischen Mods derselben Kategorie
     anhand zweier fundierter Heuristiken:
     1. Datenerfassung & Filterung: Unaufgelöste Kollisionen aus Mods_Conflicts (Fast-Exit für konfliktfreie Kategorien).
-    2. Lokale vs. Globale Spezifität: Universumsweites Verbundnetz (>= 30 Zellen) muss vor lokalem Spezialisten
+       WICHTIG: Kategorie 1 (BGS Creations) ist von heuristischen Schiedsrichter-Eingriffen vollständig ausgenommen.
+    2. Lokale vs. Globale Spezifität: Universumsweites Verbundnetz (>= 30 überschriebene Zellen) muss vor lokalem Spezialisten
        (<= 15 Zellen, Faktor >= 3.0) laden, damit lokale Umbauten Vorrang erhalten.
     3. Verhältnis Kollisionen zur Mod-Größe (Skalpell-Prinzip): Gezielte Mini-Tweaks (<= 100 Records)
        gewinnen vor großen Sammelwerken (>= 5x so groß), um Auslöschung gezielter Änderungen zu verhindern.
     4. Kanten-Synthese: Übergabe als gerichtete Schiedsrichter-Kanten an den DAG-Solver.
        (Symmetrische Großkollisionen ohne klare Asymmetrie erzeugen keine Kante; stabiler Fallback ist Subkategorie-Wunschordnung).
     """
+    # Kategorie 1 (BGS) ist fest kuratiert und von heuristischen Schiedsrichter-Eingriffen ausgenommen
+    if cat_id == 1:
+        return []
+
     if len(candidate_list) <= 1:
         return []
 
@@ -433,11 +474,12 @@ def _evaluate_intra_category_conflicts(cursor, log_msg, cat_id, cat_name, candid
         hard_pairs.add((r[0], r[1]))
         hard_pairs.add((r[1], r[0]))
 
-    # Mod-Metadaten zusammenstellen (Raumzellen, Gesamtzahl Records)
+    # Mod-Metadaten zusammenstellen (Raumzellen-Overrides, Gesamtzahl Records)
     mid_to_info = {}
     for c in candidate_list:
         mid = c['Mod_ID']
-        cells = c.get('calc_CELL_Override_real') or c.get('calc_CELL_real') or 0
+        # Nur überschriebene Zellen zählen als globales Verbundnetz; mod-eigene Innenzellen sind kein Verbundnetz
+        cells = c.get('calc_CELL_Override_real') or 0
         total_rec = (c.get('calc_Total_Base_Val') or 0) + (c.get('calc_Total_Override_Val') or 0)
         name = c.get('Name_ContentCatalog') or c.get('Name_Online') or c['File']
 
@@ -490,36 +532,36 @@ def _evaluate_intra_category_conflicts(cursor, log_msg, cat_id, cat_name, candid
         step_desc = None
         reason = None
 
-        # Sub-Modul 2: Lokale vs Globale Spezifität (Raumzellen-Streuung)
-        # Globales Verbundnetz (>= 30 Zellen) vs. lokaler Spezialist (<= 15 Zellen) mit Faktor >= 3.0
+        # Heuristik 1: Lokal vs Global (Raumzellen-Streuung)
+        # Globales Verbundnetz (>= 30 überschriebene Zellen) vs. lokaler Spezialist (<= 15 Zellen) mit Faktor >= 3.0
         if spatial_count > 0 and (cells_a >= 30 or cells_b >= 30):
             if cells_a >= 30 and cells_b <= 15 and (cells_a / max(cells_b, 1)) >= 3.0:
                 edge = (ma, mb)
-                step_id = 8
-                step_desc = "Schiedsrichter (Lokale Spezifität)"
-                reason = f"Schiedsrichter: Nachjustiert hinter '{info_a['Name']}' (Lokaler Spezialist gewinnt vor globalem Verbundnetz)."
+                step_id = f"{step_prefix}.1"
+                step_desc = "Konflikt Milderung (Lokal vs Global)"
+                reason = f"hinter '{info_a['Name']}' verschoben. (Konflikt Milderung: lokal begrenzter Mod überschreibt globalen Mod)"
             elif cells_b >= 30 and cells_a <= 15 and (cells_b / max(cells_a, 1)) >= 3.0:
                 edge = (mb, ma)
-                step_id = 8
-                step_desc = "Schiedsrichter (Lokale Spezifität)"
-                reason = f"Schiedsrichter: Nachjustiert hinter '{info_b['Name']}' (Lokaler Spezialist gewinnt vor globalem Verbundnetz)."
+                step_id = f"{step_prefix}.1"
+                step_desc = "Konflikt Milderung (Lokal vs Global)"
+                reason = f"hinter '{info_b['Name']}' verschoben. (Konflikt Milderung: lokal begrenzter Mod überschreibt globalen Mod)"
 
-        # Sub-Modul 3: Verhältnis der Kollisionen zur Mod-Größe (Skalpell-Prinzip)
+        # Heuristik 2: Verhältnis der Kollisionen zur Mod-Größe (Gezielter Mod)
         # Greift, wenn keine räumliche Asymmetrie vorliegt: Gezielter Mini-Tweak (<= 100 Records) vs. Sammelwerk (>= 5x so groß)
         if edge is None:
             ratio_size = size_a / size_b
             if ratio_size >= 5.0 and size_b <= 100:
                 edge = (ma, mb)
-                step_id = 8
-                step_desc = "Schiedsrichter (Skalpell-Prinzip)"
-                reason = f"Schiedsrichter: Nachjustiert hinter '{info_a['Name']}' (Gezielter Tweak gewinnt vor Sammelwerk)."
+                step_id = f"{step_prefix}.2"
+                step_desc = "Konflikt Milderung (gezielter Mod)"
+                reason = f"hinter '{info_a['Name']}' verschoben. (Konflikt Milderung: Gezielter Mod überschreibt Sammelwerk)"
             elif (1.0 / ratio_size) >= 5.0 and size_a <= 100:
                 edge = (mb, ma)
-                step_id = 8
-                step_desc = "Schiedsrichter (Skalpell-Prinzip)"
-                reason = f"Schiedsrichter: Nachjustiert hinter '{info_b['Name']}' (Gezielter Tweak gewinnt vor Sammelwerk)."
+                step_id = f"{step_prefix}.2"
+                step_desc = "Konflikt Milderung (gezielter Mod)"
+                reason = f"hinter '{info_b['Name']}' verschoben. (Konflikt Milderung: Gezielter Mod überschreibt Sammelwerk)"
 
-        # Sub-Modul 4: Kanten-Synthese
+        # Kanten-Synthese
         if edge:
             winner_name = info_b['Name'] if edge[0] == ma else info_a['Name']
             loser_name = info_a['Name'] if edge[0] == ma else info_b['Name']
@@ -529,14 +571,16 @@ def _evaluate_intra_category_conflicts(cursor, log_msg, cat_id, cat_name, candid
     return extra_edges
 
 
-def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, candidate_list, extra_edges=None):
+def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, candidate_list, extra_edges=None, dep_step_id="3.5", conflict_step_id="3.6"):
     """
     Teilschritt 3d: Binnen-Abhängigkeitsnachbesserung der Kategorie.
-    Prüft, ob durch die Bänderaufteilung oder die Override-Sortierung eine Binnen-Abhängigkeit
-    zwischen zwei Komponenten derselben Kategorie verletzt wurde.
+    Prüft, ob durch die Bänderaufteilung oder die Override-Sortierung eine Mod-Abhängigkeit
+    oder Konflikt-Abhängigkeit zwischen zwei Komponenten derselben Kategorie verletzt wurde.
     Heilt die Reihenfolge stabil, sodass der Parent immer vor dem Child geladen wird,
     während die relative Bänder- und Override-Sortierung optimal erhalten bleibt.
     Aktualisiert transparent die Begründung (Reason) für jede nachjustierte Komponente.
+    WICHTIG: Die Begründung wird NUR dann auf 'Nachjustiert' überschrieben, wenn die Komponente
+    durch die Kante tatsächlich hinter ihren Partner verschoben wurde (Inversionsprüfung).
     """
     if len(candidate_list) <= 1:
         return candidate_list
@@ -572,7 +616,7 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
 
     edge_count = 0
 
-    # 1. Binnen-Requirements aus Mods_Requirements
+    # 1. Binnen-Requirements aus Mods_Requirements (Mod-Abhängigkeit)
     cursor.execute("""
         SELECT mr.ID_Mod_Requirement, mr.ID_Mod
         FROM Mods_Requirements mr
@@ -591,9 +635,9 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
                         adj[p_cid].add(ch_cid)
                         in_degree[ch_cid] += 1
                         edge_count += 1
-                        edge_info[(p_cid, ch_cid)] = (7, "Binnen-Abhängigkeit", f"Binnen-Abhängigkeit: Nachjustiert hinter '{p_name}' (explizite Mod-Voraussetzung).")
+                        edge_info[(p_cid, ch_cid)] = (dep_step_id, "Mod Abhängigkeit", f"hinter '{p_name}' verschoben. (Mod Abhängigkeit: explizite Mod-Voraussetzung)")
 
-    # 2. Binnen-Masterfiles aus Mods_Requirements_Masterfile_List (Header-MAST)
+    # 2. Binnen-Masterfiles aus Mods_Requirements_Masterfile_List (Mod-Abhängigkeit Header-MAST)
     cursor.execute("""
         SELECT mrl.ID_Mod, LOWER(mrl.Masterfile)
         FROM Mods_Requirements_Masterfile_List mrl
@@ -615,15 +659,16 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
                             adj[parent_cid].add(ch_cid)
                             in_degree[ch_cid] += 1
                             edge_count += 1
-                            edge_info[(parent_cid, ch_cid)] = (7, "Binnen-Masterfile", f"Binnen-Masterfile: Nachjustiert hinter '{p_file}' (Header-Deklaration MAST).")
+                            edge_info[(parent_cid, ch_cid)] = (dep_step_id, "Mod Abhängigkeit", f"hinter '{p_file}' verschoben. (Mod Abhängigkeit: Header-Deklaration MAST)")
 
-    # 3. Binnen-Konflikte aus Mods_Conflicts (Schiedsrichter)
+    # 3. Binnen-Konflikte aus Mods_Conflicts (Konflikt-Abhängigkeit Stufe 3 - Harte Regeln)
     cursor.execute("""
         SELECT ID_Mod_Requirement, ID_Mod_Dependent, Reason
         FROM Mods_Conflicts
         WHERE ID_Mod_Requirement IS NOT NULL AND ID_Mod_Dependent IS NOT NULL
         GROUP BY ID_Mod_Requirement, ID_Mod_Dependent
     """)
+    hard_conflict_step_id = f"{conflict_step_id}.3"
     for r in cursor.fetchall():
         winner_req, winner_dep, conf_reason = r[0], r[1], (r[2] or '')
         parent_cids = mod_to_cids.get(winner_req, [])
@@ -631,17 +676,17 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
         for p_cid in parent_cids:
             p_name = cid_to_comp[p_cid].get('Name_ContentCatalog') or cid_to_comp[p_cid]['File']
             if "Delete vs. Disable" in conf_reason:
-                step_id = 8
-                step_desc = "Schiedsrichter (Delete vs. Disable)"
-                rsn = f"Schiedsrichter: Nachjustiert hinter '{p_name}' (Delete vs. Disable an REFR; Schutz vor Null-Pointer-Glitches)."
+                step_id = hard_conflict_step_id
+                step_desc = "Konflikt Abhängigkeit (Delete vs. Disable)"
+                rsn = f"hinter '{p_name}' verschoben. (Konflikt Abhängigkeit: Delete vs. Disable an REFR; Schutz vor Null-Pointer-Glitches)"
             elif "Wegfindung" in conf_reason or "NavMesh" in conf_reason:
-                step_id = 8
-                step_desc = "Schiedsrichter (NavMesh-Reparatur)"
-                rsn = f"Schiedsrichter: Nachjustiert hinter '{p_name}' (Schutz des baulich angepassten NavMesh)."
+                step_id = hard_conflict_step_id
+                step_desc = "Konflikt Abhängigkeit (NavMesh-Reparatur)"
+                rsn = f"hinter '{p_name}' verschoben. (Konflikt Abhängigkeit: Schutz des baulich angepassten NavMesh)"
             else:
-                step_id = 8
-                step_desc = "Schiedsrichter (Konflikt-Vorgabe)"
-                rsn = f"Schiedsrichter: Nachjustiert hinter '{p_name}'."
+                step_id = hard_conflict_step_id
+                step_desc = "Konflikt Abhängigkeit (Konflikt-Vorgabe)"
+                rsn = f"hinter '{p_name}' verschoben. (Konflikt Abhängigkeit)"
 
             for ch_cid in child_cids:
                 if p_cid != ch_cid and ch_cid not in adj[p_cid]:
@@ -686,10 +731,15 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
         comp = cid_to_comp[cid]
         healed_list.append(comp)
 
-        # Prüfen, ob die Komponente durch eingehende Kanten nachjustiert wurde
-        incoming_edges = [(p, cid) for p in cat_cids if (p, cid) in edge_info]
-        if incoming_edges:
-            latest_p = max(incoming_edges, key=lambda e: placed_indices.get(e[0], -1))
+        # Prüfen, ob die Komponente durch eingehende Kanten TATSÄCHLICH nachjustiert (nach hinten verschoben) wurde
+        # Eine Inversion liegt vor, wenn der Vorfahre p in der ursprünglichen candidate_list NACH cid stand,
+        # cid also durch die gerichtete Kante (p -> cid) nach hinten geschoben wurde.
+        inverting_edges = [
+            (p, cid) for p in cat_cids 
+            if (p, cid) in edge_info and cid_to_initial_idx[cid] < cid_to_initial_idx[p]
+        ]
+        if inverting_edges:
+            latest_p = max(inverting_edges, key=lambda e: placed_indices.get(e[0], -1))
             s_id, s_desc, s_rsn = edge_info[latest_p]
             comp['sorter_step_id'] = s_id
             comp['sorter_step_desc'] = s_desc
@@ -720,26 +770,52 @@ def _resolve_category_internal_dependencies(cursor, log_msg, cat_id, cat_name, c
 
 
 
-def fine_sort_category(cursor, log_msg, cat_id, cat_name, cat_pos, components):
+# Semantische Tabellen für die Kategorie-Feinsortierung (Schritt 3)
+CATEGORY_FINE_SORT_STEPS = [
+    (1, "Band Vorläufer", _build_band_precursors),
+    (2, "Band Kern", _build_band_core),
+    (3, "Band Nachfolger", _build_band_successors),
+    (4, "Mod-Kohäsion", None),
+    (5, "Mod Abhängigkeit", None),
+    (6, "Konflikt Milderung & Abhängigkeit", None),
+]
+
+CONFLICT_RESOLUTION_STEPS = [
+    (1, "Konflikt Milderung (Lokal vs Global)", "Raumzellen-Streuung"),
+    (2, "Konflikt Milderung (gezielter Mod)", "Verhältnis Kollisionen zur Mod-Größe"),
+    (3, "Konflikt Abhängigkeit", "Delete vs. Disable an REFR / NavMesh-Schutz"),
+]
+
+
+def fine_sort_category(cursor, log_msg, cat_id, cat_name, cat_pos, components, parent_step=3):
     """
     Steuerfunktion für die Feinsortierung einer einzelnen Kategorie:
-    - 3a: Band Vorläufer
-    - 3b: Band Kern (Mono & Artfremd nach Fundament-Prinzip)
-    - 3c: Band Nachfolger (Grenzsaum)
-    - 3d: Kategorie-Abhängigkeiten nachbessern (inkl. Binnen-Konfliktbewertung)
+    - 3.1: Band Vorläufer (nur Binnengruppen-Partner mit Sub_Pos < Main_Pos)
+    - 3.2: Band Kern (Mono, andere Binnengruppen, binnengruppenfreie Kategorien)
+    - 3.3: Band Nachfolger (nur Binnengruppen-Partner mit Sub_Pos > Main_Pos)
+    - 3.4: Mod-Kohäsion (zusammenhängendes Laden mehrteiliger Mods)
+    - 3.5: Mod Abhängigkeit (Voraussetzungen & Masterfiles)
+    - 3.6: Konflikt Milderung & Abhängigkeit (Lokale Spezifität, Skalpell-Prinzip, Harte Regeln)
     """
-    band_precursors = _build_band_precursors(components, cat_pos, cat_name)
-    band_core = _build_band_core(components, cat_pos, cat_name)
-    band_successors = _build_band_successors(components, cat_pos, cat_name)
+    step_1 = f"{parent_step}.1"
+    step_2 = f"{parent_step}.2"
+    step_3 = f"{parent_step}.3"
+    cohesion_step = f"{parent_step}.4"
+    dep_step = f"{parent_step}.5"
+    conflict_step = f"{parent_step}.6"
+
+    band_precursors = _build_band_precursors(components, cat_pos, cat_name, step_id=step_1, cohesion_step_id=cohesion_step)
+    band_core = _build_band_core(components, cat_pos, cat_name, step_id=step_2, cohesion_step_id=cohesion_step)
+    band_successors = _build_band_successors(components, cat_pos, cat_name, step_id=step_3, cohesion_step_id=cohesion_step)
 
     candidate_list = band_precursors + band_core + band_successors
 
     conflict_edges = _evaluate_intra_category_conflicts(
-        cursor, log_msg, cat_id, cat_name, candidate_list
+        cursor, log_msg, cat_id, cat_name, candidate_list, step_prefix=conflict_step
     )
 
     healed_list = _resolve_category_internal_dependencies(
-        cursor, log_msg, cat_id, cat_name, candidate_list, extra_edges=conflict_edges
+        cursor, log_msg, cat_id, cat_name, candidate_list, extra_edges=conflict_edges, dep_step_id=dep_step, conflict_step_id=conflict_step
     )
     return healed_list
 
@@ -761,7 +837,7 @@ def _step_fine_sort_categories(cursor, log_msg, ctx: SorterContext):
             continue
 
         log_msg(f"  -> Kategorie [{cat_pos:02d}] {cat_name}: {len(comps)} Komponenten...")
-        sorted_cat_comps = fine_sort_category(cursor, log_msg, cat_id, cat_name, cat_pos, comps)
+        sorted_cat_comps = fine_sort_category(cursor, log_msg, cat_id, cat_name, cat_pos, comps, parent_step=3)
         ctx.category_components[cat_id] = sorted_cat_comps
 
         for idx, comp in enumerate(sorted_cat_comps, start=1):
@@ -784,12 +860,13 @@ def _step_persist_sorter_results(cursor, log_msg, ctx: SorterContext):
     cursor.execute("DELETE FROM LoadOrder WHERE ID_Profile = 0")
 
     # 2. Ergebnistabelle und View sicherstellen
+    cursor.execute("DROP TABLE IF EXISTS LoadOrder_Sorter_Results")
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS LoadOrder_Sorter_Results (
+        CREATE TABLE LoadOrder_Sorter_Results (
             Position INTEGER PRIMARY KEY,
             Component_ID INTEGER NOT NULL,
             Mod_ID INTEGER NOT NULL,
-            Step_ID INTEGER,
+            Step_ID TEXT,
             Step_Description TEXT,
             Reason TEXT
         )
@@ -819,8 +896,6 @@ def _step_persist_sorter_results(cursor, log_msg, ctx: SorterContext):
         ORDER BY sr.Position ASC
     """)
 
-    cursor.execute("DELETE FROM LoadOrder_Sorter_Results")
-
     insert_sql = """
         INSERT INTO LoadOrder_Sorter_Results (Position, Component_ID, Mod_ID, Step_ID, Step_Description, Reason)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -830,7 +905,7 @@ def _step_persist_sorter_results(cursor, log_msg, ctx: SorterContext):
             pos,
             c['Component_ID'],
             c['Mod_ID'],
-            c.get('sorter_step_id'),
+            str(c.get('sorter_step_id') or ''),
             c.get('sorter_step_desc'),
             c.get('sorter_reason')
         )

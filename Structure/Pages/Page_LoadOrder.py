@@ -1501,16 +1501,15 @@ class Page_LoadOrder(QWidget):
                     self.show_message_box("Fehler", "Die Voraussetzung konnte nicht hinzugefügt werden.", QMessageBox.Icon.Critical)
 
     def clear_table_highlights(self):
-        """Setzt die Hintergrund- und Textfarben der zuvor markierten Tabellenzeilen zurück."""
-        if not self.highlighted_rows:
-            return
-        for r in self.highlighted_rows:
-            if r < self.model.rowCount():
+        """Setzt die Hintergrund- und Textfarben aller zuvor markierten Tabellenzeilen zurück."""
+        for r in range(self.model.rowCount()):
+            item_check = self.model.item(r, self.COL_POS) or self.model.item(r, 0)
+            if item_check and item_check.data(Qt.ItemDataRole.BackgroundRole) is not None:
                 for c in range(self.model.columnCount()):
-                    item = self.model.item(r, c)
-                    if item:
-                        item.setData(None, Qt.ItemDataRole.BackgroundRole)
-                        item.setData(None, Qt.ItemDataRole.ForegroundRole)
+                    cell = self.model.item(r, c)
+                    if cell:
+                        cell.setData(None, Qt.ItemDataRole.BackgroundRole)
+                        cell.setData(None, Qt.ItemDataRole.ForegroundRole)
         self.highlighted_rows.clear()
 
     def highlight_requirements_and_dependencies(self, req_list, dep_list):
@@ -1607,6 +1606,27 @@ class Page_LoadOrder(QWidget):
     def on_toggle_sorter_columns(self, checked: bool):
         """Wird ausgelöst, wenn die Checkbox 'anzeigen' im Sorter-Bereich getoggelt wird."""
         self.apply_column_visibility()
+        
+        # Wenn ausgeblendet wird, automatisch wieder auf Pos. aufsteigend sortieren
+        if not checked:
+            self._current_sort_col = self.COL_POS
+            self._current_sort_order = Qt.SortOrder.AscendingOrder
+            
+            header = self.table_view.horizontalHeader()
+            header.setSortIndicatorShown(True)
+            header.setSortIndicator(self.COL_POS, Qt.SortOrder.AscendingOrder)
+            
+            self.clear_table_highlights()
+            selected_mod_id = self.current_mod_id
+            
+            self._is_sorting = True
+            try:
+                self.model.setSortRole(self.SORT_ROLE)
+                self.model.sort(self.COL_POS, Qt.SortOrder.AscendingOrder)
+            finally:
+                self._is_sorting = False
+                
+            self._restore_selection_and_highlights(selected_mod_id)
 
     def apply_column_visibility(self):
         """Steuert das Ein-/Ausblenden der zusätzlichen Sorter-Spalten (Neu, Subkategorie, Beschreibung)."""
@@ -1668,6 +1688,37 @@ class Page_LoadOrder(QWidget):
                 QMessageBox.Icon.Critical
             )
 
+    def _restore_selection_and_highlights(self, selected_mod_id):
+        """Stellt nach einer Sortierung die Selektion der Mod-Zeile wieder her und aktualisiert Markierungen."""
+        if not selected_mod_id:
+            return
+            
+        found_row = None
+        for r in range(self.model.rowCount()):
+            item_pos = self.model.item(r, self.COL_POS)
+            if item_pos:
+                row_data = self.get_row_data(item_pos)
+                if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
+                    found_row = r
+                    break
+
+        if found_row is not None:
+            current_selected_rows = self.table_view.selectionModel().selectedRows()
+            current_row = current_selected_rows[0].row() if current_selected_rows else -1
+            
+            if current_row == found_row:
+                # Da derselbe Zeilenindex selektiert bleibt, feuert selectionChanged nicht.
+                # Markierungen an den neuen Positionen daher explizit aktualisieren.
+                try:
+                    mod_id_int = int(selected_mod_id)
+                    requirements = get_mod_requirements_for_ui(mod_id_int)
+                    dependencies = get_mod_dependencies_for_ui(mod_id_int)
+                    self.highlight_requirements_and_dependencies(requirements, dependencies)
+                except Exception as e:
+                    logging.warning(f"Konnte Markierungen nach Sortierung nicht aktualisieren: {e}")
+            else:
+                self.table_view.selectRow(found_row)
+
     def on_header_section_clicked(self, logical_index: int):
         """
         Ermöglicht das Sortieren der Tabelle per Klick auf die Spaltenüberschrift,
@@ -1705,6 +1756,9 @@ class Page_LoadOrder(QWidget):
                     s_pos = data.get("Sorter_Position") if data else None
                     it.setData(s_pos if s_pos is not None else fallback, self.SORT_ROLE)
 
+        # Bestehende Markierungen vor der Umsortierung komplett zurücksetzen
+        self.clear_table_highlights()
+
         # Aktuelle Selektion merken
         selected_mod_id = self.current_mod_id
 
@@ -1715,13 +1769,6 @@ class Page_LoadOrder(QWidget):
         finally:
             self._is_sorting = False
 
-        # Selektion wiederherstellen
-        if selected_mod_id:
-            for r in range(self.model.rowCount()):
-                item_pos = self.model.item(r, self.COL_POS)
-                if item_pos:
-                    row_data = self.get_row_data(item_pos)
-                    if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
-                        self.table_view.selectRow(r)
-                        break
+        # Selektion wiederherstellen und Markierungen an neuer Position frisch setzen
+        self._restore_selection_and_highlights(selected_mod_id)
 

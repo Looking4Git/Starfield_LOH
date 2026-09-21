@@ -40,6 +40,7 @@ def reset_database(log_signal=None):
             "Profiles",
             "LoadOrder_Classifier_Results",
             "LoadOrder_Classifier_Matrix",
+            "LoadOrder_Sorter_Results",
             "Mods_Conflicts",
             "LOH_Executions"
         ]
@@ -67,8 +68,9 @@ def reset_database(log_signal=None):
         log("-> Autoincrement-Zähler für Bewegungstabellen zurückgesetzt.")
         
         # Temporäre Klassifizierungs- und Ergebnistabellen löschen/leeren
+        cursor.execute("DROP VIEW IF EXISTS View_LoadOrder_Sorter_Results;")
+        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Sorter_Results;")
         cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix;")
-        cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Results;")
         cursor.execute("DELETE FROM Components_References_Base;")
         cursor.execute("DROP TABLE IF EXISTS Components_References_Matrix;")
         log("-> Temporäre Klassifizierungs- und Ergebnistabellen gelöscht.")

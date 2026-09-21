@@ -198,8 +198,8 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
    * **Sub-Handler 8.2: `_check_refr_identical_resaves` (Allgemeine REFR-Resaves & Subrecord-Konfliktqualifizierung):**
      * **Stufe 1 (Fast-Path via `compare_records`):** Ist der gesamte Record zu 100% bit-identisch, erfolgt sofortige Abstufung auf `Conflict_Type = 0` (*"Identischer Mitläufer: 100% binäre Deckungsgleichheit aller Platzierungs- und Verknüpfungsdaten; keine Auswirkung im Spiel."*). (Neutralisiert u. a. die Paradiso-Hotelaufzugstüren zwischen Mod 47 und Mod 44).
      * **Stufe 2 (Semantische Geometrie- & Funktionsprüfung):** Sind `DATA` (3D-Koordinaten & Rotation), `NAME` (Basis-Objekt), Header-Flags (`Deleted`, `Initially Disabled`), `XESP` (Enable-Parent), `XTEL` (Teleport-Ziel) und `XSCL` (Skalierung) identisch und weichen lediglich unkritische CK-Metadaten wie `XLRL` (Location-Pointer) oder `XLYR` (Editor-Layer) ab $\rightarrow$ Abstufung auf `Conflict_Type = 0` (*"Identisches Platzierungs-Resave: 3D-Koordinaten und Basisobjekt sind deckungsgleich; Abweichung beschränkt sich auf unkritische Editor-Metadaten (z. B. XLRL/XLYR)."*).
-     * **Stufe 3 (Reale Kollisionen mit dynamischer Synthese `_build_refr_diff_reason`):** Verbleibt als `Conflict_Type = 2`, generiert jedoch eine hochpräzise Fehlerursache und Konsequenz:
-       * *Delete vs. Disable (`XESP` / `Deleted`):* Benennt konkret, welche Mod das Objekt ausblendet und welche es physisch löscht (Gefahr verwaister Skript-Pointer).
+     * **Stufe 3 (Reale Kollisionen mit dynamischer Synthese `_build_refr_diff_reason`):** Verbleibt als `Conflict_Type = 2`, generiert jedoch eine hochpräzise Fehlerursache, Konsequenz und ggf. Schiedsrichter-Zuteilung:
+       * *Delete vs. Disable (`XESP` / `Deleted`):* Benennt konkret, welche Mod das Objekt sicher ausblendet (`Initially Disabled` / `XESP`) und welche es physisch aus der Zelle löscht (Gefahr verwaister Skript-Pointer und CTDs). **Erzeugt automatisiert eine harte Schiedsrichter-Kante:** Die physisch löschende Mod wird als `ID_Mod_Requirement` gesetzt (muss zuerst laden), die sicher ausblendende Mod als `ID_Mod_Dependent` (muss danach laden, um den Datensatz im Speicher aktiv zu halten).
        * *3D-Positionsabweichung (`DATA`):* Berechnet die euklidische Distanz $\Delta d = \sqrt{\Delta x^2 + \Delta y^2 + \Delta z^2}$ und unterscheidet zwischen Beleuchtungsstrahlern (`LGT_`), Architekturelementen (`Wall`/`Floor`) und allgemeiner Deko.
        * *Teleport-Zielkonflikt (`XTEL`):* Weist darauf hin, dass Türen oder Aufzüge in unterschiedliche Innenzellen führen.
        * *Objektaustausch (`NAME`):* Zeigt an, dass einer Referenz unterschiedliche 3D-Meshes zugewiesen wurden.
@@ -309,8 +309,10 @@ GROUP BY mc.ID_Mod_Requirement, mc.ID_Mod_Dependent;
 
 ### Funktionsweise im `LoadOrder_Sorter`:
 1. **DAG-Kanten (Directed Acyclic Graph):** Jede Zeile mit gesetztem `ID_Mod_Requirement` und `ID_Mod_Dependent` definiert eine zwingende Kante `(ID_Mod_Requirement -> ID_Mod_Dependent)`.
-2. **Topologische Sortierung:** Der Sortieralgorithmus platziert die Resave-Mod (`ID_Mod_Requirement`) zwingend vor der Bau-Mod (`ID_Mod_Dependent`).
-3. **Automatische Konfliktvermeidung:** Dadurch wird verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören, ohne dass der Anwender händische Regeln definieren muss.
+2. **Topologische Sortierung:** Der Sortieralgorithmus platziert die Voraussetzungs- oder Resave-Mod (`ID_Mod_Requirement`) zwingend vor der abhängigen Mod bzw. Bau-Mod (`ID_Mod_Dependent`).
+3. **Automatische Konfliktvermeidung:** 
+   - **Wegfindung (Schritt 7):** Verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören.
+   - **Geländebereinigung & Architektur (Schritt 8):** Verhindert Null-Pointer-Glitches und CTDs bei `Delete vs. Disable`-Kollisionen, indem die sicher ausblendende Mod (`Initially Disabled` / `XESP`) zwingend nach der physisch löschenden Mod (`Deleted`) geladen wird.
 
 ---
 
@@ -334,7 +336,7 @@ Diese hierarchische Baumstruktur dokumentiert den aktuellen Analyse- und Integra
 * 🟢 **Schritt 5 (`CELL`):** Dreistufige Raumzellen-Analyse (Steuerdaten, Vanilla-Objekt-Overrides `REFR`/`ACHR`, 2D-Bounding-Box Überlappung bei Neubauten). 321 Mitläufer als Typ 0 neutralisiert, 146 echte Raumkollisionen qualifiziert.
 * 🟢 **Schritt 6 (`LCTN`):** Standort-Primärdaten und 20-Byte-Rollenanalyse (`ACSR`/`LCSR` Option C). Semantische `FULL`-Textnormalisierung integriert. 7 Mitläufer als Typ 0, 1 Wertekonflikt als Typ 1 und 97 reale Kollisionen qualifiziert.
 * 🟢 **Schritt 7 (`NAVM`):** Wegfindungs- & Geometrieanalyse. Erkennt 100% binäre Mitläufer (Typ 0), Pack-In Vorlagen (Typ 0/2), asymmetrische BGS-Creations (Typ 0) und generiert zwingende Ladereihenfolge-Regeln (`ID_Mod_Requirement` -> `ID_Mod_Dependent`).
-* 🟢 **Schritt 8 (`REFR`):** Objektplatzierungs- & Referenz-Analyse nach modularem Sub-Handler-Entwurfsmuster. Sub-Handler 8.1 neutralisiert `NavMeshSpline`-Mitläufer (187 Typ 0). Sub-Handler 8.2 neutralisiert 100% bit-identische Platzierungen und semantische Resaves (88 Typ 0, u. a. Paradiso-Hotelaufzüge) und qualifiziert verbleibende 69 reale Kollisionen (u. a. HopeTown Delete-vs-Disable, Kreet-Spotlight mit 3D-Distanzangaben) mit präzisen, subrecord-gestützten Diagnosen.
+* 🟢 **Schritt 8 (`REFR`):** Objektplatzierungs- & Referenz-Analyse nach modularem Sub-Handler-Entwurfsmuster. Sub-Handler 8.1 neutralisiert `NavMeshSpline`-Mitläufer (187 Typ 0). Sub-Handler 8.2 neutralisiert 100% bit-identische Platzierungen und semantische Resaves (88 Typ 0, u. a. Paradiso-Hotelaufzüge), qualifiziert reale Kollisionen (u. a. Kreet-Spotlight mit 3D-Distanzangaben) und generiert automatisierte Ladereihenfolge-Regeln (`ID_Mod_Requirement` -> `ID_Mod_Dependent`) für alle 62 'Delete vs. Disable'-Kollisionen (u. a. HopeTown vs. Shuttle Service).
 * 🟡 **`QUST` (Quest-Steuerung):** Tiefenanalyse gegen Vanilla (`Starfield.esm`) und den *Community Patch (SFCP)* durchgeführt. Ergebnis: Aktuell nur 3 Fälle im Setup, alle inhaltlich begründet. Kein separater Pipeline-Schritt erforderlich; stattdessen universelle Text- und VMAD-Diagnosewerkzeuge bereitgestellt.
 
 ---

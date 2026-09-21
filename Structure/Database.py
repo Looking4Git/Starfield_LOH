@@ -510,8 +510,34 @@ def get_profiles() -> list[dict]:
         if conn:
             conn.close()
 
+def init_sorter_results_table() -> bool:
+    """Stellt sicher, dass die Tabelle LoadOrder_Sorter_Results existiert."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS LoadOrder_Sorter_Results (
+                Position INTEGER PRIMARY KEY,
+                Component_ID INTEGER NOT NULL,
+                Mod_ID INTEGER NOT NULL,
+                Step_ID TEXT,
+                Step_Description TEXT,
+                Reason TEXT
+            )
+        """)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei init_sorter_results_table: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
 def get_load_order(profile_id: int) -> list[dict]:
-    """Holt alle Ladereihenfolge-Einträge für ein Profil gefiltert auf installierte Mods (State = 1)."""
+    """Holt alle Ladereihenfolge-Einträge für ein Profil gefiltert auf installierte Mods (State = 1) inklusive Sorter-Ergebnissen."""
+    init_sorter_results_table()
     query = """
         SELECT 
             lo.Position,
@@ -548,6 +574,9 @@ def get_load_order(profile_id: int) -> list[dict]:
             em.RSPJ, em.KYWD, em.CLFM, em.CLFM_KYWD_Character, em.CLFM_KYWD_Skin, em.CLFM_KYWD_Ship, em.HDPT,
             cat.Name AS Category_Name,
             cat_class.Name AS Category_Classifier_Name,
+            sub.Name AS Sorter_Sub_Category_Name,
+            sr.Position AS Sorter_Position,
+            sr.Reason AS Sorter_Reason,
             m.Note,
             m.Category_LOH AS Category_ID,
             m.Category_LOH_Classifier AS Category_Classifier_ID
@@ -558,6 +587,8 @@ def get_load_order(profile_id: int) -> list[dict]:
         LEFT JOIN Mods m ON mc.Mod_ID = m.ID
         LEFT JOIN Categories_LOH cat ON m.Category_LOH = cat.ID
         LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
+        LEFT JOIN Categories_LOH sub ON m.Category_LOH_Classifier_Sub = sub.ID
+        LEFT JOIN LoadOrder_Sorter_Results sr ON c.ID = sr.Component_ID
         WHERE lo.ID_Profile = :profile_id AND m.State = 1
         ORDER BY lo.Position
     """
@@ -792,6 +823,164 @@ def update_load_order_positions(profile_id: int, positions: list[tuple[int, int]
         # Sicherer Log-Aufruf ohne rekursiven Fehler
         logging.error(f"Fehler bei update_load_order_positions: {e}")
         return False
+    finally:
+        if conn:
+            conn.close()
+
+def has_sorter_results() -> bool:
+    """Prüft, ob Einträge in LoadOrder_Sorter_Results vorhanden sind."""
+    init_sorter_results_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM LoadOrder_Sorter_Results")
+        row = cursor.fetchone()
+        return (row[0] > 0) if row else False
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei has_sorter_results: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def apply_sorter_to_profile(profile_id: int) -> tuple[bool, int, str]:
+    """
+    Überträgt die berechnete Ladereihenfolge aus LoadOrder_Sorter_Results
+    auf das angegebene Profil.
+    Gibt (Erfolg, Anzahl_aktualisiert, Fehlermeldung) zurück.
+    """
+    init_sorter_results_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Prüfen, ob Sorter-Ergebnisse vorhanden sind
+        cursor.execute("SELECT Component_ID, Position FROM LoadOrder_Sorter_Results ORDER BY Position ASC")
+        sorter_rows = cursor.fetchall()
+        if not sorter_rows:
+            return False, 0, "Keine Sortierergebnisse in 'LoadOrder_Sorter_Results' vorhanden. Bitte führen Sie zuerst den Sorter aus."
+            
+        sorter_pos_map = {row["Component_ID"]: row["Position"] for row in sorter_rows}
+        
+        # 2. Komponenten des Profils abrufen
+        cursor.execute("""
+            SELECT lo.ID_Component, lo.Position 
+            FROM LoadOrder lo
+            JOIN Mods_Components mc ON lo.ID_Component = mc.Component_ID
+            JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE lo.ID_Profile = ? AND m.State = 1
+            ORDER BY lo.Position ASC
+        """, (profile_id,))
+        profile_components = cursor.fetchall()
+        if not profile_components:
+            return False, 0, "Im ausgewählten Profil sind keine aktiven Komponenten vorhanden."
+            
+        # 3. Sortierung vorbereiten:
+        # Komponenten mit Sorter-Ergebnis nach Sorter-Position sortieren,
+        # restliche Komponenten am Ende unter Beibehaltung der relativen Reihenfolge anfügen.
+        def sort_key(item):
+            c_id = item["ID_Component"]
+            if c_id in sorter_pos_map:
+                return (0, sorter_pos_map[c_id])
+            return (1, item["Position"])
+            
+        sorted_comps = sorted(profile_components, key=sort_key)
+        
+        # 4. Neue Positionen 1..N festlegen
+        new_positions = []
+        for new_pos, comp in enumerate(sorted_comps, start=1):
+            new_positions.append((comp["ID_Component"], new_pos))
+            
+        # 5. Zweistufige atomare Aktualisierung zur Vermeidung von UNIQUE-Kollisionen
+        temp_query = "UPDATE LoadOrder SET Position = ? WHERE ID_Profile = ? AND ID_Component = ?"
+        for comp_id, pos in new_positions:
+            cursor.execute(temp_query, (-pos, profile_id, comp_id))
+            
+        final_query = "UPDATE LoadOrder SET Position = -Position WHERE ID_Profile = ? AND Position < 0"
+        cursor.execute(final_query, (profile_id,))
+        
+        conn.commit()
+        return True, len(new_positions), ""
+    except sqlite3.Error as e:
+        if conn:
+            conn.rollback()
+        logging.error(f"Fehler bei apply_sorter_to_profile für Profil ID {profile_id}: {e}")
+        return False, 0, f"Datenbankfehler: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+def apply_sorter_to_all_profiles() -> tuple[bool, int, int, str]:
+    """
+    Überträgt die berechnete Ladereihenfolge aus LoadOrder_Sorter_Results
+    auf alle vorhandenen Profile.
+    Gibt (Erfolg, Anzahl_Profile, Gesamtanzahl_Aktualisiert, Fehlermeldung) zurück.
+    """
+    init_sorter_results_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Prüfen, ob Sorter-Ergebnisse vorhanden sind
+        cursor.execute("SELECT Component_ID, Position FROM LoadOrder_Sorter_Results ORDER BY Position ASC")
+        sorter_rows = cursor.fetchall()
+        if not sorter_rows:
+            return False, 0, 0, "Keine Sortierergebnisse in 'LoadOrder_Sorter_Results' vorhanden. Bitte führen Sie zuerst den Sorter aus."
+            
+        sorter_pos_map = {row["Component_ID"]: row["Position"] for row in sorter_rows}
+        
+        # 2. Alle Profile abrufen
+        cursor.execute("SELECT ID, Name FROM Profiles ORDER BY ID ASC")
+        profiles = cursor.fetchall()
+        if not profiles:
+            return False, 0, 0, "Keine Profile in der Datenbank gefunden."
+            
+        updated_profiles = 0
+        total_updated_items = 0
+        
+        # 3. Für jedes Profil die Sortierung atomar aktualisieren
+        for prof in profiles:
+            prof_id = prof["ID"]
+            cursor.execute("""
+                SELECT lo.ID_Component, lo.Position 
+                FROM LoadOrder lo
+                JOIN Mods_Components mc ON lo.ID_Component = mc.Component_ID
+                JOIN Mods m ON mc.Mod_ID = m.ID
+                WHERE lo.ID_Profile = ? AND m.State = 1
+                ORDER BY lo.Position ASC
+            """, (prof_id,))
+            prof_comps = cursor.fetchall()
+            if not prof_comps:
+                continue
+                
+            def sort_key(item):
+                c_id = item["ID_Component"]
+                if c_id in sorter_pos_map:
+                    return (0, sorter_pos_map[c_id])
+                return (1, item["Position"])
+                
+            sorted_comps = sorted(prof_comps, key=sort_key)
+            
+            temp_query = "UPDATE LoadOrder SET Position = ? WHERE ID_Profile = ? AND ID_Component = ?"
+            for new_pos, comp in enumerate(sorted_comps, start=1):
+                cursor.execute(temp_query, (-new_pos, prof_id, comp["ID_Component"]))
+                
+            final_query = "UPDATE LoadOrder SET Position = -Position WHERE ID_Profile = ? AND Position < 0"
+            cursor.execute(final_query, (prof_id,))
+            
+            updated_profiles += 1
+            total_updated_items += len(sorted_comps)
+            
+        conn.commit()
+        return True, updated_profiles, total_updated_items, ""
+    except sqlite3.Error as e:
+        if conn:
+            conn.rollback()
+        logging.error(f"Fehler bei apply_sorter_to_all_profiles: {e}")
+        return False, 0, 0, f"Datenbankfehler: {e}"
     finally:
         if conn:
             conn.close()

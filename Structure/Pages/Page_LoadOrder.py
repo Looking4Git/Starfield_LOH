@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QFrame, QScrollArea,
-                               QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView,
+                               QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView, QCheckBox,
                                QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette, QPainter, QBrush
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal
@@ -14,7 +14,9 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  update_mod_category_and_note, update_profile_description,
                                  update_load_order_positions, get_mod_requirements_for_ui,
                                  delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
-                                 apply_all_classifier_categories)
+                                 apply_all_classifier_categories, get_script_last_execution,
+                                 apply_sorter_to_profile, apply_sorter_to_all_profiles,
+                                 has_sorter_results)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Requirement import RequirementDialog
@@ -135,6 +137,16 @@ class DragDropStandardItemModel(QStandardItemModel):
 class Page_LoadOrder(QWidget):
     data_updated = Signal()
 
+    COL_NEW = 0
+    COL_POS = 1
+    COL_ACTIVE = 2
+    COL_NAME = 3
+    COL_MASTER = 4
+    COL_CATEGORY = 5
+    COL_CLASSIFIER = 6
+    COL_SUBCAT = 7
+    COL_DESC = 8
+
     def get_row_data(self, item):
         if not item:
             return None
@@ -155,6 +167,9 @@ class Page_LoadOrder(QWidget):
         self._loading_data = False
         self.current_profile_id = None
         self.highlighted_rows = []
+        self._current_sort_col = self.COL_POS
+        self._current_sort_order = Qt.SortOrder.AscendingOrder
+        self._is_sorting = False
         self.setup_ui()
         self.load_lookups()
 
@@ -317,6 +332,23 @@ class Page_LoadOrder(QWidget):
             make_button_premium(self.btn_remove_requirement, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Entfernen")
             self.btn_remove_requirement.setEnabled(False)
             self.btn_remove_requirement.clicked.connect(self.on_remove_requirement_clicked)
+
+        # Sorter-Bereich UI-Elemente referenzieren und einrichten
+        self.lbl_sorter_section = ui.findChild(QLabel, "lbl_sorter_section")
+        self.sorter_separator = ui.findChild(QFrame, "sorter_separator")
+        self.inp_sorter_last_update = ui.findChild(QLineEdit, "inp_sorter_last_update")
+        self.chk_sorter_show_columns = ui.findChild(QCheckBox, "chk_sorter_show_columns")
+        if self.chk_sorter_show_columns:
+            self.chk_sorter_show_columns.toggled.connect(self.on_toggle_sorter_columns)
+            
+        self.btn_apply_sorter_profile = ui.findChild(QPushButton, "btn_apply_sorter_profile")
+        self.btn_apply_sorter_all = ui.findChild(QPushButton, "btn_apply_sorter_all")
+        if self.btn_apply_sorter_profile:
+            make_button_premium(self.btn_apply_sorter_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down.svg"), "Profil", icon_size=(14, 14))
+            self.btn_apply_sorter_profile.clicked.connect(self.on_apply_sorter_profile_clicked)
+        if self.btn_apply_sorter_all:
+            make_button_premium(self.btn_apply_sorter_all, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down_Double.svg"), "Alle", icon_size=(26, 14))
+            self.btn_apply_sorter_all.clicked.connect(self.on_apply_sorter_all_clicked)
             
         # Zuweisung einer ID zur Zeilen-Identifikation
         self.current_mod_id = ""
@@ -367,10 +399,12 @@ class Page_LoadOrder(QWidget):
         palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
         self.table_view.setPalette(palette)
 
-        # Kopfzeilen-Sortierung komplett deaktivieren
+        # Kopfzeilen-Sortierung selektiv konfigurieren (ausschließlich COL_NEW und COL_POS klickbar/sortierbar)
         header = self.table_view.horizontalHeader()
-        header.setSortIndicatorShown(False)
-        header.setSectionsClickable(False)
+        header.setSectionsClickable(True)
+        header.setSortIndicatorShown(True)
+        header.setSortIndicator(self.COL_POS, Qt.SortOrder.AscendingOrder)
+        header.sectionClicked.connect(self.on_header_section_clicked)
         self.table_view.setSortingEnabled(False)
 
         # Limit-Prüfbalken und Beschriftungen aus der UI referenzieren
@@ -679,8 +713,10 @@ class Page_LoadOrder(QWidget):
             if profile_id is None:
                 # Header trotzdem setzen, damit die Tabelle hübsch aussieht
                 self.model.setHorizontalHeaderLabels([
-                    "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer"
+                    "Neu", "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer", "Subkategorie", "Beschreibung"
                 ])
+                self.apply_column_visibility()
+                self.update_sorter_status()
                 return
 
             load_order_data = get_load_order(profile_id)
@@ -694,6 +730,14 @@ class Page_LoadOrder(QWidget):
             w_stat = 1.0
             
             for row_data in load_order_data:
+                # Sorter-Position (Spalte 0: Neu)
+                sorter_pos = row_data.get("Sorter_Position")
+                sorter_pos_str = str(sorter_pos) if sorter_pos is not None else ""
+                item_new = QStandardItem(sorter_pos_str)
+                item_new.setData(sorter_pos if sorter_pos is not None else 99999, self.SORT_ROLE)
+                self.set_row_data(item_new, row_data)
+                item_new.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
                 item_pos = QStandardItem(str(row_data["Position"]))
                 item_pos.setData(row_data["Position"], self.SORT_ROLE)
                 self.set_row_data(item_pos, row_data)
@@ -718,72 +762,73 @@ class Page_LoadOrder(QWidget):
                 item_classifier = QStandardItem(row_data.get("Category_Classifier_Name") or "")
                 item_classifier.setData(row_data.get("Category_Classifier_Name") or "", self.SORT_ROLE)
                 
-                # Typ (Masterfile Level)
-                mf_val = row_data.get("Is_Masterfile") or 0
-                mf_str = {1: "Full", 2: "Medium", 3: "Small"}.get(mf_val, "Plugin")
-                item_type = QStandardItem(mf_str)
-                item_type.setData(mf_val, self.SORT_ROLE)
-                item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                # Subkategorie (aus Sorter-Ergebnis)
+                subcat_name = row_data.get("Sorter_Sub_Category_Name") or ""
+                item_subcat = QStandardItem(subcat_name)
+                item_subcat.setData(subcat_name, self.SORT_ROLE)
                 
-                # Story-Index
-                qust = row_data.get("QUST") or 0
-                dial = row_data.get("DIAL") or 0
-                info = row_data.get("INFO") or 0
-                story_idx = qust * w_qust + dial * w_dial + info * w_info
-                item_story = QStandardItem(f"{story_idx:.1f}")
-                item_story.setData(story_idx, self.SORT_ROLE)
-                item_story.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                
-                # Objekt-Index
-                cobj = row_data.get("COBJ") or 0
-                furn = row_data.get("FURN") or 0
-                stat = row_data.get("STAT") or 0
-                object_idx = cobj * w_cobj + furn * w_furn + stat * w_stat
-                item_obj = QStandardItem(f"{object_idx:.1f}")
-                item_obj.setData(object_idx, self.SORT_ROLE)
-                item_obj.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                
-                # Overrides
-                qust_ovr = row_data.get("QUST_Override") or 0
-                cell_ovr = row_data.get("CELL_Override") or 0
-                dial_ovr = row_data.get("DIAL_Override") or 0
-                info_ovr = row_data.get("INFO_Override") or 0
-                npc_ovr = row_data.get("NPC__Override") or 0
-                stat_ovr = row_data.get("STAT_Override") or 0
-                cobj_ovr = row_data.get("COBJ_Override") or 0
-                furn_ovr = row_data.get("FURN_Override") or 0
-                total_overrides = qust_ovr + cell_ovr + dial_ovr + info_ovr + npc_ovr + stat_ovr + cobj_ovr + furn_ovr
-                item_ovr = QStandardItem(str(total_overrides))
-                item_ovr.setData(total_overrides, self.SORT_ROLE)
-                item_ovr.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                # Beschreibung (Reason aus Sorter-Ergebnis)
+                sorter_reason = row_data.get("Sorter_Reason") or ""
+                item_desc = QStandardItem(sorter_reason)
+                item_desc.setData(sorter_reason, self.SORT_ROLE)
+                if sorter_reason:
+                    item_desc.setToolTip(sorter_reason)
                 
                 self.model.appendRow([
-                    item_pos, item_active, item_name, item_master, item_cat, item_classifier
+                    item_new, item_pos, item_active, item_name, item_master, item_cat, item_classifier, item_subcat, item_desc
                 ])
         finally:
             self.model.blockSignals(False)
  
         # Header nach dem Befüllen der Zeilen setzen
         self.model.setHorizontalHeaderLabels([
-            "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer"
+            "Neu", "Pos.", "Aktiv", "Name", "Masterfile", "Kategorie", "Kategorisierer", "Subkategorie", "Beschreibung"
         ])
         
         header = self.table_view.horizontalHeader()
-        header.setSortIndicatorShown(False)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        header.setSortIndicatorShown(True)
+        header.setSortIndicator(self._current_sort_col, self._current_sort_order)
+        
+        item_h_new = self.model.horizontalHeaderItem(self.COL_NEW)
+        if item_h_new:
+            item_h_new.setToolTip("Klicken, um nach neuer Sorter-Position zu sortieren")
+        item_h_pos = self.model.horizontalHeaderItem(self.COL_POS)
+        if item_h_pos:
+            item_h_pos.setToolTip("Klicken, um nach Profil-Position zu sortieren")
         
         # Spaltenbreiten einrichten
-        self.table_view.setColumnWidth(0, 50) # Pos.
-        self.table_view.setColumnWidth(1, 60) # Aktiv
-        self.table_view.resizeColumnToContents(2) # Name
-        self.table_view.resizeColumnToContents(3) # Masterfile
-        self.table_view.resizeColumnToContents(4) # Kategorie
-        self.table_view.resizeColumnToContents(5) # Kategorisierer
+        self.table_view.setColumnWidth(self.COL_NEW, 50)
+        self.table_view.setColumnWidth(self.COL_POS, 50)
+        self.table_view.setColumnWidth(self.COL_ACTIVE, 60)
+        self.table_view.resizeColumnToContents(self.COL_NAME)
+        self.table_view.resizeColumnToContents(self.COL_MASTER)
+        self.table_view.resizeColumnToContents(self.COL_CATEGORY)
+        self.table_view.resizeColumnToContents(self.COL_CLASSIFIER)
+        self.table_view.resizeColumnToContents(self.COL_SUBCAT)
         
         from PySide6.QtWidgets import QHeaderView
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(self.COL_CATEGORY, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(self.COL_CLASSIFIER, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(self.COL_SUBCAT, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(self.COL_DESC, QHeaderView.ResizeMode.Stretch)
         
+        # Sichtbarkeit der Sorter-Spalten anwenden
+        self.apply_column_visibility()
+        
+        # Sorter-Status aktualisieren
+        self.update_sorter_status()
+        
+        # Falls aktuell eine abweichende Sortierung aktiv ist, diese anwenden
+        if self._current_sort_col in (self.COL_NEW, self.COL_POS):
+            if self._current_sort_col != self.COL_POS or self._current_sort_order != Qt.SortOrder.AscendingOrder:
+                self._is_sorting = True
+                try:
+                    self.model.setSortRole(self.SORT_ROLE)
+                    self.model.sort(self._current_sort_col, self._current_sort_order)
+                finally:
+                    self._is_sorting = False
+
         if self.model.rowCount() > 0:
             self.table_view.selectRow(0)
             
@@ -848,7 +893,9 @@ class Page_LoadOrder(QWidget):
         row_index = indexes[0]
         row = row_index.row()
         
-        pos_item = self.model.item(row, 0)
+        pos_item = self.model.item(row, self.COL_POS)
+        if not pos_item:
+            pos_item = self.model.item(row, 0)
         if not pos_item:
             self.clear_detail_form()
             return
@@ -957,7 +1004,7 @@ class Page_LoadOrder(QWidget):
         if self._loading_data:
             return
             
-        if item.column() == 1:  # Spalte 1 = Aktiv
+        if item.column() == self.COL_ACTIVE:
             indexes = self.tree_profile.selectionModel().selectedRows()
             if not indexes:
                 return
@@ -968,7 +1015,7 @@ class Page_LoadOrder(QWidget):
                 return
                 
             row = item.row()
-            pos_item = self.model.item(row, 0)
+            pos_item = self.model.item(row, self.COL_POS)
             if not pos_item:
                 return
                 
@@ -986,6 +1033,8 @@ class Page_LoadOrder(QWidget):
 
     def on_rows_reordered(self, *args, **kwargs):
         """Wird aufgerufen, wenn Zeilen per Drag'n'Drop verschoben wurden."""
+        if self._loading_data or getattr(self, "_is_sorting", False):
+            return
         profile_id = self.current_profile_id
         if profile_id is None:
             return
@@ -1003,7 +1052,7 @@ class Page_LoadOrder(QWidget):
         # Neue Reihenfolge aus dem Model simulieren/aufbauen, um sie zu validieren
         proposed_load_order = []
         for r in range(self.model.rowCount()):
-            item_pos = self.model.item(r, 0)
+            item_pos = self.model.item(r, self.COL_POS)
             if item_pos:
                 row_data = self.get_row_data(item_pos)
                 if row_data:
@@ -1017,7 +1066,7 @@ class Page_LoadOrder(QWidget):
                 # Scrollposition und Selektion wiederherstellen
                 if selected_mod_id is not None:
                     for r in range(self.model.rowCount()):
-                        item_pos = self.model.item(r, 0)
+                        item_pos = self.model.item(r, self.COL_POS)
                         if item_pos:
                             row_data = self.get_row_data(item_pos)
                             if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
@@ -1033,11 +1082,11 @@ class Page_LoadOrder(QWidget):
         try:
             positions_to_update = []
             for r in range(self.model.rowCount()):
-                item_pos = self.model.item(r, 0)
+                item_pos = self.model.item(r, self.COL_POS)
                 if item_pos:
                     new_pos = r + 1
                     
-                    # Visuelle Zahl in Spalte 0 aktualisieren
+                    # Visuelle Zahl in Spalte COL_POS aktualisieren
                     item_pos.setText(str(new_pos))
                     item_pos.setData(new_pos, self.SORT_ROLE)
                     
@@ -1048,6 +1097,9 @@ class Page_LoadOrder(QWidget):
                             positions_to_update.append((comp_id, new_pos))
                         row_data["Position"] = new_pos
                         self.set_row_data(item_pos, row_data)
+                        item_new = self.model.item(r, self.COL_NEW)
+                        if item_new:
+                            self.set_row_data(item_new, row_data)
             
             # DB mit neuen Positionen in einer einzigen Transaktion updaten
             if positions_to_update:
@@ -1056,13 +1108,16 @@ class Page_LoadOrder(QWidget):
         finally:
             self.model.blockSignals(False)
             
+        self._current_sort_col = self.COL_POS
+        self._current_sort_order = Qt.SortOrder.AscendingOrder
+        
         # UI komplett sauber neu aus der DB laden, um jegliche Glitches/Verschiebungs-Fragmente zu entfernen
         self.load_data()
         
         # Selektion wiederherstellen
         if selected_mod_id is not None:
             for r in range(self.model.rowCount()):
-                item_pos = self.model.item(r, 0)
+                item_pos = self.model.item(r, self.COL_POS)
                 if item_pos:
                     row_data = self.get_row_data(item_pos)
                     if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
@@ -1243,7 +1298,7 @@ class Page_LoadOrder(QWidget):
                 self.load_data()
                 if saved_mod_id:
                     for r in range(self.model.rowCount()):
-                        item = self.model.item(r, 0)
+                        item = self.model.item(r, self.COL_POS)
                         if item:
                             data = self.get_row_data(item)
                             if data and str(data.get("Mod_ID")) == str(saved_mod_id):
@@ -1301,7 +1356,7 @@ class Page_LoadOrder(QWidget):
                 # Versuchen, die Selektion wiederherzustellen
                 if saved_mod_id:
                     for r in range(self.model.rowCount()):
-                        item_pos = self.model.item(r, 0)
+                        item_pos = self.model.item(r, self.COL_POS)
                         if item_pos:
                             row_data = self.get_row_data(item_pos)
                             if row_data and str(row_data.get("Mod_ID")) == str(saved_mod_id):
@@ -1337,7 +1392,7 @@ class Page_LoadOrder(QWidget):
             # Re-select the moved mod
             if saved_mod_id:
                 for r in range(self.model.rowCount()):
-                    item_pos = self.model.item(r, 0)
+                    item_pos = self.model.item(r, self.COL_POS)
                     if item_pos:
                         row_data = self.get_row_data(item_pos)
                         if row_data and str(row_data.get("Mod_ID")) == str(saved_mod_id):
@@ -1468,7 +1523,7 @@ class Page_LoadOrder(QWidget):
             return
 
         for r in range(self.model.rowCount()):
-            item_pos = self.model.item(r, 0)
+            item_pos = self.model.item(r, self.COL_POS)
             if not item_pos:
                 continue
             row_data = self.get_row_data(item_pos)
@@ -1525,3 +1580,148 @@ class Page_LoadOrder(QWidget):
                             return False, f"Der Mod '{mod_name}' darf nicht vor die benötigte Voraussetzung '{req_name}' verschoben werden."
                             
         return True, ""
+
+    def update_sorter_status(self):
+        """Aktualisiert das Datumsfeld des letzten Sorter-Laufs und schaltet Aktions-Buttons frei."""
+        exec_info = get_script_last_execution("LoadOrder_Sorter.py")
+        if exec_info and exec_info.get("Time_End"):
+            date_val = exec_info.get("Date") or ""
+            time_val = exec_info.get("Time_End") or ""
+            if "-" in date_val:
+                p = date_val.split("-")
+                if len(p) == 3:
+                    date_val = f"{p[2]}.{p[1]}.{p[0]}"
+            display_str = f"{date_val} {time_val}".strip()
+        else:
+            display_str = "---"
+            
+        if hasattr(self, 'inp_sorter_last_update') and self.inp_sorter_last_update:
+            self.inp_sorter_last_update.setText(display_str)
+            
+        has_results = has_sorter_results()
+        if hasattr(self, 'btn_apply_sorter_profile') and self.btn_apply_sorter_profile:
+            self.btn_apply_sorter_profile.setEnabled(has_results and self.current_profile_id is not None)
+        if hasattr(self, 'btn_apply_sorter_all') and self.btn_apply_sorter_all:
+            self.btn_apply_sorter_all.setEnabled(has_results)
+
+    def on_toggle_sorter_columns(self, checked: bool):
+        """Wird ausgelöst, wenn die Checkbox 'anzeigen' im Sorter-Bereich getoggelt wird."""
+        self.apply_column_visibility()
+
+    def apply_column_visibility(self):
+        """Steuert das Ein-/Ausblenden der zusätzlichen Sorter-Spalten (Neu, Subkategorie, Beschreibung)."""
+        show = False
+        if hasattr(self, 'chk_sorter_show_columns') and self.chk_sorter_show_columns:
+            show = self.chk_sorter_show_columns.isChecked()
+            
+        self.table_view.setColumnHidden(self.COL_NEW, not show)
+        self.table_view.setColumnHidden(self.COL_SUBCAT, not show)
+        self.table_view.setColumnHidden(self.COL_DESC, not show)
+
+    def on_apply_sorter_profile_clicked(self):
+        """Überträgt die berechneten Sorter-Positionen auf das aktuell ausgewählte Profil."""
+        if self.current_profile_id is None:
+            self.show_message_box("Hinweis", "Bitte wählen Sie zuerst ein Profil aus.", QMessageBox.Icon.Information)
+            return
+            
+        success, count, msg = apply_sorter_to_profile(self.current_profile_id)
+        if success:
+            self.load_data()
+            self.show_message_box(
+                "Erfolg",
+                f"Die berechneten Positionen wurden für {count} Komponenten im aktuellen Profil übernommen.",
+                QMessageBox.Icon.Information
+            )
+            self.data_updated.emit()
+        else:
+            self.show_message_box(
+                "Fehler",
+                f"Fehler bei der Übernahme auf das aktuelle Profil:\n{msg}",
+                QMessageBox.Icon.Critical
+            )
+
+    def on_apply_sorter_all_clicked(self):
+        """Überträgt die berechneten Sorter-Positionen nach Bestätigung auf alle Profile."""
+        reply = self.show_message_box(
+            "Sortierung auf alle Profile anwenden",
+            "Möchten Sie die neu berechneten Positionen wirklich auf alle Profile übertragen?\n\n"
+            "Bestehende manuelle Anordnungen werden dabei durch die berechnete Sortierung ersetzt.",
+            QMessageBox.Icon.Question,
+            yes_no=True
+        )
+        if not reply:
+            return
+            
+        success, prof_count, item_count, msg = apply_sorter_to_all_profiles()
+        if success:
+            self.load_data()
+            self.show_message_box(
+                "Erfolg",
+                f"Die berechneten Positionen wurden auf {prof_count} Profile ({item_count} Komponenten insgesamt) übertragen.",
+                QMessageBox.Icon.Information
+            )
+            self.data_updated.emit()
+        else:
+            self.show_message_box(
+                "Fehler",
+                f"Fehler bei der Übernahme auf alle Profile:\n{msg}",
+                QMessageBox.Icon.Critical
+            )
+
+    def on_header_section_clicked(self, logical_index: int):
+        """
+        Ermöglicht das Sortieren der Tabelle per Klick auf die Spaltenüberschrift,
+        jedoch AUSSCHLIESSLICH für die Spalten 'Neu' (COL_NEW) und 'Pos.' (COL_POS).
+        Klicks auf andere Spaltenüberschriften werden ignoriert.
+        """
+        if logical_index not in (self.COL_NEW, self.COL_POS):
+            # Sortier-Indikator auf der aktiven Spalte belassen
+            header = self.table_view.horizontalHeader()
+            header.setSortIndicator(self._current_sort_col, self._current_sort_order)
+            return
+
+        if self._current_sort_col == logical_index:
+            # Gleiche Spalte erneut angeklickt -> Richtung umkehren
+            if self._current_sort_order == Qt.SortOrder.AscendingOrder:
+                self._current_sort_order = Qt.SortOrder.DescendingOrder
+            else:
+                self._current_sort_order = Qt.SortOrder.AscendingOrder
+        else:
+            # Neue Spalte angeklickt -> standardmäßig aufsteigend beginnen
+            self._current_sort_col = logical_index
+            self._current_sort_order = Qt.SortOrder.AscendingOrder
+
+        header = self.table_view.horizontalHeader()
+        header.setSortIndicatorShown(True)
+        header.setSortIndicator(logical_index, self._current_sort_order)
+
+        # Bei Sortierung nach Spalte Neu sicherstellen, dass unberechnete Mods am Ende bleiben
+        if logical_index == self.COL_NEW:
+            fallback = 999999 if self._current_sort_order == Qt.SortOrder.AscendingOrder else -1
+            for r in range(self.model.rowCount()):
+                it = self.model.item(r, self.COL_NEW)
+                if it:
+                    data = self.get_row_data(it)
+                    s_pos = data.get("Sorter_Position") if data else None
+                    it.setData(s_pos if s_pos is not None else fallback, self.SORT_ROLE)
+
+        # Aktuelle Selektion merken
+        selected_mod_id = self.current_mod_id
+
+        self._is_sorting = True
+        try:
+            self.model.setSortRole(self.SORT_ROLE)
+            self.model.sort(logical_index, self._current_sort_order)
+        finally:
+            self._is_sorting = False
+
+        # Selektion wiederherstellen
+        if selected_mod_id:
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, self.COL_POS)
+                if item_pos:
+                    row_data = self.get_row_data(item_pos)
+                    if row_data and str(row_data.get("Mod_ID")) == str(selected_mod_id):
+                        self.table_view.selectRow(r)
+                        break
+

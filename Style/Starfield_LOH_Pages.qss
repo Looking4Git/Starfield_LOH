@@ -204,16 +204,54 @@ QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
    Überschriften und Trennlinien im Detail-View (NEU)
    ========================================================= */
 #detail_view QLabel#lbl_filter,
-#detail_view QLabel#lbl_details {
+#detail_view QLabel#lbl_details,
+#detail_view QLabel#lbl_sorter_section,
+QLabel#lbl_filter,
+QLabel#lbl_details,
+QLabel#lbl_sorter_section {
     color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
     font-size: 16px;
     font-weight: bold;
+    margin-top: 4px;
+    margin-bottom: 2px;
 }
 
-QFrame#detail_separator {
+QFrame#detail_separator,
+QFrame#sorter_separator {
     background-color: #304C7A;
+    min-height: 4px;
+    max-height: 4px;
     height: 4px;
     border: none;
+}
+
+/* Checkboxen im Detail-View */
+#detail_view QCheckBox,
+QCheckBox#chk_sorter_show_columns {
+    color: #ECECEC;
+    font-size: 13px;
+    spacing: 8px;
+    background: transparent;
+}
+
+#detail_view QCheckBox::indicator,
+QCheckBox#chk_sorter_show_columns::indicator {
+    width: 16px;
+    height: 16px;
+    background-color: #ffffff;
+    border: 1px solid #888888;
+    border-radius: 2px;
+}
+
+#detail_view QCheckBox::indicator:hover,
+QCheckBox#chk_sorter_show_columns::indicator:hover {
+    border: 1px solid #D7A64B;
+}
+
+#detail_view QCheckBox::indicator:checked,
+QCheckBox#chk_sorter_show_columns::indicator:checked {
+    background-color: #304C7A;
+    image: url(Graphics/Icon_Check_White.svg);
 }
 
 #lbl_components_label, #lbl_creation_categories_label, #lbl_requirements_label, #lbl_dependencies_label {

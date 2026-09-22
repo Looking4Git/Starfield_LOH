@@ -56,8 +56,10 @@ def prepare_backup_directory(backup_category: str, max_keep: int = 10) -> str:
     3. Rotiert die vorhandenen Stände, sodass maximal 'max_keep' Ordner erhalten bleiben.
     4. Gibt den absoluten Pfad des neuen Zeitstempel-Ordners zurück.
     """
-    base_dir = os.path.join(BACKUPS_DIR, backup_category)
+    import Structure.Paths as Paths
+    base_dir = os.path.join(Paths.BACKUPS_DIR, backup_category)
     os.makedirs(base_dir, exist_ok=True)
+
 
     # Neuen Zeitstempel erzeugen (mit Sekunde zur Kollisionsvermeidung)
     timestamp_str = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")

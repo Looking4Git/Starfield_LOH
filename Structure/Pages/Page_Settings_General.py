@@ -239,6 +239,25 @@ class Page_Settings_General(QWidget):
         self._prompt_and_change_data_path(new_path)
 
     def browse_data_directory(self):
+        from Structure.Workers import is_any_worker_running, get_active_worker_descriptions
+        if is_any_worker_running():
+            active_names = ", ".join(get_active_worker_descriptions()) or "Hintergrundprozess"
+            warn_box = QMessageBox(self)
+            warn_box.setWindowTitle("Aktion derzeit nicht möglich")
+            warn_box.setText(
+                "Das Datenverzeichnis kann derzeit nicht geändert werden.\n\n"
+                f"Im Hintergrund wird aktuell noch ein Prozess ausgeführt:\n• {active_names}\n\n"
+                "Bitte warten Sie, bis dieser Vorgang abgeschlossen ist, bevor Sie das Verzeichnis umziehen."
+            )
+            warn_box.setIcon(QMessageBox.Icon.Warning)
+            warn_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            btn_ok = warn_box.button(QMessageBox.StandardButton.Ok)
+            if btn_ok:
+                btn_ok.setText("OK")
+            _set_dark_title_bar(warn_box)
+            warn_box.exec()
+            return
+
         current_path = resolve_path(self.inp_data_path.text().strip(), "Data")
         start_dir = current_path if os.path.isdir(current_path) else APP_ROOT
         
@@ -256,21 +275,49 @@ class Page_Settings_General(QWidget):
         self._prompt_and_change_data_path("Data")
 
     def _prompt_and_change_data_path(self, target_path: str):
+        from Structure.Workers import is_any_worker_running, get_active_worker_descriptions
+        if is_any_worker_running():
+            active_names = ", ".join(get_active_worker_descriptions()) or "Hintergrundprozess"
+            warn_box = QMessageBox(self)
+            warn_box.setWindowTitle("Aktion derzeit nicht möglich")
+            warn_box.setText(
+                "Das Datenverzeichnis kann derzeit nicht geändert werden.\n\n"
+                f"Im Hintergrund wird aktuell noch ein Prozess ausgeführt:\n• {active_names}\n\n"
+                "Bitte warten Sie, bis dieser Vorgang abgeschlossen ist, bevor Sie das Verzeichnis umziehen."
+            )
+            warn_box.setIcon(QMessageBox.Icon.Warning)
+            warn_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            btn_ok = warn_box.button(QMessageBox.StandardButton.Ok)
+            if btn_ok:
+                btn_ok.setText("OK")
+            _set_dark_title_bar(warn_box)
+            warn_box.exec()
+            self.inp_data_path.setText(get_setting("LOH_data", get_setting("data_path", "Data")))
+            self.update_data_status_display(self.inp_data_path.text())
+            return
+
         resolved = resolve_path(target_path, "Data")
         from Structure.Paths import DATA_DIR as active_dir
         if os.path.normpath(resolved) == os.path.normpath(active_dir):
             self.update_data_status_display(target_path)
             return
 
+
         # Bestätigung für Umzug anfordern
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Datenverzeichnis umziehen")
         msg_box.setText(
             f"Möchten Sie das Datenverzeichnis umziehen nach:\n\n{resolved}\n\n"
-            "Vorhandene Mod-Bilder und Backups werden in das neue Verzeichnis kopiert."
+            "Vorhandene Mod-Bilder und Backups werden kopiert, verifiziert und das bisherige Verzeichnis anschließend bereinigt."
         )
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
+        btn_no = msg_box.button(QMessageBox.StandardButton.No)
+        if btn_yes:
+            btn_yes.setText("Ja")
+        if btn_no:
+            btn_no.setText("Nein")
         _set_dark_title_bar(msg_box)
 
         if msg_box.exec() == QMessageBox.StandardButton.Yes:
@@ -283,6 +330,10 @@ class Page_Settings_General(QWidget):
                 info.setWindowTitle("Umzug erfolgreich")
                 info.setText(msg)
                 info.setIcon(QMessageBox.Icon.Information)
+                info.setStandardButtons(QMessageBox.StandardButton.Ok)
+                btn_ok = info.button(QMessageBox.StandardButton.Ok)
+                if btn_ok:
+                    btn_ok.setText("OK")
                 _set_dark_title_bar(info)
                 info.exec()
             else:
@@ -290,8 +341,13 @@ class Page_Settings_General(QWidget):
                 crit.setWindowTitle("Fehler beim Umzug")
                 crit.setText(msg)
                 crit.setIcon(QMessageBox.Icon.Critical)
+                crit.setStandardButtons(QMessageBox.StandardButton.Ok)
+                btn_ok = crit.button(QMessageBox.StandardButton.Ok)
+                if btn_ok:
+                    btn_ok.setText("OK")
                 _set_dark_title_bar(crit)
                 crit.exec()
+
         else:
             # Zurücksetzen auf aktuellen Pfad
             self.inp_data_path.setText(get_setting("LOH_data", get_setting("data_path", "Data")))

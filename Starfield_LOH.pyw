@@ -5,7 +5,7 @@ import ctypes
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QFrame, QStackedWidget, 
                                QLabel, QSizePolicy)
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from Structure.Pages.Page_Mods import Page_Mods
 from Structure.Pages.Page_LoadOrder import Page_LoadOrder
@@ -191,6 +191,11 @@ class StarfieldLOH(QMainWindow):
         # Initialen Button-Status setzen (für die Startseite)
         self.on_page_changed(0)
 
+        # Unterbrochene Prozesse (z. B. unvollständiger Verzeichnisumzug) erkennen und behandeln
+        from Structure.LOH_Change_Data_Path import handle_interrupted_processes
+        QTimer.singleShot(100, lambda: handle_interrupted_processes(self))
+
+
     def mark_data_changed(self):
         """Setzt die Update-Flags für alle datenabhängigen Seiten."""
         for key in self.page_update_flags:
@@ -239,9 +244,13 @@ class StarfieldLOH(QMainWindow):
             active_btn.text_label.style().polish(active_btn.text_label)
             
         # 2. Datenaktualisierung bei Bedarf
-        if current_widget == getattr(self, 'page_mods', None) and self.page_update_flags.get("Page_Mods"):
-            self.page_mods.load_data()
-            self.page_update_flags["Page_Mods"] = False
+        if current_widget == getattr(self, 'page_mods', None):
+            if self.page_update_flags.get("Page_Mods"):
+                self.page_mods.load_data()
+                self.page_update_flags["Page_Mods"] = False
+            else:
+                self.page_mods.reload_preview_image()
+
             
         elif current_widget == getattr(self, 'page_lo', None) and self.page_update_flags.get("Page_LoadOrder"):
             self.page_lo.load_data()
@@ -252,7 +261,39 @@ class StarfieldLOH(QMainWindow):
             self.page_update_flags["Page_Update"] = False
 
     def closeEvent(self, event):
-        """Speichert den aktuellen Zustand in die Settings-Datei."""
+        """Prüft auf laufende Hintergrundprozesse und speichert den Fensterzustand."""
+        # 1. Schutz vor unvollständigen Prozessen und Dateninkonsistenzen
+        try:
+            from Structure.Workers import is_any_worker_running, get_active_worker_descriptions
+            if is_any_worker_running():
+                active_names = ", ".join(get_active_worker_descriptions()) or "Hintergrundprozess"
+                from PySide6.QtWidgets import QMessageBox
+                box = QMessageBox(self)
+                box.setWindowTitle("Prozess aktiv – Beenden nicht möglich")
+                box.setText(
+                    "Starfield LOH kann derzeit nicht beendet werden.\n\n"
+                    f"Aktuell wird noch folgender Vorgang ausgeführt:\n• {active_names}\n\n"
+                    "Um Dateninkonsistenzen und unvollständige Einträge in der Datenbank zu vermeiden, "
+                    "warten Sie bitte, bis dieser Vorgang abgeschlossen ist."
+                )
+                box.setIcon(QMessageBox.Icon.Warning)
+                box.setStandardButtons(QMessageBox.StandardButton.Ok)
+                btn_ok = box.button(QMessageBox.StandardButton.Ok)
+                if btn_ok:
+                    btn_ok.setText("OK")
+                
+                try:
+                    import ctypes
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(int(box.winId()), 20, ctypes.byref(ctypes.c_int(1)), 4)
+                except Exception:
+                    pass
+                
+                box.exec()
+                event.ignore()
+                return
+        except Exception:
+            pass
+
         # Werte in das Dictionary schreiben
         self.settings["window"]["width"] = self.width()
         self.settings["window"]["height"] = self.height()
@@ -262,6 +303,7 @@ class StarfieldLOH(QMainWindow):
         
         self.save_settings()
         event.accept()
+
 
     def load_manifest(self):
         filename = "Starfield_LOH_Manifest.json"

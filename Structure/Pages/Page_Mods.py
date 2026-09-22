@@ -424,7 +424,23 @@ class Page_Mods(QWidget):
                 self.lbl_preview_image.setText("Kein Bild vorhanden")
                 self.lbl_preview_image.setPixmap(QPixmap())
             
+    def reload_preview_image(self):
+        """Lädt das Vorschaubild für die aktuell ausgewählte Mod neu (z. B. nach dynamischem Pfadwechsel)."""
+        if hasattr(self, 'lbl_preview_image') and self.lbl_preview_image and hasattr(self, 'current_mod_id') and self.current_mod_id:
+            img_data = get_mod_image(int(self.current_mod_id))
+            if img_data:
+                pixmap = QPixmap()
+                if pixmap.loadFromData(img_data):
+                    scaled_pixmap = pixmap.scaled(320, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    self.lbl_preview_image.setPixmap(scaled_pixmap)
+                else:
+                    self.lbl_preview_image.setText("Bild fehlerhaft")
+            else:
+                self.lbl_preview_image.setText("Kein Bild vorhanden")
+                self.lbl_preview_image.setPixmap(QPixmap())
+
     def set_combo_by_data(self, combo: QComboBox, data_value):
+
         if data_value is None:
             combo.setCurrentIndex(-1)
             return

@@ -131,6 +131,22 @@ def update_runtime_data_paths(new_data_path: str):
     for directory in [DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR]:
         os.makedirs(directory, exist_ok=True)
 
+    # Alle bereits geladenen Module in sys.modules sofort auf die neuen Pfade aktualisieren
+    path_updates = {
+        "DATA_DIR": DATA_DIR,
+        "MOD_IMAGES_DIR": MOD_IMAGES_DIR,
+        "BACKUPS_DIR": BACKUPS_DIR,
+        "BACKUPS_WORKSPACE_DIR": BACKUPS_WORKSPACE_DIR,
+        "BACKUPS_ACTIVATION_DIR": BACKUPS_ACTIVATION_DIR,
+    }
+    for mod in list(sys.modules.values()):
+        if mod and hasattr(mod, "__dict__"):
+            mdict = mod.__dict__
+            for key, val in path_updates.items():
+                if key in mdict:
+                    mdict[key] = val
+
+
 
 # Sicherstellen, dass die initialen Ordner existieren
 for directory in [LOGS_DIR, DATABASE_DIR, DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR]:

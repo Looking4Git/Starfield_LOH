@@ -176,7 +176,8 @@ def get_mod_image(mod_id: int) -> bytes | None:
                 return img_val
             # Wenn es der Dateiname im Dateisystem ist
             if isinstance(img_val, str) and img_val.strip():
-                img_path = os.path.join(MOD_IMAGES_DIR, img_val)
+                import Structure.Paths as Paths
+                img_path = os.path.join(Paths.MOD_IMAGES_DIR, img_val)
                 if os.path.exists(img_path):
                     with open(img_path, 'rb') as f:
                         return f.read()
@@ -190,7 +191,7 @@ def get_mod_image(mod_id: int) -> bytes | None:
 
 def save_mod_image_file(mod_id: int, image_bytes: bytes) -> str | None:
     """
-    Speichert die Bilddaten als Datei im Ordner Data/Mod_Images/
+    Speichert die Bilddaten als Datei im aktuellen Mod_Images Ordner
     und gibt den Dateinamen zur Speicherung in der DB zurück.
     """
     if not image_bytes:
@@ -204,7 +205,9 @@ def save_mod_image_file(mod_id: int, image_bytes: bytes) -> str | None:
         ext = ".webp"
     
     filename = f"mod_{mod_id}{ext}"
-    filepath = os.path.join(MOD_IMAGES_DIR, filename)
+    import Structure.Paths as Paths
+    filepath = os.path.join(Paths.MOD_IMAGES_DIR, filename)
+
     
     try:
         with open(filepath, 'wb') as f:

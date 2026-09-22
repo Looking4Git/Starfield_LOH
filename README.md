@@ -1,9 +1,17 @@
-# Starfield Load Order Helper (LOH)
+<p align="center">
+  <img src="Graphics/Icon_Mods.svg" alt="Starfield LOH Logo" width="128"/>
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
-[![UI](https://img.shields.io/badge/GUI-PySide6%20(Qt)-green.svg)](https://wiki.qt.io/Qt_for_Python)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-lightgrey.svg)]()
+<h1 align="center">Starfield Load Order Helper (LOH)</h1>
+
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12%2B-blue.svg" alt="Python"></a>
+  <a href="https://wiki.qt.io/Qt_for_Python"><img src="https://img.shields.io/badge/GUI-PySide6%20(Qt)-green.svg" alt="PySide6"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-lightgrey.svg" alt="Windows">
+</p>
+
+---
 
 Der **Starfield Load Order Helper (LOH)** ist ein spezialisierter Mod-Manager und Analyse-Assistent für das Rollenspiel Starfield. Die Anwendung arbeitet nicht mit rein statischen Wissensdatenbanken, sondern untersucht installierte Mod-Dateien direkt auf Binärebene. Unterstützend werden automatisiert Informationen vom Bethesda Creation Store und von Nexus Mods bezogen.
 
@@ -28,11 +36,26 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
 
 ## Entwicklung & KI-Unterstützung
 
-> Der Starfield Load Order Helper (LOH) wurde von **Looking4** entwickelt.
-
-Die Anwendung entstand mit der Unterstützung moderner künstlicher Intelligenz. Zum Einsatz kam die **Google Antigravity IDE** mit eingebundenen Gemini-Agenten:
-- **Einsatzbereich der KI:** Die KI wurde maßgeblich für die Datenanalyse der Mod-Dateien (Reverse Engineering von Creation Engine 2 Strukturen) und die Codierungsunterstützung genutzt. Zusätzlich wurde sie für die vergleichende Synthese von Informationsquellen (wie LLO oder LOOT) herangezogen, stets unter striktem Abgleich mit den Quelldokumenten.
-- **Autorenschaft & Konzeption:** Die Systemarchitektur, das Datenbankschema, die Algorithmen zur Konfliktbewertung und die Programmlogik beruhen vollständig auf der Konzeption und dem Entwurf des Architekten **Looking4**. Sämtliche grafischen Elemente und Icons wurden durch den Entwickler von Hand erstellt.
+<table>
+  <tr>
+    <td width="130" align="center" valign="middle">
+      <img src="Graphics/Logo_Looking4.PNG" alt="Looking4 Logo" width="110"/>
+    </td>
+    <td>
+      <strong>Entwickelt von Looking4</strong><br>
+      Der Starfield Load Order Helper (LOH) wurde von <strong>Looking4</strong> konzipiert und entwickelt. Die Systemarchitektur, das relationale Datenbankschema, die Algorithmen zur Konfliktbewertung und die Programmlogik beruhen vollständig auf dem Entwurf des Architekten. Sämtliche grafischen Elemente und Benutzeroberflächen-Icons wurden per Hand selbst erstellt.
+    </td>
+  </tr>
+  <tr>
+    <td width="130" align="center" valign="middle">
+      <img src="Graphics/Logo_AI.svg" alt="KI-Unterstützung Logo" width="110"/>
+    </td>
+    <td>
+      <strong>KI-Unterstützung & Methodik</strong><br>
+      Die Anwendung entstand mit der Unterstützung moderner künstlicher Intelligenz. Zum Einsatz kam die <strong>Google Antigravity IDE</strong> mit eingebundenen Gemini-Agenten. Die KI wurde maßgeblich für die Datenanalyse der Mod-Dateien (Reverse Engineering von Creation Engine 2 Strukturen) und die Codierungsunterstützung genutzt. Zusätzlich wurde sie für die vergleichende Synthese von Informationsquellen (wie LLO oder LOOT) herangezogen – stets unter striktem Abgleich mit den Quelldokumenten und menschlicher Validierung.
+    </td>
+  </tr>
+</table>
 
 ---
 

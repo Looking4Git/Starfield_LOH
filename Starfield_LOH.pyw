@@ -89,7 +89,7 @@ class StarfieldLOH(QMainWindow):
         app_info = self.manifest.get("app_info", {})
         self.setWindowTitle(app_info.get("name", "Starfield Load Order Helper"))
 
-        app_icon_path = os.path.join(self.graphics_path, "Icon_App.svg")
+        app_icon_path = os.path.join(self.graphics_path, "Icon_Mods.svg")
         if os.path.exists(app_icon_path):
             self.setWindowIcon(QIcon(app_icon_path))
 

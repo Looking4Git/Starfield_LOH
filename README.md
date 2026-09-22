@@ -20,7 +20,7 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
 - **Intelligente 4-Stufen-Sortier-Pipeline (`LoadOrder_Sorter.py`):**
   1. Stufe 1 (Kategorie-Vorsortierung): Grobe Gruppierung aller installierten Mods anhand der LLO-Hauptkategorien (Positionen 1 bis 32) aus dem Classifier.
   2. Stufe 2 (Strukturierte Einordnung innerhalb einer Kategorie): Feinsortierung und Binnengruppen-Gravitation unter Berücksichtigung von Touchpoint-Ausschlüssen und Unterkategorien.
-  3. Stufe 3 (Beachten von Abhängigkeiten und Konfliktvermeidung): Auflösen von Mod-Voraussetzungen, Masterfile-Abhängigkeiten und automatisiertes Schiedsgericht für Überschreibungen (Delete-vs-Disable, gezielte Overrides).
+  3. Stufe 3 (Beachten von Abhängigkeiten und Konfliktvermeidung): Auflösen von Mod-Voraussetzungen, Masterfile-Abhängigkeiten sowie intelligente Konfliktauflösung bei Überschreibungen (Delete-vs-Disable, gezielte Overrides).
   4. Stufe 4 (Profil-Validierung & Export): Ausgabe einer konsistenten, optimierten Ladereihenfolge direkt in die aktive `Plugins.txt`.
 - **Transaktionale Profil-Verwaltung (`Starfield_Profile_Activation.py`, `LOH_Backup_Manager.py`):** Sicheres Speichern, Wechseln und Aktivieren unterschiedlicher Mod-Zusammenstellungen inklusive automatisierter Backups im Verzeichnis `Data/Backups/`.
 

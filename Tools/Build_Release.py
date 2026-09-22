@@ -351,20 +351,28 @@ class BuildReleaseWindow(QMainWindow):
         info = load_version_info()
         self.cur_major.setText(str(info.get("version_major", 0)))
         self.cur_minor.setText(f"{info.get('version_minor', 0):02d}")
-        self.cur_build.setText(str(info.get("version_build", 0)))
+        cur_build_val = int(info.get("version_build", 0))
+        self.cur_build.setText(str(cur_build_val))
 
         cur_hash = info.get("git_commit", "-")
         cur_date = _format_date(info.get("git_date", ""))
-        self.lbl_cur_commit.setText(f"Commit: {cur_hash} vom {cur_date}")
 
         # Git Live-Abgleich
         git_build, git_hash, git_date = get_git_info()
         self.git_commit_hash = git_hash
         self.git_commit_date = git_date
 
+        # Harmonisierung: Wenn Datei-Build und Git-Head-Build übereinstimmen, gleichen Hash anzeigen
+        if cur_build_val == git_build and git_hash and git_hash != "Unbekannt":
+            cur_hash = git_hash
+            if git_date:
+                cur_date = _format_date(git_date)
+
+        self.lbl_cur_commit.setText(f"Commit: {cur_hash} vom {cur_date}")
+
         self.new_major.setText(str(info.get("version_major", 0)))
         self.new_minor.setText(f"{info.get('version_minor', 0):02d}")
-        default_build = git_build if git_build > 0 else int(info.get("version_build", 0))
+        default_build = git_build if git_build > 0 else cur_build_val
         self.new_build.setText(str(default_build))
 
         new_fmt_date = _format_date(git_date)
@@ -470,7 +478,7 @@ class BuildReleaseWindow(QMainWindow):
             self.lbl_git_status.setStyleSheet("color: #A33A3A; font-size: 12px; font-weight: bold;")
 
     def on_save(self):
-        """Speichert die neue Version in version.json und aktualisiert die Anzeige."""
+        """Speichert die neue Version in version.json und bindet sie per Amend in den lokalen Commit ein."""
         try:
             major = int(self.new_major.text().strip() or 0)
         except ValueError:
@@ -497,27 +505,45 @@ class BuildReleaseWindow(QMainWindow):
             date=date_val
         )
 
-        self.load_data()
         ver_str = saved_data.get("version_full", f"{major}.{minor:02d}.{build}")
-        self.lbl_status.setText(f"✓ version.json erfolgreich auf {ver_str} aktualisiert.")
+        amended = False
+
+        # Prüfen ob lokale Commits vorliegen, die noch nicht auf origin/main gepusht wurden
+        try:
+            res_ahead = subprocess.run(
+                ["git", "rev-list", "--count", "origin/main..HEAD"],
+                cwd=APP_ROOT, capture_output=True, text=True
+            )
+            ahead_count = 0
+            if res_ahead.returncode == 0 and res_ahead.stdout.strip().isdigit():
+                ahead_count = int(res_ahead.stdout.strip())
+
+            # Wenn wir lokal Commits voraus sind, binden wir version.json direkt per amend in den letzten Commit ein
+            if ahead_count > 0:
+                subprocess.run(["git", "add", "version.json"], cwd=APP_ROOT, check=True)
+                subprocess.run(["git", "commit", "--amend", "--no-edit"], cwd=APP_ROOT, check=True)
+                amended = True
+        except Exception:
+            pass
+
+        # Garantiertes, vollständiges Neuladen der Anzeige
+        self.load_data()
+
+        if amended:
+            self.lbl_status.setText(f"✓ version.json auf {ver_str} aktualisiert (in Commit verankert).")
+        else:
+            self.lbl_status.setText(f"✓ version.json auf {ver_str} aktualisiert.")
         self.lbl_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
 
     def on_github_push(self):
-        """Führt den Push zu GitHub (origin/main) durch."""
+        """Führt ausschließlich den Push zu GitHub (origin/main) durch."""
         self.btn_push.setEnabled(False)
         self.lbl_push_status.setText("Führe GitHub Push durch...")
         self.lbl_push_status.setStyleSheet("color: #D7A64B; font-size: 12px;")
         QApplication.processEvents()
 
         try:
-            # Falls version.json uncommittet ist, vor dem Push committen
-            res_status = subprocess.run(["git", "status", "--porcelain", "version.json"], cwd=APP_ROOT, capture_output=True, text=True)
-            if res_status.stdout.strip():
-                ver_info = load_version_info()
-                ver_str = ver_info.get("version_full", "Release")
-                subprocess.run(["git", "add", "version.json"], cwd=APP_ROOT, check=True)
-                subprocess.run(["git", "commit", "-m", f"chore: release version {ver_str}"], cwd=APP_ROOT, check=True)
-
+            # Reiner Push ohne automatische Zusatz-Commits
             res_push = subprocess.run(
                 ["git", "push", "-u", "origin", "main"],
                 cwd=APP_ROOT, capture_output=True, text=True

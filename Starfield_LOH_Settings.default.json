@@ -1,0 +1,30 @@
+{
+  "window": {
+    "width": 1600,
+    "height": 900,
+    "x": 100,
+    "y": 100
+  },
+  "diaolg_table": {
+    "width": 840,
+    "height": 900,
+    "x": 200,
+    "y": 100
+  },
+  "ui": {
+    "sidebar_collapsed": false
+  },
+  "paths": {
+    "starfield_data": "",
+    "LOH_data": "Data"
+  },
+  "settings": {
+    "Auto_Save": 1,
+    "Limit_Full_Master": 254,
+    "Limit_Medium_Master": 1024,
+    "Limit_Small_Master": 4096,
+    "Projection_PointerHandles_Core": 1200000,
+    "Projection_PointerHandles_Mods": 23,
+    "Limit_PointerHandles": 2097152
+  }
+}

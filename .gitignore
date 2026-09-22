@@ -3,30 +3,47 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
-
-# Virtuelle Umgebungen (falls du eine nutzt)
 .venv/
 venv/
 ENV/
 env/
 
+# Lokale IDE & Linter-Dateien
+pyrefly.toml
+.agents/
+.gemini/
+.vscode/
+scratch/
+.git_backup_pre_cleanup/
+
+# AI-Manifeste & KI-Dokumentation (lokal verbleibend)
+AGENTS.md
+ai-manifest.md
+ai-starfield-manifest.md
+
 # Windows Systemdateien
 Thumbs.db
 desktop.ini
 
-# IDE-spezifische Daten von Antigravity
-.agents/data/
+# Lokale Benutzereinstellungen (Arbeitsdatei wird ignoriert, Template bleibt versioniert)
+Starfield_LOH_Settings.json
 
-# Datenbanken (SQLite) und Anwendungsdaten
+# SQLite-Arbeitsdatenbanken (Template bleibt versioniert!)
 *.db
 *.sqlite
 Database/*.db
-Database/Starfield_LOH.db
+!Database/Starfield_LOH_Template.db
 
-# Protokolle und Logs
+# Protokolle und Logs (Ordnerstruktur bleibt über .gitkeep)
 *.log
-Logs/
+Logs/*
+!Logs/.gitkeep
 
-# Dynamische Nutzdaten / Backups
-Data/Backups/
+# Backups & dynamische Nutzdaten (Ordnerstruktur bleibt über .gitkeep)
+Data/Backups/*
+!Data/Backups/.gitkeep
 Backups/
+
+# Mod-Vorschaubilder (Ordnerstruktur bleibt über .gitkeep)
+Data/Mod_Images/*
+!Data/Mod_Images/.gitkeep

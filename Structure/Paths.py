@@ -13,11 +13,25 @@ LOGS_DIR = os.path.join(APP_ROOT, "Logs")
 
 # Spezifische Konfigurations- und Protokolldateien
 SETTINGS_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.json")
+SETTINGS_DEFAULT_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.default.json")
 VERSION_FILE = os.path.join(APP_ROOT, "version.json")
 MAIN_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Main.log")
 CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Check.log")
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")
 DB_FILE = os.path.join(DATABASE_DIR, "Starfield_LOH.db")
+DATABASE_FILE = DB_FILE
+
+
+def ensure_settings_file():
+    """Initialisiert Starfield_LOH_Settings.json aus der Standardvorlage, falls noch nicht vorhanden."""
+    if not os.path.exists(SETTINGS_FILE) and os.path.exists(SETTINGS_DEFAULT_FILE):
+        try:
+            import shutil
+            shutil.copy2(SETTINGS_DEFAULT_FILE, SETTINGS_FILE)
+        except Exception:
+            pass
+
+ensure_settings_file()
 
 
 def resolve_path(path_val: str, default_relative: str = "Data") -> str:

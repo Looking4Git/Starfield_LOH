@@ -7,9 +7,21 @@ from datetime import datetime, date
 
 from Structure.Paths import DB_FILE, MOD_IMAGES_DIR
 
+import shutil
+
+TEMPLATE_DB_FILE = os.path.join(os.path.dirname(DB_FILE), "Starfield_LOH_Template.db")
+
 def get_db_connection() -> sqlite3.Connection:
-    """Stellt die Verbindung zur lokalen SQLite-Datenbank her."""
+    """Stellt die Verbindung zur lokalen SQLite-Datenbank her.
+    Falls die Arbeitsdatenbank noch nicht existiert (z. B. nach Klonen von GitHub),
+    wird sie automatisch aus Starfield_LOH_Template.db initialisiert."""
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
+    if not os.path.exists(DB_FILE) and os.path.exists(TEMPLATE_DB_FILE):
+        try:
+            shutil.copy2(TEMPLATE_DB_FILE, DB_FILE)
+            logging.info(f"Starfield LOH Bootstrapping: Arbeitsdatenbank aus Template initialisiert ({DB_FILE}).")
+        except Exception as e:
+            logging.error(f"Fehler beim Bootstrapping der Datenbank: {e}")
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")

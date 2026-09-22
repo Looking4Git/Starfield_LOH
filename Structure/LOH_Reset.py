@@ -1,0 +1,60 @@
+"""
+Funktionsskript für den vollständigen Projekt- und Datenbank-Reset.
+Leert alle Bewegungsdaten über Structure.LOH_Database_Reset und bereinigt
+anschließend den lokalen Mod-Bilderordner (MOD_IMAGES_DIR).
+"""
+
+import os
+from Structure.Paths import MOD_IMAGES_DIR
+from Structure.LOH_Database_Reset import reset_database_tables
+
+
+def reset_project_data(log_signal=None) -> bool:
+    """
+    Führt einen vollständigen Reset des Projekts durch:
+    1. Leert die Bewegungstabellen der Datenbank und führt ein VACUUM durch.
+    2. Leert das Verzeichnis der Mod-Vorschaubilder.
+    """
+    def log(msg):
+        if log_signal:
+            if hasattr(log_signal, "emit"):
+                log_signal.emit(msg)
+            elif callable(log_signal):
+                log_signal(msg)
+        else:
+            print(msg)
+
+    log("=== Starfield LOH Gesamt-Reset gestartet ===")
+
+    # 1. Datenbanktabellen zurücksetzen
+    db_ok = reset_database_tables(log_signal=log_signal)
+    if not db_ok:
+        log("ABBRUCH: Fehler beim Zurücksetzen der Datenbank.")
+        return False
+
+    # 2. Mod-Bilder Verzeichnis leeren
+    if os.path.exists(MOD_IMAGES_DIR):
+        log(f"-> Bereinige Mod-Bilder in '{MOD_IMAGES_DIR}'...")
+        cleaned_count = 0
+        for filename in os.listdir(MOD_IMAGES_DIR):
+            if filename == ".gitkeep":
+                continue
+            file_path = os.path.join(MOD_IMAGES_DIR, filename)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+                    cleaned_count += 1
+            except Exception as img_e:
+                log(f"WARNUNG: Datei '{filename}' konnte nicht gelöscht werden: {img_e}")
+        log(f"-> Verzeichnis '{MOD_IMAGES_DIR}' geleert ({cleaned_count} Dateien entfernt).")
+
+    log("=== Starfield LOH Gesamt-Reset erfolgreich abgeschlossen ===")
+    return True
+
+
+# Alias für Abwärtskompatibilität mit bisherigen Aufrufen
+reset_database = reset_project_data
+
+
+if __name__ == "__main__":
+    reset_project_data()

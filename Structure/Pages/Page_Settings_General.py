@@ -15,7 +15,7 @@ from Structure.Paths import (
     GRAPHICS_DIR, DEFAULT_GAME_PATH, SETTINGS_FILE
 )
 from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
-from Structure.Starfield_LOH_Reset import reset_database
+from Structure.LOH_Reset import reset_database
 
 
 def _set_dark_title_bar(widget):

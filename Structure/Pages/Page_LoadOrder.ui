@@ -953,6 +953,35 @@
             </spacer>
            </item>
            <item>
+            <widget class="QPushButton" name="btn_activate_profile">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Aktivieren</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Activation.svg</normaloff>Graphics/Icon_Activation.svg</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>24</width>
+               <height>24</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="btn_import_profile">
              <property name="minimumSize">
               <size>

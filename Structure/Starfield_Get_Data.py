@@ -33,6 +33,7 @@ from Structure.File_ESM_Parser import (
     MOD_POINTER_COLS
 )
 from Structure.Parser_Reporter import ParserProgressReporter
+from Structure.LOH_Backup_Manager import prepare_backup_directory
 
 
 def calculate_shifters(counts):
@@ -707,25 +708,24 @@ def run_local_check(log_signal):
         write_to_log(msg)
 
     start_dt = datetime.datetime.now()
-    record_script_start("Starfield_Check_New.py", start_dt)
+    record_script_start("Starfield_Get_Data.py", start_dt)
     conn = None
     try:
         log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
-        if not os.path.exists(BACKUPS_DIR):
-            os.makedirs(BACKUPS_DIR)
+        backup_dir = prepare_backup_directory("LOH_Workspace/Starfield_Get_Data", max_keep=10)
 
-        plugins_backup_path = os.path.join(BACKUPS_DIR, "Plugins_Check.txt")
+        plugins_backup_path = os.path.join(backup_dir, "Plugins_Check.txt")
         if os.path.exists(STARFIELD_PLUGINS_PATH):
             shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
-            log_msg(f"-> Erfolgreich kopiert: Plugins.txt")
+            log_msg(f"-> Erfolgreich kopiert: Plugins.txt (nach {backup_dir})")
         else:
             log_msg(f"FEHLER: Plugins.txt nicht gefunden.")
             return False
 
-        catalog_backup_path = os.path.join(BACKUPS_DIR, "ContentCatalog_Check.txt")
+        catalog_backup_path = os.path.join(backup_dir, "ContentCatalog_Check.txt")
         if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
             shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, catalog_backup_path)
-            log_msg(f"-> Erfolgreich kopiert: ContentCatalog.txt")
+            log_msg(f"-> Erfolgreich kopiert: ContentCatalog.txt (nach {backup_dir})")
 
         # 1. Metadaten-Mapping
         log_msg("\n[1] Lese ContentCatalog_Check.txt und werte Binary Header (.esm) aus...")
@@ -1038,7 +1038,7 @@ def run_local_check(log_signal):
         log_msg(f"- {new_mods_count} neue Mods importiert.")
         log_msg(f"- {update_mods_count} bestehende Mods verarbeitet.")
         log_msg("\nProzess erfolgreich abgeschlossen.\n")
-        record_script_end("Starfield_Check_New.py", datetime.datetime.now())
+        record_script_end("Starfield_Get_Data.py", datetime.datetime.now())
         return True
 
     except Exception as e:

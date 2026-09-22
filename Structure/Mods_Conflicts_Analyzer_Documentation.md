@@ -9,7 +9,7 @@ Diese Dokumentation beschreibt die Architektur, die Funktionsweise und das Klass
 Die Konfliktanalyse ermittelt mod-übergreifende Kollisionen in der Creation Engine 2 auf FormID-Ebene (wenn zwei verschiedene Mods denselben Datensatz aus einem gemeinsamen Masterfile überschreiben).
 
 Um die Benutzeroberfläche (`Mods_Conflicts_GUI.py` bzw. `Page_LoadOrder`) schnell und reaktionsfähig zu halten, arbeitet das System mit einer zweistufigen Architektur:
-1. **Basis-View ([View_Mods_Conflicts_FormID_Base](file:///d:/Starfield_LOH/Data/View_Mods_Conflicts_Matrix_Documentation.md)):** Führt die reinen Rohkollisionen über Joins neutral zusammen.
+1. **Basis-View ([View_Mods_Conflicts_FormID_Base](file:///d:/Starfield_LOH/Database/View_Mods_Conflicts_Matrix_Documentation.md)):** Führt die reinen Rohkollisionen über Joins neutral zusammen.
 2. **Materialisierte Tabelle `Mods_Conflicts`:** Nimmt die Datensätze auf und durchläuft eine modulare Python-Pipeline zur Bewertung, Typisierung und Bereinigung von gewollten oder gelösten Konflikten.
 
 ---

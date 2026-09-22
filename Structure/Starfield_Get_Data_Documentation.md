@@ -1,10 +1,10 @@
-### Ablaufplan - Starfield_Check_New
-Stand 26.05.2026
+### Ablaufplan - Starfield_Get_Data
+Stand 22.09.2026
 
-- Kopieren der Starfielddateien aus dem AppData Verzeichnis in das Backup Verzeichnis
+- Kopieren der Starfielddateien aus dem AppData-Verzeichnis in das Zeitstempel-Sicherungsverzeichnis (`Data/Backups/LOH_Workspace/Starfield_Get_Data/JJJJ.MM.TT_HH.MM.SS/` via `LOH_Backup_Manager`, max. 10 Stände)
    - Plugins.txt -> Plugins_Check.txt
-   - ContentCatalog.txt -> ContentCatalog.txt
-   + Die weiteren Funktionen arbeiten dann mit den Backup Dateien
+   - ContentCatalog.txt -> ContentCatalog_Check.txt
+   + Die weiteren Funktionen arbeiten dann mit den Backup-Dateien
 - Auslesen der Plugins_Backup.txt
    - Schleife über die Masterfilezeilen (.esm ohne den vorlaufenden *)
       - Auslesen der ContentCatalog_Check.txt für die Moddaten zum Masterfile

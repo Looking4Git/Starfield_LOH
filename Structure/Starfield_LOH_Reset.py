@@ -59,7 +59,7 @@ def reset_database(log_signal=None):
                         os.unlink(file_path)
                 except Exception as img_e:
                     log(f"WARNUNG: Datei {filename} konnte nicht gelöscht werden: {img_e}")
-            log("-> Verzeichnis 'Data\\Mod_Images' geleert.")
+            log(f"-> Verzeichnis '{MOD_IMAGES_DIR}' geleert.")
             
         # sqlite_sequence zurücksetzen (außer für Stammdaten)
         master_tables = ["Assessments", "Categories_LOH", "Platforms", "Mods_State", "Categories_Creations", "Classifier_Result_Types"]

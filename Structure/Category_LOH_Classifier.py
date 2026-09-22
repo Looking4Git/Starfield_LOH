@@ -1106,7 +1106,7 @@ def _exclude_non_sorting(row, cursor, cat_ids):
     innr = row.get('INNR') or 0
     
     # Prüfe auf reine INNR-Mod (keine anderen Pointer außer INNR/INNR_Override)
-    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    from Structure.Starfield_Get_Data import MOD_POINTER_COLS
     has_other_pointers = False
     for col in MOD_POINTER_COLS:
         if col.endswith('_Deleted') or col.endswith('_Disabled') or col.endswith('_Buried') or col.endswith('_Remove') or col.endswith('_Override'):
@@ -1412,7 +1412,7 @@ def _exclude_non_remover(row, cursor, cat_ids):
     
     # 1. Clutter-Remover-Prüfung
     is_clutter_remover = False
-    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    from Structure.Starfield_Get_Data import MOD_POINTER_COLS
     
     # Prüft, ob außer REFR, ACHR, CELL, WRLD (und KYWD) andere Pointer vorhanden sind
     has_other_pointers = False
@@ -1494,7 +1494,7 @@ def _detect_no_pointers_by_components(row, cursor, cat_ids):
     Falls nicht (reine Asset-Mod), werden alle Kategorien auf 0 gesetzt, außer den
     durch Scans in BA2-Archiven identifizierten Asset-Kategorien (Gameplay, Texturen, Sound, Interface).
     """
-    from Structure.Starfield_Check_New import MOD_POINTER_COLS
+    from Structure.Starfield_Get_Data import MOD_POINTER_COLS
     
     has_pointers = False
     for col in MOD_POINTER_COLS:

@@ -15,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Structure.Database import get_db_connection
-from Structure.Starfield_Check_New import MOD_POINTER_COLS
+from Structure.Starfield_Get_Data import MOD_POINTER_COLS
 
 KEY_COLS = [
     "QUST", "CELL", "FURN", "SPEL", "NPC_", "LIGH", "INNR", 

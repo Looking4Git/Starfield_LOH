@@ -10,9 +10,11 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt, QSize, Signal
 
 from Structure.Paths import (
-    get_setting, set_setting, STARFIELD_GAME_DATA_PATH, 
+    get_setting, set_setting, STARFIELD_GAME_DATA_PATH, DATA_DIR, APP_ROOT,
+    resolve_path, to_storable_path,
     GRAPHICS_DIR, DEFAULT_GAME_PATH, SETTINGS_FILE
 )
+from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
 from Structure.Starfield_LOH_Reset import reset_database
 
 
@@ -86,8 +88,48 @@ class Page_Settings_General(QWidget):
         self.lbl_status = QLabel()
         form_layout.addRow("", self.lbl_status)
 
+        # Zeile 2: Datenverzeichnis (Backups & Bilder)
+        lbl_data_path = QLabel("Datenverzeichnis (Backups & Bilder):")
+
+        data_row_layout = QHBoxLayout()
+        data_row_layout.setSpacing(8)
+
+        self.inp_data_path = QLineEdit()
+        current_data = get_setting("LOH_data", get_setting("data_path", "Data"))
+        self.inp_data_path.setText(current_data)
+        self.inp_data_path.setFixedHeight(32)
+        self.inp_data_path.editingFinished.connect(self.on_data_path_edited)
+        self.inp_data_path.textChanged.connect(self.on_data_path_text_changed)
+        data_row_layout.addWidget(self.inp_data_path, 1)
+
+        self.btn_browse_data = QPushButton()
+        self.btn_browse_data.setObjectName("btn_browse_data")
+        self.btn_browse_data.setFixedSize(36, 32)
+        self.btn_browse_data.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_browse_data.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Folder.svg")))
+        self.btn_browse_data.setIconSize(QSize(20, 20))
+        self.btn_browse_data.setToolTip("Datenverzeichnis durchsuchen...")
+        self.btn_browse_data.clicked.connect(self.browse_data_directory)
+        data_row_layout.addWidget(self.btn_browse_data)
+
+        self.btn_reset_data_path = QPushButton()
+        self.btn_reset_data_path.setObjectName("btn_reset_data_path")
+        self.btn_reset_data_path.setFixedSize(36, 32)
+        self.btn_reset_data_path.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reset_data_path.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Update.svg")))
+        self.btn_reset_data_path.setIconSize(QSize(18, 18))
+        self.btn_reset_data_path.setToolTip("Standard wiederherstellen (relativ: ./Data)")
+        self.btn_reset_data_path.clicked.connect(self.reset_default_data_path)
+        data_row_layout.addWidget(self.btn_reset_data_path)
+
+        form_layout.addRow(lbl_data_path, data_row_layout)
+
+        self.lbl_data_status = QLabel()
+        form_layout.addRow("", self.lbl_data_status)
+
         layout.addLayout(form_layout)
         self.update_status_display(current_path)
+        self.update_data_status_display(current_data)
 
         # -------------------------------------------------------------
         # 2. Abschnitt: Zurücksetzen
@@ -170,6 +212,91 @@ class Page_Settings_General(QWidget):
             set_setting("paths", "starfield_data", normalized_dir)
             self.update_status_display(normalized_dir)
 
+    def update_data_status_display(self, path: str):
+        """Aktualisiert die Statusanzeige für das Datenverzeichnis."""
+        if not path or not path.strip():
+            self.lbl_data_status.setText("⚠ Kein Datenverzeichnis angegeben.")
+            self.lbl_data_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
+        resolved = resolve_path(path, "Data")
+        if os.path.isdir(resolved):
+            is_rel = not os.path.isabs(path) or os.path.normpath(resolved).startswith(os.path.normpath(APP_ROOT))
+            mode_str = "Portabel im Programmordner" if is_rel else f"Extern: {resolved}"
+            self.lbl_data_status.setText(f"✓ Datenverzeichnis aktiv ({mode_str}).")
+            self.lbl_data_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
+        else:
+            self.lbl_data_status.setText(f"⚠ Verzeichnis '{resolved}' existiert derzeit nicht.")
+            self.lbl_data_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+
+    def on_data_path_text_changed(self, text: str):
+        self.update_data_status_display(text)
+
+    def on_data_path_edited(self):
+        new_path = self.inp_data_path.text().strip()
+        if not new_path:
+            return
+        self._prompt_and_change_data_path(new_path)
+
+    def browse_data_directory(self):
+        current_path = resolve_path(self.inp_data_path.text().strip(), "Data")
+        start_dir = current_path if os.path.isdir(current_path) else APP_ROOT
+        
+        selected_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Datenverzeichnis auswählen (Backups & Bilder)",
+            start_dir,
+            QFileDialog.Option.ShowDirsOnly
+        )
+
+        if selected_dir:
+            self._prompt_and_change_data_path(selected_dir)
+
+    def reset_default_data_path(self):
+        self._prompt_and_change_data_path("Data")
+
+    def _prompt_and_change_data_path(self, target_path: str):
+        resolved = resolve_path(target_path, "Data")
+        from Structure.Paths import DATA_DIR as active_dir
+        if os.path.normpath(resolved) == os.path.normpath(active_dir):
+            self.update_data_status_display(target_path)
+            return
+
+        # Bestätigung für Umzug anfordern
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Datenverzeichnis umziehen")
+        msg_box.setText(
+            f"Möchten Sie das Datenverzeichnis umziehen nach:\n\n{resolved}\n\n"
+            "Vorhandene Mod-Bilder und Backups werden in das neue Verzeichnis kopiert."
+        )
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        _set_dark_title_bar(msg_box)
+
+        if msg_box.exec() == QMessageBox.StandardButton.Yes:
+            success, msg = change_data_path(target_path, copy_existing_data=True)
+            if success:
+                storable = to_storable_path(resolved)
+                self.inp_data_path.setText(storable)
+                self.update_data_status_display(storable)
+                info = QMessageBox(self)
+                info.setWindowTitle("Umzug erfolgreich")
+                info.setText(msg)
+                info.setIcon(QMessageBox.Icon.Information)
+                _set_dark_title_bar(info)
+                info.exec()
+            else:
+                crit = QMessageBox(self)
+                crit.setWindowTitle("Fehler beim Umzug")
+                crit.setText(msg)
+                crit.setIcon(QMessageBox.Icon.Critical)
+                _set_dark_title_bar(crit)
+                crit.exec()
+        else:
+            # Zurücksetzen auf aktuellen Pfad
+            self.inp_data_path.setText(get_setting("LOH_data", get_setting("data_path", "Data")))
+            self.update_data_status_display(self.inp_data_path.text())
+
     def on_reset_clicked(self):
         """Zeigt den modalen Dark-Mode-Sicherheitsdialog und führt bei Bestätigung den Reset aus."""
         msg_box = QMessageBox(self)
@@ -203,7 +330,7 @@ class Page_Settings_General(QWidget):
                     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                         cfg = json.load(f)
                 
-                cfg["paths"] = {"starfield_data": DEFAULT_GAME_PATH}
+                cfg["paths"] = {"starfield_data": DEFAULT_GAME_PATH, "LOH_data": "Data"}
                 cfg["settings"] = {
                     "Auto_Save": 0,
                     "Limit_Full_Master": 254,

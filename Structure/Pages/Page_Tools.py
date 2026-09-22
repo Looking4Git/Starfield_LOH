@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
 from PySide6.QtCore import Qt, Signal
 
 from Structure.Workers import TaskWorker
-from Structure.Starfield_Check_New import run_local_check
+from Structure.Starfield_Get_Data import run_local_check
 from Structure.Starfield_Check_Deleted import run_deleted_check
 from Structure.Starfield_LoadOrder_Check import run_load_order_check
 from Structure.Bethesda_Fetch import run_fetch

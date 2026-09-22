@@ -2,7 +2,7 @@ import os
 import shutil
 import sqlite3
 import logging
-from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_DIR, CHECK_LOG_FILE
+from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_WORKSPACE_DIR, CHECK_LOG_FILE
 from Structure.Database import get_db_connection
 
 def get_check_logger():
@@ -43,9 +43,9 @@ def run_deleted_check(log_signal=None):
         
     # Sicherheitskopie anlegen
     try:
-        if not os.path.exists(BACKUPS_DIR):
-            os.makedirs(BACKUPS_DIR)
-        plugins_backup_path = os.path.join(BACKUPS_DIR, "Plugins_Check_Deleted.txt")
+        if not os.path.exists(BACKUPS_WORKSPACE_DIR):
+            os.makedirs(BACKUPS_WORKSPACE_DIR, exist_ok=True)
+        plugins_backup_path = os.path.join(BACKUPS_WORKSPACE_DIR, "Plugins_Check_Deleted.txt")
         shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
         log_msg(f"-> Sicherheitskopie von Plugins.txt erstellt in {plugins_backup_path}")
     except Exception as e:

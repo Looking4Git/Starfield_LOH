@@ -9,11 +9,10 @@ import html
 import urllib.request
 from playwright.sync_api import sync_playwright
 from Structure.Database import record_script_start, record_script_end
+from Structure.Paths import DB_FILE, LOGS_DIR
 
 def setup_logging():
-    log_dir = "Logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "Bethesda_Fetch.log")
+    log_file = os.path.join(LOGS_DIR, "Bethesda_Fetch.log")
     
     # Prüfen, ob die Datei existiert, ansonsten leer anlegen
     if not os.path.exists(log_file):
@@ -118,7 +117,7 @@ def get_URL(catalog_id, db_url=None, force_short=False):
     return url, uuid
 
 def run_fetch(log_signal=None):
-    db_path = 'Data/Starfield_LOH.db'
+    db_path = DB_FILE
     logger = setup_logging()
     
     def log_msg(message, level=logging.INFO):

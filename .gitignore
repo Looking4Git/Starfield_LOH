@@ -20,11 +20,13 @@ desktop.ini
 # Datenbanken (SQLite) und Anwendungsdaten
 *.db
 *.sqlite
-Data/Starfield_LOH.db
+Database/*.db
+Database/Starfield_LOH.db
 
 # Protokolle und Logs
 *.log
 Logs/
 
-# Backups
+# Dynamische Nutzdaten / Backups
+Data/Backups/
 Backups/

@@ -154,7 +154,7 @@ def run_nexus_fetch(log_signal=None):
                     filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
                     if os.path.exists(filepath):
                         try:
-                            from Structure.Starfield_Check_New import parse_tes4_header
+                            from Structure.Starfield_Get_Data import parse_tes4_header
                             local_author, local_desc = parse_tes4_header(filepath)
                             if local_author or local_desc:
                                 log(f"  -> Lokaler Header: Autor='{local_author}', Beschreibung='{local_desc[:50]}'")

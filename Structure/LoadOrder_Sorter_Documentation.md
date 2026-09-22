@@ -55,7 +55,7 @@ CREATE TABLE "LOH_Executions" (
 5. **Rücksetzen:** Beim Zurücksetzen der Datenbank über `Starfield_LOH_Reset.py` wird auch die Tabelle `LOH_Executions` vollständig bereinigt.
 
 #### Erfasste Module:
-* `Starfield_Check_New.py`
+* `Starfield_Get_Data.py`
 * `Bethesda_Fetch.py`
 * `Nexus_Fetch.py`
 * `Category_LOH_Classifier.py`

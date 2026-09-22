@@ -1,7 +1,7 @@
 import os
 import shutil
 import logging
-from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_DIR
+from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_WORKSPACE_DIR
 from Structure.Database import get_db_connection
 
 def validate_plugins_for_import() -> tuple[bool, list | None]:
@@ -19,8 +19,8 @@ def validate_plugins_for_import() -> tuple[bool, list | None]:
         logging.error(f"Plugins.txt nicht gefunden unter: {STARFIELD_PLUGINS_PATH}")
         return False, None
         
-    # 2. Erstellen der Backup-Kopie in /Backups
-    plugins_backup_path = os.path.join(BACKUPS_DIR, "Plugins_Import.txt")
+    # 2. Erstellen der Backup-Kopie in LOH_Workspace
+    plugins_backup_path = os.path.join(BACKUPS_WORKSPACE_DIR, "Plugins_Import.txt")
     try:
         shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
         logging.info(f"Erfolgreich Backup kopiert nach: {plugins_backup_path}")

@@ -21,6 +21,7 @@ from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Requirement import RequirementDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
+from Structure.Starfield_Profile_Activation import activate_profile
 
 class LimitBar(QWidget):
     def __init__(self, parent=None):
@@ -257,10 +258,14 @@ class Page_LoadOrder(QWidget):
         from Structure.Pages.UI_Utils import make_button_premium
         
         # Profil-Buttons referenzieren und verknüpfen
+        self.btn_activate_profile = ui.findChild(QPushButton, "btn_activate_profile")
         self.btn_import_profile = ui.findChild(QPushButton, "btn_import_profile")
         self.btn_copy_profile = ui.findChild(QPushButton, "btn_copy_profile")
         self.btn_delete_profile = ui.findChild(QPushButton, "btn_delete_profile")
         
+        if self.btn_activate_profile:
+            make_button_premium(self.btn_activate_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Activation.svg"), "Aktivieren")
+            self.btn_activate_profile.clicked.connect(self.on_activate_profile)
         if self.btn_import_profile:
             make_button_premium(self.btn_import_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Einlesen")
             self.btn_import_profile.clicked.connect(self.on_import_profile)
@@ -568,6 +573,8 @@ class Page_LoadOrder(QWidget):
         p_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         
         has_profiles = len(profiles) > 0
+        if hasattr(self, 'btn_activate_profile') and self.btn_activate_profile:
+            self.btn_activate_profile.setEnabled(has_profiles)
         if hasattr(self, 'btn_copy_profile') and self.btn_copy_profile:
             self.btn_copy_profile.setEnabled(has_profiles)
         if hasattr(self, 'btn_delete_profile') and self.btn_delete_profile:
@@ -580,6 +587,27 @@ class Page_LoadOrder(QWidget):
             self.current_profile_id = None
             self.load_data()
         self.tree_profile.blockSignals(False)
+
+    def on_activate_profile(self):
+        indexes = self.tree_profile.selectionModel().selectedRows()
+        if not indexes:
+            self.show_message_box("Hinweis", "Bitte wählen Sie zuerst ein Profil zur Aktivierung aus.", QMessageBox.Icon.Information)
+            return
+
+        row = indexes[0].row()
+        item = self.profile_model.item(row, 0)
+        if not item:
+            return
+
+        profile_id = item.data(Qt.ItemDataRole.UserRole)
+        profile_data = item.data(Qt.ItemDataRole.UserRole + 2) or {}
+        profile_name = profile_data.get("Name") or f"Profil {profile_id}"
+
+        success, msg, backup_dir = activate_profile(profile_id, profile_name)
+        if success:
+            self.show_message_box("Profil aktiviert", msg, QMessageBox.Icon.Information)
+        else:
+            self.show_message_box("Fehler bei der Aktivierung", msg, QMessageBox.Icon.Critical)
 
     def on_import_profile(self):
         # 1. Vorab-Validierung durchführen, BEVOR wir irgendetwas anzeigen oder anlegen!

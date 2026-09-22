@@ -41,6 +41,15 @@ Logs/*
 # Backups & dynamische Nutzdaten (Ordnerstruktur bleibt über .gitkeep)
 Data/Backups/*
 !Data/Backups/.gitkeep
+!Data/Backups/LOH_Workspace/
+Data/Backups/LOH_Workspace/*
+!Data/Backups/LOH_Workspace/.gitkeep
+!Data/Backups/LOH_Workspace/Starfield_Get_Data/
+Data/Backups/LOH_Workspace/Starfield_Get_Data/*
+!Data/Backups/LOH_Workspace/Starfield_Get_Data/.gitkeep
+!Data/Backups/LOH_Workspace/Profile_Activation/
+Data/Backups/LOH_Workspace/Profile_Activation/*
+!Data/Backups/LOH_Workspace/Profile_Activation/.gitkeep
 Backups/
 
 # Mod-Vorschaubilder (Ordnerstruktur bleibt über .gitkeep)

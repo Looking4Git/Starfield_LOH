@@ -14,7 +14,6 @@ pyrefly.toml
 .gemini/
 .vscode/
 scratch/
-.git_backup_pre_cleanup/
 
 # AI-Manifeste & KI-Dokumentation (lokal verbleibend)
 AGENTS.md

@@ -61,27 +61,36 @@ class Section_Mod_Statistics_Comparison(QWidget):
             QLineEdit {
                 background-color: #D7A64B;
                 color: #000000;
-                font-weight: bold;
+                font-family: "Segoe UI", Arial;
+                font-size: 13px;
+                font-weight: normal;
                 border: 1px solid #888888;
                 padding: 4px 8px;
                 border-radius: 2px;
+                qproperty-alignment: 'AlignLeft | AlignVCenter';
             }
         """
         for field in [self.inp_main_name, self.inp_main_component, self.inp_comp_component]:
             if field:
                 field.setStyleSheet(style_readonly_field)
+                field.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 
         style_active_field = """
             QLineEdit {
                 background-color: #ffffff;
                 color: #000000;
+                font-family: "Segoe UI", Arial;
+                font-size: 13px;
+                font-weight: normal;
                 border: 1px solid #888888;
                 padding: 4px 8px;
                 border-radius: 2px;
+                qproperty-alignment: 'AlignLeft | AlignVCenter';
             }
         """
         if self.inp_comp_name:
             self.inp_comp_name.setStyleSheet(style_active_field)
+            self.inp_comp_name.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 
         style_image_box = """
             QLabel {
@@ -133,8 +142,10 @@ class Section_Mod_Statistics_Comparison(QWidget):
         name, comp_file = self._get_mod_details(mod_id)
         if self.inp_main_name:
             self.inp_main_name.setText(name)
+            self.inp_main_name.setCursorPosition(0)
         if self.inp_main_component:
             self.inp_main_component.setText(comp_file)
+            self.inp_main_component.setCursorPosition(0)
             
         self._load_image_into_label(mod_id, self.lbl_main_image, "Kein Bild vorhanden")
 
@@ -155,8 +166,10 @@ class Section_Mod_Statistics_Comparison(QWidget):
         name, comp_file = self._get_mod_details(mod_id)
         if self.inp_comp_name:
             self.inp_comp_name.setText(name)
+            self.inp_comp_name.setCursorPosition(0)
         if self.inp_comp_component:
             self.inp_comp_component.setText(comp_file)
+            self.inp_comp_component.setCursorPosition(0)
             
         self._load_image_into_label(mod_id, self.lbl_comp_image, "Kein Bild vorhanden")
 

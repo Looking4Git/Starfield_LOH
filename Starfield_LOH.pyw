@@ -20,7 +20,7 @@ DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
     "window_mod_statistics": {
-        "docked_width": 560,
+        "docked_width": 540,
         "floating": {"width": 640, "height": 760, "x": 300, "y": 200}
     },
     "ui": {"sidebar_collapsed": False},
@@ -218,29 +218,36 @@ class StarfieldLOH(QMainWindow):
 
     def sync_dock_statistics_state(self):
         """Synchronisiert die Breite des Hauptfensters mit dem Andockstatus der Mod-Analyse."""
-        if not hasattr(self, 'dock_statistics'):
-            return
-        
-        currently_attached = self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
-        was_attached = getattr(self, '_dock_is_attached_to_main', False)
-        dock_w = self.dock_statistics.docked_width
+        try:
+            if not hasattr(self, 'dock_statistics') or self.dock_statistics is None:
+                return
+            
+            currently_attached = self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
+            was_attached = getattr(self, '_dock_is_attached_to_main', False)
+            dock_w = self.dock_statistics.docked_width
 
-        if currently_attached and not was_attached:
-            self._dock_is_attached_to_main = True
-            # Vor dem Erweitern saubere Basisbreite des Hauptfensters sichern
-            if not hasattr(self, 'base_main_width') or self.base_main_width is None:
-                self.base_main_width = self.width()
-            self.resize(self.base_main_width + dock_w, self.height())
-            self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
-        elif not currently_attached and was_attached:
-            self._dock_is_attached_to_main = False
-            base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_w))
-            self.resize(base_w, self.height())
-            # Nachgelagert absichern, sobald Qt das Dock vollständig aus dem Layout entfernt hat
-            QTimer.singleShot(10, lambda: self.resize(base_w, self.height()))
+            if currently_attached and not was_attached:
+                self._dock_is_attached_to_main = True
+                # Vor dem Erweitern saubere Basisbreite des Hauptfensters sichern
+                if not hasattr(self, 'base_main_width') or self.base_main_width is None:
+                    self.base_main_width = self.width()
+                self.resize(self.base_main_width + dock_w, self.height())
+                self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
+            elif not currently_attached and was_attached:
+                self._dock_is_attached_to_main = False
+                base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_w))
+                self.resize(base_w, self.height())
+                # Nachgelagert absichern, sobald Qt das Dock vollständig aus dem Layout entfernt hat
+                QTimer.singleShot(10, lambda: self.resize(base_w, self.height()))
+        except RuntimeError:
+            pass
 
     def show_mod_statistics(self, mod_id: int):
-        """Öffnet das Mod-Analyse-Dockfenster und aktualisiert die Inhalte."""
+        """Öffnet oder schließt das Mod-Analyse-Dockfenster (Toggle-Verhalten bei Klick auf Analyse)."""
+        if self.dock_statistics.isVisible():
+            self.dock_statistics.close()
+            return
+
         if not getattr(self, '_dock_is_attached_to_main', False) and not self.dock_statistics.isFloating():
             self.base_main_width = self.width()
         self.dock_statistics.setVisible(True)

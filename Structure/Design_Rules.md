@@ -51,6 +51,10 @@ Die Hauptmasken folgen dem dreiteiligen Aufbau:
    * Hintergrund: **Starfield Gelb / Gold (`#D7A64B`)**
    * Schriftfarbe: Schwarz (`#000000`)
    * *Bedeutung:* Signalisiert dem Benutzer sofort, dass hier ein fester, schreibgeschützter System- oder Datenbankwert angezeigt wird (z. B. Mod-Name, Position, Komponenten).
+3. **Schriftformatierung & Ausrichtung (gilt für alle Eingabefelder):**
+   * **Schriftgewicht:** Standardmäßig normale Schriftstärke (`font-weight: normal;`). Eingabefelder verwenden keine Fettschrift.
+   * **Textausrichtung:** Grundsätzlich linksbündig (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter` bzw. `qproperty-alignment: 'AlignLeft | AlignVCenter';`).
+   * **Cursor-Position bei Initialbefüllung:** Wird ein Textfeld programmgesteuert via `.setText(...)` befüllt, muss die Cursor-Position mit `.setCursorPosition(0)` auf den Anfang gesetzt werden. Dadurch wird verhindert, dass längere Texte nach rechts weggescrollt werden und optisch rechtsbündig oder zentriert wirken.
 
 ---
 

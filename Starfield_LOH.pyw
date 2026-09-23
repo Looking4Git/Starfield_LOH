@@ -100,8 +100,10 @@ class StarfieldLOH(QMainWindow):
 
         # 2. Fenster Geometrie STRIKT aus Settings anwenden
         win_cfg = self.settings.get("window", {})
-        self.resize(win_cfg.get("width", 1280), win_cfg.get("height", 720))
+        init_width = win_cfg.get("width", 1280)
+        self.resize(init_width, win_cfg.get("height", 720))
         self.move(win_cfg.get("x", 100), win_cfg.get("y", 100))
+        self.base_main_width = init_width
         
         self.set_dark_title_bar()
 
@@ -225,15 +227,22 @@ class StarfieldLOH(QMainWindow):
 
         if currently_attached and not was_attached:
             self._dock_is_attached_to_main = True
-            self.resize(self.width() + dock_w, self.height())
+            # Vor dem Erweitern saubere Basisbreite des Hauptfensters sichern
+            if not hasattr(self, 'base_main_width') or self.base_main_width is None:
+                self.base_main_width = self.width()
+            self.resize(self.base_main_width + dock_w, self.height())
             self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
         elif not currently_attached and was_attached:
             self._dock_is_attached_to_main = False
-            new_w = max(1280, self.width() - dock_w)
-            self.resize(new_w, self.height())
+            base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_w))
+            self.resize(base_w, self.height())
+            # Nachgelagert absichern, sobald Qt das Dock vollständig aus dem Layout entfernt hat
+            QTimer.singleShot(10, lambda: self.resize(base_w, self.height()))
 
     def show_mod_statistics(self, mod_id: int):
         """Öffnet das Mod-Analyse-Dockfenster und aktualisiert die Inhalte."""
+        if not getattr(self, '_dock_is_attached_to_main', False) and not self.dock_statistics.isFloating():
+            self.base_main_width = self.width()
         self.dock_statistics.setVisible(True)
         self.sync_dock_statistics_state()
         self.dock_statistics.update_mod(mod_id)
@@ -344,10 +353,17 @@ class StarfieldLOH(QMainWindow):
             pass
 
         # Werte in das Dictionary schreiben
-        if hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible() and not self.dock_statistics.isFloating():
+        is_dock_attached = getattr(self, '_dock_is_attached_to_main', False) or (
+            hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
+        )
+        if is_dock_attached and hasattr(self, 'dock_statistics'):
             # Hauptfenster-Breite ohne den angedockten Bereich abspeichern
-            base_w = max(1280, self.width() - self.dock_statistics.docked_width)
-            self.settings["window"]["width"] = base_w
+            if hasattr(self, 'base_main_width') and self.base_main_width and self.base_main_width >= 1280:
+                saved_width = self.base_main_width
+            else:
+                dock_w = self.dock_statistics.width() if self.dock_statistics.width() > 100 else self.dock_statistics.docked_width
+                saved_width = max(1280, self.width() - dock_w)
+            self.settings["window"]["width"] = saved_width
         else:
             self.settings["window"]["width"] = self.width()
 

@@ -6,30 +6,48 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>500</width>
-    <height>60</height>
+    <width>580</width>
+    <height>200</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="main_layout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
    <property name="leftMargin">
-    <number>8</number>
+    <number>2</number>
    </property>
    <property name="topMargin">
-    <number>6</number>
+    <number>0</number>
    </property>
    <property name="rightMargin">
-    <number>8</number>
-   </property>
-   <property name="bottomMargin">
     <number>6</number>
    </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
    <item>
-    <widget class="QLabel" name="lbl_placeholder">
-     <property name="styleSheet">
-      <string notr="true">color: #888888; font-style: italic;</string>
+    <widget class="QTableView" name="table_classification">
+     <property name="verticalScrollBarPolicy">
+      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
      </property>
-     <property name="text">
-      <string>Bereich Klassifikation (Entscheidungspfade &amp; Gewichtungen in Vorbereitung)</string>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarPolicy::ScrollBarAsNeeded</enum>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
+     </property>
+     <property name="showGrid">
+      <bool>true</bool>
+     </property>
+     <property name="sortingEnabled">
+      <bool>false</bool>
      </property>
     </widget>
    </item>

@@ -83,6 +83,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.floating_x = 300
         self.floating_y = 200
         self.is_restoring = False
+        self._floating_restored = False
 
         # Dunklen Titelbalken für Floating-Modus vorbereiten
         self.topLevelChanged.connect(self.on_top_level_changed)
@@ -123,18 +124,18 @@ class Window_Mod_Statistics(QDockWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if not self.is_restoring:
+        if not self.is_restoring and getattr(self, '_floating_restored', False):
             if self.isFloating():
                 if self.width() >= 300 and self.height() >= 300:
                     self.floating_width = self.width()
                     self.floating_height = self.height()
-            else:
-                if self.width() >= 300:
-                    self.docked_width = self.width()
+        elif not self.isFloating():
+            if self.width() >= 300:
+                self.docked_width = self.width()
 
     def moveEvent(self, event):
         super().moveEvent(event)
-        if not self.is_restoring and self.isFloating():
+        if not self.is_restoring and getattr(self, '_floating_restored', False) and self.isFloating():
             self.floating_x = self.x()
             self.floating_y = self.y()
 
@@ -194,6 +195,7 @@ class Window_Mod_Statistics(QDockWidget):
         """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
         if is_floating:
             self.apply_floating_geometry()
+            self._floating_restored = True
             if sys.platform == "win32":
                 try:
                     set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
@@ -202,3 +204,5 @@ class Window_Mod_Statistics(QDockWidget):
                     set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
                 except Exception:
                     pass
+        else:
+            self._floating_restored = False

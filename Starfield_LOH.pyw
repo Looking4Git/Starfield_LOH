@@ -194,6 +194,7 @@ class StarfieldLOH(QMainWindow):
         self.main_layout.addWidget(self.content_stack)
 
         # Mod-Analyse Dock-Fenster initialisieren
+        self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
         self.dock_statistics = Window_Mod_Statistics(self)
         stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
         self.dock_statistics.load_geometry_settings(stat_cfg)
@@ -226,17 +227,19 @@ class StarfieldLOH(QMainWindow):
             currently_attached = self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
             was_attached = getattr(self, '_dock_is_attached_to_main', False)
             dock_w = self.dock_statistics.docked_width
+            separator_w = 4
+            dock_expansion = dock_w + separator_w
 
             if currently_attached and not was_attached:
                 self._dock_is_attached_to_main = True
                 # Vor dem Erweitern saubere Basisbreite des Hauptfensters sichern
                 if not hasattr(self, 'base_main_width') or self.base_main_width is None:
                     self.base_main_width = self.width()
-                self.resize(self.base_main_width + dock_w, self.height())
+                self.resize(self.base_main_width + dock_expansion, self.height())
                 self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
             elif not currently_attached and was_attached:
                 self._dock_is_attached_to_main = False
-                base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_w))
+                base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_expansion))
                 self.resize(base_w, self.height())
                 # Nachgelagert absichern, sobald Qt das Dock vollständig aus dem Layout entfernt hat
                 QTimer.singleShot(10, lambda: self.resize(base_w, self.height()))
@@ -370,7 +373,7 @@ class StarfieldLOH(QMainWindow):
                 saved_width = self.base_main_width
             else:
                 dock_w = self.dock_statistics.width() if self.dock_statistics.width() > 100 else self.dock_statistics.docked_width
-                saved_width = max(1280, self.width() - dock_w)
+                saved_width = max(1280, self.width() - (dock_w + 4))
             self.settings["window"]["width"] = saved_width
         else:
             self.settings["window"]["width"] = self.width()

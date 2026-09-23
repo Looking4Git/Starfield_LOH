@@ -78,12 +78,6 @@ class Window_Mod_Statistics(QDockWidget):
         # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
         self.min_width = 540
         self.docked_width = 540
-        self.floating_width = 640
-        self.floating_height = 760
-        self.floating_x = 300
-        self.floating_y = 200
-        self.is_restoring = False
-        self._floating_restored = False
 
         # Dunklen Titelbalken für Floating-Modus vorbereiten
         self.topLevelChanged.connect(self.on_top_level_changed)
@@ -124,27 +118,8 @@ class Window_Mod_Statistics(QDockWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if not self.is_restoring and getattr(self, '_floating_restored', False):
-            if self.isFloating():
-                if self.width() >= 300 and self.height() >= 300:
-                    self.floating_width = self.width()
-                    self.floating_height = self.height()
-        elif not self.isFloating():
-            if self.width() >= 300:
-                self.docked_width = self.width()
-
-    def moveEvent(self, event):
-        super().moveEvent(event)
-        if not self.is_restoring and getattr(self, '_floating_restored', False) and self.isFloating():
-            self.floating_x = self.x()
-            self.floating_y = self.y()
-
-    def apply_floating_geometry(self):
-        self.is_restoring = True
-        self.resize(self.floating_width, self.floating_height)
-        if self.floating_x > 0 and self.floating_y > 0:
-            self.move(self.floating_x, self.floating_y)
-        self.is_restoring = False
+        if not self.isFloating() and self.width() >= 300:
+            self.docked_width = self.width()
 
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
@@ -162,13 +137,7 @@ class Window_Mod_Statistics(QDockWidget):
     def get_geometry_settings(self) -> dict:
         return {
             "min_width": self.min_width,
-            "docked_width": self.docked_width,
-            "floating": {
-                "width": self.floating_width,
-                "height": self.floating_height,
-                "x": self.floating_x,
-                "y": self.floating_y
-            }
+            "docked_width": self.docked_width
         }
 
     def update_mod(self, mod_id: int):
@@ -193,16 +162,11 @@ class Window_Mod_Statistics(QDockWidget):
 
     def on_top_level_changed(self, is_floating: bool):
         """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
-        if is_floating:
-            self.apply_floating_geometry()
-            self._floating_restored = True
-            if sys.platform == "win32":
-                try:
-                    set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                    hwnd = self.winId().__int__()
-                    rendering_policy = ctypes.c_int(1)
-                    set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-                except Exception:
-                    pass
-        else:
-            self._floating_restored = False
+        if is_floating and sys.platform == "win32":
+            try:
+                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+                hwnd = self.winId().__int__()
+                rendering_policy = ctypes.c_int(1)
+                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
+            except Exception:
+                pass

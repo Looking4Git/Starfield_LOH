@@ -13,6 +13,7 @@ from Structure.Pages.Page_Update import Page_Update
 from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Pages.Page_Settings import Page_Settings
 from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
+from Structure.LOH_Window_Docking import LOH_DockManager
 from Structure.Paths import SETTINGS_FILE
 from Structure.Database import ensure_default_database_mode
 
@@ -193,19 +194,17 @@ class StarfieldLOH(QMainWindow):
         self.main_layout.addWidget(self.sidebar)
         self.main_layout.addWidget(self.content_stack)
 
-        # Mod-Analyse Dock-Fenster initialisieren
+        # Mod-Analyse Dock-Fenster & Dock-Manager initialisieren
         self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
         self.dock_statistics = Window_Mod_Statistics(self)
         stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
         self.dock_statistics.load_geometry_settings(stat_cfg)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
         self.dock_statistics.setVisible(False)
-        self._dock_is_attached_to_main = False
 
-        self.dock_statistics.visibilityChanged.connect(lambda v: self.sync_dock_statistics_state())
-        self.dock_statistics.topLevelChanged.connect(lambda f: self.sync_dock_statistics_state())
+        self.dock_manager = LOH_DockManager(self, self.dock_statistics)
 
-        self.page_lo.analysis_requested.connect(self.show_mod_statistics)
+        self.page_lo.analysis_requested.connect(self.dock_manager.toggle)
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
 
         self.load_stylesheet()
@@ -217,48 +216,6 @@ class StarfieldLOH(QMainWindow):
         # Unterbrochene Prozesse (z. B. unvollständiger Verzeichnisumzug) erkennen und behandeln
         from Structure.LOH_Change_Data_Path import handle_interrupted_processes
         QTimer.singleShot(100, lambda: handle_interrupted_processes(self))
-
-    def sync_dock_statistics_state(self):
-        """Synchronisiert die Breite des Hauptfensters mit dem Andockstatus der Mod-Analyse."""
-        try:
-            if not hasattr(self, 'dock_statistics') or self.dock_statistics is None:
-                return
-            
-            currently_attached = self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
-            was_attached = getattr(self, '_dock_is_attached_to_main', False)
-            dock_w = self.dock_statistics.docked_width
-            separator_w = 4
-            dock_expansion = dock_w + separator_w
-
-            if currently_attached and not was_attached:
-                self._dock_is_attached_to_main = True
-                # Vor dem Erweitern saubere Basisbreite des Hauptfensters sichern
-                if not hasattr(self, 'base_main_width') or self.base_main_width is None:
-                    self.base_main_width = self.width()
-                self.resize(self.base_main_width + dock_expansion, self.height())
-                self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
-            elif not currently_attached and was_attached:
-                self._dock_is_attached_to_main = False
-                base_w = getattr(self, 'base_main_width', max(1280, self.width() - dock_expansion))
-                self.resize(base_w, self.height())
-                # Nachgelagert absichern, sobald Qt das Dock vollständig aus dem Layout entfernt hat
-                QTimer.singleShot(10, lambda: self.resize(base_w, self.height()))
-        except RuntimeError:
-            pass
-
-    def show_mod_statistics(self, mod_id: int):
-        """Öffnet oder schließt das Mod-Analyse-Dockfenster (Toggle-Verhalten bei Klick auf Analyse)."""
-        if self.dock_statistics.isVisible():
-            self.dock_statistics.close()
-            return
-
-        if not getattr(self, '_dock_is_attached_to_main', False) and not self.dock_statistics.isFloating():
-            self.base_main_width = self.width()
-        self.dock_statistics.setVisible(True)
-        self.sync_dock_statistics_state()
-        self.dock_statistics.update_mod(mod_id)
-        self.dock_statistics.raise_()
-        self.dock_statistics.activateWindow()
 
     def on_loadorder_mod_selected(self, mod_id: int):
         """Aktualisiert das Analysefenster in Echtzeit, wenn eine neue Zeile gewählt wird."""
@@ -364,17 +321,8 @@ class StarfieldLOH(QMainWindow):
             pass
 
         # Werte in das Dictionary schreiben
-        is_dock_attached = getattr(self, '_dock_is_attached_to_main', False) or (
-            hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
-        )
-        if is_dock_attached and hasattr(self, 'dock_statistics'):
-            # Hauptfenster-Breite ohne den angedockten Bereich abspeichern
-            if hasattr(self, 'base_main_width') and self.base_main_width and self.base_main_width >= 1280:
-                saved_width = self.base_main_width
-            else:
-                dock_w = self.dock_statistics.width() if self.dock_statistics.width() > 100 else self.dock_statistics.docked_width
-                saved_width = max(1280, self.width() - (dock_w + 4))
-            self.settings["window"]["width"] = saved_width
+        if hasattr(self, 'dock_manager'):
+            self.settings["window"]["width"] = self.dock_manager.get_clean_window_width()
         else:
             self.settings["window"]["width"] = self.width()
 

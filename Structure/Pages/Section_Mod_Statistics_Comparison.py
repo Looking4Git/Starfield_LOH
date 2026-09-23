@@ -67,16 +67,27 @@ class Section_Mod_Statistics_Comparison(QWidget):
                 border-radius: 2px;
             }
         """
-        for field in [self.inp_main_name, self.inp_main_component, self.inp_comp_name, self.inp_comp_component]:
+        for field in [self.inp_main_name, self.inp_main_component, self.inp_comp_component]:
             if field:
                 field.setStyleSheet(style_readonly_field)
                 
+        style_active_field = """
+            QLineEdit {
+                background-color: #ffffff;
+                color: #000000;
+                border: 1px solid #888888;
+                padding: 4px 8px;
+                border-radius: 2px;
+            }
+        """
+        if self.inp_comp_name:
+            self.inp_comp_name.setStyleSheet(style_active_field)
+                
         style_image_box = """
             QLabel {
-                background-color: #141414;
+                background-color: transparent;
                 color: #888888;
-                border: 1px solid #333333;
-                border-radius: 3px;
+                border: none;
                 font-size: 12px;
             }
         """
@@ -86,13 +97,17 @@ class Section_Mod_Statistics_Comparison(QWidget):
             self.lbl_comp_image.setStyleSheet(style_image_box)
             
         if self.btn_select_comp:
+            self.btn_select_comp.setText("")
+            icon_add_path = os.path.join(GRAPHICS_DIR, "Icon_Add.svg")
+            if os.path.exists(icon_add_path):
+                self.btn_select_comp.setIcon(QIcon(icon_add_path))
             self.btn_select_comp.setStyleSheet("""
                 QPushButton {
                     background-color: #304C7A;
                     color: #ECECEC;
                     border: none;
                     border-radius: 2px;
-                    font-weight: bold;
+                    padding: 0px;
                     text-align: center;
                 }
                 QPushButton:hover {
@@ -213,7 +228,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
         if img_data:
             pixmap = QPixmap()
             if pixmap.loadFromData(img_data):
-                scaled = pixmap.scaled(220, 130, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                scaled = pixmap.scaled(240, 135, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 label.setPixmap(scaled)
                 label.setText("")
             else:

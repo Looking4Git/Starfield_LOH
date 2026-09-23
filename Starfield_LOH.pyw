@@ -19,6 +19,10 @@ from Structure.Database import ensure_default_database_mode
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
+    "window_mod_statistics": {
+        "docked_width": 560,
+        "floating": {"width": 640, "height": 760, "x": 300, "y": 200}
+    },
     "ui": {"sidebar_collapsed": False},
     "paths": {"starfield_data": r"E:\Steam\steamapps\common\Starfield\Data"},
     "settings": {
@@ -188,9 +192,14 @@ class StarfieldLOH(QMainWindow):
 
         # Mod-Analyse Dock-Fenster initialisieren
         self.dock_statistics = Window_Mod_Statistics(self)
+        stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
+        self.dock_statistics.load_geometry_settings(stat_cfg)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
         self.dock_statistics.setVisible(False)
-        self.dock_statistics.visibilityChanged.connect(self.on_dock_statistics_visibility_changed)
+        self._dock_is_attached_to_main = False
+
+        self.dock_statistics.visibilityChanged.connect(lambda v: self.sync_dock_statistics_state())
+        self.dock_statistics.topLevelChanged.connect(lambda f: self.sync_dock_statistics_state())
 
         self.page_lo.analysis_requested.connect(self.show_mod_statistics)
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
@@ -205,27 +214,36 @@ class StarfieldLOH(QMainWindow):
         from Structure.LOH_Change_Data_Path import handle_interrupted_processes
         QTimer.singleShot(100, lambda: handle_interrupted_processes(self))
 
-    def show_mod_statistics(self, mod_id: int):
-        """Öffnet das Mod-Analyse-Dockfenster und verbreitert das Hauptfenster bei Bedarf."""
-        was_visible = self.dock_statistics.isVisible()
-        if not was_visible and not self.dock_statistics.isFloating():
-            dock_w = 540
+    def sync_dock_statistics_state(self):
+        """Synchronisiert die Breite des Hauptfensters mit dem Andockstatus der Mod-Analyse."""
+        if not hasattr(self, 'dock_statistics'):
+            return
+        
+        currently_attached = self.dock_statistics.isVisible() and not self.dock_statistics.isFloating()
+        was_attached = getattr(self, '_dock_is_attached_to_main', False)
+        dock_w = self.dock_statistics.docked_width
+
+        if currently_attached and not was_attached:
+            self._dock_is_attached_to_main = True
             self.resize(self.width() + dock_w, self.height())
+            self.resizeDocks([self.dock_statistics], [dock_w], Qt.Orientation.Horizontal)
+        elif not currently_attached and was_attached:
+            self._dock_is_attached_to_main = False
+            new_w = max(1280, self.width() - dock_w)
+            self.resize(new_w, self.height())
+
+    def show_mod_statistics(self, mod_id: int):
+        """Öffnet das Mod-Analyse-Dockfenster und aktualisiert die Inhalte."""
         self.dock_statistics.setVisible(True)
+        self.sync_dock_statistics_state()
         self.dock_statistics.update_mod(mod_id)
         self.dock_statistics.raise_()
+        self.dock_statistics.activateWindow()
 
     def on_loadorder_mod_selected(self, mod_id: int):
         """Aktualisiert das Analysefenster in Echtzeit, wenn eine neue Zeile gewählt wird."""
         if hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible():
             self.dock_statistics.update_mod(mod_id)
-
-    def on_dock_statistics_visibility_changed(self, visible: bool):
-        """Stellt die Hauptfensterbreite wieder her, wenn das angedockte Fenster geschlossen wird."""
-        if not visible and hasattr(self, 'dock_statistics') and not self.dock_statistics.isFloating():
-            if self.width() > 1280:
-                new_w = max(1280, self.width() - 540)
-                self.resize(new_w, self.height())
 
     def mark_data_changed(self):
         """Setzt die Update-Flags für alle datenabhängigen Seiten."""
@@ -326,11 +344,19 @@ class StarfieldLOH(QMainWindow):
             pass
 
         # Werte in das Dictionary schreiben
-        self.settings["window"]["width"] = self.width()
+        if hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible() and not self.dock_statistics.isFloating():
+            # Hauptfenster-Breite ohne den angedockten Bereich abspeichern
+            base_w = max(1280, self.width() - self.dock_statistics.docked_width)
+            self.settings["window"]["width"] = base_w
+        else:
+            self.settings["window"]["width"] = self.width()
+
         self.settings["window"]["height"] = self.height()
         self.settings["window"]["x"] = self.x()
         self.settings["window"]["y"] = self.y()
         self.settings["ui"]["sidebar_collapsed"] = self.sidebar_collapsed
+        if hasattr(self, 'dock_statistics'):
+            self.settings["window_mod_statistics"] = self.dock_statistics.get_geometry_settings()
         
         self.save_settings()
         event.accept()
@@ -370,7 +396,7 @@ class StarfieldLOH(QMainWindow):
             except Exception:
                 pass
         
-        # Main window only updates its own settings ("window" and "ui")
+        # Main window only updates its own settings ("window", "ui", "window_mod_statistics")
         if "window" not in loaded:
             loaded["window"] = {}
         loaded["window"] = {**loaded["window"], **self.settings.get("window", {})}
@@ -378,6 +404,10 @@ class StarfieldLOH(QMainWindow):
         if "ui" not in loaded:
             loaded["ui"] = {}
         loaded["ui"] = {**loaded["ui"], **self.settings.get("ui", {})}
+
+        if "window_mod_statistics" not in loaded:
+            loaded["window_mod_statistics"] = {}
+        loaded["window_mod_statistics"] = {**loaded["window_mod_statistics"], **self.settings.get("window_mod_statistics", {})}
                 
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(loaded, f, indent=2)

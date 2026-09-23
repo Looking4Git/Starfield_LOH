@@ -48,6 +48,8 @@ class Window_Mod_Statistics(QDockWidget):
 
         # 2. Sections instanziieren und einbetten
         self.sections_layout = self.content_widget.findChild(QVBoxLayout, "sections_layout")
+        if self.sections_layout:
+            self.sections_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.bottom_spacer = self.content_widget.findChild(QSpacerItem, "bottom_spacer")
 
         self.sec_comparison = Section_Mod_Statistics_Comparison(self)
@@ -70,6 +72,14 @@ class Window_Mod_Statistics(QDockWidget):
         for cs in [self.cs_comparison, self.cs_category, self.cs_classification, self.cs_content, self.cs_conflicts]:
             self.sections_layout.insertWidget(insert_idx, cs)
             insert_idx += 1
+
+        # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
+        self.docked_width = 560
+        self.floating_width = 640
+        self.floating_height = 760
+        self.floating_x = 300
+        self.floating_y = 200
+        self.is_restoring = False
 
         # Dunklen Titelbalken für Floating-Modus vorbereiten
         self.topLevelChanged.connect(self.on_top_level_changed)
@@ -107,6 +117,52 @@ class Window_Mod_Statistics(QDockWidget):
             }
         """)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not self.is_restoring:
+            if self.isFloating():
+                if self.width() >= 300 and self.height() >= 300:
+                    self.floating_width = self.width()
+                    self.floating_height = self.height()
+            else:
+                if self.width() >= 300:
+                    self.docked_width = self.width()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        if not self.is_restoring and self.isFloating():
+            self.floating_x = self.x()
+            self.floating_y = self.y()
+
+    def apply_floating_geometry(self):
+        self.is_restoring = True
+        self.resize(self.floating_width, self.floating_height)
+        if self.floating_x > 0 and self.floating_y > 0:
+            self.move(self.floating_x, self.floating_y)
+        self.is_restoring = False
+
+    def load_geometry_settings(self, cfg: dict):
+        if not cfg or not isinstance(cfg, dict):
+            return
+        self.docked_width = cfg.get("docked_width", 560)
+        floating = cfg.get("floating", {})
+        if isinstance(floating, dict):
+            self.floating_width = floating.get("width", 640)
+            self.floating_height = floating.get("height", 760)
+            self.floating_x = floating.get("x", 300)
+            self.floating_y = floating.get("y", 200)
+
+    def get_geometry_settings(self) -> dict:
+        return {
+            "docked_width": self.docked_width,
+            "floating": {
+                "width": self.floating_width,
+                "height": self.floating_height,
+                "x": self.floating_x,
+                "y": self.floating_y
+            }
+        }
+
     def update_mod(self, mod_id: int):
         """Aktualisiert alle aktiven Abschnitte für die gewählte Mod."""
         self.current_mod_id = mod_id
@@ -129,11 +185,13 @@ class Window_Mod_Statistics(QDockWidget):
 
     def on_top_level_changed(self, is_floating: bool):
         """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
-        if is_floating and sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
+        if is_floating:
+            self.apply_floating_geometry()
+            if sys.platform == "win32":
+                try:
+                    set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+                    hwnd = self.winId().__int__()
+                    rendering_policy = ctypes.c_int(1)
+                    set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
+                except Exception:
+                    pass

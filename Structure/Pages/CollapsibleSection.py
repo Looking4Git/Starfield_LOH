@@ -18,8 +18,9 @@ class CollapsibleSection(QWidget):
         self.content_widget = content_widget
         
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 8)
+        self.main_layout.setContentsMargins(0, 0, 0, 4)
         self.main_layout.setSpacing(4)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         
         # 1. Klickbare Header-Schaltfläche
         self.header_btn = QPushButton()
@@ -63,7 +64,7 @@ class CollapsibleSection(QWidget):
         
         # 2. Inhalts-Container
         self.content_container = QWidget()
-        self.content_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.content_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         self.content_layout = QVBoxLayout(self.content_container)
         self.content_layout.setContentsMargins(4, 4, 4, 4)
         self.content_layout.setSpacing(0)

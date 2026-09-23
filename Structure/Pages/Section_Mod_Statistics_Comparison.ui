@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>500</width>
-    <height>280</height>
+    <height>250</height>
    </rect>
   </property>
   <layout class="QHBoxLayout" name="main_layout">
@@ -73,39 +73,56 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="lbl_main_image">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>130</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>160</height>
-         </size>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignmentFlag::AlignCenter</set>
-        </property>
-        <property name="text">
-         <string>Kein Bild vorhanden</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="spacer_main">
-        <property name="orientation">
-         <enum>Qt::Orientation::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>10</height>
-         </size>
-        </property>
-       </spacer>
+       <layout class="QHBoxLayout" name="layout_main_img_center">
+        <item>
+         <spacer name="spacer_img_main_l">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_main_image">
+          <property name="minimumSize">
+           <size>
+            <width>240</width>
+            <height>135</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>240</width>
+            <height>135</height>
+           </size>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+          <property name="text">
+           <string>Kein Bild vorhanden</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer_img_main_r">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
@@ -175,7 +192,11 @@
            <string>Vergleichsmod auswählen</string>
           </property>
           <property name="text">
-           <string>...</string>
+           <string/>
+          </property>
+          <property name="icon">
+           <iconset>
+            <normaloff>Graphics/Icon_Add.svg</normaloff>Graphics/Icon_Add.svg</iconset>
           </property>
          </widget>
         </item>
@@ -196,39 +217,56 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="lbl_comp_image">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>130</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>160</height>
-         </size>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignmentFlag::AlignCenter</set>
-        </property>
-        <property name="text">
-         <string>Keine Vergleichsmod gewählt</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="spacer_comp">
-        <property name="orientation">
-         <enum>Qt::Orientation::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>10</height>
-         </size>
-        </property>
-       </spacer>
+       <layout class="QHBoxLayout" name="layout_comp_img_center">
+        <item>
+         <spacer name="spacer_img_comp_l">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_comp_image">
+          <property name="minimumSize">
+           <size>
+            <width>240</width>
+            <height>135</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>240</width>
+            <height>135</height>
+           </size>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+          <property name="text">
+           <string>Keine Vergleichsmod gewählt</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer_img_comp_r">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

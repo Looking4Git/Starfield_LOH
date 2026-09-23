@@ -68,6 +68,10 @@ Die Hauptmasken folgen dem dreiteiligen Aufbau:
   * Farbe: Starfield Blau (`#304C7A`)
   * Feste Höhe: 4px (`min-height: 4px; max-height: 4px; height: 4px;`)
   * Rahmen: `none`
+* **Verschiebbare Docking-Trennkante (`QMainWindow::separator`):**
+  * Ruhezustand: Dezent dunkel (`background-color: #1a1a1a; width: 4px;`).
+  * Hover-Zustand (`:hover`): Starfield Blau (`background-color: #304C7A;`). Signalisiert beim Überfahren mit der Maus sofort und eindeutig die Verschiebbarkeit des angedockten Bereiches.
+
 
 ---
 

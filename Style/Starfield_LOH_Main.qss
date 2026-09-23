@@ -47,3 +47,15 @@ QPushButton#menu_button[active="true"] {
 QPushButton#menu_button[active="true"] QLabel {
     color: #ECECEC;
 }
+
+/* Trennkante zwischen Hauptfenster und angedockten Fenstern */
+QMainWindow::separator {
+    background-color: #1a1a1a;
+    width: 4px;
+    margin: 0px;
+    padding: 0px;
+}
+
+QMainWindow::separator:hover {
+    background-color: #304C7A; /* Starfield Blau als klarer visueller Anker */
+}

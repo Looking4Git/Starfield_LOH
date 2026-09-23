@@ -31,7 +31,8 @@ class Window_Mod_Statistics(QDockWidget):
         self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
                          QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
                          QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.setMinimumWidth(540)
+        self.min_width = 540
+        self.setMinimumWidth(self.min_width)
         
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Diagram.svg")
         if os.path.exists(icon_path):
@@ -75,6 +76,7 @@ class Window_Mod_Statistics(QDockWidget):
             insert_idx += 1
 
         # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
+        self.min_width = 540
         self.docked_width = 540
         self.floating_width = 640
         self.floating_height = 760
@@ -146,7 +148,9 @@ class Window_Mod_Statistics(QDockWidget):
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.docked_width = cfg.get("docked_width", 540)
+        self.min_width = cfg.get("min_width", 540)
+        self.setMinimumWidth(self.min_width)
+        self.docked_width = max(self.min_width, cfg.get("docked_width", 540))
         floating = cfg.get("floating", {})
         if isinstance(floating, dict):
             self.floating_width = floating.get("width", 640)
@@ -156,6 +160,7 @@ class Window_Mod_Statistics(QDockWidget):
 
     def get_geometry_settings(self) -> dict:
         return {
+            "min_width": self.min_width,
             "docked_width": self.docked_width,
             "floating": {
                 "width": self.floating_width,

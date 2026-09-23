@@ -53,9 +53,11 @@ CREATE TABLE Mods_Conflicts (
     Reason            TEXT,
     ID_Mod_Requirement INTEGER,
     ID_Mod_Dependent   INTEGER,
+    Conflict_Solution_Type_ID INTEGER,
     PRIMARY KEY (Component_ID_A, Component_ID_B, FormID, Sig)
 );
 CREATE INDEX IF NOT EXISTS idx_mods_conflicts_comp ON Mods_Conflicts (Component_ID_A, Component_ID_B);
+CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sol_type ON Mods_Conflicts (Conflict_Solution_Type_ID);
 ```
 
 ### Spaltenbeschreibung:
@@ -76,6 +78,16 @@ CREATE INDEX IF NOT EXISTS idx_mods_conflicts_comp ON Mods_Conflicts (Component_
 | **`Reason`** | `TEXT` | Ausführliche Begründung der Einstufung. |
 | **`ID_Mod_Requirement`** | `INTEGER` | Mod-ID derjenigen Mod, die in der Ladereihenfolge ZUERST geladen werden muss (z. B. Resave-Mod). |
 | **`ID_Mod_Dependent`** | `INTEGER` | Mod-ID derjenigen Mod, die in der Ladereihenfolge DANACH geladen werden muss (z. B. Bau-Mod mit intaktem NavMesh). |
+| **`Conflict_Solution_Type_ID`** | `INTEGER` | Verweis auf `Conflict_Solution_Types(ID)` zur Einstufung der Lösungs-Güte (`1` = Sicher, `2` = Empfohlen, `3` = Optional). |
+
+### 3.1 Stammdatentabelle `Conflict_Solution_Types`
+Die Tabelle `Conflict_Solution_Types` definiert die Verbindlichkeit bzw. Belastbarkeit einer über Ladereihenfolge-Regeln aufgelösten Konfliktsituation:
+
+| ID | Name | Beschreibung / Spielauswirkung | Farbmarkierung in LoadOrder |
+| :--- | :--- | :--- | :--- |
+| `1` | **Sicher** | Der Konflikt wird durch die korrekte Ladereihenfolge (z. B. asymmetrisches NavMesh in Schritt 7 oder REFR Delete-vs-Disable in Schritt 8.2) technisch vollständig und sicher behoben. | **Grün (`#1F7343`)** |
+| `2` | **Empfohlen** | Unterstützende Sortierempfehlung (z. B. Global vs. Lokal), die das Spielerlebnis spürbar verbessert. | **Grün (`#1F7343`)** |
+| `3` | **Optional** | Optionale Priorisierung für Feinabstimmungen ohne akute Absturzgefahr. | **Grün (`#1F7343`)** |
 
 ---
 
@@ -310,6 +322,15 @@ GROUP BY mc.ID_Mod_Requirement, mc.ID_Mod_Dependent;
 ### Funktionsweise im `LoadOrder_Sorter`:
 1. **DAG-Kanten (Directed Acyclic Graph):** Jede Zeile mit gesetztem `ID_Mod_Requirement` und `ID_Mod_Dependent` definiert eine zwingende Kante `(ID_Mod_Requirement -> ID_Mod_Dependent)`.
 2. **Topologische Sortierung:** Der Sortieralgorithmus platziert die Voraussetzungs- oder Resave-Mod (`ID_Mod_Requirement`) zwingend vor der abhängigen Mod bzw. Bau-Mod (`ID_Mod_Dependent`).
+3. **Dynamische Zeilenmarkierung auf `Page_LoadOrder`:**
+   Die Tabelle `Mods_Conflicts` steuert über die Funktion `get_mod_conflicts_for_ui(mod_id)` die dynamische Zeilenmarkierung in der Ladereihenfolge. Im Modus **„Konflikte“** gilt die **Worst-Case-Kaskade**:
+   * **Typ 3 ungelöst:** **Rot (`#C72138`)**
+   * **Typ 2 ungelöst:** **Orange (`#E06236`)**
+   * **Typ 1 ungelöst:** **Gelb (`#D7A64B`)**
+   * **Empfohlen / Optional / Behoben (`Conflict_Solution_Type_ID IN (1, 2, 3)`):** **Grün (`#1F7343`)**
+   * **Typ 0 (Mitläufer):** Keine farbliche Markierung (neutral).
+   * Bei mehreren Konflikten zwischen zwei Mods bestimmt stets der schwerste Konflikt die Zeilenfarbe.
+4. **Modus „Kombiniert“:** Voraussetzungen (**Rot**) und Abhängigkeiten (**Grün**) haben Vorrang vor Konflikten (**Gelb**).
 3. **Automatische Konfliktvermeidung:** 
    - **Wegfindung (Schritt 7):** Verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören.
    - **Geländebereinigung & Architektur (Schritt 8):** Verhindert Null-Pointer-Glitches und CTDs bei `Delete vs. Disable`-Kollisionen, indem die sicher ausblendende Mod (`Initially Disabled` / `XESP`) zwingend nach der physisch löschenden Mod (`Deleted`) geladen wird.

@@ -60,17 +60,30 @@ Die Hauptmasken folgen dem dreiteiligen Aufbau:
 
 ## 3. Überschriften & Trennlinien (Sektionen)
 
-* **Sektions-Überschriften (`QLabel`):**
-  * Farbe: Starfield Gelb (`#D7A64B`)
-  * Typografie: 16px, Fettschrift (`font-weight: bold`)
-  * Abstände: oben 4px, unten 2px
-* **Sektions-Trennlinien (`QFrame` mit HLine):**
-  * Farbe: Starfield Blau (`#304C7A`)
-  * Feste Höhe: 4px (`min-height: 4px; max-height: 4px; height: 4px;`)
-  * Rahmen: `none`
-* **Verschiebbare Docking-Trennkante (`QMainWindow::separator`):**
-  * Ruhezustand: Dezent dunkel (`background-color: #1a1a1a; width: 4px;`).
-  * Hover-Zustand (`:hover`): Starfield Blau (`background-color: #304C7A;`). Signalisiert beim Überfahren mit der Maus sofort und eindeutig die Verschiebbarkeit des angedockten Bereiches.
+Zur optischen Gliederung des Detailbereichs und modularer Formulare werden standardisierte Sektions-Überschriften und akzentuierte Trennlinien eingesetzt:
+
+### A. Sektions-Überschriften (`QLabel`)
+* **Optik & Typografie:**
+  * Farbe: **Starfield Gelb / Gold (`#D7A64B`)**
+  * Schriftgröße: `16px`, Fettschrift (`font-weight: bold`)
+  * Abstände: `margin-top: 4px; margin-bottom: 2px;`
+* **Namenskonvention & QSS-Verknüpfung:**
+  * Sektions-Labels müssen im Stylesheet (`Style/Starfield_LOH_Pages.qss`) über ihren `objectName` referenziert werden (z. B. `lbl_display_section`, `lbl_filter`, `lbl_details`, `lbl_sorter_section`).
+  * Bei der Neuanlage von Sektionen in `.ui`-Dateien oder im Code ist sicherzustellen, dass der `objectName` des Labels in den zentralen QSS-Selektor aufgenommen wird, um das einheitliche Gold-Design automatisch zu erhalten.
+
+### B. Sektions-Trennlinien (`QFrame` mit HLine)
+* **Optik & Abmessungen:**
+  * Farbe: **Starfield Blau (`#304C7A`)**
+  * Feste Höhe: Exakt `4px` (`min-height: 4px; max-height: 4px; height: 4px;`)
+  * Rahmen: Keiner (`border: none;`)
+* **Namenskonvention & QSS-Verknüpfung:**
+  * Trennlinien werden als `QFrame` mit gesetzter HLine (`Shape::HLine`) angelegt.
+  * Der `objectName` muss im Stylesheet (`Style/Starfield_LOH_Pages.qss`) registriert sein (z. B. `display_separator`, `detail_separator`, `sorter_separator`).
+  * Dadurch wird der native, graue Qt-Sunken-Rahmen durch den durchgezogenen, 4px hohen Starfield-Blau-Akzentbalken ersetzt.
+
+### C. Verschiebbare Docking-Trennkante (`QMainWindow::separator`)
+* Ruhezustand: Dezent dunkel (`background-color: #1a1a1a; width: 4px;`).
+* Hover-Zustand (`:hover`): Starfield Blau (`background-color: #304C7A;`). Signalisiert beim Überfahren mit der Maus sofort und eindeutig die Verschiebbarkeit des angedockten Bereiches.
 
 
 ---

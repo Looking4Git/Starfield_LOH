@@ -49,6 +49,53 @@ def ensure_default_database_mode() -> None:
         conn.close()
     except Exception as e:
         logging.warning(f"ensure_default_database_mode fehlgeschlagen: {e}")
+    ensure_conflict_solution_types_schema()
+
+def ensure_conflict_solution_types_schema(conn: sqlite3.Connection = None) -> None:
+    """Stellt sicher, dass die Stammdatentabelle Conflict_Solution_Types und die Spalte Conflict_Solution_Type_ID existieren."""
+    close_after = False
+    if conn is None:
+        if not os.path.exists(DB_FILE):
+            return
+        conn = sqlite3.connect(DB_FILE)
+        close_after = True
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Conflict_Solution_Types (
+                ID INTEGER PRIMARY KEY,
+                Name TEXT NOT NULL
+            );
+        """)
+        cur.executemany("""
+            INSERT OR IGNORE INTO Conflict_Solution_Types (ID, Name) VALUES (?, ?);
+        """, [(1, 'Sicher'), (2, 'Empfohlen'), (3, 'Optional')])
+
+        cur.execute("PRAGMA table_info(Mods_Conflicts);")
+        cols = [r[1] for r in cur.fetchall()]
+        if cols and "Conflict_Solution_Type_ID" not in cols:
+            cur.execute("""
+                ALTER TABLE Mods_Conflicts 
+                ADD COLUMN Conflict_Solution_Type_ID INTEGER REFERENCES Conflict_Solution_Types(ID);
+            """)
+            cur.execute("""
+                UPDATE Mods_Conflicts
+                SET Conflict_Solution_Type_ID = 1
+                WHERE ID_Mod_Requirement IS NOT NULL;
+            """)
+            conn.commit()
+        elif cols:
+            cur.execute("""
+                UPDATE Mods_Conflicts
+                SET Conflict_Solution_Type_ID = 1
+                WHERE ID_Mod_Requirement IS NOT NULL AND Conflict_Solution_Type_ID IS NULL;
+            """)
+            conn.commit()
+    except Exception as e:
+        logging.error(f"Fehler in ensure_conflict_solution_types_schema: {e}")
+    finally:
+        if close_after and conn:
+            conn.close()
 
 def enable_db_performance_mode(conn: sqlite3.Connection) -> None:
     """Aktiviert temporär den WAL-Modus und lockert synchronous für schnelle Massenoperationen."""
@@ -435,6 +482,78 @@ def get_mod_dependencies_for_ui(mod_id: int) -> list[dict]:
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_mod_dependencies_for_ui für Mod_ID {mod_id}: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_mod_conflicts_for_ui(mod_id: int) -> dict[int, str]:
+    """
+    Ermittelt alle Konflikte (Conflict_Type > 0) für ein Mod nach dem Worst-Case-Prinzip.
+    Gibt ein Dict {other_mod_id: 'rot' | 'orange' | 'gelb' | 'gruen'} zurück.
+      - 'rot': Typ 3 ungelöst (Kritischer Konflikt)
+      - 'orange': Typ 2 ungelöst (Wirkungskonflikt)
+      - 'gelb': Typ 1 ungelöst (Leichter Konflikt)
+      - 'gruen': Empfohlen / Optional / Behoben (Lösungs-Typ 1, 2 oder 3)
+    """
+    query = """
+        SELECT 
+            CASE WHEN Mod_ID_A = :mod_id THEN Mod_ID_B ELSE Mod_ID_A END AS other_mod_id,
+            Conflict_Type,
+            Conflict_Solution_Type_ID
+        FROM Mods_Conflicts
+        WHERE (Mod_ID_A = :mod_id OR Mod_ID_B = :mod_id)
+          AND Conflict_Type > 0
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(query, {"mod_id": mod_id})
+        rows = cur.fetchall()
+
+        from collections import defaultdict
+        mod_conflicts = defaultdict(list)
+        for r in rows:
+            other_id = r[0]
+            c_type = r[1]
+            sol_id = r[2]
+            mod_conflicts[other_id].append((c_type, sol_id))
+
+        result = {}
+        for other_id, conf_list in mod_conflicts.items():
+            # Rangordnung der Schwere (Worst-Case):
+            # 4: Rot (Typ 3 ungelöst)
+            # 3: Orange (Typ 2 ungelöst)
+            # 2: Gelb (Typ 1 ungelöst)
+            # 1: Grün (Empfohlen / Optional / Behoben -> sol_id in (1, 2, 3))
+            worst_rank = 0
+            for c_type, sol_id in conf_list:
+                if sol_id in (1, 2, 3):
+                    rank = 1
+                elif c_type == 3:
+                    rank = 4
+                elif c_type == 2:
+                    rank = 3
+                elif c_type == 1:
+                    rank = 2
+                else:
+                    rank = 1
+                if rank > worst_rank:
+                    worst_rank = rank
+
+            rank_to_color = {
+                4: "rot",
+                3: "orange",
+                2: "gelb",
+                1: "gruen"
+            }
+            result[other_id] = rank_to_color.get(worst_rank, "gruen")
+
+        return result
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_mod_conflicts_for_ui für Mod_ID {mod_id}: {e}")
+        return {}
     finally:
         if conn:
             conn.close()

@@ -16,7 +16,7 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
                                  apply_all_classifier_categories, get_script_last_execution,
                                  apply_sorter_to_profile, apply_sorter_to_all_profiles,
-                                 has_sorter_results)
+                                 has_sorter_results, get_mod_conflicts_for_ui)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
@@ -252,7 +252,16 @@ class Page_LoadOrder(QWidget):
         self.tree_profile.setModel(self.profile_model)
         self.tree_profile.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.tree_profile.selectionModel().selectionChanged.connect(self.on_profile_selected)
-        
+
+        # Anzeige-Bereich (Dynamik)
+        self.lbl_display_section = ui.findChild(QLabel, "lbl_display_section")
+        self.lbl_dynamic_label = ui.findChild(QLabel, "lbl_dynamic_label")
+        self.cmb_dynamic_mode = ui.findChild(QComboBox, "cmb_dynamic_mode")
+        self.display_separator = ui.findChild(QFrame, "display_separator")
+        if self.cmb_dynamic_mode:
+            self.cmb_dynamic_mode.setCurrentIndex(0)
+            self.cmb_dynamic_mode.currentIndexChanged.connect(self.on_dynamic_mode_changed)
+
         self.lbl_filter = ui.findChild(QLabel, "lbl_filter")
         self.lbl_details = ui.findChild(QLabel, "lbl_details")
         self.detail_separator = ui.findChild(QFrame, "detail_separator")
@@ -987,7 +996,7 @@ class Page_LoadOrder(QWidget):
             dep_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
 
         # Farbliche Hervorhebung in der LoadOrder-Tabelle aktualisieren
-        self.highlight_requirements_and_dependencies(requirements, dependencies)
+        self.update_table_highlights()
             
         if hasattr(self, 'btn_add_requirement') and self.btn_add_requirement:
             self.btn_add_requirement.setEnabled(True)
@@ -1527,42 +1536,117 @@ class Page_LoadOrder(QWidget):
                         cell.setData(None, Qt.ItemDataRole.ForegroundRole)
         self.highlighted_rows.clear()
 
-    def highlight_requirements_and_dependencies(self, req_list, dep_list):
-        """Markiert die Voraussetzungen rot und Abhängigkeiten gelb in der LoadOrder-Tabelle."""
-        # Sets für O(1) Lookup erstellen
+    def _apply_row_color(self, row, bg_color, fg_color):
+        """Färbt alle Zellen einer Tabellenzeile ein und merkt sich die Zeile zur späteren Rücksetzung."""
+        self.highlighted_rows.append(row)
+        for c in range(self.model.columnCount()):
+            item = self.model.item(row, c)
+            if item:
+                item.setData(bg_color, Qt.ItemDataRole.BackgroundRole)
+                item.setData(fg_color, Qt.ItemDataRole.ForegroundRole)
+
+    def on_dynamic_mode_changed(self, index):
+        """Reagiert auf die Umschaltung des Dynamik-Dropdowns und aktualisiert sofort die Zeilenmarkierung."""
+        self.update_table_highlights()
+
+    def update_table_highlights(self):
+        """Aktualisiert die farbliche Hervorhebung der Tabelle basierend auf dem gewählten Dynamik-Modus."""
+        self.clear_table_highlights()
+
+        if not self.current_mod_id:
+            return
+
+        mode = "Abhängigkeiten"
+        if hasattr(self, 'cmb_dynamic_mode') and self.cmb_dynamic_mode:
+            mode = self.cmb_dynamic_mode.currentText()
+
+        try:
+            mod_id_int = int(self.current_mod_id)
+        except (ValueError, TypeError):
+            return
+
+        req_list = get_mod_requirements_for_ui(mod_id_int)
+        dep_list = get_mod_dependencies_for_ui(mod_id_int)
         req_ids = {int(req["ID"]) for req in req_list if "ID" in req}
         dep_ids = {int(dep["ID"]) for dep in dep_list if "ID" in dep}
 
-        if not req_ids and not dep_ids:
-            return
+        color_req = QColor("#C72138")   # Starfield Rot
+        color_dep = QColor("#1F7343")   # Starfield Grün (Deep Sci-Fi)
+        color_conflict_type3 = QColor("#C72138") # Rot (Typ 3)
+        color_conflict_type2 = QColor("#E06236") # Orange (Typ 2)
+        color_conflict_type1 = QColor("#D7A64B") # Gelb (Typ 1 oder Kombiniert)
+        color_conflict_resolved = QColor("#1F7343") # Grün (Empfohlen/Optional/Behoben)
+        color_fg = QColor("#ffffff")    # Weißer Text
 
-        for r in range(self.model.rowCount()):
-            item_pos = self.model.item(r, self.COL_POS)
-            if not item_pos:
-                continue
-            row_data = self.get_row_data(item_pos)
-            if not row_data or not row_data.get("Mod_ID"):
-                continue
+        if mode == "Abhängigkeiten":
+            if not req_ids and not dep_ids:
+                return
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, self.COL_POS)
+                if not item_pos:
+                    continue
+                row_data = self.get_row_data(item_pos)
+                if not row_data or not row_data.get("Mod_ID"):
+                    continue
+                row_mod_id = int(row_data["Mod_ID"])
+                bg_color = None
+                if row_mod_id in req_ids:
+                    bg_color = color_req
+                elif row_mod_id in dep_ids:
+                    bg_color = color_dep
+                if bg_color:
+                    self._apply_row_color(r, bg_color, color_fg)
 
-            current_row_mod_id = int(row_data["Mod_ID"])
+        elif mode == "Konflikte":
+            conflicts = get_mod_conflicts_for_ui(mod_id_int)
+            if not conflicts:
+                return
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, self.COL_POS)
+                if not item_pos:
+                    continue
+                row_data = self.get_row_data(item_pos)
+                if not row_data or not row_data.get("Mod_ID"):
+                    continue
+                row_mod_id = int(row_data["Mod_ID"])
+                if row_mod_id in conflicts:
+                    severity = conflicts[row_mod_id]
+                    if severity == "rot":
+                        bg_color = color_conflict_type3
+                    elif severity == "orange":
+                        bg_color = color_conflict_type2
+                    elif severity == "gelb":
+                        bg_color = color_conflict_type1
+                    elif severity == "gruen":
+                        bg_color = color_conflict_resolved
+                    else:
+                        bg_color = color_conflict_type2
+                    self._apply_row_color(r, bg_color, color_fg)
 
-            bg_color = None
-            fg_color = None
+        elif mode == "Kombiniert":
+            conflicts = get_mod_conflicts_for_ui(mod_id_int)
+            for r in range(self.model.rowCount()):
+                item_pos = self.model.item(r, self.COL_POS)
+                if not item_pos:
+                    continue
+                row_data = self.get_row_data(item_pos)
+                if not row_data or not row_data.get("Mod_ID"):
+                    continue
+                row_mod_id = int(row_data["Mod_ID"])
+                bg_color = None
+                # Mod-Abhängigkeiten haben Farbvorrang
+                if row_mod_id in req_ids:
+                    bg_color = color_req
+                elif row_mod_id in dep_ids:
+                    bg_color = color_dep
+                elif row_mod_id in conflicts:
+                    bg_color = color_conflict_type1  # Einheitlich Gelb (#D7A64B)
+                if bg_color:
+                    self._apply_row_color(r, bg_color, color_fg)
 
-            if current_row_mod_id in req_ids:
-                bg_color = QColor("#C72138")  # Starfield Rot
-                fg_color = QColor("#ffffff")  # Weißer Text
-            elif current_row_mod_id in dep_ids:
-                bg_color = QColor("#1F7343")  # Starfield Grün (Deep Sci-Fi)
-                fg_color = QColor("#ffffff")  # Weißer Text
-
-            if bg_color and fg_color:
-                self.highlighted_rows.append(r)
-                for c in range(self.model.columnCount()):
-                    item = self.model.item(r, c)
-                    if item:
-                        item.setData(bg_color, Qt.ItemDataRole.BackgroundRole)
-                        item.setData(fg_color, Qt.ItemDataRole.ForegroundRole)
+    def highlight_requirements_and_dependencies(self, req_list=None, dep_list=None):
+        """Aktualisiert die Tabellenmarkierungen gemäß aktuellem Dynamik-Modus."""
+        self.update_table_highlights()
 
     def validate_proposed_positions(self, proposed_list, moved_mod_id):
         """

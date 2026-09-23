@@ -206,9 +206,11 @@ QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
 #detail_view QLabel#lbl_filter,
 #detail_view QLabel#lbl_details,
 #detail_view QLabel#lbl_sorter_section,
+#detail_view QLabel#lbl_display_section,
 QLabel#lbl_filter,
 QLabel#lbl_details,
-QLabel#lbl_sorter_section {
+QLabel#lbl_sorter_section,
+QLabel#lbl_display_section {
     color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
     font-size: 16px;
     font-weight: bold;
@@ -217,7 +219,8 @@ QLabel#lbl_sorter_section {
 }
 
 QFrame#detail_separator,
-QFrame#sorter_separator {
+QFrame#sorter_separator,
+QFrame#display_separator {
     background-color: #304C7A;
     min-height: 4px;
     max-height: 4px;

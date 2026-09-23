@@ -142,7 +142,7 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
                 ID_Mod_Dependent = ?
             WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
         """, data)
-    elif sample_len >= 9:
+    elif sample_len == 9:
         data = [(step_id, step_desc, conflict_type, reason, req, dep, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, c_fid, c_edid in records]
         cur.executemany("""
             UPDATE Mods_Conflicts
@@ -152,6 +152,21 @@ def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
                 Reason = ?,
                 ID_Mod_Requirement = ?,
                 ID_Mod_Dependent = ?,
+                Cell_FormID = COALESCE(Cell_FormID, ?),
+                Cell_EDID = COALESCE(Cell_EDID, ?)
+            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
+        """, data)
+    elif sample_len >= 10:
+        data = [(step_id, step_desc, conflict_type, reason, req, dep, sol_type, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, sol_type, c_fid, c_edid in records]
+        cur.executemany("""
+            UPDATE Mods_Conflicts
+            SET Step_ID = ?,
+                Step_Description = ?,
+                Conflict_Type = ?,
+                Reason = ?,
+                ID_Mod_Requirement = ?,
+                ID_Mod_Dependent = ?,
+                Conflict_Solution_Type_ID = ?,
                 Cell_FormID = COALESCE(Cell_FormID, ?),
                 Cell_EDID = COALESCE(Cell_EDID, ?)
             WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
@@ -908,10 +923,10 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
             cnt_b = count_cell_refs(comp_id_b, cell_fid)
             if cnt_a == 0 and cnt_b == 0:
                 reason = f"Pack-In Wegfindungs-Resave{loc_str}: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn). Keine festen Weltplatzierungen; Auswirkung beschränkt sich auf das platzierte Einzelbauteil."
-                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
             else:
                 reason = f"Pack-In Layout-Konflikt{loc_str}: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf. Die spätere Mod bestimmt das NavMesh des Bauteils."
-                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
             continue
 
         # 3. Reale Weltzelle
@@ -925,7 +940,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
                 f"Gegenseitige Zerstörung des Wegnetzes."
             )
-            qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
         elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):
             # Asymmetrisch: Eine Mod baut, die andere resaved
             if cnt_a > 0:
@@ -946,7 +961,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
                     f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
                 )
-                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
             else:
                 reason = (
                     f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
@@ -955,7 +970,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
                     f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
                 )
-                qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid))
+                qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
         else:
             # Reine NavMesh-Optimierung (keine neuen Referenzen)
             reason = (
@@ -963,7 +978,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods überarbeiten das NavMesh ohne bauliche Veränderungen. "
                 f"Die spätere Mod überschreibt die Wegfindungskorrekturen der früheren Mod."
             )
-            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid))
+            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
@@ -1280,6 +1295,7 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
         if handled:
             id_req = None
             id_dep = None
+            sol_type = None
             if req_name and dep_name:
                 if req_name == name_a:
                     id_req, id_dep = mod_id_a, mod_id_b
@@ -1287,8 +1303,9 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
                     id_req, id_dep = mod_id_b, mod_id_a
                 if id_req and id_dep:
                     arbiter_refr_count += 1
+                    sol_type = 1
 
-            rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid)
+            rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, sol_type, cell_fid, cell_edid)
             if c_type == 0:
                 demoted_type_0.append(rec_tuple)
             elif c_type == 2:
@@ -1564,6 +1581,7 @@ def analyze_conflicts(db_path=None, reporter=None):
             Reason               TEXT,
             ID_Mod_Requirement   INTEGER,
             ID_Mod_Dependent     INTEGER,
+            Conflict_Solution_Type_ID INTEGER REFERENCES Conflict_Solution_Types(ID),
             PRIMARY KEY (Component_ID_A, Component_ID_B, FormID, Sig)
         );
         """)

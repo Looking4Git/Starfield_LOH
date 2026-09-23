@@ -8,7 +8,7 @@ Der Datenbank-View `View_Mods_Conflicts_Matrix` dient als zentrale Schnittstelle
 
 In der Creation Engine 2 entsteht ein Ladekonflikt, wenn zwei oder mehr verschiedene Mods denselben Datensatz aus einem gemeinsamen Masterfile (z. B. `Starfield.esm` oder einem anderen Master) überschreiben (`Is_Override = 1`). In diesem Fall gewinnt im Spiel diejenige Mod, die in der Load Order weiter unten steht (Rule of One).
 
-Der View `View_Mods_Conflicts_Matrix` aggregiert diese Überschneidungen auf Mod-Ebene und teilt sie in fachlich aussagekräftige Kategorien ein. Dies bietet dem Benutzer eine transparente Übersicht, in welchen Spielbereichen sich zwei Mods überschneiden, und liefert eine Gesamtsumme für die spätere gelbe Farbmarkierung (`#D7A64B`) in der Load Order.
+Der View `View_Mods_Conflicts_Matrix` aggregiert diese Überschneidungen auf Mod-Ebene und teilt sie in fachlich aussagekräftige Kategorien ein. Dies bietet dem Benutzer eine transparente Übersicht, in welchen Spielbereichen sich zwei Mods überschneiden, und liefert eine Gesamtsumme für die dynamische Zeilenmarkierung in der Load Order (über die Modi *Konflikte* mit Worst-Case-Farben bzw. *Kombiniert* mit gelber Markierung).
 
 ---
 

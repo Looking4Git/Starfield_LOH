@@ -12,6 +12,7 @@ from Structure.Pages.Page_LoadOrder import Page_LoadOrder
 from Structure.Pages.Page_Update import Page_Update
 from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Pages.Page_Settings import Page_Settings
+from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
 from Structure.Paths import SETTINGS_FILE
 from Structure.Database import ensure_default_database_mode
 
@@ -185,6 +186,15 @@ class StarfieldLOH(QMainWindow):
         self.main_layout.addWidget(self.sidebar)
         self.main_layout.addWidget(self.content_stack)
 
+        # Mod-Analyse Dock-Fenster initialisieren
+        self.dock_statistics = Window_Mod_Statistics(self)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
+        self.dock_statistics.setVisible(False)
+        self.dock_statistics.visibilityChanged.connect(self.on_dock_statistics_visibility_changed)
+
+        self.page_lo.analysis_requested.connect(self.show_mod_statistics)
+        self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
+
         self.load_stylesheet()
 
         self.previous_page = None
@@ -195,6 +205,27 @@ class StarfieldLOH(QMainWindow):
         from Structure.LOH_Change_Data_Path import handle_interrupted_processes
         QTimer.singleShot(100, lambda: handle_interrupted_processes(self))
 
+    def show_mod_statistics(self, mod_id: int):
+        """Öffnet das Mod-Analyse-Dockfenster und verbreitert das Hauptfenster bei Bedarf."""
+        was_visible = self.dock_statistics.isVisible()
+        if not was_visible and not self.dock_statistics.isFloating():
+            dock_w = 540
+            self.resize(self.width() + dock_w, self.height())
+        self.dock_statistics.setVisible(True)
+        self.dock_statistics.update_mod(mod_id)
+        self.dock_statistics.raise_()
+
+    def on_loadorder_mod_selected(self, mod_id: int):
+        """Aktualisiert das Analysefenster in Echtzeit, wenn eine neue Zeile gewählt wird."""
+        if hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible():
+            self.dock_statistics.update_mod(mod_id)
+
+    def on_dock_statistics_visibility_changed(self, visible: bool):
+        """Stellt die Hauptfensterbreite wieder her, wenn das angedockte Fenster geschlossen wird."""
+        if not visible and hasattr(self, 'dock_statistics') and not self.dock_statistics.isFloating():
+            if self.width() > 1280:
+                new_w = max(1280, self.width() - 540)
+                self.resize(new_w, self.height())
 
     def mark_data_changed(self):
         """Setzt die Update-Flags für alle datenabhängigen Seiten."""

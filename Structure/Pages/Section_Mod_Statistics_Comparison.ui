@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Section_Mod_Statistics_Comparison</class>
+ <widget class="QWidget" name="Section_Mod_Statistics_Comparison">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>280</height>
+   </rect>
+  </property>
+  <layout class="QHBoxLayout" name="main_layout">
+   <property name="spacing">
+    <number>12</number>
+   </property>
+   <property name="leftMargin">
+    <number>4</number>
+   </property>
+   <property name="topMargin">
+    <number>4</number>
+   </property>
+   <property name="rightMargin">
+    <number>4</number>
+   </property>
+   <property name="bottomMargin">
+    <number>4</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="col_main" native="true">
+     <layout class="QVBoxLayout" name="layout_main_col">
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="lbl_main_name_title">
+        <property name="text">
+         <string>Name:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="inp_main_name">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_main_comp_title">
+        <property name="text">
+         <string>Komponente:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="inp_main_component">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_main_image">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>130</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>160</height>
+         </size>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+        <property name="text">
+         <string>Kein Bild vorhanden</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="spacer_main">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="vertical_separator">
+     <property name="frameShape">
+      <enum>QFrame::Shape::VLine</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Shadow::Sunken</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="col_comp" native="true">
+     <layout class="QVBoxLayout" name="layout_comp_col">
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="lbl_comp_name_title">
+        <property name="text">
+         <string>Vergleichsmod:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="layout_comp_name_row">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLineEdit" name="inp_comp_name">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_select_comp">
+          <property name="minimumSize">
+           <size>
+            <width>32</width>
+            <height>28</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>32</width>
+            <height>28</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>Vergleichsmod auswählen</string>
+          </property>
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_comp_comp_title">
+        <property name="text">
+         <string>Komponente:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="inp_comp_component">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_comp_image">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>130</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>160</height>
+         </size>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+        <property name="text">
+         <string>Keine Vergleichsmod gewählt</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="spacer_comp">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

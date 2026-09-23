@@ -272,51 +272,33 @@
              </property>
             </spacer>
            </item>
+           <item>
+            <widget class="QPushButton" name="btn_analysis">
+             <property name="minimumSize">
+              <size>
+               <width>90</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>110</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Mod-Analyse und Statistiken öffnen</string>
+             </property>
+             <property name="text">
+              <string>Analyse</string>
+             </property>
+             <property name="icon">
+              <iconset>
+               <normaloff>Graphics/Icon_Diagram.svg</normaloff>Graphics/Icon_Diagram.svg</iconset>
+             </property>
+            </widget>
+           </item>
           </layout>
-         </item>
-         <item row="16" column="0">
-          <widget class="QLabel" name="lbl_creation_categories_label">
-           <property name="text">
-            <string>Creation Kat.:</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
-           </property>
-           <property name="indent">
-            <number>0</number>
-           </property>
-          </widget>
-         </item>
-         <item row="16" column="1">
-          <widget class="QTreeView" name="tree_categories_creations">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>220</width>
-             <height>140</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>140</height>
-            </size>
-           </property>
-           <property name="editTriggers">
-            <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-           </property>
-           <property name="indentation">
-            <number>0</number>
-           </property>
-           <property name="rootIsDecorated">
-            <bool>false</bool>
-           </property>
-          </widget>
          </item>
          <item row="17" column="0">
           <widget class="QLabel" name="lbl_classifier_label">

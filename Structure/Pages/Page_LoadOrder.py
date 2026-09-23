@@ -19,7 +19,7 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  has_sorter_results)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
-from Structure.Pages.Dialog_Requirement import RequirementDialog
+from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
 
@@ -137,6 +137,8 @@ class DragDropStandardItemModel(QStandardItemModel):
 
 class Page_LoadOrder(QWidget):
     data_updated = Signal()
+    analysis_requested = Signal(int)
+    mod_selected = Signal(int)
 
     COL_NEW = 0
     COL_POS = 1
@@ -292,7 +294,6 @@ class Page_LoadOrder(QWidget):
             self.btn_apply_classifier_all.clicked.connect(self.on_apply_classifier_all_clicked)
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
-        self.tree_categories_creations = ui.findChild(QTreeView, "tree_categories_creations")
         self.tree_requirements = ui.findChild(QTreeView, "tree_requirements")
         self.tree_dependencies = ui.findChild(QTreeView, "tree_dependencies")
         
@@ -308,9 +309,11 @@ class Page_LoadOrder(QWidget):
         self.btn_pos_down = ui.findChild(QPushButton, "btn_pos_down")
         if self.btn_pos_down:
             self.btn_pos_down.clicked.connect(self.on_pos_down_clicked)
+            
+        self.btn_analysis = ui.findChild(QPushButton, "btn_analysis")
+        if self.btn_analysis:
+            self.btn_analysis.clicked.connect(self.on_analysis_clicked)
         
-        if self.tree_categories_creations:
-            self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         if self.tree_requirements:
             self.tree_requirements.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         if self.tree_dependencies:
@@ -876,15 +879,6 @@ class Page_LoadOrder(QWidget):
         if hasattr(self, 'inp_position'):
             self.inp_position.clear()
         
-        if hasattr(self, 'tree_categories_creations') and self.tree_categories_creations:
-            cat_model = QStandardItemModel()
-            cat_model.setHorizontalHeaderLabels(["LOH Kategorie", "Creation Kategorie"])
-            self.tree_categories_creations.setModel(cat_model)
-            from PySide6.QtWidgets import QHeaderView
-            cat_header = self.tree_categories_creations.header()
-            cat_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            cat_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-            
         if hasattr(self, 'tree_requirements') and self.tree_requirements:
             req_model = QStandardItemModel()
             req_model.setHorizontalHeaderLabels(["Mod"])
@@ -935,6 +929,10 @@ class Page_LoadOrder(QWidget):
 
         self.current_mod_id = str(row_data["Mod_ID"])
         self.current_mod_data = row_data
+        try:
+            self.mod_selected.emit(int(self.current_mod_id))
+        except Exception:
+            pass
         self.inp_name_online.setText(row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or "")
         if hasattr(self, 'inp_position'):
             self.inp_position.setText(str(row_data.get("Position") or ""))
@@ -952,29 +950,6 @@ class Page_LoadOrder(QWidget):
         
         self.inp_note.setPlainText(row_data.get("Note") or "")
 
-        # Creation Kategorien laden und in TreeView anzeigen
-        if hasattr(self, 'tree_categories_creations') and self.tree_categories_creations:
-            cat_model = QStandardItemModel()
-            cat_model.setHorizontalHeaderLabels(["LOH Kategorie", "Creation Kategorie"])
-            
-            categories = get_creation_categories_for_ui(int(self.current_mod_id))
-            
-            for cat in categories:
-                creation_cat = cat.get('Creation_Category', '')
-                loh_cat = cat.get('LOH_Category') or '---'
-                
-                item_creation = QStandardItem(creation_cat)
-                item_loh = QStandardItem(loh_cat)
-                
-                cat_model.appendRow([item_loh, item_creation])
-                
-            self.tree_categories_creations.setModel(cat_model)
-            
-            from PySide6.QtWidgets import QHeaderView
-            cat_header = self.tree_categories_creations.header()
-            cat_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            cat_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-            
         # Voraussetzungen laden und in TreeView anzeigen
         requirements = []
         if hasattr(self, 'tree_requirements') and self.tree_requirements:
@@ -1501,8 +1476,12 @@ class Page_LoadOrder(QWidget):
         if not self.current_mod_id:
             return
             
-        dialog = RequirementDialog(self, int(self.current_mod_id))
-        if dialog.exec() == RequirementDialog.DialogCode.Accepted:
+        dialog = ModSelectionDialog(self, current_mod_id=int(self.current_mod_id),
+                                    title="Voraussetzung auswählen",
+                                    header_text="Voraussetzung auswählen",
+                                    confirm_text="Hinzufügen",
+                                    confirm_icon="Icon_Add.svg")
+        if dialog.exec() == ModSelectionDialog.DialogCode.Accepted:
             req_mod_id = dialog.get_selected_mod_id()
             if req_mod_id is not None:
                 if add_mod_requirement(int(self.current_mod_id), int(req_mod_id)):
@@ -1527,6 +1506,14 @@ class Page_LoadOrder(QWidget):
                     self.highlight_requirements_and_dependencies(requirements, dependencies)
                 else:
                     self.show_message_box("Fehler", "Die Voraussetzung konnte nicht hinzugefügt werden.", QMessageBox.Icon.Critical)
+
+    def on_analysis_clicked(self):
+        """Öffnet das Mod-Analyse-Dockfenster für die aktuelle Mod."""
+        if self.current_mod_id:
+            try:
+                self.analysis_requested.emit(int(self.current_mod_id))
+            except Exception:
+                pass
 
     def clear_table_highlights(self):
         """Setzt die Hintergrund- und Textfarben aller zuvor markierten Tabellenzeilen zurück."""

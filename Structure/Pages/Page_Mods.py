@@ -639,3 +639,28 @@ class Page_Mods(QWidget):
                     v_scrollbar.setValue(scroll_pos)
         else:
             logging.error(f"Fehler beim Speichern der Mod ID {mod_id} in der Datenbank.")
+
+    def update_category_in_memory(self, mod_id: int, category_id: int, category_name: str):
+        """Aktualisiert die Kategorie einer Mod im Speicher (Tabelle und Detail), ohne die Tabelle neu zu laden."""
+        COL_CATEGORY = 2
+        for r in range(self.model.rowCount()):
+            item_id = self.model.item(r, 0)
+            if item_id and item_id.text() == str(mod_id):
+                original_data = item_id.data(Qt.ItemDataRole.UserRole)
+                if original_data:
+                    original_data["Category_ID"] = category_id
+                    original_data["Category_LOH"] = category_id
+                    original_data["Category_Name"] = category_name
+                    item_id.setData(original_data, Qt.ItemDataRole.UserRole)
+                cat_item = self.model.item(r, COL_CATEGORY)
+                if cat_item:
+                    cat_item.setText(category_name)
+                    cat_item.setData(category_name, self.SORT_ROLE)
+
+        # Wenn diese Mod aktuell im Detailbereich ausgewählt ist, ComboBox synchronisieren
+        if self.current_mod_id and str(self.current_mod_id) == str(mod_id):
+            if self.current_mod_data:
+                self.current_mod_data["Category_ID"] = category_id
+                self.current_mod_data["Category_LOH"] = category_id
+                self.current_mod_data["Category_Name"] = category_name
+            self.set_combo_by_data(self.cmb_category, category_id)

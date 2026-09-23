@@ -3,7 +3,7 @@ import sys
 import ctypes
 from PySide6.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QScrollArea, 
                                QSpacerItem, QSizePolicy, QApplication)
-from PySide6.QtCore import Qt, QFile
+from PySide6.QtCore import Qt, QFile, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 
@@ -21,6 +21,7 @@ class Window_Mod_Statistics(QDockWidget):
     Als QDockWidget nativ an das Hauptfenster andockbar, abdockbar (Floating),
     und stufenlos in der Breite anpassbar.
     """
+    category_changed = Signal(int, int, str)
     def __init__(self, parent=None):
         super().__init__("Mod-Analyse & Statistiken", parent)
         self.setObjectName("Window_Mod_Statistics")
@@ -31,7 +32,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
                          QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
                          QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.min_width = 540
+        self.min_width = 600
         self.setMinimumWidth(self.min_width)
         
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Diagram.svg")
@@ -56,6 +57,7 @@ class Window_Mod_Statistics(QDockWidget):
 
         self.sec_comparison = Section_Mod_Statistics_Comparison(self)
         self.sec_category = Section_Mod_Statistics_Category(self)
+        self.sec_category.category_changed.connect(self.category_changed.emit)
         self.sec_classification = Section_Mod_Statistics_Classification(self)
         self.sec_content = Section_Mod_Statistics_Content(self)
         self.sec_conflicts = Section_Mod_Statistics_Conflicts(self)
@@ -75,9 +77,17 @@ class Window_Mod_Statistics(QDockWidget):
             self.sections_layout.insertWidget(insert_idx, cs)
             insert_idx += 1
 
+        # 3. ScrollArea & Rollbalkenbereich (Gutter) konfigurieren
+        self.scroll_area = self.content_widget.findChild(QScrollArea, "scroll_area")
+        if self.scroll_area:
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            vsb = self.scroll_area.verticalScrollBar()
+            vsb.rangeChanged.connect(self.update_scrollbar_visibility)
+            self.update_scrollbar_visibility(vsb.minimum(), vsb.maximum())
+
         # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
-        self.min_width = 540
-        self.docked_width = 540
+        self.min_width = 600
+        self.docked_width = 600
 
         # Dunklen Titelbalken für Floating-Modus vorbereiten
         self.topLevelChanged.connect(self.on_top_level_changed)
@@ -121,12 +131,21 @@ class Window_Mod_Statistics(QDockWidget):
         if not self.isFloating() and self.width() >= 300:
             self.docked_width = self.width()
 
+    def update_scrollbar_visibility(self, min_val, max_val):
+        if not hasattr(self, 'scroll_area') or not self.scroll_area:
+            return
+        vsb = self.scroll_area.verticalScrollBar()
+        needed = min_val < max_val
+        vsb.setProperty("needed", needed)
+        vsb.style().unpolish(vsb)
+        vsb.style().polish(vsb)
+
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.min_width = cfg.get("min_width", 540)
+        self.min_width = max(600, cfg.get("min_width", 600))
         self.setMinimumWidth(self.min_width)
-        self.docked_width = max(self.min_width, cfg.get("docked_width", 540))
+        self.docked_width = max(self.min_width, cfg.get("docked_width", 600))
         floating = cfg.get("floating", {})
         if isinstance(floating, dict):
             self.floating_width = floating.get("width", 640)

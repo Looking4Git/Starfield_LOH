@@ -21,8 +21,8 @@ DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
     "window_mod_statistics": {
-        "min_width": 540,
-        "docked_width": 540,
+        "min_width": 600,
+        "docked_width": 600,
         "floating": {"width": 640, "height": 760, "x": 300, "y": 200}
     },
     "ui": {"sidebar_collapsed": False},
@@ -206,6 +206,7 @@ class StarfieldLOH(QMainWindow):
 
         self.page_lo.analysis_requested.connect(self.dock_manager.toggle)
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
+        self.dock_statistics.category_changed.connect(self.on_mod_category_changed)
 
         self.load_stylesheet()
 
@@ -221,6 +222,14 @@ class StarfieldLOH(QMainWindow):
         """Aktualisiert das Analysefenster in Echtzeit, wenn eine neue Zeile gewählt wird."""
         if hasattr(self, 'dock_statistics') and self.dock_statistics.isVisible():
             self.dock_statistics.update_mod(mod_id)
+
+    def on_mod_category_changed(self, mod_id: int, category_id: int, category_name: str):
+        """Aktualisiert Tabellen- und Detaildaten in Page_LoadOrder und Page_Mods nach Änderung im Analysefenster."""
+        if hasattr(self, 'page_lo'):
+            self.page_lo.update_category_in_memory(mod_id, category_id, category_name)
+        if hasattr(self, 'page_mods'):
+            self.page_mods.update_category_in_memory(mod_id, category_id, category_name)
+        self.mark_data_changed()
 
     def mark_data_changed(self):
         """Setzt die Update-Flags für alle datenabhängigen Seiten."""

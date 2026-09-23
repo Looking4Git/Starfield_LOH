@@ -9,6 +9,7 @@ from Structure.Starfield_LoadOrder_Check import run_load_order_check
 from Structure.Bethesda_Fetch import run_fetch
 from Structure.Mods_Conflicts_Analyzer import analyze_conflicts
 from Structure.Nexus_Fetch import run_nexus_fetch
+from Structure.LOOT_Fetch import run_loot_fetch
 from Structure.Category_LOH_Classifier import run_classifier
 from Structure.LoadOrder_Sorter import run_load_order_sorter, start_sorter_pre_checks
 from Structure.Pages.Widget_LogConsole import Widget_LogConsole
@@ -64,6 +65,13 @@ class Page_Tools(QWidget):
         self.btn_nexus_fetch.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_nexus_fetch.clicked.connect(self.start_nexus_fetch)
         self.layout.addWidget(self.btn_nexus_fetch)
+
+        # Button für den Fetch (LOOT)
+        self.btn_loot_fetch = QPushButton("LOOT Masterlist abrufen & Kategorien abgleichen (Online LOOT Fetch)")
+        self.btn_loot_fetch.setMinimumHeight(40)
+        self.btn_loot_fetch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_loot_fetch.clicked.connect(self.start_loot_fetch)
+        self.layout.addWidget(self.btn_loot_fetch)
 
         # Button für den Kategorisierer
         self.btn_classifier = QPushButton("Kategorie-Kategorisierer (Category LOH Classifier) ausführen")
@@ -139,6 +147,15 @@ class Page_Tools(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
+    def start_loot_fetch(self):
+        self.set_buttons_enabled(False)
+        self.log_console.clear()
+        
+        self.worker = TaskWorker(run_loot_fetch, start_message="Thread gestartet: LOOT Masterlist Fetch...")
+        self.worker.log_signal.connect(self.log_console.append_log)
+        self.worker.finished_signal.connect(self.process_finished)
+        self.worker.start()
+
     def start_classifier(self):
         self.set_buttons_enabled(False)
         self.log_console.clear()
@@ -207,6 +224,7 @@ class Page_Tools(QWidget):
         self.btn_load_order_check.setEnabled(enabled)
         self.btn_fetch.setEnabled(enabled)
         self.btn_nexus_fetch.setEnabled(enabled)
+        self.btn_loot_fetch.setEnabled(enabled)
         self.btn_classifier.setEnabled(enabled)
         self.btn_conflict_check.setEnabled(enabled)
         self.btn_load_order_sorter.setEnabled(enabled)

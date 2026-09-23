@@ -1233,13 +1233,16 @@ class Page_LoadOrder(QWidget):
                         original_data["Category_ID"] = category_id
                         original_data["Note"] = note
                         
-                        # Update category name in table column 4
+                        # Update category name in table column COL_CATEGORY
                         cat_name = ""
                         for i in range(self.cmb_category.count()):
                             if self.cmb_category.itemData(i) == category_id:
                                 cat_name = self.cmb_category.itemText(i)
                                 break
-                        self.model.item(target_row, 4).setText(cat_name)
+                        cat_item = self.model.item(target_row, self.COL_CATEGORY)
+                        if cat_item:
+                            cat_item.setText(cat_name)
+                            cat_item.setData(cat_name, self.SORT_ROLE)
                         
                         self.set_row_data(item, original_data)
                         
@@ -1278,6 +1281,33 @@ class Page_LoadOrder(QWidget):
         elif not success:
             logging.error(f"Fehler beim Speichern der Mod ID {mod_id} in der Datenbank.")
             return False
+
+        return True
+
+    def update_category_in_memory(self, mod_id: int, category_id: int, category_name: str):
+        """Aktualisiert die Kategorie einer Mod im Speicher (Tabelle und Detail), ohne die Tabelle neu zu laden."""
+        for r in range(self.model.rowCount()):
+            item_pos = self.model.item(r, self.COL_POS)
+            if item_pos:
+                row_data = self.get_row_data(item_pos)
+                if row_data and str(row_data.get("Mod_ID")) == str(mod_id):
+                    row_data["Category_ID"] = category_id
+                    row_data["Category_Name"] = category_name
+                    self.set_row_data(item_pos, row_data)
+                    item_new = self.model.item(r, self.COL_NEW)
+                    if item_new:
+                        self.set_row_data(item_new, row_data)
+                    cat_item = self.model.item(r, self.COL_CATEGORY)
+                    if cat_item:
+                        cat_item.setText(category_name)
+                        cat_item.setData(category_name, self.SORT_ROLE)
+
+        # Wenn diese Mod aktuell im Detailbereich ausgewählt ist, ComboBox synchronisieren
+        if self.current_mod_id and str(self.current_mod_id) == str(mod_id):
+            if self.current_mod_data:
+                self.current_mod_data["Category_ID"] = category_id
+                self.current_mod_data["Category_Name"] = category_name
+            self.set_combo_by_data(self.cmb_category, category_id)
 
     def on_apply_classifier_mod_clicked(self):
         """Überträgt die Kategorisierer-Kategorie der ausgewählten Mod in das LOH-Kategorie-Feld."""

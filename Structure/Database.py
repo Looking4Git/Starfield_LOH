@@ -50,6 +50,32 @@ def ensure_default_database_mode() -> None:
     except Exception as e:
         logging.warning(f"ensure_default_database_mode fehlgeschlagen: {e}")
     ensure_conflict_solution_types_schema()
+    ensure_mods_category_loot_schema()
+
+def ensure_mods_category_loot_schema(conn: sqlite3.Connection = None) -> None:
+    """Stellt sicher, dass die Tabelle Mods_Category_LOOT existiert."""
+    close_after = False
+    if conn is None:
+        if not os.path.exists(DB_FILE):
+            return
+        conn = sqlite3.connect(DB_FILE)
+        close_after = True
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Mods_Category_LOOT (
+                ID_Mod INTEGER NOT NULL PRIMARY KEY,
+                Category_LOH_ID INTEGER,
+                FOREIGN KEY (ID_Mod) REFERENCES Mods(ID) ON DELETE CASCADE,
+                FOREIGN KEY (Category_LOH_ID) REFERENCES Categories_LOH(ID)
+            );
+        """)
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Fehler in ensure_mods_category_loot_schema: {e}")
+    finally:
+        if close_after and conn:
+            conn.close()
 
 def ensure_conflict_solution_types_schema(conn: sqlite3.Connection = None) -> None:
     """Stellt sicher, dass die Stammdatentabelle Conflict_Solution_Types und die Spalte Conflict_Solution_Type_ID existieren."""
@@ -888,6 +914,70 @@ def update_mod_category_and_note(mod_id: int, category_id: int, note: str) -> bo
     except sqlite3.Error as e:
         logging.error(f"Fehler beim Update von Kategorie/Notiz für Mod ID {mod_id}: {e}")
         return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_mod_category(mod_id: int, category_id: int | None) -> bool:
+    """Aktualisiert die aktive Kategorie (Category_LOH) einer Mod."""
+    query = """
+        UPDATE Mods 
+        SET Category_LOH = ?
+        WHERE ID = ?
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (category_id, mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Update von Category_LOH für Mod ID {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def get_mod_category_stats(mod_id: int) -> dict:
+    """
+    Ermittelt die Kategorien einer Mod für den Statistik-Bereich:
+    - LOOT Kategorie (aus Mods_Category_LOOT)
+    - Kategorisierer Hauptkategorie (Category_LOH_Classifier)
+    - Subkategorie (Category_LOH_Classifier_Sub)
+    - Aktive Kategorie (Category_LOH)
+    """
+    query = """
+        SELECT 
+            m.ID,
+            m.Category_LOH,
+            cat_active.Name AS Category_Name,
+            m.Category_LOH_Classifier,
+            cat_class.Name AS Classifier_Name,
+            m.Category_LOH_Classifier_Sub,
+            cat_sub.Name AS Sub_Name,
+            mcl.Category_LOH_ID AS LOOT_Category_ID,
+            cat_loot.Name AS LOOT_Category_Name
+        FROM Mods m
+        LEFT JOIN Categories_LOH cat_active ON m.Category_LOH = cat_active.ID
+        LEFT JOIN Categories_LOH cat_class ON m.Category_LOH_Classifier = cat_class.ID
+        LEFT JOIN Categories_LOH cat_sub ON m.Category_LOH_Classifier_Sub = cat_sub.ID
+        LEFT JOIN Mods_Category_LOOT mcl ON m.ID = mcl.ID_Mod
+        LEFT JOIN Categories_LOH cat_loot ON mcl.Category_LOH_ID = cat_loot.ID
+        WHERE m.ID = ?
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (mod_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {}
+        return dict(row)
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Abrufen der Kategorie-Statistiken für Mod ID {mod_id}: {e}")
+        return {}
     finally:
         if conn:
             conn.close()

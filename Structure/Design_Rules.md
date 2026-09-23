@@ -123,3 +123,39 @@ Zur optischen Gliederung des Detailbereichs und modularer Formulare werden stand
    * Formularfelder untereinander sind linksbündig bündig auszurichten.
 3. **Vertikaler Abschluss (Spacer-Pflicht):**
    * Am unteren Ende jeder Detail-View und jedes Sektions-Containers **muss zwingend ein `QSpacerItem` (vertikal expandierend)** platziert werden, damit alle Formularzeilen kompakt oben zusammengehalten werden und nicht unschön über die Fensterhöhe gestreckt werden.
+
+---
+
+## 7. Rollbalkenbereich & flackerfreies Scrolling (Gutter-Standard)
+
+Um zu verhindern, dass sich Formulare, Tabellen und Detailbereiche beim Ein- oder Ausblenden eines Rollbalkens horizontal verschieben oder stauchen, gilt im gesamten Projekt der **Rollbalken-Gutter-Standard**:
+
+1. **Permanente Platzreservierung (`ScrollBarAlwaysOn`):**
+   * Vertikale Scrollbereiche (`QScrollArea`, z. B. in `Page_LoadOrder`, `Page_Mods`, `Window_Mod_Statistics`) müssen `verticalScrollBarPolicy = Qt.ScrollBarPolicy.ScrollBarAlwaysOn` setzen.
+   * Dadurch reserviert Qt dauerhaft exakt 16 Pixel Breite auf der rechten Fensterseite.
+2. **Dynamische Sichtbarkeitssteuerung (`needed`-Property):**
+   * Das Signal `vsb.rangeChanged(min_val, max_val)` der Scrollbar wird an `update_scrollbar_visibility` angebunden.
+   * **Inhalt passt ohne Scrollen (`min_val == max_val`, `needed="false"`):** Sämtliche Scrollbar-Komponenten (Track, Handle, Sub-Line, Add-Line, Pfeile) werden über das Stylesheet auf `background: transparent; border: none;` geschaltet. Der Bereich fungiert als unsichtbarer, eleganter Leerbereich (Gutter).
+   * **Inhalt übersteigt Fensterhöhe (`min_val < max_val`, `needed="true"`):** Die vollständige Starfield-Scrollbar (dunkelgrauer Track `#2b2b2b`, Starfield-blauer Schieber `#304C7A`, quadratische Endschaltflächen mit abgerundeten inneren Pfeil-Buttons) blendet sich nahtlos an der exakt gleichen Stelle ein.
+3. **Breitenberechnung für angedockte Fenster:**
+   * Bei der Festlegung der Mindest- und Standardbreiten (z. B. `min_width` und `docked_width` im Statistik- und Analysefenster) muss der 16px-Rollbalkenbereich zur Formular-Nutzbreite addiert werden (Standard: **600px**).
+   * Dadurch bleiben alle zwei- und mehrspaltigen Eingabemasken und Bäume in voller Breite sichtbar, ohne gequetscht zu werden.
+
+---
+
+## 8. Docking-Geometrie & flackerfreies Schließen (LOH_DockManager-Standard)
+
+Für angedockte Werkzeug- und Statistikfenster (`QDockWidget` via `LOH_DockManager`) gelten folgende verbindliche Geometriestandards:
+
+1. **Dynamische Breitenführung bei manuellem Resize:**
+   * Wenn der Anwender das Hauptfenster manuell am Fensterrand vergrößert oder verkleinert, während ein Dock eingeblendet ist, muss die Basisbreite (`base_main_width`) kontinuierlich über einen `eventFilter` (`QEvent.Type.Resize`) synchronisiert werden:
+     $$\text{base\_main\_width} = \max(1280, \text{main\_window.width()} - (\text{dock\_w} + \text{SEPARATOR\_WIDTH}))$$
+   * Dies verhindert, dass das Hauptfenster beim Ausblenden des Docks auf eine veraltete Initialgröße zurückspringt oder die Gesamtbreite fälschlicherweise beibehält.
+2. **Atomares, flackerfreies Schließen:**
+   * Vor dem Verkleinern des Hauptfensters und Ausblenden des Docks wird `main_window.setUpdatesEnabled(False)` aktiviert.
+   * Das Dock wird ausgeblendet und `main_window.layout().activate()` aufgerufen, um die internen Layout-Beschränkungen von `QMainWindowLayout` sofort zu aktualisieren.
+   * Anschließend wird das Hauptfenster synchron auf die Zielbreite verkleinert und erst danach `main_window.setUpdatesEnabled(True)` aufgerufen.
+   * Dadurch wird das zweistufige Aufblitzen/Flackern des Detailbereichs vollständig eliminiert.
+3. **Persistente Speicherung (`get_clean_window_width`):**
+   * Beim Schließen der Anwendung mit geöffnetem Dock wird über `get_clean_window_width()` stets die reale, vom Anwender eingestellte Nutzbreite (abzüglich der Dock-Breite) in `settings["window"]["width"]` gespeichert.
+

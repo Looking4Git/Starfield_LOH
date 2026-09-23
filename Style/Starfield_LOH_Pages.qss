@@ -281,7 +281,9 @@ QCheckBox#chk_sorter_show_columns::indicator:checked {
     border: none;
 }
 
-#detail_view QLineEdit:read-only {
+#detail_view QLineEdit:read-only,
+#Window_Mod_Statistics QLineEdit:read-only,
+#Section_Mod_Statistics_Category QLineEdit:read-only {
     background-color: #D7A64B; 
     color: #000000;
 }

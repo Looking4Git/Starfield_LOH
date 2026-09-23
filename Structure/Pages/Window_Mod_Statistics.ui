@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>540</width>
+    <width>600</width>
     <height>700</height>
    </rect>
   </property>
@@ -15,19 +15,25 @@
     <number>0</number>
    </property>
    <property name="leftMargin">
-    <number>0</number>
+    <number>6</number>
    </property>
    <property name="topMargin">
-    <number>0</number>
+    <number>10</number>
    </property>
    <property name="rightMargin">
-    <number>0</number>
+    <number>6</number>
    </property>
    <property name="bottomMargin">
-    <number>0</number>
+    <number>10</number>
    </property>
    <item>
     <widget class="QScrollArea" name="scroll_area">
+     <property name="verticalScrollBarPolicy">
+      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+     </property>
      <property name="frameShape">
       <enum>QFrame::Shape::NoFrame</enum>
      </property>
@@ -39,7 +45,7 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>540</width>
+        <width>600</width>
         <height>700</height>
        </rect>
       </property>
@@ -48,16 +54,16 @@
         <number>6</number>
        </property>
        <property name="leftMargin">
-        <number>8</number>
+        <number>2</number>
        </property>
        <property name="topMargin">
-        <number>8</number>
+        <number>0</number>
        </property>
        <property name="rightMargin">
-        <number>8</number>
+        <number>6</number>
        </property>
        <property name="bottomMargin">
-        <number>8</number>
+        <number>0</number>
        </property>
        <item>
         <spacer name="bottom_spacer">

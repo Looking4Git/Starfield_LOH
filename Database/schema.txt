@@ -1967,6 +1967,14 @@ CREATE TABLE "Mods_Category_Creations" (
                     FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE
                 );
 
+CREATE TABLE "Mods_Category_LOOT" (
+                    "ID_Mod" INTEGER NOT NULL,
+                    "Category_LOH_ID" INTEGER,
+                    PRIMARY KEY("ID_Mod"),
+                    FOREIGN KEY("ID_Mod") REFERENCES "Mods"("ID") ON DELETE CASCADE,
+                    FOREIGN KEY("Category_LOH_ID") REFERENCES "Categories_LOH"("ID")
+                );
+
 CREATE TABLE "Mods_Components" (
                     "Mod_ID" INTEGER NOT NULL,
                     "Component_ID" INTEGER NOT NULL,

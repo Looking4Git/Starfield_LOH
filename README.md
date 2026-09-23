@@ -22,7 +22,7 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
 ## Hauptfunktionen
 
 - **Binäres Reverse Engineering (`File_ESM_Parser.py`, `File_BA2_Parser.py`):** Direktes Parsen von Plugin- (`.esm`) und Archiv-Dateien (`.ba2`) zur Erkennung von FormIDs, Overrides, Cell-/Location-Änderungen und Master-Abhängigkeiten.
-- **Automatisierte Metadaten-Anbindung (`Bethesda_Fetch.py`, `Nexus_Fetch.py`):** Playwright- und webgestütztes Auslesen von Bethesda Creation Store und Nexus Mods Daten ohne Erfordernis privater API-Schlüssel oder Registrierungen.
+- **Automatisierte Metadaten-Anbindung (`Bethesda_Fetch.py`, `Nexus_Fetch.py`, `LOOT_Fetch.py`):** Playwright- und webgestütztes Auslesen von Bethesda Creation Store und Nexus Mods Daten sowie Abgleich gegen die offizielle Starfield LOOT-Masterlist ohne Erfordernis privater API-Schlüssel oder Registrierungen.
 - **Automatisierte Mod-Klassifizierung (`Category_LOH_Classifier.py`):** Logische Erkennung und Zuordnung von Mods in das LLO-Kategoriensystem (Logical Load Order, Positionen 1 bis 32) anhand von internen Datenstrukturen, Keyword-Signaturen und Store-Metadaten.
 - **Umfassende Konflikt-Analyse (`Mods_Conflicts_Analyzer.py`):** Tiefgehende Untersuchung von Überschreibungen auf Record- und FormID-Ebene, Cell- und Worldspace-Kollisionen sowie Asset-Konflikten zur frühzeitigen Erkennung von Instabilitäten.
 - **Intelligente 4-Stufen-Sortier-Pipeline (`LoadOrder_Sorter.py`):**

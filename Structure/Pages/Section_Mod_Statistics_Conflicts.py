@@ -163,7 +163,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             header.set_column_rule(6, min_width=140, default_width=140, stretch=0)  # Zell-Name
             header.set_column_rule(7, min_width=105, default_width=105, stretch=0)  # Base-FormID
             header.set_column_rule(8, min_width=140, default_width=140, stretch=0)  # Base-Name
-            header.set_column_rule(9, min_width=500, default_width=500, stretch=1)  # Begründung
+            header.set_column_rule(9, min_width=500, default_width=500, max_width=1000, stretch=1)  # Begründung
             header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):

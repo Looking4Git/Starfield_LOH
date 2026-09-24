@@ -89,7 +89,7 @@ class Section_Mod_Statistics_Classification(QWidget):
             header.set_column_rule(1, min_width=140, default_width=140, stretch=0)
             header.set_column_rule(2, min_width=95, default_width=95, stretch=0)
             header.set_column_rule(3, min_width=95, default_width=95, stretch=0)
-            header.set_column_rule(4, min_width=500, default_width=500, stretch=1)
+            header.set_column_rule(4, min_width=500, default_width=500, max_width=1000, stretch=1)
             header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):

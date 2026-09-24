@@ -7,7 +7,8 @@ class LOH_HeaderView(QHeaderView):
     Intelligenter, universeller Tabellenkopf für Starfield LOH.
     Ermöglicht deklarative Spaltenregeln:
     - Harte Mindestbreite (min_width): Spalten schrumpfen nie darunter
-    - Standardbreite (default_width)
+    - Standardbreite (default_width): Initiale Darstellungsbreite
+    - Optionale Maximalbreite (max_width): Spalten wachsen nie darüber hinaus
     - Dynamisches Strecken (stretch > 0): Überschüssiger Platz wird proportional verteilt.
     """
     def __init__(self, parent: QTableView = None):
@@ -24,11 +25,12 @@ class LOH_HeaderView(QHeaderView):
         if parent:
             parent.installEventFilter(self)
 
-    def set_column_rule(self, col: int, min_width: int, default_width: int = None, stretch: int = 0):
-        """Definiert Mindestbreite, Startbreite und Stretch-Verhalten für eine Spalte."""
+    def set_column_rule(self, col: int, min_width: int, default_width: int = None, max_width: int = None, stretch: int = 0):
+        """Definiert Mindestbreite, Startbreite, Maximalbreite und Stretch-Verhalten für eine Spalte."""
         self._rules[col] = {
             "min_width": int(min_width),
             "default_width": int(default_width if default_width is not None else min_width),
+            "max_width": int(max_width) if max_width is not None else None,
             "stretch": int(stretch)
         }
 
@@ -56,18 +58,24 @@ class LOH_HeaderView(QHeaderView):
             return
         
         rule = self._rules.get(logical_index)
-        if rule and new_size < rule["min_width"]:
-            # Unterschreiten der Mindestbreite durch Ziehen verhindern
-            self._resizing_internally = True
-            try:
-                self.resizeSection(logical_index, rule["min_width"])
-            finally:
-                self._resizing_internally = False
+        if rule:
+            clamped_size = new_size
+            if clamped_size < rule["min_width"]:
+                clamped_size = rule["min_width"]
+            elif rule["max_width"] is not None and clamped_size > rule["max_width"]:
+                clamped_size = rule["max_width"]
+                
+            if clamped_size != new_size:
+                self._resizing_internally = True
+                try:
+                    self.resizeSection(logical_index, clamped_size)
+                finally:
+                    self._resizing_internally = False
 
         self._distribute_stretch()
 
     def _distribute_stretch(self):
-        """Verteilt den freien Platz auf alle Spalten mit stretch > 0 unter Einhaltung aller min_widths."""
+        """Verteilt den freien Platz auf alle Spalten mit stretch > 0 unter Einhaltung von min_width und max_width."""
         if self._resizing_internally or not self.parent():
             return
 
@@ -98,11 +106,16 @@ class LOH_HeaderView(QHeaderView):
             for c in stretch_cols:
                 rule = self._rules[c]
                 min_w = rule["min_width"]
+                max_w = rule["max_width"]
                 if total_stretch_weight > 0 and available_for_stretch > 0:
                     share = int(available_for_stretch * (rule["stretch"] / total_stretch_weight))
                     target_w = max(min_w, share)
                 else:
                     target_w = min_w
+
+                if max_w is not None and target_w > max_w:
+                    target_w = max_w
+
                 self.resizeSection(c, target_w)
         finally:
             self._resizing_internally = False

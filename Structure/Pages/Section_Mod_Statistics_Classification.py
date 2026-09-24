@@ -85,11 +85,11 @@ class Section_Mod_Statistics_Classification(QWidget):
             header = LOH_HeaderView(self.table_view)
             self.table_view.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
-            header.set_column_rule(0, min_width=70, default_width=70, stretch=0)
-            header.set_column_rule(1, min_width=140, default_width=140, stretch=0)
-            header.set_column_rule(2, min_width=95, default_width=95, stretch=0)
-            header.set_column_rule(3, min_width=95, default_width=95, stretch=0)
-            header.set_column_rule(4, min_width=500, default_width=500, max_width=1000, stretch=1)
+            header.set_column_rule(0, min_width=70, default_width=70, stretch_factor=0)
+            header.set_column_rule(1, min_width=140, default_width=140, stretch_factor=0)
+            header.set_column_rule(2, min_width=95, default_width=95, stretch_factor=0)
+            header.set_column_rule(3, min_width=95, default_width=95, stretch_factor=0)
+            header.set_column_rule(4, min_width=500, default_width=500, stretch_factor=1, cap_to_content=False)
             header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):
@@ -168,19 +168,20 @@ class Section_Mod_Statistics_Classification(QWidget):
         self.update_column_widths()
 
     def update_column_widths(self):
-        """Passt die ersten 4 Spalten inhaltsbasiert an, Spalte 4 (Beurteilung) bleibt Stretch."""
-        if not self.table_view or self.model.rowCount() == 0:
+        """Passt die ersten 4 Spalten inhaltsbasiert an und dehnt die Begründung vollflächig aus."""
+        if not self.table_view:
             return
         header = self.table_view.horizontalHeader()
-        for col in range(4):
-            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-            self.table_view.resizeColumnToContents(col)
-            w = self.table_view.columnWidth(col)
-            if col == 0:
-                self.table_view.setColumnWidth(col, max(w + 18, 70))
-            else:
-                self.table_view.setColumnWidth(col, w + 14)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        if self.model.rowCount() > 0:
+            for col in range(4):
+                self.table_view.resizeColumnToContents(col)
+                w = self.table_view.columnWidth(col)
+                if col == 0:
+                    self.table_view.setColumnWidth(col, max(w + 18, 70))
+                else:
+                    self.table_view.setColumnWidth(col, w + 14)
+        if isinstance(header, LOH_HeaderView):
+            header._distribute_stretch()
 
     def clear(self):
         """Leert die Tabelle."""

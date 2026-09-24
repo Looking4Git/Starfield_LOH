@@ -8,8 +8,9 @@ class LOH_HeaderView(QHeaderView):
     Ermöglicht deklarative Spaltenregeln:
     - Harte Mindestbreite (min_width): Spalten schrumpfen nie darunter
     - Standardbreite (default_width): Initiale Darstellungsbreite
-    - Optionale Maximalbreite (max_width): Spalten wachsen nie darüber hinaus
-    - Dynamisches Strecken (stretch > 0): Überschüssiger Platz wird proportional verteilt.
+    - Optionale Maximalbreite (max_width): Fester oberer Pixel-Deckel
+    - Streckungsfaktor (stretch_factor > 0): Gewichtete Verteilung von freiem Platz (z. B. 1:2)
+    - Inhaltsbegrenzung (cap_to_content): Spalte stoppt das Wachstum, sobald der gesamte Inhalt sichtbar ist.
     """
     def __init__(self, parent: QTableView = None):
         super().__init__(Qt.Orientation.Horizontal, parent)
@@ -25,13 +26,15 @@ class LOH_HeaderView(QHeaderView):
         if parent:
             parent.installEventFilter(self)
 
-    def set_column_rule(self, col: int, min_width: int, default_width: int = None, max_width: int = None, stretch: int = 0):
-        """Definiert Mindestbreite, Startbreite, Maximalbreite und Stretch-Verhalten für eine Spalte."""
+    def set_column_rule(self, col: int, min_width: int, default_width: int = None, 
+                        max_width: int = None, stretch_factor: int = 0, cap_to_content: bool = False):
+        """Definiert Mindestbreite, Startbreite, Maximalbreite, Streckfaktor und Inhaltsdeckelung."""
         self._rules[col] = {
             "min_width": int(min_width),
             "default_width": int(default_width if default_width is not None else min_width),
             "max_width": int(max_width) if max_width is not None else None,
-            "stretch": int(stretch)
+            "stretch_factor": int(stretch_factor),
+            "cap_to_content": bool(cap_to_content)
         }
 
     def apply_initial_widths(self):
@@ -75,7 +78,7 @@ class LOH_HeaderView(QHeaderView):
         self._distribute_stretch()
 
     def _distribute_stretch(self):
-        """Verteilt den freien Platz auf alle Spalten mit stretch > 0 unter Einhaltung von min_width und max_width."""
+        """Verteilt den freien Platz gewichtet nach stretch_factor und berücksichtigt cap_to_content."""
         if self._resizing_internally or not self.parent():
             return
 
@@ -87,7 +90,7 @@ class LOH_HeaderView(QHeaderView):
         if viewport_w <= 0:
             return
 
-        stretch_cols = [c for c, r in self._rules.items() if r.get("stretch", 0) > 0]
+        stretch_cols = [c for c, r in self._rules.items() if r.get("stretch_factor", 0) > 0]
         if not stretch_cols:
             return
 
@@ -98,24 +101,69 @@ class LOH_HeaderView(QHeaderView):
             if c not in stretch_cols:
                 fixed_width_sum += self.sectionSize(c)
 
-        total_stretch_weight = sum(self._rules[c]["stretch"] for c in stretch_cols)
-        available_for_stretch = viewport_w - fixed_width_sum
-
+        available = viewport_w - fixed_width_sum
+        
+        # Mehrstufige Verteilung:
+        # Spalten, die ihre Inhaltsgrenze oder max_width erreichen, werden fixiert;
+        # der verbleibende Platz wird an noch offene Stretch-Spalten weitergereicht.
+        active_cols = list(stretch_cols)
+        assigned_widths = {}
+        
+        for iteration in range(2):
+            total_weight = sum(self._rules[c]["stretch_factor"] for c in active_cols)
+            if total_weight <= 0 or available <= 0:
+                break
+                
+            capped_in_this_pass = []
+            for c in active_cols:
+                rule = self._rules[c]
+                share = int(available * (rule["stretch_factor"] / total_weight))
+                target = max(rule["min_width"], share)
+                
+                # Obergrenzen ermitteln
+                upper_limit = rule["max_width"]
+                if rule["cap_to_content"]:
+                    content_w = self.parent().sizeHintForColumn(c)
+                    if content_w > 0:
+                        content_w += 12 # Puffer für Zellen-Padding und Sortierpfeil
+                        upper_limit = min(upper_limit, content_w) if upper_limit is not None else content_w
+                
+                if upper_limit is not None and target >= upper_limit:
+                    assigned_widths[c] = max(rule["min_width"], upper_limit)
+                    capped_in_this_pass.append(c)
+                    
+            if not capped_in_this_pass or len(capped_in_this_pass) == len(active_cols):
+                # Keine weiteren Cappings oder alle gecapped
+                break
+            else:
+                for c in capped_in_this_pass:
+                    available -= assigned_widths[c]
+                    active_cols.remove(c)
+                    
+        # Allen verbliebenen aktiven Spalten ihren finalen Anteil zuweisen
+        total_weight = sum(self._rules[c]["stretch_factor"] for c in active_cols)
+        for c in active_cols:
+            rule = self._rules[c]
+            if total_weight > 0 and available > 0:
+                share = int(available * (rule["stretch_factor"] / total_weight))
+                target = max(rule["min_width"], share)
+            else:
+                target = rule["min_width"]
+                
+            upper_limit = rule["max_width"]
+            if rule["cap_to_content"]:
+                content_w = self.parent().sizeHintForColumn(c)
+                if content_w > 0:
+                    content_w += 12
+                    upper_limit = min(upper_limit, content_w) if upper_limit is not None else content_w
+            if upper_limit is not None and target > upper_limit:
+                target = max(rule["min_width"], upper_limit)
+                
+            assigned_widths[c] = target
+            
         self._resizing_internally = True
         try:
-            for c in stretch_cols:
-                rule = self._rules[c]
-                min_w = rule["min_width"]
-                max_w = rule["max_width"]
-                if total_stretch_weight > 0 and available_for_stretch > 0:
-                    share = int(available_for_stretch * (rule["stretch"] / total_stretch_weight))
-                    target_w = max(min_w, share)
-                else:
-                    target_w = min_w
-
-                if max_w is not None and target_w > max_w:
-                    target_w = max_w
-
-                self.resizeSection(c, target_w)
+            for c, w in assigned_widths.items():
+                self.resizeSection(c, w)
         finally:
             self._resizing_internally = False

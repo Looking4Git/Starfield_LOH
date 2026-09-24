@@ -154,16 +154,16 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             header = LOH_HeaderView(self.table_conflicts)
             self.table_conflicts.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
-            header.set_column_rule(0, min_width=95, default_width=95, stretch=0)   # Typ
-            header.set_column_rule(1, min_width=140, default_width=140, stretch=0)  # Prüfschritt
-            header.set_column_rule(2, min_width=65, default_width=65, stretch=0)   # Signatur
-            header.set_column_rule(3, min_width=105, default_width=105, stretch=0)  # FormID
-            header.set_column_rule(4, min_width=160, default_width=160, stretch=0)  # Name
-            header.set_column_rule(5, min_width=105, default_width=105, stretch=0)  # Zell-FormID
-            header.set_column_rule(6, min_width=140, default_width=140, stretch=0)  # Zell-Name
-            header.set_column_rule(7, min_width=105, default_width=105, stretch=0)  # Base-FormID
-            header.set_column_rule(8, min_width=140, default_width=140, stretch=0)  # Base-Name
-            header.set_column_rule(9, min_width=500, default_width=500, max_width=1000, stretch=1)  # Begründung
+            header.set_column_rule(0, min_width=95, default_width=95, stretch_factor=0)                         # Typ
+            header.set_column_rule(1, min_width=140, default_width=140, stretch_factor=1, cap_to_content=True) # Prüfschritt (wächst bis zum vollen Inhalt)
+            header.set_column_rule(2, min_width=65, default_width=65, stretch_factor=0)                         # Signatur
+            header.set_column_rule(3, min_width=105, default_width=105, stretch_factor=0)                       # FormID
+            header.set_column_rule(4, min_width=160, default_width=160, stretch_factor=0)                       # Name
+            header.set_column_rule(5, min_width=105, default_width=105, stretch_factor=0)                       # Zell-FormID
+            header.set_column_rule(6, min_width=140, default_width=140, stretch_factor=0)                       # Zell-Name
+            header.set_column_rule(7, min_width=105, default_width=105, stretch_factor=0)                       # Base-FormID
+            header.set_column_rule(8, min_width=140, default_width=140, stretch_factor=0)                       # Base-Name
+            header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=2, cap_to_content=False) # Begründung (wächst bis zum Rand)
             header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):
@@ -365,6 +365,9 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
             if self.table_conflicts:
                 self.table_conflicts.setSortingEnabled(True)
+                hdr = self.table_conflicts.horizontalHeader()
+                if isinstance(hdr, LOH_HeaderView):
+                    hdr._distribute_stretch()
 
             # Zusammenfassungszeile aktualisieren
             if self.lbl_stats:

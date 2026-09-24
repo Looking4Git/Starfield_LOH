@@ -3,7 +3,7 @@ import sys
 import ctypes
 from PySide6.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QScrollArea, 
                                QSpacerItem, QSizePolicy, QApplication)
-from PySide6.QtCore import Qt, QFile, Signal
+from PySide6.QtCore import Qt, QFile, Signal, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 
@@ -32,7 +32,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
                          QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
                          QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.min_width = 900
+        self.min_width = 1000
         self.setMinimumWidth(self.min_width)
         
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Diagram.svg")
@@ -186,13 +186,28 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_content.clear()
         self.sec_conflicts.clear()
 
-    def on_top_level_changed(self, is_floating: bool):
-        """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
-        if is_floating and sys.platform == "win32":
+    def _apply_dark_title_bar(self):
+        """Erzwingt Windows-11 Dark Mode für die native Titelleiste im Schwebemodus."""
+        if self.isFloating() and sys.platform == "win32":
             try:
                 set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
+                hwnd = int(self.winId())
                 rendering_policy = ctypes.c_int(1)
+                # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Windows 11 & neuere Windows 10)
                 set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
+                # DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19 (Windows 10 ältere Builds)
+                set_window_attribute(hwnd, 19, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
             except Exception:
                 pass
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.isFloating():
+            self._apply_dark_title_bar()
+            QTimer.singleShot(0, self._apply_dark_title_bar)
+
+    def on_top_level_changed(self, is_floating: bool):
+        """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
+        if is_floating:
+            self._apply_dark_title_bar()
+            QTimer.singleShot(0, self._apply_dark_title_bar)

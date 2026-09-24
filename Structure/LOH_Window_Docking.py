@@ -69,6 +69,9 @@ class LOH_DockManager(QObject):
         self.dock_widget.setVisible(True)
         if mod_id is not None and hasattr(self.dock_widget, 'update_mod'):
             self.dock_widget.update_mod(mod_id)
+        if self.dock_widget.isFloating() and hasattr(self.dock_widget, '_apply_dark_title_bar'):
+            self.dock_widget._apply_dark_title_bar()
+            QTimer.singleShot(0, self.dock_widget._apply_dark_title_bar)
         self.dock_widget.raise_()
         self.dock_widget.activateWindow()
 

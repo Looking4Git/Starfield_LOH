@@ -42,10 +42,6 @@ class Page_Tools(QWidget):
         lbl_modules.setObjectName("lbl_modules_section")
         self.layout.addWidget(lbl_modules)
 
-        sep_modules = QFrame()
-        sep_modules.setObjectName("sep_modules_section")
-        self.layout.addWidget(sep_modules)
-
         layout_modules = QHBoxLayout()
         layout_modules.setSpacing(8)
         layout_modules.setContentsMargins(0, 4, 0, 6)
@@ -137,13 +133,13 @@ class Page_Tools(QWidget):
         # -------------------------------------------------------------
         # Abschnitt 2: Tools
         # -------------------------------------------------------------
-        lbl_tools = QLabel("Tools")
-        lbl_tools.setObjectName("lbl_tools_section")
-        self.layout.addWidget(lbl_tools)
-
         sep_tools = QFrame()
         sep_tools.setObjectName("sep_tools_section")
         self.layout.addWidget(sep_tools)
+
+        lbl_tools = QLabel("Tools")
+        lbl_tools.setObjectName("lbl_tools_section")
+        self.layout.addWidget(lbl_tools)
 
         layout_tools = QHBoxLayout()
         layout_tools.setSpacing(8)

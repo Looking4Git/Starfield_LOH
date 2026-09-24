@@ -21,8 +21,8 @@ class Widget_TileIconButton(QWidget):
         text: str,
         variant: str = "blue",
         tile_size: int = 64,
-        icon_size: int = 36,
-        max_width: int = 96,
+        icon_size: int = 43,
+        max_width: int = 104,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -128,11 +128,12 @@ class Widget_TileIconButton(QWidget):
 
         # Text-Stylesheet und Unterstreichung anwenden
         font = self.text_label.font()
-        font.setPointSize(9)
+        font.setFamily("Segoe UI")
+        font.setPixelSize(13)
         font.setUnderline(underline)
         self.text_label.setFont(font)
         self.text_label.setStyleSheet(
-            f"color: {text_color}; background: transparent; border: none; padding: 0px;"
+            f"color: {text_color}; font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif; background: transparent; border: none; padding: 0px;"
         )
 
     def enterEvent(self, event):

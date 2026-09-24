@@ -21,8 +21,8 @@ DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
     "window_mod_statistics": {
-        "min_width": 600,
-        "docked_width": 600,
+        "min_width": 1000,
+        "docked_width": 1000,
         "floating": {"width": 640, "height": 760, "x": 300, "y": 200}
     },
     "ui": {"sidebar_collapsed": False},

@@ -427,6 +427,30 @@ def get_components_by_mod_id(mod_id: int) -> list[str]:
         if conn:
             conn.close()
 
+def get_masterfiles_by_mod_id(mod_id: int) -> list[str]:
+    """Holt alle Masterfile-Dateinamen (.esm/.esp), die mit dieser Mod_ID verknüpft sind."""
+    query = """
+        SELECT c.File 
+        FROM Components c 
+        JOIN Mods_Components mc ON c.ID = mc.Component_ID 
+        WHERE mc.Mod_ID = :mod_id 
+          AND (c.Is_Masterfile > 0 OR LOWER(c.File) LIKE '%.esm' OR LOWER(c.File) LIKE '%.esp')
+        ORDER BY c.ID ASC
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, {"mod_id": mod_id})
+        rows = cursor.fetchall()
+        return [row["File"] for row in rows]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_masterfiles_by_mod_id für Mod_ID {mod_id}: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
 def get_component_details_for_ui(mod_id: int) -> list[dict]:
     """Holt die Komponenten für das UI inkl. Flags (Is_Masterfile, Is_Blueprint)."""
     query = """

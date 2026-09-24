@@ -32,7 +32,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
                          QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
                          QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.min_width = 600
+        self.min_width = 900
         self.setMinimumWidth(self.min_width)
         
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Diagram.svg")
@@ -61,6 +61,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_classification = Section_Mod_Statistics_Classification(self)
         self.sec_content = Section_Mod_Statistics_Content(self)
         self.sec_conflicts = Section_Mod_Statistics_Conflicts(self)
+        self.sec_comparison.comp_mod_changed.connect(self.sec_conflicts.set_comp_mod)
 
         self.cs_comparison = CollapsibleSection("Vergleich", self.sec_comparison, parent=self, is_expanded=True)
         self.cs_category = CollapsibleSection("Kategorie", self.sec_category, parent=self, is_expanded=True)
@@ -86,8 +87,8 @@ class Window_Mod_Statistics(QDockWidget):
             self.update_scrollbar_visibility(vsb.minimum(), vsb.maximum())
 
         # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
-        self.min_width = 600
-        self.docked_width = 600
+        self.min_width = 1000
+        self.docked_width = 1000
 
         # Dunklen Titelbalken für Floating-Modus vorbereiten
         self.topLevelChanged.connect(self.on_top_level_changed)
@@ -124,6 +125,11 @@ class Window_Mod_Statistics(QDockWidget):
             QWidget#scroll_content {
                 background-color: #0D0D0D;
             }
+            QLabel {
+                color: #ECECEC;
+                font-family: "Segoe UI", Arial;
+                font-size: 13px;
+            }
         """)
 
     def resizeEvent(self, event):
@@ -143,9 +149,9 @@ class Window_Mod_Statistics(QDockWidget):
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.min_width = max(600, cfg.get("min_width", 600))
+        self.min_width = max(1000, cfg.get("min_width", 1000))
         self.setMinimumWidth(self.min_width)
-        self.docked_width = max(self.min_width, cfg.get("docked_width", 600))
+        self.docked_width = max(self.min_width, cfg.get("docked_width", 1000))
         floating = cfg.get("floating", {})
         if isinstance(floating, dict):
             self.floating_width = floating.get("width", 640)
@@ -167,7 +173,8 @@ class Window_Mod_Statistics(QDockWidget):
             self.sec_category.set_mod(mod_id)
             self.sec_classification.set_mod(mod_id)
             self.sec_content.set_mod(mod_id)
-            self.sec_conflicts.set_mod(mod_id)
+            self.sec_conflicts.set_main_mod(mod_id)
+            self.sec_conflicts.set_comp_mod(self.sec_comparison.current_comp_mod_id)
         else:
             self.clear()
 

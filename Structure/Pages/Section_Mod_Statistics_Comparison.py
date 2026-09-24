@@ -2,12 +2,12 @@ import os
 import sqlite3
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QLineEdit, QPushButton, QFrame, QSizePolicy)
-from PySide6.QtCore import Qt, QFile
+from PySide6.QtCore import Qt, QFile, Signal
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-from Structure.Database import get_mod_image, get_components_by_mod_id, get_db_connection
+from Structure.Database import get_mod_image, get_masterfiles_by_mod_id, get_db_connection
 from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
 
 class Section_Mod_Statistics_Comparison(QWidget):
@@ -16,6 +16,8 @@ class Section_Mod_Statistics_Comparison(QWidget):
     in zwei gleich großen Spalten gegenüber (Name, Komponente, Vorschaubild),
     getrennt durch eine vertikale blaue Starfield-Linie.
     """
+    comp_mod_changed = Signal(object)  # Emits mod_id (int) or None
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_main_mod_id = None
@@ -172,6 +174,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
             self.inp_comp_component.setCursorPosition(0)
             
         self._load_image_into_label(mod_id, self.lbl_comp_image, "Kein Bild vorhanden")
+        self.comp_mod_changed.emit(self.current_comp_mod_id)
 
     def clear_main_mod(self):
         self.current_main_mod_id = None
@@ -192,6 +195,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
         if self.lbl_comp_image:
             self.lbl_comp_image.setText("Keine Vergleichsmod gewählt")
             self.lbl_comp_image.setPixmap(QPixmap())
+        self.comp_mod_changed.emit(None)
 
     def on_select_comp_clicked(self):
         """Öffnet den ModSelectionDialog zur Auswahl einer Vergleichsmod."""
@@ -226,9 +230,9 @@ class Section_Mod_Statistics_Comparison(QWidget):
             if conn:
                 conn.close()
                 
-        comps = get_components_by_mod_id(mod_id)
-        if comps:
-            comp_file = ", ".join(comps)
+        masterfiles = get_masterfiles_by_mod_id(mod_id)
+        if masterfiles:
+            comp_file = ", ".join(masterfiles)
             
         return name, comp_file
 

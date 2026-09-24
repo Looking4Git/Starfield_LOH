@@ -1,6 +1,8 @@
 # Starfield LOH – Benutzeroberflächen- & Design-Richtlinien (UI Guidelines)
 
-Dieses Dokument definiert die verbindlichen Gestaltungs- und Stilregeln für alle Benutzeroberflächen, Dialoge, Tabellen und Eingabemasken des Projekts **Starfield Load Order Helper (LOH)**. Alle Entwicklungen und KI-Agenten müssen sich strikt an diese Vorgaben halten.
+Dieses Dokument definiert die verbindlichen Gestaltungs-, Komponenten- und Stilregeln für alle Benutzeroberflächen, Seiten, angedockten Werkzeugfenster und Eingabemasken des Projekts **Starfield Load Order Helper (LOH)**. Alle Entwicklungen und KI-Agenten müssen sich strikt an diese Vorgaben halten.
+
+Als alleinige Referenzquelle („Single Source of Truth“) dient das **Hauptfenster mit seinen etablierten Hauptseiten** (`Page_LoadOrder`, `Page_Mods`, `Page_Update` sowie das zentrale Stylesheet `Style/Starfield_LOH_Pages.qss`).
 
 ---
 
@@ -10,152 +12,145 @@ Das Gesamtdesign orientiert sich an einem hochwertigen Sci-Fi-Dark-Mode mit klar
 
 | Element / Zweck | Farbwert (Hex) | Name / Bedeutung |
 | :--- | :--- | :--- |
-| **Haupthintergrund** | `#0D0D0D` / `rgb(13, 13, 13)` | Primärer Dark-Mode-Hintergrund für Fenster und Dialoge |
-| **Sidebar / Header** | `#212121` / `#2B2B2B` | Menüleiste und Tabellenköpfe |
+| **Haupthintergrund** | `#0D0D0D` / `rgb(13, 13, 13)` | Primärer Dark-Mode-Hintergrund für Fenster und Seiten |
+| **Sidebar / Tabellenköpfe** | `#212121` / `#2B2B2B` | Menüleiste, Scrollbar-Tracks und Tabellenköpfe |
 | **Primärer Akzent** | `#304C7A` | **Starfield Blau**: Selektionen, primäre Buttons, Trennlinien |
-| **Sekundärer Akzent** | `#D7A64B` | **Starfield Gelb / Gold**: Überschriften, Read-Only-Felder, Indikatoren |
+| **Sekundärer Akzent** | `#D7A64B` | **Starfield Gelb / Gold**: Sektions-Überschriften, Read-Only-Felder |
 | **Kritischer Akzent** | `#C72138` | **Starfield Rot**: Fehler, Gefahrenbuttons, Mod-Voraussetzungen |
 | **Kennzeichnung** | `#1F7343` | **Starfield Grün**: Mod-Abhängigkeiten, Bestätigungen |
 | **Pointer Core** | `#E06236` | **Starfield Orange**: Basis- und Core-Kennzahlen |
 | **Helle Flächen / Tabellen**| `#ECECEC` / `#FFFFFF` | Tabellenhintergrund, editierbare Eingabefelder |
 | **Standardtext (dunkel)**| `#000000` / `#1E1E1E` | Text auf hellen Hintergründen (Tabellen, Eingabefelder) |
-| **Standardtext (hell)** | `#ECECEC` / `#E0E0E0` | Text auf dunklen Hintergründen (Labels, Dialogtexte) |
+| **Standardtext (hell)** | `#ECECEC` / `#E0E0E0` | Text auf dunklen Hintergründen (Labels, Sektionstexte) |
 
 ---
 
-## 2. Strukturierte Fenstergliederung (Master-Detail-Pattern)
+## 2. Komponenten-Spezifikation (Universal Component Design System)
 
-Die Hauptmasken folgen dem dreiteiligen Aufbau:
-```text
-[Sidebar (Navigation)] | [Master-View (Tabelle / Liste)] | [Detail-View (Eingabemaske)]
-```
+Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen Seiten und in angedockten Fenstern gilt.
 
-### A. Master-View (Tabellen & Bäume: QTableView / QTreeView)
-* **Hintergrund:** Hell (`#ECECEC`), abwechselnde Zeilen `#F2F2F2`.
-* **Schriftfarbe:** Dunkelgrau/Schwarz (`#1E1E1E`).
-* **Selektion:** Starfield-Blau (`#304C7A`) mit weißer Schrift (`#FFFFFF`).
-* **Header:** Dunkel (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold). Klick-Effekt: Starfield-Gelb (`#D7A64B`).
-* **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg`.
-
-### B. Detail-View (Eingabemasken & Formulare)
-* **Container-Hintergrund:** Transparent auf dunklem Grund (`rgb(13, 13, 13)`).
-* **Labels:** Hellgrau (`#E0E0E0` / `#ECECEC`), font-size: 13px.
-
-#### Eingabefelder (QLineEdit, QTextEdit, QComboBox)
-1. **Editierbare Felder:**
-   * Hintergrund: Weiß (`#FFFFFF`)
-   * Schriftfarbe: Schwarz (`#000000`)
-   * Rahmen: `1px solid #888888`, `border-radius: 2px`
-   * Innenabstand (Padding): `4px 8px`
-2. **Schreibgeschützte Felder (Read-Only: `QLineEdit:read-only`):**
-   * Hintergrund: **Starfield Gelb / Gold (`#D7A64B`)**
-   * Schriftfarbe: Schwarz (`#000000`)
-   * *Bedeutung:* Signalisiert dem Benutzer sofort, dass hier ein fester, schreibgeschützter System- oder Datenbankwert angezeigt wird (z. B. Mod-Name, Position, Komponenten).
-3. **Schriftformatierung & Ausrichtung (gilt für alle Eingabefelder):**
-   * **Schriftgewicht:** Standardmäßig normale Schriftstärke (`font-weight: normal;`). Eingabefelder verwenden keine Fettschrift.
-   * **Textausrichtung:** Grundsätzlich linksbündig (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter` bzw. `qproperty-alignment: 'AlignLeft | AlignVCenter';`).
-   * **Cursor-Position bei Initialbefüllung:** Wird ein Textfeld programmgesteuert via `.setText(...)` befüllt, muss die Cursor-Position mit `.setCursorPosition(0)` auf den Anfang gesetzt werden. Dadurch wird verhindert, dass längere Texte nach rechts weggescrollt werden und optisch rechtsbündig oder zentriert wirken.
+### A. Beschriftungs-Label (`QLabel`)
+* **Standard-Feldlabel (`lbl_*_label`):**
+  * **Textkonvention:** Endet im Formular immer mit einem Doppelpunkt (z. B. `Name:`, `Autor:`, `Kategorie:`, `Komponente:`).
+  * **Typografie:** `"Segoe UI", Arial`, Schriftgröße `13px`, normal (`font-weight: normal`).
+  * **Schriftfarbe:** Hellgrau `#ECECEC` (bzw. `#E0E0E0`) auf dunklem Hintergrund.
+  * **Ausrichtung:** Linksbündig, vertikal zentriert (`Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
+  * **Größenverhalten:** Passt sich dem Text an (`sizePolicy: Preferred` oder `Fixed`), darf weder horizontal noch vertikal kollabieren oder abgeschnitten werden.
+* **Sektions-Überschriften (`lbl_*`):**
+  * **Farbe:** Starfield Gelb / Gold (`#D7A64B`).
+  * **Typografie:** `"Segoe UI", Arial`, `16px`, Fettschrift (`font-weight: bold`).
+  * **Abstände:** `margin-top: 4px; margin-bottom: 2px;`.
 
 ---
 
-## 3. Überschriften & Trennlinien (Sektionen)
-
-Zur optischen Gliederung des Detailbereichs und modularer Formulare werden standardisierte Sektions-Überschriften und akzentuierte Trennlinien eingesetzt:
-
-### A. Sektions-Überschriften (`QLabel`)
-* **Optik & Typografie:**
-  * Farbe: **Starfield Gelb / Gold (`#D7A64B`)**
-  * Schriftgröße: `16px`, Fettschrift (`font-weight: bold`)
-  * Abstände: `margin-top: 4px; margin-bottom: 2px;`
-* **Namenskonvention & QSS-Verknüpfung:**
-  * Sektions-Labels müssen im Stylesheet (`Style/Starfield_LOH_Pages.qss`) über ihren `objectName` referenziert werden (z. B. `lbl_display_section`, `lbl_filter`, `lbl_details`, `lbl_sorter_section`).
-  * Bei der Neuanlage von Sektionen in `.ui`-Dateien oder im Code ist sicherzustellen, dass der `objectName` des Labels in den zentralen QSS-Selektor aufgenommen wird, um das einheitliche Gold-Design automatisch zu erhalten.
-
-### B. Sektions-Trennlinien (`QFrame` mit HLine)
-* **Optik & Abmessungen:**
-  * Farbe: **Starfield Blau (`#304C7A`)**
-  * Feste Höhe: Exakt `4px` (`min-height: 4px; max-height: 4px; height: 4px;`)
-  * Rahmen: Keiner (`border: none;`)
-* **Namenskonvention & QSS-Verknüpfung:**
-  * Trennlinien werden als `QFrame` mit gesetzter HLine (`Shape::HLine`) angelegt.
-  * Der `objectName` muss im Stylesheet (`Style/Starfield_LOH_Pages.qss`) registriert sein (z. B. `display_separator`, `detail_separator`, `sorter_separator`).
-  * Dadurch wird der native, graue Qt-Sunken-Rahmen durch den durchgezogenen, 4px hohen Starfield-Blau-Akzentbalken ersetzt.
-
-### C. Verschiebbare Docking-Trennkante (`QMainWindow::separator`)
-* Ruhezustand: Dezent dunkel (`background-color: #1a1a1a; width: 4px;`).
-* Hover-Zustand (`:hover`): Starfield Blau (`background-color: #304C7A;`). Signalisiert beim Überfahren mit der Maus sofort und eindeutig die Verschiebbarkeit des angedockten Bereiches.
-
+### B. Einzeilige Eingabe- & Anzeigefelder (`QLineEdit`)
+* **Typografie:** `"Segoe UI", Arial`, Schriftgröße `13px`, normale Schriftstärke (`font-weight: normal`), linksbündig ausgerichtet (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
+* **Zustand Editierbar:**
+  * Hintergrund: Weiß (`#FFFFFF`).
+  * Schriftfarbe: Schwarz (`#000000`).
+  * Rahmen: `1px solid #888888`, `border-radius: 2px`.
+  * Innenabstand (Padding): `4px 8px`.
+* **Zustand Schreibgeschützt (`readOnly = True`):**
+  * Hintergrund: **Starfield Gelb / Gold (`#D7A64B`)**.
+  * Schriftfarbe: Schwarz (`#000000`).
+  * Rahmen & Padding: Identisch (`1px solid #888888`, `border-radius: 2px`, `padding: 4px 8px`).
+  * *Bedeutung:* Signalisiert dem Benutzer unmissverständlich einen festen, unveränderlichen System-, Berechnungs- oder Datenbankwert.
+* **Geometrie & Skalierungsverhalten:**
+  * Mindesthöhe: `26px` bis `28px` (durch Padding `4px 8px`).
+  * Horizontale Skalierung: `sizePolicy: Expanding, Fixed` – passt sich im Layout flexibel der verfügbaren Breite an (`ExpandingFieldsGrow`), schrumpft jedoch nie unter die Mindestbreite.
+* **Code-Befüllung & Cursor-Standard:**
+  * Wird ein Feld programmgesteuert via `.setText(...)` befüllt, **muss stets `.setCursorPosition(0)`** aufgerufen werden. Dadurch wird verhindert, dass längere Texte nach rechts weggescrollt werden.
 
 ---
 
-## 4. Schaltflächen (Buttons: QPushButton)
-
-* **Standard-Button:**
-  * Hintergrund: Starfield Blau (`#304C7A`)
-  * Schrift: Weiß/Hellgrau (`#ECECEC`, 13px)
-  * Hover: Helles Blau (`#5B7A9E`)
-  * Rahmen: `none`, `border-radius: 2px`
-  * Padding: `4px 8px` (bzw. `6px 16px` in Dialogen)
-  * Textausrichtung: Linksbündig (`text-align: left`), damit Icons und Text bei mehreren Buttons vertikal exakt auf einer Fluchtlinie liegen.
-* **Pfeil- und Mini-Buttons (z. B. `btn_pos_up`, `btn_pos_down`):**
-  * Padding: 0px, Textausrichtung zentriert (`text-align: center`).
-* **Gefahren-Buttons (`btn_danger`):**
-  * Hintergrund: Starfield Rot (`#C72138`), Hover: `#E03048`, Pressed: `#A0182B`.
+### C. Mehrzeilige Textfelder (`QTextEdit`)
+* **Einsatz:** URLs, Notizen, Kurzbeschreibungen.
+* **Hintergrund:** Weiß (`#FFFFFF`), Schriftfarbe Schwarz (`#000000`).
+* **Rahmen & Padding:** `1px solid #888888`, `border-radius: 2px`, `padding: 4px 8px`.
+* **Geometrie:** Standardhöhe `78px`, `sizePolicy: Expanding, Fixed`, `acceptRichText: False`.
 
 ---
 
-## 5. Checkboxen & Indikatoren
+### D. Auswahllisten (`QComboBox`)
+* **Eingabebereich:** Weißer Hintergrund (`#FFFFFF`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
+* **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund Starfield-Blau (`#304C7A`), Hover `#5B7A9E`, Rahmen `none`.
+* **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), weiß, zentriert.
+* **Mindestbreite:** Im Formularbereich standardmäßig `220px`.
 
-* **Checkboxen im Detailbereich:**
-  * Kasten: Weiß (`#FFFFFF`), Rahmen `1px solid #888888`, `border-radius: 2px`.
+---
+
+### E. Schaltflächen (`QPushButton`)
+* **Standard-Aktionsbutton:**
+  * Hintergrund: Starfield-Blau (`#304C7A`), Hover: Helles Blau (`#5B7A9E`).
+  * Schrift & Icons: Weiß/Hellgrau `#ECECEC` (`13px`).
+  * Textausrichtung: Linksbündig (`text-align: left`), damit Text und Icons untereinander exakt auf einer Fluchtlinie liegen.
+  * Rahmen & Rundung: `border: none; border-radius: 2px;`.
+  * Abmessungen: Mindesthöhe `32px`, Mindestbreite `120px` bis `130px`, Padding `4px 8px`, Icongröße `24x24 px`.
+* **Pfeil- und Symbolbuttons (z. B. `btn_pos_up`, `btn_pos_down`):**
+  * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
+* **Gefahrenbuttons (`btn_danger`, z. B. Löschen):**
+  * Hintergrund: Starfield-Rot (`#C72138`), Hover `#E03048`, Pressed `#A0182B`.
+
+---
+
+### F. Sektions-Trennlinien (`QFrame` mit HLine)
+* **Farbe:** Starfield-Blau (`#304C7A`).
+* **Abmessungen:** Feste Höhe exakt `4px` (`min-height: 4px; max-height: 4px; height: 4px;`).
+* **Rahmen:** Keiner (`border: none;`).
+
+---
+
+### G. Checkboxen (`QCheckBox`)
+* **Formular- und Detailbereich:**
+  * Kasten: Weiß (`#FFFFFF`), Größe `16x16 px`, Rahmen `1px solid #888888`, `border-radius: 2px`.
   * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
   * Aktiviert (Checked): Hintergrund Starfield-Blau (`#304C7A`) mit weißem Häkchen (`Graphics/Icon_Check_White.svg`).
-* **Checkboxen in Tabellen:**
-  * Aktiviert: Hintergrund Starfield-Gelb (`#D7A64B`) mit Häkchen (`Graphics/Icon_Check.svg`).
+* **Tabellen- und Filterleisten (z. B. Typ-0-Filter):**
+  * Kasten: Weiß (`#FFFFFF`), Größe `14x14 px`, Rahmen `1px solid #5B7A9E`, `border-radius: 2px`.
+  * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
+  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen (`Graphics/Icon_Check.svg`).
 
 ---
 
-## 6. Layout-Disziplin & Bündigkeit
+### H. Tabellen & Bäume (`QTableView` / `QTreeView`)
+* **Körper:** Heller Hintergrund `#ECECEC`, alternierende Zeilen `#F2F2F2`, Textfarbe `#1E1E1E`, Gitterlinien `#D0D0D0`.
+* **Selektion:** Starfield-Blau (`#304C7A`) mit weißer Schrift (`#FFFFFF`).
+* **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
+* **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 
-1. **Horizontale Bündigkeit:**
-   * Der obere Rand des ersten Eingabefeldes oder Sektionstitels muss stets auf exakt gleicher Höhe mit dem oberen Rand der Master-Tabelle abschließen.
-2. **Vertikale Ausrichtung:**
-   * Formularfelder untereinander sind linksbündig bündig auszurichten.
+---
+
+## 3. Layout-Disziplin & Formular-Aufbau
+
+1. **Master-Detail-Architektur:**
+   * Links: Master-Tabelle (`QTableView` / `QTreeView`) im Hauptbereich.
+   * Rechts: Formular- oder Detailbereich in einer festen oder angedockten `QScrollArea`.
+2. **Formular-Layouts (`QFormLayout`):**
+   * Standardmäßig `fieldGrowthPolicy: ExpandingFieldsGrow`, `horizontalSpacing: 5`, `verticalSpacing: 5`.
+   * Rechtes Margin standardmäßig `6px`.
 3. **Vertikaler Abschluss (Spacer-Pflicht):**
-   * Am unteren Ende jeder Detail-View und jedes Sektions-Containers **muss zwingend ein `QSpacerItem` (vertikal expandierend)** platziert werden, damit alle Formularzeilen kompakt oben zusammengehalten werden und nicht unschön über die Fensterhöhe gestreckt werden.
+   * Am unteren Ende jedes Detailbereichs und jeder Formular-Sektion **muss zwingend ein `QSpacerItem` (vertikal expandierend)** platziert werden, damit alle Formularzeilen kompakt oben zusammengehalten werden und nicht vertikal auseinandergezogen werden.
 
 ---
 
-## 7. Rollbalkenbereich & flackerfreies Scrolling (Gutter-Standard)
-
-Um zu verhindern, dass sich Formulare, Tabellen und Detailbereiche beim Ein- oder Ausblenden eines Rollbalkens horizontal verschieben oder stauchen, gilt im gesamten Projekt der **Rollbalken-Gutter-Standard**:
+## 4. Rollbalkenbereich & flackerfreies Scrolling (Gutter-Standard)
 
 1. **Permanente Platzreservierung (`ScrollBarAlwaysOn`):**
-   * Vertikale Scrollbereiche (`QScrollArea`, z. B. in `Page_LoadOrder`, `Page_Mods`, `Window_Mod_Statistics`) müssen `verticalScrollBarPolicy = Qt.ScrollBarPolicy.ScrollBarAlwaysOn` setzen.
-   * Dadurch reserviert Qt dauerhaft exakt 16 Pixel Breite auf der rechten Fensterseite.
+   * Vertikale Scrollbereiche (`QScrollArea`, z. B. in `Page_LoadOrder`, `Page_Mods`, `Window_Mod_Statistics`) müssen `verticalScrollBarPolicy = Qt.ScrollBarPolicy.ScrollBarAlwaysOn` setzen (16px Breitenreservierung).
 2. **Dynamische Sichtbarkeitssteuerung (`needed`-Property):**
-   * Das Signal `vsb.rangeChanged(min_val, max_val)` der Scrollbar wird an `update_scrollbar_visibility` angebunden.
-   * **Inhalt passt ohne Scrollen (`min_val == max_val`, `needed="false"`):** Sämtliche Scrollbar-Komponenten (Track, Handle, Sub-Line, Add-Line, Pfeile) werden über das Stylesheet auf `background: transparent; border: none;` geschaltet. Der Bereich fungiert als unsichtbarer, eleganter Leerbereich (Gutter).
-   * **Inhalt übersteigt Fensterhöhe (`min_val < max_val`, `needed="true"`):** Die vollständige Starfield-Scrollbar (dunkelgrauer Track `#2b2b2b`, Starfield-blauer Schieber `#304C7A`, quadratische Endschaltflächen mit abgerundeten inneren Pfeil-Buttons) blendet sich nahtlos an der exakt gleichen Stelle ein.
+   * Signal `vsb.rangeChanged(min_val, max_val)` steuert die Property `needed`.
+   * Bei Nichtbedarf (`needed="false"`): Vollständig transparenter Gutter (`background: transparent; border: none;`).
+   * Bei Bedarf (`needed="true"`): Dark Track `#2B2B2B`, Starfield-blauer Schieber `#304C7A`, Hover `#5B7A9E`.
 3. **Breitenberechnung für angedockte Fenster:**
-   * Bei der Festlegung der Mindest- und Standardbreiten (z. B. `min_width` und `docked_width` im Statistik- und Analysefenster) muss der 16px-Rollbalkenbereich zur Formular-Nutzbreite addiert werden (Standard: **600px**).
-   * Dadurch bleiben alle zwei- und mehrspaltigen Eingabemasken und Bäume in voller Breite sichtbar, ohne gequetscht zu werden.
+   * Der 16px-Rollbalkenbereich wird immer in die Formular-Mindestbreite einkalkuliert.
 
 ---
 
-## 8. Docking-Geometrie & flackerfreies Schließen (LOH_DockManager-Standard)
-
-Für angedockte Werkzeug- und Statistikfenster (`QDockWidget` via `LOH_DockManager`) gelten folgende verbindliche Geometriestandards:
+## 5. Docking-Geometrie & flackerfreies Schließen (LOH_DockManager-Standard)
 
 1. **Dynamische Breitenführung bei manuellem Resize:**
-   * Wenn der Anwender das Hauptfenster manuell am Fensterrand vergrößert oder verkleinert, während ein Dock eingeblendet ist, muss die Basisbreite (`base_main_width`) kontinuierlich über einen `eventFilter` (`QEvent.Type.Resize`) synchronisiert werden:
-     $$\text{base\_main\_width} = \max(1280, \text{main\_window.width()} - (\text{dock\_w} + \text{SEPARATOR\_WIDTH}))$$
-   * Dies verhindert, dass das Hauptfenster beim Ausblenden des Docks auf eine veraltete Initialgröße zurückspringt oder die Gesamtbreite fälschlicherweise beibehält.
+   * Manuelle Größenänderungen des Hauptfensters synchronisieren kontinuierlich `base_main_width = max(1280, main_window.width() - (dock_w + SEPARATOR_WIDTH))`.
 2. **Atomares, flackerfreies Schließen:**
-   * Vor dem Verkleinern des Hauptfensters und Ausblenden des Docks wird `main_window.setUpdatesEnabled(False)` aktiviert.
-   * Das Dock wird ausgeblendet und `main_window.layout().activate()` aufgerufen, um die internen Layout-Beschränkungen von `QMainWindowLayout` sofort zu aktualisieren.
-   * Anschließend wird das Hauptfenster synchron auf die Zielbreite verkleinert und erst danach `main_window.setUpdatesEnabled(True)` aufgerufen.
-   * Dadurch wird das zweistufige Aufblitzen/Flackern des Detailbereichs vollständig eliminiert.
+   * Dock-Schließen erfolgt unter Kapselung von `main_window.setUpdatesEnabled(False)` und `main_window.layout().activate()`, bevor das Hauptfenster verkleinert wird.
 3. **Persistente Speicherung (`get_clean_window_width`):**
-   * Beim Schließen der Anwendung mit geöffnetem Dock wird über `get_clean_window_width()` stets die reale, vom Anwender eingestellte Nutzbreite (abzüglich der Dock-Breite) in `settings["window"]["width"]` gespeichert.
-
+   * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite) abgelegt.

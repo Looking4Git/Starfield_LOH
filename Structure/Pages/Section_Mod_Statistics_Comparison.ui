@@ -45,32 +45,66 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QLabel" name="lbl_main_name_title">
-        <property name="text">
-         <string>Name:</string>
+       <layout class="QFormLayout" name="form_layout_main">
+        <property name="horizontalSpacing">
+         <number>8</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="inp_main_name">
-        <property name="readOnly">
-         <bool>true</bool>
+        <property name="verticalSpacing">
+         <number>6</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="lbl_main_comp_title">
-        <property name="text">
-         <string>Komponente:</string>
+        <property name="leftMargin">
+         <number>0</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="inp_main_component">
-        <property name="readOnly">
-         <bool>true</bool>
+        <property name="topMargin">
+         <number>0</number>
         </property>
-       </widget>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="lbl_main_name_title">
+          <property name="minimumSize">
+           <size>
+            <width>95</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Name:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="inp_main_name">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="lbl_main_comp_title">
+          <property name="minimumSize">
+           <size>
+            <width>95</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Komponente:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="inp_main_component">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
        <layout class="QHBoxLayout" name="layout_main_img_center">
@@ -156,65 +190,99 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QLabel" name="lbl_comp_name_title">
-        <property name="text">
-         <string>Vergleichsmod:</string>
+       <layout class="QFormLayout" name="form_layout_comp">
+        <property name="horizontalSpacing">
+         <number>8</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="layout_comp_name_row">
-        <property name="spacing">
-         <number>4</number>
+        <property name="verticalSpacing">
+         <number>6</number>
         </property>
-        <item>
-         <widget class="QLineEdit" name="inp_comp_name">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="lbl_comp_name_title">
+          <property name="minimumSize">
+           <size>
+            <width>95</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Vergleichsmod:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <layout class="QHBoxLayout" name="layout_comp_name_row">
+          <property name="spacing">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QLineEdit" name="inp_comp_name">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_select_comp">
+            <property name="minimumSize">
+             <size>
+              <width>32</width>
+              <height>28</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>32</width>
+              <height>28</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Vergleichsmod auswählen</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset>
+              <normaloff>Graphics/Icon_Add.svg</normaloff>Graphics/Icon_Add.svg</iconset>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="lbl_comp_comp_title">
+          <property name="minimumSize">
+           <size>
+            <width>95</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Komponente:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="inp_comp_component">
           <property name="readOnly">
            <bool>true</bool>
           </property>
          </widget>
         </item>
-        <item>
-         <widget class="QPushButton" name="btn_select_comp">
-          <property name="minimumSize">
-           <size>
-            <width>32</width>
-            <height>28</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>32</width>
-            <height>28</height>
-           </size>
-          </property>
-          <property name="toolTip">
-           <string>Vergleichsmod auswählen</string>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-          <property name="icon">
-           <iconset>
-            <normaloff>Graphics/Icon_Add.svg</normaloff>Graphics/Icon_Add.svg</iconset>
-          </property>
-         </widget>
-        </item>
        </layout>
-      </item>
-      <item>
-       <widget class="QLabel" name="lbl_comp_comp_title">
-        <property name="text">
-         <string>Komponente:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="inp_comp_component">
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
       </item>
       <item>
        <layout class="QHBoxLayout" name="layout_comp_img_center">

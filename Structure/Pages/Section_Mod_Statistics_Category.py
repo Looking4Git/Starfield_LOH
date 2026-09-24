@@ -41,6 +41,7 @@ class Section_Mod_Statistics_Category(QWidget):
         # 2. Widgets referenzieren
         self.tree_categories_creations = self.ui.findChild(QTreeView, "tree_categories_creations")
         if self.tree_categories_creations:
+            self.tree_categories_creations.setFixedHeight(126)
             self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
 
         self.inp_loot = self.ui.findChild(QLineEdit, "inp_loot")

@@ -196,8 +196,11 @@ QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
     background-color: transparent;
 }
 
-#detail_view QLabel {
-    color: #e0e0e0; 
+#detail_view QLabel,
+#Window_Mod_Statistics QLabel,
+QDockWidget QLabel,
+#scroll_content QLabel {
+    color: #ECECEC; 
 }
 
 /* =========================================================
@@ -442,6 +445,34 @@ QTableView::indicator:unchecked, QTreeView::indicator:unchecked {
 /* Selektions-Status: Etwas kräftigerer Rahmen bei ausgewählter Zeile */
 QTableView::indicator:selected, QTreeView::indicator:selected {
     border: 1px solid #ffffff;
+}
+
+/* Checkbox Typ 0 im Konfliktbereich (LOH Tabellen-Standard) */
+QCheckBox#chk_show_type_0 {
+    color: #ECECEC;
+    font-family: "Segoe UI", Arial;
+    font-size: 13px;
+    spacing: 8px;
+    background: transparent;
+}
+QCheckBox#chk_show_type_0::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: #ffffff;
+    border: 1px solid #5b7a9e;
+    border-radius: 2px;
+}
+QCheckBox#chk_show_type_0::indicator:hover {
+    border: 1px solid #D7A64B;
+}
+QCheckBox#chk_show_type_0::indicator:checked {
+    background-color: #D7A64B;
+    image: url(Graphics/Icon_Check.svg);
+    border: 1px solid #5b7a9e;
+}
+QCheckBox#chk_show_type_0::indicator:unchecked {
+    background-color: #ffffff;
+    image: none;
 }
 
 /* =========================================================

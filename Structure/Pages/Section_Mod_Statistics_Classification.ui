@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>580</width>
-    <height>200</height>
+    <height>310</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="main_layout">
@@ -28,8 +28,14 @@
    </property>
    <item>
     <widget class="QTableView" name="table_classification">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>308</height>
+      </size>
+     </property>
      <property name="verticalScrollBarPolicy">
-      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>
      </property>
      <property name="horizontalScrollBarPolicy">
       <enum>Qt::ScrollBarPolicy::ScrollBarAsNeeded</enum>

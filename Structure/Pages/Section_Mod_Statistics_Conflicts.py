@@ -9,6 +9,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, DB_FILE
+from Structure.LOH_HeaderView import LOH_HeaderView
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -150,20 +151,20 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.table_conflicts.verticalHeader().setVisible(False)
             self.table_conflicts.verticalHeader().setDefaultSectionSize(24)
 
-            header = self.table_conflicts.horizontalHeader()
+            header = LOH_HeaderView(self.table_conflicts)
+            self.table_conflicts.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
-            header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-            self.table_conflicts.setColumnWidth(0, 95)   # Typ
-            self.table_conflicts.setColumnWidth(1, 140)  # Prüfschritt
-            self.table_conflicts.setColumnWidth(2, 65)   # Signatur
-            self.table_conflicts.setColumnWidth(3, 105)  # FormID
-            self.table_conflicts.setColumnWidth(4, 160)  # Name
-            self.table_conflicts.setColumnWidth(5, 105)  # Zell-FormID
-            self.table_conflicts.setColumnWidth(6, 140)  # Zell-Name
-            self.table_conflicts.setColumnWidth(7, 105)  # Base-FormID
-            self.table_conflicts.setColumnWidth(8, 140)  # Base-Name
-            header.setSectionResizeMode(9, QHeaderView.ResizeMode.Interactive)  # Begründung
-            self.table_conflicts.setColumnWidth(9, 500)
+            header.set_column_rule(0, min_width=95, default_width=95, stretch=0)   # Typ
+            header.set_column_rule(1, min_width=140, default_width=140, stretch=0)  # Prüfschritt
+            header.set_column_rule(2, min_width=65, default_width=65, stretch=0)   # Signatur
+            header.set_column_rule(3, min_width=105, default_width=105, stretch=0)  # FormID
+            header.set_column_rule(4, min_width=160, default_width=160, stretch=0)  # Name
+            header.set_column_rule(5, min_width=105, default_width=105, stretch=0)  # Zell-FormID
+            header.set_column_rule(6, min_width=140, default_width=140, stretch=0)  # Zell-Name
+            header.set_column_rule(7, min_width=105, default_width=105, stretch=0)  # Base-FormID
+            header.set_column_rule(8, min_width=140, default_width=140, stretch=0)  # Base-Name
+            header.set_column_rule(9, min_width=500, default_width=500, stretch=1)  # Begründung
+            header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):
         """Wird aufgerufen, wenn die Hauptmod im Fenster gewechselt wird."""

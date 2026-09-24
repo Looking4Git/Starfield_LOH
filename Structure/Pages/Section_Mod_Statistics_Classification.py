@@ -7,6 +7,7 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT
 from Structure.Database import get_db_connection
+from Structure.LOH_HeaderView import LOH_HeaderView
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -80,23 +81,16 @@ class Section_Mod_Statistics_Classification(QWidget):
             self.table_view.verticalHeader().setVisible(False)
             self.table_view.verticalHeader().setDefaultSectionSize(24)
 
-            # Spaltenbreiten & Resize-Modi
-            header = self.table_view.horizontalHeader()
+            # Intelligenter Header mit Mindestbreiten und dynamischem Stretch
+            header = LOH_HeaderView(self.table_view)
+            self.table_view.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
-            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-            self.table_view.setColumnWidth(0, 70)
-
-            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
-            self.table_view.setColumnWidth(1, 140)
-
-            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-            self.table_view.setColumnWidth(2, 95)
-
-            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
-            self.table_view.setColumnWidth(3, 95)
-
-            header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
-            self.table_view.setColumnWidth(4, 500)
+            header.set_column_rule(0, min_width=70, default_width=70, stretch=0)
+            header.set_column_rule(1, min_width=140, default_width=140, stretch=0)
+            header.set_column_rule(2, min_width=95, default_width=95, stretch=0)
+            header.set_column_rule(3, min_width=95, default_width=95, stretch=0)
+            header.set_column_rule(4, min_width=500, default_width=500, stretch=1)
+            header.apply_initial_widths()
 
     def set_mod(self, mod_id: int):
         """Lädt die Klassifikationsdaten der ersten Hauptkomponente für die Mod."""

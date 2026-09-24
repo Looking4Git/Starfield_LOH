@@ -367,6 +367,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 self.table_conflicts.setSortingEnabled(True)
                 hdr = self.table_conflicts.horizontalHeader()
                 if isinstance(hdr, LOH_HeaderView):
+                    hdr.invalidate_cache()
                     hdr._distribute_stretch()
 
             # Zusammenfassungszeile aktualisieren

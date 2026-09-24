@@ -957,7 +957,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 reason = (
                     f"Asynchrone Wegfindungs-Überschreibung systembedingt unkritisch{loc_str}: "
                     f"'{name_bld}' platziert neue Objekte/NPCs ({cnt_bld} Referenzen) mit angepasstem Wegfindungsnetz in dieser Zelle, "
-                    f"während '{name_res}' (Bethesda Game Studios) keine eigenen Neubauten besitzt.\n"
+                    f"während '{name_res}' (Bethesda Game Studios) keine eigenen Neubauten besitzt. "
                     f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
                     f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
                 )
@@ -966,7 +966,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 reason = (
                     f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
                     f"'{name_bld}' platziert neue Objekte/NPCs ({cnt_bld} Referenzen) mit angepasstem Wegfindungsnetz, "
-                    f"während '{name_res}' keine eigenen Neubauten besitzt.\n"
+                    f"während '{name_res}' keine eigenen Neubauten besitzt. "
                     f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
                     f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
                 )
@@ -1086,7 +1086,7 @@ def _build_refr_diff_reason(base_edid, name_a, name_b, sub_a, sub_b):
             cat_text = "Geländebereinigung" if is_nature else ("Architektur-Entfernung" if is_arch else "Bereinigungskonflikt")
             reason = (
                 f"{cat_text} (Delete vs. Disable): '{del_mod}' löscht dieses Element ({base_label}) physisch aus der Zelle, "
-                f"während '{dis_mod}' es über einen Steuer-Marker (Initially Disabled / XESP) sicher ausblendet.\n"
+                f"während '{dis_mod}' es über einen Steuer-Marker (Initially Disabled / XESP) sicher ausblendet. "
                 f"Ladereihenfolge-Zuteilung: '{dis_mod}' muss NACH '{del_mod}' geladen werden! "
                 f"(Lädt '{del_mod}' später, wird das Objekt physisch gelöscht; Risiko von Null-Pointer-Glitches und Skriptabbrüchen)."
             )

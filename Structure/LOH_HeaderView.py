@@ -17,6 +17,7 @@ class LOH_HeaderView(QHeaderView):
         self.setStretchLastSection(False)
         self.setSectionsMovable(False)
         self._rules = {}
+        self._cached_content_widths = {}
         self._resizing_internally = False
         
         # Auf manuelles Ziehen durch den Anwender reagieren
@@ -36,9 +37,34 @@ class LOH_HeaderView(QHeaderView):
             "stretch_factor": int(stretch_factor),
             "cap_to_content": bool(cap_to_content)
         }
+        self.invalidate_cache(col)
+
+    def invalidate_cache(self, col: int = None):
+        """Leert den Inhaltsbreiten-Cache für eine oder alle Spalten."""
+        if col is not None:
+            self._cached_content_widths.pop(col, None)
+        else:
+            self._cached_content_widths.clear()
+
+    def _get_content_width(self, col: int) -> int:
+        """Gibt die gecachte Inhaltsbreite zurück oder berechnet sie einmalig."""
+        if col in self._cached_content_widths:
+            return self._cached_content_widths[col]
+
+        parent = self.parent()
+        if not parent or not parent.model() or parent.model().rowCount() == 0:
+            return 0
+
+        content_w = parent.sizeHintForColumn(col)
+        if content_w > 0:
+            content_w += 14  # Puffer für Zellen-Padding und Sortierpfeil
+            self._cached_content_widths[col] = content_w
+            return content_w
+        return 0
 
     def apply_initial_widths(self):
         """Wendet die definierten Startbreiten an und berechnet den Stretch-Anteil."""
+        self.invalidate_cache()
         self._resizing_internally = True
         try:
             for col, rule in self._rules.items():
@@ -54,7 +80,9 @@ class LOH_HeaderView(QHeaderView):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._distribute_stretch()
+        # Wenn kein Parent-Filter aktiv ist, Fallback auf eigenes resizeEvent
+        if not self.parent():
+            self._distribute_stretch()
 
     def _on_section_resized(self, logical_index: int, old_size: int, new_size: int):
         if self._resizing_internally:
@@ -120,12 +148,11 @@ class LOH_HeaderView(QHeaderView):
                 share = int(available * (rule["stretch_factor"] / total_weight))
                 target = max(rule["min_width"], share)
                 
-                # Obergrenzen ermitteln
+                # Obergrenzen ermitteln (aus Cache bezogen)
                 upper_limit = rule["max_width"]
                 if rule["cap_to_content"]:
-                    content_w = self.parent().sizeHintForColumn(c)
+                    content_w = self._get_content_width(c)
                     if content_w > 0:
-                        content_w += 12 # Puffer für Zellen-Padding und Sortierpfeil
                         upper_limit = min(upper_limit, content_w) if upper_limit is not None else content_w
                 
                 if upper_limit is not None and target >= upper_limit:
@@ -152,9 +179,8 @@ class LOH_HeaderView(QHeaderView):
                 
             upper_limit = rule["max_width"]
             if rule["cap_to_content"]:
-                content_w = self.parent().sizeHintForColumn(c)
+                content_w = self._get_content_width(c)
                 if content_w > 0:
-                    content_w += 12
                     upper_limit = min(upper_limit, content_w) if upper_limit is not None else content_w
             if upper_limit is not None and target > upper_limit:
                 target = max(rule["min_width"], upper_limit)

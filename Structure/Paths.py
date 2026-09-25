@@ -18,6 +18,7 @@ VERSION_FILE = os.path.join(APP_ROOT, "version.json")
 MAIN_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Main.log")
 CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Check.log")
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")
+MOD_UPDATE_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Update.log")
 DB_FILE = os.path.join(DATABASE_DIR, "Starfield_LOH.db")
 DATABASE_FILE = DB_FILE
 
@@ -129,20 +130,22 @@ MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
 BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
 BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
 BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
+BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
 
 
 def update_runtime_data_paths(new_data_path: str):
     """
     Aktualisiert die dynamischen Nutzdatenpfade zur Laufzeit (z. B. nach Umzug via LOH_Change_Data_Path).
     """
-    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR
+    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR
     DATA_DIR = resolve_path(new_data_path, "Data")
     MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
     BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
     BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
     BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
+    BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
     
-    for directory in [DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR]:
+    for directory in [DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR]:
         os.makedirs(directory, exist_ok=True)
 
     # Alle bereits geladenen Module in sys.modules sofort auf die neuen Pfade aktualisieren
@@ -152,6 +155,7 @@ def update_runtime_data_paths(new_data_path: str):
         "BACKUPS_DIR": BACKUPS_DIR,
         "BACKUPS_WORKSPACE_DIR": BACKUPS_WORKSPACE_DIR,
         "BACKUPS_ACTIVATION_DIR": BACKUPS_ACTIVATION_DIR,
+        "BACKUPS_MOD_UPDATE_DIR": BACKUPS_MOD_UPDATE_DIR,
     }
     for mod in list(sys.modules.values()):
         if mod and hasattr(mod, "__dict__"):
@@ -163,7 +167,7 @@ def update_runtime_data_paths(new_data_path: str):
 
 
 # Sicherstellen, dass die initialen Ordner existieren
-for directory in [LOGS_DIR, DATABASE_DIR, DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR]:
+for directory in [LOGS_DIR, DATABASE_DIR, DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 

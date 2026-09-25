@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import Qt
 
-def make_button_premium(button: QPushButton, icon_path: str, text: str, spacing: int = 10, padding_left: int = 8, icon_size: tuple[int, int] | int = 22):
+def make_button_premium(button: QPushButton, icon_path: str, text: str, spacing: int = 10, padding_left: int = 8, icon_size: tuple[int, int] | int = 22, centered: bool = False):
     if not button:
         return
     # Clear native text and icon
@@ -33,6 +33,8 @@ def make_button_premium(button: QPushButton, icon_path: str, text: str, spacing:
         text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         text_label.setStyleSheet("color: #ECECEC; font-weight: bold; background: transparent; border: none; padding: 0px;")
         
+        if centered:
+            layout.addStretch()
         layout.addWidget(icon_label)
         layout.addWidget(text_label)
         layout.addStretch()

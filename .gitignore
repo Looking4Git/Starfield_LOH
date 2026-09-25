@@ -20,6 +20,7 @@ AGENTS.md
 ai-manifest.md
 ai-starfield-manifest.md
 Plan_Archive/
+Plan_Starfield_Mod_Update.md
 
 
 # Windows Systemdateien
@@ -52,7 +53,10 @@ Data/Backups/LOH_Workspace/Starfield_Get_Data/*
 !Data/Backups/LOH_Workspace/Profile_Activation/
 Data/Backups/LOH_Workspace/Profile_Activation/*
 !Data/Backups/LOH_Workspace/Profile_Activation/.gitkeep
-Backups/
+!Data/Backups/LOH_Workspace/Starfield_Mod_Update/
+Data/Backups/LOH_Workspace/Starfield_Mod_Update/*
+!Data/Backups/LOH_Workspace/Starfield_Mod_Update/.gitkeep
+/Backups/
 
 # Mod-Vorschaubilder (Ordnerstruktur bleibt über .gitkeep)
 Data/Mod_Images/*

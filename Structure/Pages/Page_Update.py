@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QScrollArea,
-                               QLineEdit, QTextEdit, QLabel, QPushButton, QHeaderView)
+                               QLineEdit, QTextEdit, QLabel, QPushButton, QHeaderView, QMessageBox)
 from PySide6.QtGui import (QStandardItemModel, QStandardItem, QDesktopServices,
                            QPixmap, QPainter, QColor)
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
@@ -11,6 +11,8 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Database import get_mods_with_updates, get_mod_image
 from Structure.Paths import APP_ROOT
 from Structure.Pages.UI_Utils import make_button_premium
+from Structure.Starfield_Mod_Update import prepare_mod_update
+from Structure.Pages.Window_Mod_Update_Overlay import Window_Mod_Update_Overlay
 
 
 class CheckboxHeaderView(QHeaderView):
@@ -151,6 +153,13 @@ class Page_Update(QWidget):
         if self.btn_open_url:
             make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Web.svg"), "Öffnen")
             self.btn_open_url.clicked.connect(self.open_mod_url)
+
+        self.btn_start_update = ui.findChild(QPushButton, "btn_start_update")
+        if self.btn_start_update:
+            make_button_premium(self.btn_start_update, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Update starten", centered=True)
+            self.btn_start_update.clicked.connect(self.on_start_update_clicked)
+
+        self.overlay_window = None
 
         # Tabelle konfigurieren
         self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -372,3 +381,61 @@ class Page_Update(QWidget):
         url_text = self.inp_url.toPlainText().strip()
         if url_text:
             QDesktopServices.openUrl(QUrl(url_text))
+
+    def on_start_update_clicked(self):
+        """Sammelt alle angehakten Mods, führt die Backup-Vorbereitung aus und öffnet das Overlay."""
+        if not hasattr(self, 'model') or self.model is None:
+            return
+
+        selected_mods = []
+        for r in range(self.model.rowCount()):
+            item_check = self.model.item(r, 1)
+            if item_check and item_check.checkState() == Qt.CheckState.Checked:
+                item_id = self.model.item(r, 0)
+                mod_data = item_id.data(Qt.ItemDataRole.UserRole)
+                if mod_data:
+                    selected_mods.append(mod_data)
+
+        if not selected_mods:
+            QMessageBox.information(
+                self,
+                "Keine Mods ausgewählt",
+                "Bitte wählen Sie in der Tabelle mindestens eine Mod für das Update aus (Checkbox 'Update')."
+            )
+            return
+
+        try:
+            # 1. Sicherung und Vorbereitung über Backend-Modul durchführen
+            backup_path = prepare_mod_update(selected_mods)
+            logging.info(f"Page_Update: Update-Vorbereitung abgeschlossen in {backup_path}")
+
+            # 2. Bestehendes Overlay schließen falls noch offen
+            if self.overlay_window is not None:
+                try:
+                    self.overlay_window.close()
+                except Exception:
+                    pass
+
+            # 3. Neues Overlay-Fenster instanziieren und anzeigen
+            self.overlay_window = Window_Mod_Update_Overlay(selected_mods)
+
+            # Startpositionierung: Immer am oberen rechten Bildschirmrand mit dezentem Abstand (25px)
+            from PySide6.QtWidgets import QApplication
+            screen = (self.screen() if hasattr(self, "screen") and self.screen() else None) or QApplication.primaryScreen()
+            if screen:
+                geo = screen.geometry()
+                margin_right = 25
+                margin_top = 25
+                x = geo.x() + geo.width() - self.overlay_window.width() - margin_right
+                y = geo.y() + margin_top
+                self.overlay_window.move(x, y)
+
+            self.overlay_window.show()
+
+        except Exception as e:
+            logging.error(f"Fehler beim Starten des Mod-Updates: {e}")
+            QMessageBox.critical(
+                self,
+                "Fehler beim Update-Start",
+                f"Beim Vorbereiten des Mod-Updates ist ein Fehler aufgetreten:\n{str(e)}"
+            )

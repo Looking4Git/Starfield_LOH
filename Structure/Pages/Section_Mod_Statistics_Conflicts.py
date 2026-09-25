@@ -2,14 +2,16 @@ import os
 import sqlite3
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, 
-    QTableView, QHeaderView
+    QTableView, QHeaderView, QStackedWidget
 )
 from PySide6.QtCore import Qt, QFile, QSortFilterProxyModel
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Paths import APP_ROOT, DB_FILE
+from Structure.Paths import APP_ROOT, DB_FILE, get_setting
 from Structure.LOH_HeaderView import LOH_HeaderView
+from Structure.LOH_TileView import LOH_TileView
+from Structure.Pages.Widget_ConflictCard import Widget_ConflictCard
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -70,7 +72,9 @@ class Section_Mod_Statistics_Conflicts(QWidget):
     """
     Abschnitt 'Konflikte':
     Zeigt die kollidierenden Datensätze zwischen der Hauptmod und der gewählten Vergleichsmod
-    (bzw. über alle Mods, falls keine Vergleichsmod gewählt ist) tabellarisch nach LOH-Standards an.
+    (bzw. über alle Mods, falls keine Vergleichsmod gewählt ist) an:
+    - Wahlweise in der etablierten Tabellenansicht mit LOH_HeaderView
+    - Oder in der performanten, virtualisierten Kachelansicht (LOH_TileView mit Widget_ConflictCard)
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -91,41 +95,63 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         # UI-Elemente referenzieren
         self.lbl_stats = self.ui.findChild(QLabel, "lbl_stats")
         self.chk_show_type_0 = self.ui.findChild(QCheckBox, "chk_show_type_0")
+        self.chk_tile_view = self.ui.findChild(QCheckBox, "chk_tile_view")
+        self.stacked_views = self.ui.findChild(QStackedWidget, "stacked_views")
         self.table_conflicts = self.ui.findChild(QTableView, "table_conflicts")
+        self.layout_tiles_page = self.ui.findChild(QVBoxLayout, "layout_tiles_page")
 
         if self.lbl_stats:
             self.lbl_stats.setStyleSheet("color: #D7A64B; font-weight: bold; font-size: 13px;")
 
+        # Einheitliches Styling für die Starfield-Checkboxen
+        chk_style = """
+            QCheckBox {
+                color: #ECECEC;
+                font-family: "Segoe UI", Arial;
+                font-size: 13px;
+                spacing: 8px;
+                background: transparent;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                background-color: #ffffff;
+                border: 1px solid #5b7a9e;
+                border-radius: 2px;
+            }
+            QCheckBox::indicator:hover {
+                border: 1px solid #D7A64B;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #D7A64B;
+                image: url(Graphics/Icon_Check.svg);
+                border: 1px solid #5b7a9e;
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: #ffffff;
+                image: none;
+            }
+        """
+
         if self.chk_show_type_0:
-            self.chk_show_type_0.setStyleSheet("""
-                QCheckBox {
-                    color: #ECECEC;
-                    font-family: "Segoe UI", Arial;
-                    font-size: 13px;
-                    spacing: 8px;
-                    background: transparent;
-                }
-                QCheckBox::indicator {
-                    width: 14px;
-                    height: 14px;
-                    background-color: #ffffff;
-                    border: 1px solid #5b7a9e;
-                    border-radius: 2px;
-                }
-                QCheckBox::indicator:hover {
-                    border: 1px solid #D7A64B;
-                }
-                QCheckBox::indicator:checked {
-                    background-color: #D7A64B;
-                    image: url(Graphics/Icon_Check.svg);
-                    border: 1px solid #5b7a9e;
-                }
-                QCheckBox::indicator:unchecked {
-                    background-color: #ffffff;
-                    image: none;
-                }
-            """)
+            self.chk_show_type_0.setStyleSheet(chk_style)
             self.chk_show_type_0.stateChanged.connect(self.on_toggle_type_0)
+
+        if self.chk_tile_view:
+            self.chk_tile_view.setStyleSheet(chk_style)
+            self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
+
+        # Universelle LOH_TileView in Page 1 einbetten
+        self.tile_view = LOH_TileView(
+            card_class=Widget_ConflictCard,
+            tile_width=280,
+            tile_spacing=8,
+            buffer_count=8,
+            parent=self
+        )
+        self.tile_view.setFixedHeight(295)
+        if self.layout_tiles_page:
+            self.layout_tiles_page.addWidget(self.tile_view)
 
         # Tabellenmodell & Proxy
         self.headers = [
@@ -141,7 +167,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
         if self.table_conflicts:
             self.table_conflicts.setModel(self.proxy_model)
-            self.table_conflicts.setFixedHeight(260)
+            self.table_conflicts.setFixedHeight(295)
             self.table_conflicts.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_conflicts.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_conflicts.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -155,7 +181,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.table_conflicts.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
             header.set_column_rule(0, min_width=95, default_width=95, stretch_factor=0)                         # Typ
-            header.set_column_rule(1, min_width=140, default_width=140, stretch_factor=1, cap_to_content=True) # Prüfschritt (wächst bis zum vollen Inhalt)
+            header.set_column_rule(1, min_width=140, default_width=140, stretch_factor=1, cap_to_content=True) # Prüfschritt
             header.set_column_rule(2, min_width=65, default_width=65, stretch_factor=0)                         # Signatur
             header.set_column_rule(3, min_width=105, default_width=105, stretch_factor=0)                       # FormID
             header.set_column_rule(4, min_width=160, default_width=160, stretch_factor=0)                       # Name
@@ -163,8 +189,15 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             header.set_column_rule(6, min_width=140, default_width=140, stretch_factor=0)                       # Zell-Name
             header.set_column_rule(7, min_width=105, default_width=105, stretch_factor=0)                       # Base-FormID
             header.set_column_rule(8, min_width=140, default_width=140, stretch_factor=0)                       # Base-Name
-            header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=2, cap_to_content=False) # Begründung (wächst bis zum Rand)
+            header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=2, cap_to_content=False) # Begründung
             header.apply_initial_widths()
+
+        # Einstellungs-Präferenz prüfen ("Kachelanzeige bei Konflikten bevorzugen")
+        prefer_tiles = get_setting("Prefer_Conflict_Tiles", False)
+        if prefer_tiles and self.chk_tile_view:
+            self.chk_tile_view.setChecked(True)
+            if self.stacked_views:
+                self.stacked_views.setCurrentIndex(1)
 
     def set_mod(self, mod_id: int):
         """Wird aufgerufen, wenn die Hauptmod im Fenster gewechselt wird."""
@@ -184,8 +217,17 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         """Aktualisiert die Tabelle beim Umschalten der Typ-0-Checkbox."""
         self.load_conflicts()
 
+    def on_toggle_view_mode(self, state):
+        """Schaltet zwischen Tabelle (Index 0) und Kachelansicht (Index 1) um."""
+        if self.stacked_views:
+            is_tile = self.chk_tile_view.isChecked() if self.chk_tile_view else False
+            self.stacked_views.setCurrentIndex(1 if is_tile else 0)
+            if is_tile and hasattr(self, "tile_view"):
+                self.tile_view._sync_content_height()
+                self.tile_view._update_visible_window(force=True)
+
     def load_conflicts(self):
-        """Lädt die Konflikte aus der Datenbank."""
+        """Lädt die Konflikte aus der Datenbank und befüllt Tabelle und Kacheln."""
         if self.current_main_mod_id is None:
             self.clear()
             return
@@ -237,7 +279,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             active_cnt = stats_row["active_cnt"] or 0
             total_cnt = stats_row["total_cnt"] or 0
 
-            # 2. Datensätze für Tabelle laden
+            # 2. Datensätze für Tabelle und Kacheln laden
             where_table = where_pair
             table_params = list(pair_params)
             if not show_zero:
@@ -260,6 +302,8 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             if self.table_conflicts:
                 self.table_conflicts.setSortingEnabled(False)
             self.model.removeRows(0, self.model.rowCount())
+
+            tile_items = []
 
             for r in rows:
                 ctype = r["Conflict_Type"]
@@ -287,7 +331,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                     partner_file = comp_file_a
                     main_file = comp_file_b
 
-                # 0. Typ
+                # --- A. Tabellen-Items aufbauen ---
                 ctype_name = CONFLICT_TYPES.get(ctype, "Unbekannt")
                 item_type = QStandardItem(f"{ctype} - {ctype_name}")
                 item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -305,7 +349,6 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 elif ctype == 1:
                     item_type.setForeground(QColor("#D7A64B"))  # Gelb
 
-                # 1. Prüfschritt
                 item_step = QStandardItem(step_desc if step_desc else "-")
                 tip_parts = []
                 if step_desc:
@@ -317,36 +360,22 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                     tip_parts.append(f"Ladereihenfolge-Regel: Mod {id_req} muss VOR Mod {id_dep} geladen werden.")
                 item_step.setToolTip("\n".join(tip_parts))
 
-                # 2. Signatur
                 item_sig = QStandardItem(sig if sig else "-")
                 item_sig.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-                # 3. FormID
                 item_fid = HexNumericStandardItem(formid)
-
-                # 4. Name
                 item_edid = QStandardItem(edid if edid else "-")
-
-                # 5. Zell-FormID
                 item_cell_fid = HexNumericStandardItem(cell_fid)
-
-                # 6. Zell-Name
                 item_cell_edid = QStandardItem(cell_edid if cell_edid else "-")
-
-                # 7. Base-FormID
                 item_base_fid = HexNumericStandardItem(base_fid)
-
-                # 8. Base-Name
                 item_base_edid = QStandardItem(base_edid if base_edid else "-")
 
-                # 9. Begründung
                 item_reason = QStandardItem(reason if reason else "-")
                 reason_tip = reason
                 if main_file and partner_file:
                     reason_tip = f"[{partner_name} | {main_file} vs {partner_file}]\n{reason}"
                 item_reason.setToolTip(reason_tip)
 
-                # Typ 0 dezent ausgrauen
                 if ctype == 0:
                     muted = QColor("#888888")
                     for itm in [item_step, item_sig, item_fid, item_edid,
@@ -362,6 +391,28 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                     item_cell_fid, item_cell_edid, item_base_fid, item_base_edid,
                     item_reason
                 ])
+
+                # --- B. Kachel-Daten dict sammeln ---
+                card_data = {
+                    "Conflict_Type": ctype,
+                    "Step_Description": step_desc,
+                    "Sig": sig,
+                    "FormID": formid,
+                    "EDID": edid,
+                    "Cell_FormID": cell_fid,
+                    "Cell_EDID": cell_edid,
+                    "Base_FormID": base_fid,
+                    "Base_EDID": base_edid,
+                    "Reason": reason,
+                    "Partner_Name": partner_name,
+                    "Partner_File": partner_file,
+                    "Main_File": main_file,
+                }
+                tile_items.append(card_data)
+
+            # Virtuelle Kachelansicht füttern (erzeugt nur ~20 sichtbare Kacheln)
+            if hasattr(self, "tile_view"):
+                self.tile_view.set_items(tile_items)
 
             if self.table_conflicts:
                 self.table_conflicts.setSortingEnabled(True)
@@ -402,5 +453,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         self.current_comp_mod_id = None
         if self.model:
             self.model.removeRows(0, self.model.rowCount())
+        if hasattr(self, "tile_view"):
+            self.tile_view.set_items([])
         if self.lbl_stats:
             self.lbl_stats.setText("Kollidierende Datensätze")

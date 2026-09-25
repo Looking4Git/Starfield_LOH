@@ -25,6 +25,8 @@
     "Limit_Small_Master": 4096,
     "Projection_PointerHandles_Core": 1200000,
     "Projection_PointerHandles_Mods": 23,
-    "Limit_PointerHandles": 2097152
+    "Limit_PointerHandles": 2097152,
+    "Prefer_Conflict_Tiles": false
   }
 }
+

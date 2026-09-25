@@ -74,6 +74,7 @@ class Page_Settings(QWidget):
         self.lbl_node_title = QLabel("Allgemein")
         self.lbl_node_title.setObjectName("lbl_setting_title")
         detail_layout.addWidget(self.lbl_node_title)
+        detail_layout.addSpacing(6)
 
         # Trennlinie: Starfield-Blau
         self.separator = QFrame()
@@ -82,7 +83,8 @@ class Page_Settings(QWidget):
         self.separator.setFrameShadow(QFrame.Shadow.Plain)
         self.separator.setFixedHeight(4)
         detail_layout.addWidget(self.separator)
-        detail_layout.addSpacing(10)
+        detail_layout.addSpacing(6)
+
 
         # Eingebetteter Stack für Subpages
         self.stack = QStackedWidget()

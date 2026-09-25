@@ -4,8 +4,9 @@ import ctypes
 import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, 
-    QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFrame
+    QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFrame, QCheckBox
 )
+
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt, QSize, Signal
 
@@ -43,8 +44,8 @@ class Page_Settings_General(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 8, 10, 10)
-        layout.setSpacing(14)
+        layout.setContentsMargins(0, 0, 10, 10)
+        layout.setSpacing(0)
 
         # -------------------------------------------------------------
         # 1. Abschnitt: Dateipfade
@@ -52,11 +53,13 @@ class Page_Settings_General(QWidget):
         lbl_section = QLabel("Dateipfade")
         lbl_section.setObjectName("lbl_details")
         layout.addWidget(lbl_section)
+        layout.addSpacing(6)
 
         form_layout = QFormLayout()
-        form_layout.setContentsMargins(0, 6, 0, 0)
-        form_layout.setSpacing(12)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(8)
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+
 
         lbl_path = QLabel("Starfield Spielverzeichnis:")
 
@@ -132,9 +135,34 @@ class Page_Settings_General(QWidget):
         self.update_data_status_display(current_data)
 
         # -------------------------------------------------------------
-        # 2. Abschnitt: Zurücksetzen
+        # 2. Abschnitt: Anzeige
         # -------------------------------------------------------------
-        layout.addSpacing(20)
+        layout.addSpacing(12)
+
+        sep_display = QFrame()
+        sep_display.setObjectName("detail_separator")
+        sep_display.setFrameShape(QFrame.Shape.HLine)
+        sep_display.setFrameShadow(QFrame.Shadow.Plain)
+        sep_display.setFixedHeight(4)
+        layout.addWidget(sep_display)
+        layout.addSpacing(8)
+
+        lbl_display_section = QLabel("Anzeige")
+        lbl_display_section.setObjectName("lbl_details")
+        layout.addWidget(lbl_display_section)
+        layout.addSpacing(6)
+
+        self.chk_prefer_tiles = QCheckBox("Kachelanzeige bei Konflikten bevorzugen")
+        self.chk_prefer_tiles.setObjectName("chk_prefer_tiles")
+        prefer_val = get_setting("Prefer_Conflict_Tiles", False)
+        self.chk_prefer_tiles.setChecked(bool(prefer_val))
+        self.chk_prefer_tiles.stateChanged.connect(self.on_prefer_tiles_changed)
+        layout.addWidget(self.chk_prefer_tiles)
+
+        # -------------------------------------------------------------
+        # 3. Abschnitt: Zurücksetzen
+        # -------------------------------------------------------------
+        layout.addSpacing(12)
 
         sep = QFrame()
         sep.setObjectName("detail_separator")
@@ -142,11 +170,12 @@ class Page_Settings_General(QWidget):
         sep.setFrameShadow(QFrame.Shadow.Plain)
         sep.setFixedHeight(4)
         layout.addWidget(sep)
-        layout.addSpacing(12)
+        layout.addSpacing(8)
 
         lbl_reset_section = QLabel("Zurücksetzen")
         lbl_reset_section.setObjectName("lbl_details")
         layout.addWidget(lbl_reset_section)
+        layout.addSpacing(4)
 
         lbl_reset_desc = QLabel(
             "Über die Schaltfläche „Starfield LOH Zurücksetzen“ werden alle Programmeinstellungen "
@@ -155,8 +184,9 @@ class Page_Settings_General(QWidget):
             "unwiderruflich gelöscht."
         )
         lbl_reset_desc.setWordWrap(True)
-        lbl_reset_desc.setStyleSheet("color: #e0e0e0; font-size: 14px; margin-top: 4px; margin-bottom: 12px;")
+        lbl_reset_desc.setStyleSheet("color: #e0e0e0; font-size: 14px; margin-top: 0px; margin-bottom: 0px;")
         layout.addWidget(lbl_reset_desc)
+        layout.addSpacing(10)
 
         # Button wie auf Tools-Seite: volle Breite, 40px Höhe, zentrierter Text, ohne Icon
         self.btn_reset = QPushButton("Starfield LOH Zurücksetzen")
@@ -166,8 +196,16 @@ class Page_Settings_General(QWidget):
         self.btn_reset.clicked.connect(self.on_reset_clicked)
         layout.addWidget(self.btn_reset)
 
+
         # Vertikaler Spacer nach unten
         layout.addStretch()
+
+    def on_prefer_tiles_changed(self, state):
+        """Speichert die Kachel-Präferenz in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Prefer_Conflict_Tiles", val)
+        self.data_updated.emit()
+
 
     def update_status_display(self, path: str):
         """Aktualisiert die Statusanzeige mit offiziellem Starfield-Grün (#1F7343) oder Gelb (#D7A64B)."""

@@ -120,6 +120,22 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
+### I. Informationstextfelder & Kacheln (Card-View) & LOH_TileView
+* **Einsatz:** Kompakte Datenkarten, HUD-Kacheln und interaktive Konflikt-Karten (`Widget_ConflictCard`), bei denen Daten ohne Formularrahmen als reiner strukturierter Text dargestellt werden.
+* **Kartenrahmen:** Menühintergrund `#212121` (`rgb(33, 33, 33)`), Rahmen `1px solid #383838`, Rundung `8px`, Hover-Highlight `#5B7A9E`.
+* **Kopf-Badge:** Farbiges Typ-Banner oben (Rot `#C72138`, Orange `#E06236`, Gelb `#D7A64B`, Muted `#555555`), Rundung `4px`, zentrierter fetter Text.
+* **Informationstextfeld (Label-Wert-Paare):**
+  * **Labels:** Rechtsbündig an einer vertikalen Fluchtachse ausgerichtet (`Qt.AlignmentFlag.AlignRight`), kompakter Block linksbündig orientiert, Farbe **Starfield-Gelb/Gold (`#D7A64B`)**, normale Schriftstärke (`font-weight: normal`), Schriftgröße `12px` / `9pt`. *(Vorgemerkt für Hellmodus-Test: Wechsel auf Starfield-Blau `#304C7A`)*.
+  * **Werte:** Linksbündig direkt anschließend, Farbe `#ECECEC` / `#FFFFFF` (FormIDs in `Consolas`, Strings in `Segoe UI`).
+  * **Stabile Geometrie:** Alle 6 Datenzeilen sind stets im Layout vorhanden (leere Felder erhalten `""` statt `"-"`), wodurch die blaue Trennlinie kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
+* **Trennlinie:** Starfield-Blau `#304C7A`, Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
+* **Lupenfunktion (Modal Zoom Overlay bei Klick):** Statt unruhiger Breitenexpansion im Layout verbleiben Kacheln im Ribbon stabil auf 280 px. Ein Klick öffnet ein zentriertes Modal-Overlay (`LOH_TileZoomOverlay`) in doppelter Größe (560 × 400 px), das alle Details und lange Texte ohne Scrollen darstellt. Ein Klick auf die Lupe, daneben oder ESC schließt den Zoom sofort.
+* **Virtualisiertes Kachelband (`LOH_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Pages.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`).
+
+
+
+---
+
 ## 3. Layout-Disziplin & Formular-Aufbau
 
 1. **Master-Detail-Architektur:**

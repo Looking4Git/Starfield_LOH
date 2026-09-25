@@ -152,7 +152,15 @@ class Page_Settings_General(QWidget):
         layout.addWidget(lbl_display_section)
         layout.addSpacing(6)
 
-        self.chk_prefer_tiles = QCheckBox("Kachelanzeige bei Konflikten bevorzugen")
+        self.chk_prefer_content_bar = QCheckBox("Balkendiagramme in Abschnitt Inhalte bevorzugen (Fenster: Mod-Analyse Statistiken)")
+        self.chk_prefer_content_bar.setObjectName("chk_prefer_content_bar")
+        prefer_content_bar_val = get_setting("Prefer_Content_BarChart", False)
+        self.chk_prefer_content_bar.setChecked(bool(prefer_content_bar_val))
+        self.chk_prefer_content_bar.stateChanged.connect(self.on_prefer_content_bar_changed)
+        layout.addWidget(self.chk_prefer_content_bar)
+        layout.addSpacing(6)
+
+        self.chk_prefer_tiles = QCheckBox("Kachelanzeige in Abschnitt Konflikte bevorzugen (Fenster: Mod-Analyse Statistiken)")
         self.chk_prefer_tiles.setObjectName("chk_prefer_tiles")
         prefer_val = get_setting("Prefer_Conflict_Tiles", False)
         self.chk_prefer_tiles.setChecked(bool(prefer_val))
@@ -199,6 +207,12 @@ class Page_Settings_General(QWidget):
 
         # Vertikaler Spacer nach unten
         layout.addStretch()
+
+    def on_prefer_content_bar_changed(self, state):
+        """Speichert die Präferenz für Balkendiagramme im Inhalte-Abschnitt in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Prefer_Content_BarChart", val)
+        self.data_updated.emit()
 
     def on_prefer_tiles_changed(self, state):
         """Speichert die Kachel-Präferenz in den Settings."""
@@ -433,16 +447,20 @@ class Page_Settings_General(QWidget):
                     "Projection_PointerHandles_Core": 1200000,
                     "Projection_PointerHandles_Mods": 23,
                     "Limit_PointerHandles": 2097152,
-                    "Limit_Warning_Percentage": 90
+                    "Limit_Warning_Percentage": 90,
+                    "Prefer_Content_BarChart": False,
+                    "Prefer_Conflict_Tiles": False
                 }
                 with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                     json.dump(cfg, f, indent=2)
             except Exception as e:
                 print(f"Fehler beim Zurücksetzen der Settings: {e}")
 
-            # 3. Pfadanzeige auf Seite aktualisieren
+            # 3. Pfadanzeige und Checkboxen auf Seite aktualisieren
             self.inp_starfield_data.setText(DEFAULT_GAME_PATH)
             self.update_status_display(DEFAULT_GAME_PATH)
+            self.chk_prefer_content_bar.setChecked(False)
+            self.chk_prefer_tiles.setChecked(False)
 
             # 4. Bestätigungsdialog anzeigen
             info_box = QMessageBox(self)

@@ -8,6 +8,7 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Paths import APP_ROOT
 from Structure.Database import get_db_connection
 from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
+from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -59,7 +60,19 @@ class Section_Mod_Statistics_Classification(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
         layout.addWidget(self.ui)
+
+        # 1. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
+        self.resize_grip = LOH_Control_SectionResizeGrip(
+            target_widget=self,
+            min_height=324,
+            max_height=800,
+            default_height=324,
+            parent=self
+        )
+        layout.addWidget(self.resize_grip)
+        self.setFixedHeight(324)
 
         # QTableView referenzieren und Modell einrichten
         self.table_view = self.ui.findChild(QTableView, "table_classification")
@@ -71,7 +84,7 @@ class Section_Mod_Statistics_Classification(QWidget):
 
         if self.table_view:
             self.table_view.setModel(self.proxy_model)
-            self.table_view.setFixedHeight(308)
+            self.table_view.setMinimumHeight(308)
             self.table_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)

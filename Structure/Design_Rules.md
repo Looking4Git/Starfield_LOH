@@ -161,8 +161,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Umschaltung, Auto-Fit & Sektions-Dynamik:**
   * Zweispaltige Aufteilung (Hauptmod links, Vergleichsmod rechts) ohne redundante Detailüberschriften für maximale Diagrammgröße.
   * Checkbox *Balkendiagramm* oben rechts (mit Standard-Häkchen) toggelt beide Hälften synchron zwischen Radar- und Balkenansicht.
+  * **Einstellungspräferenz (`Prefer_Content_BarChart`):** In `Page_Settings_General` konfigurierbar ("Balkendiagramme in Abschnitt Inhalte bevorzugen (Fenster: Mod-Analyse Statistiken)").
   * **Auto-Fit Höhe:** Radar startet mit großzügiger Basishöhe (480 px); beim Umschalten auf Balkendiagramm expandiert die Sektion automatisch auf exakt 704 px (kalibriert auf 652 px Canvas-Höhe inkl. Kopfzeile, Abständen und `LOH_Control_SectionResizeGrip`, sodass alle 32 Zeilen bündig ohne toten Freiraum und ohne internen Rollbalken sichtbar sind).
-  * **`LOH_Control_SectionResizeGrip`:** Integrierter Sci-Fi-Ziehgriff am unteren Sektionsrand für stufenloses manuelles Aufziehen der Höhe per Mausdrag (`SizeVerCursor`) inkl. Doppelklick für Reset auf Standard. Siehe [LOH_Control_SectionResizeGrip_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_SectionResizeGrip_Documentation.md).
+  * **`LOH_Control_SectionResizeGrip`:** Integrierter Sci-Fi-Ziehgriff am unteren Sektionsrand für stufenloses manuelles Aufziehen der Höhe per Mausdrag (`SizeVerCursor`) inkl. Doppelklick für Reset auf Standard.
+    * Eingesetzt in: *Inhalte* (Auto-Fit 480/704 px, stufenlos ziehbar), *Klassifizierung* (Standard/Minimum 324 px) und *Konflikte* (Standard/Minimum 346 px in Tabellenansicht; im Kachelmodus wird der Zieher ausgeblendet und die Sektion schließt bündig ohne Freiraum ab).
+    * Siehe [LOH_Control_SectionResizeGrip_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_SectionResizeGrip_Documentation.md).
 
 ---
 

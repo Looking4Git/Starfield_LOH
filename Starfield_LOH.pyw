@@ -36,6 +36,7 @@ DEFAULT_SETTINGS = {
         "Projection_PointerHandles_Mods": 23,
         "Limit_PointerHandles": 2097152,
         "Limit_Warning_Percentage": 90,
+        "Prefer_Content_BarChart": False,
         "Prefer_Conflict_Tiles": False
     }
 }

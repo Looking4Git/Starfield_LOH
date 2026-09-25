@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QFile
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Paths import APP_ROOT, DB_FILE
+from Structure.Paths import APP_ROOT, DB_FILE, get_setting
 from Structure.Database import create_view_category_dimension_max
 from Structure.Pages.Widget_ContentRadarChart import Widget_ContentRadarChart
 from Structure.Pages.Widget_ContentBarChart import Widget_ContentBarChart
@@ -112,6 +112,11 @@ class Section_Mod_Statistics_Content(QWidget):
 
         # 5. Globale Maxima initial vorladen
         self._load_category_maxes()
+
+        # 6. Einstellungs-Präferenz prüfen ("Balkendiagramme in Abschnitt Inhalte bevorzugen")
+        prefer_bar = get_setting("Prefer_Content_BarChart", False)
+        if prefer_bar and self.chk_bar_chart:
+            self.chk_bar_chart.setChecked(True)
 
     def _on_toggle_view_mode(self, state):
         """Schaltet zwischen Netzgrafik (Index 0) und Balkendiagramm (Index 1) um inkl. Auto-Fit Höhe."""

@@ -11,6 +11,7 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Paths import APP_ROOT, DB_FILE, get_setting
 from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
 from Structure.LOH_Control_TileView import LOH_Control_TileView
+from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 from Structure.Pages.Widget_ConflictCard import Widget_ConflictCard
 
 CONFLICT_TYPES = {
@@ -80,6 +81,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         super().__init__(parent)
         self.current_main_mod_id = None
         self.current_comp_mod_id = None
+        self._last_table_height = 346
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Conflicts.ui")
@@ -90,7 +92,20 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
         layout.addWidget(self.ui)
+
+        # Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
+        self.resize_grip = LOH_Control_SectionResizeGrip(
+            target_widget=self,
+            min_height=346,
+            max_height=800,
+            default_height=346,
+            parent=self
+        )
+        self.resize_grip.height_changed.connect(self._on_table_height_changed)
+        layout.addWidget(self.resize_grip)
+        self.setFixedHeight(346)
 
         # UI-Elemente referenzieren
         self.lbl_stats = self.ui.findChild(QLabel, "lbl_stats")
@@ -167,7 +182,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
         if self.table_conflicts:
             self.table_conflicts.setModel(self.proxy_model)
-            self.table_conflicts.setFixedHeight(295)
+            self.table_conflicts.setMinimumHeight(295)
             self.table_conflicts.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_conflicts.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_conflicts.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -192,12 +207,14 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=2, cap_to_content=False) # Begründung
             header.apply_initial_widths()
 
-        # Einstellungs-Präferenz prüfen ("Kachelanzeige bei Konflikten bevorzugen")
+        # Einstellungs-Präferenz prüfen ("Kachelanzeige in Abschnitt Konflikte bevorzugen")
         prefer_tiles = get_setting("Prefer_Conflict_Tiles", False)
         if prefer_tiles and self.chk_tile_view:
             self.chk_tile_view.setChecked(True)
-            if self.stacked_views:
-                self.stacked_views.setCurrentIndex(1)
+
+    def _on_table_height_changed(self, new_h: int):
+        """Merkt sich die vom Benutzer gezogene Sektionshöhe für die Tabellenansicht."""
+        self._last_table_height = new_h
 
     def set_mod(self, mod_id: int):
         """Wird aufgerufen, wenn die Hauptmod im Fenster gewechselt wird."""
@@ -222,9 +239,19 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         if self.stacked_views:
             is_tile = self.chk_tile_view.isChecked() if self.chk_tile_view else False
             self.stacked_views.setCurrentIndex(1 if is_tile else 0)
-            if is_tile and hasattr(self, "tile_view"):
-                self.tile_view._sync_content_height()
-                self.tile_view._update_visible_window(force=True)
+            if is_tile:
+                # Kachelansicht: Zieher ausblenden und Sektion fest auf Standardhöhe fixieren (kein Freiraum)
+                if hasattr(self, "resize_grip"):
+                    self.resize_grip.setVisible(False)
+                self.setFixedHeight(346)
+                if hasattr(self, "tile_view"):
+                    self.tile_view._sync_content_height()
+                    self.tile_view._update_visible_window(force=True)
+            else:
+                # Tabellenansicht: Zieher einblenden und gemerkte/aktuelle Höhe wiederherstellen
+                if hasattr(self, "resize_grip"):
+                    self.resize_grip.setVisible(True)
+                self.setFixedHeight(getattr(self, "_last_table_height", 346))
 
     def load_conflicts(self):
         """Lädt die Konflikte aus der Datenbank und befüllt Tabelle und Kacheln."""

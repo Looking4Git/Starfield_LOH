@@ -98,7 +98,7 @@ class LOH_TileZoomOverlay(QWidget):
         self.close()
 
 
-class LOH_TileView(QWidget):
+class LOH_Control_TileView(QWidget):
     """
     Wiederverwendbare universelle Kachel-Ribbon-Komponente für Starfield LOH:
     - Positionsbasierter Fenster-Loader (Windowed Viewport-Virtualisierung):
@@ -336,3 +336,7 @@ class LOH_TileView(QWidget):
     def _on_zoom_closed(self):
         """Wird ausgelöst, wenn das Overlay geschlossen wird."""
         self._zoom_overlay = None
+
+
+# Abwärtskompatibler Alias
+LOH_TileView = LOH_Control_TileView

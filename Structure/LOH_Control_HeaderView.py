@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QHeaderView, QTableView
 from PySide6.QtCore import Qt, QEvent
 
 
-class LOH_HeaderView(QHeaderView):
+class LOH_Control_HeaderView(QHeaderView):
     """
     Intelligenter, universeller Tabellenkopf für Starfield LOH.
     Ermöglicht deklarative Spaltenregeln:
@@ -193,3 +193,7 @@ class LOH_HeaderView(QHeaderView):
                 self.resizeSection(c, w)
         finally:
             self._resizing_internally = False
+
+
+# Abwärtskompatibler Alias
+LOH_HeaderView = LOH_Control_HeaderView

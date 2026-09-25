@@ -61,6 +61,7 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_classification = Section_Mod_Statistics_Classification(self)
         self.sec_content = Section_Mod_Statistics_Content(self)
         self.sec_conflicts = Section_Mod_Statistics_Conflicts(self)
+        self.sec_comparison.comp_mod_changed.connect(self.sec_content.set_comp_mod)
         self.sec_comparison.comp_mod_changed.connect(self.sec_conflicts.set_comp_mod)
 
         self.cs_comparison = CollapsibleSection("Vergleich", self.sec_comparison, parent=self, is_expanded=True)
@@ -172,7 +173,8 @@ class Window_Mod_Statistics(QDockWidget):
             self.sec_comparison.set_main_mod(mod_id)
             self.sec_category.set_mod(mod_id)
             self.sec_classification.set_mod(mod_id)
-            self.sec_content.set_mod(mod_id)
+            self.sec_content.set_main_mod(mod_id)
+            self.sec_content.set_comp_mod(self.sec_comparison.current_comp_mod_id)
             self.sec_conflicts.set_main_mod(mod_id)
             self.sec_conflicts.set_comp_mod(self.sec_comparison.current_comp_mod_id)
         else:

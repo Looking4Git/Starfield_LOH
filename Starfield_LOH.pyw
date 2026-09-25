@@ -13,7 +13,7 @@ from Structure.Pages.Page_Update import Page_Update
 from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Pages.Page_Settings import Page_Settings
 from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
-from Structure.LOH_Window_Docking import LOH_DockManager
+from Structure.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 from Structure.Paths import SETTINGS_FILE
 from Structure.Database import ensure_default_database_mode
 
@@ -204,7 +204,7 @@ class StarfieldLOH(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
         self.dock_statistics.setVisible(False)
 
-        self.dock_manager = LOH_DockManager(self, self.dock_statistics)
+        self.dock_manager = LOH_Control_WindowDocking(self, self.dock_statistics)
 
         self.page_lo.analysis_requested.connect(self.dock_manager.toggle)
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)

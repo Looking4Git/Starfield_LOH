@@ -9,8 +9,8 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, DB_FILE, get_setting
-from Structure.LOH_HeaderView import LOH_HeaderView
-from Structure.LOH_TileView import LOH_TileView
+from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
+from Structure.LOH_Control_TileView import LOH_Control_TileView
 from Structure.Pages.Widget_ConflictCard import Widget_ConflictCard
 
 CONFLICT_TYPES = {
@@ -73,8 +73,8 @@ class Section_Mod_Statistics_Conflicts(QWidget):
     Abschnitt 'Konflikte':
     Zeigt die kollidierenden Datensätze zwischen der Hauptmod und der gewählten Vergleichsmod
     (bzw. über alle Mods, falls keine Vergleichsmod gewählt ist) an:
-    - Wahlweise in der etablierten Tabellenansicht mit LOH_HeaderView
-    - Oder in der performanten, virtualisierten Kachelansicht (LOH_TileView mit Widget_ConflictCard)
+    - Wahlweise in der etablierten Tabellenansicht mit LOH_Control_HeaderView
+    - Oder in der performanten, virtualisierten Kachelansicht (LOH_Control_TileView mit Widget_ConflictCard)
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -141,8 +141,8 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.chk_tile_view.setStyleSheet(chk_style)
             self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
 
-        # Universelle LOH_TileView in Page 1 einbetten
-        self.tile_view = LOH_TileView(
+        # Universelle LOH_Control_TileView in Page 1 einbetten
+        self.tile_view = LOH_Control_TileView(
             card_class=Widget_ConflictCard,
             tile_width=280,
             tile_spacing=8,
@@ -177,7 +177,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.table_conflicts.verticalHeader().setVisible(False)
             self.table_conflicts.verticalHeader().setDefaultSectionSize(24)
 
-            header = LOH_HeaderView(self.table_conflicts)
+            header = LOH_Control_HeaderView(self.table_conflicts)
             self.table_conflicts.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
             header.set_column_rule(0, min_width=95, default_width=95, stretch_factor=0)                         # Typ
@@ -417,7 +417,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             if self.table_conflicts:
                 self.table_conflicts.setSortingEnabled(True)
                 hdr = self.table_conflicts.horizontalHeader()
-                if isinstance(hdr, LOH_HeaderView):
+                if isinstance(hdr, LOH_Control_HeaderView):
                     hdr.invalidate_cache()
                     hdr._distribute_stretch()
 

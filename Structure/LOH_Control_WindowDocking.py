@@ -3,7 +3,7 @@ from PySide6.QtCore import QObject, Qt, QTimer, QEvent
 from PySide6.QtWidgets import QMainWindow, QDockWidget
 
 
-class LOH_DockManager(QObject):
+class LOH_Control_WindowDocking(QObject):
     """
     Universeller Docking-Manager für Starfield LOH.
     Verwaltet das Andocken, Ausblenden und die synchronisierte Geometrie
@@ -152,3 +152,8 @@ class LOH_DockManager(QObject):
             dock_w = getattr(self.dock_widget, 'docked_width', 600)
             return max(1280, self.main_window.width() - (dock_w + self.SEPARATOR_WIDTH))
         return self.main_window.width()
+
+
+# Abwärtskompatible Aliase
+LOH_Control_DockManager = LOH_Control_WindowDocking
+LOH_DockManager = LOH_Control_WindowDocking

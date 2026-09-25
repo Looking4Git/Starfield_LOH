@@ -7,7 +7,7 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT
 from Structure.Database import get_db_connection
-from Structure.LOH_HeaderView import LOH_HeaderView
+from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -82,7 +82,7 @@ class Section_Mod_Statistics_Classification(QWidget):
             self.table_view.verticalHeader().setDefaultSectionSize(24)
 
             # Intelligenter Header mit Mindestbreiten und dynamischem Stretch
-            header = LOH_HeaderView(self.table_view)
+            header = LOH_Control_HeaderView(self.table_view)
             self.table_view.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
             header.set_column_rule(0, min_width=70, default_width=70, stretch_factor=0)
@@ -180,7 +180,7 @@ class Section_Mod_Statistics_Classification(QWidget):
                     self.table_view.setColumnWidth(col, max(w + 18, 70))
                 else:
                     self.table_view.setColumnWidth(col, w + 14)
-        if isinstance(header, LOH_HeaderView):
+        if isinstance(header, LOH_Control_HeaderView):
             header._distribute_stretch()
 
     def clear(self):

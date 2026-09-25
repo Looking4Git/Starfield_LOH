@@ -6,32 +6,136 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>500</width>
-    <height>60</height>
+    <width>900</width>
+    <height>480</height>
    </rect>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>480</height>
+   </size>
+  </property>
   <layout class="QVBoxLayout" name="main_layout">
-   <property name="leftMargin">
-    <number>8</number>
-   </property>
-   <property name="topMargin">
+   <property name="spacing">
     <number>6</number>
    </property>
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>4</number>
+   </property>
    <property name="rightMargin">
-    <number>8</number>
+    <number>6</number>
    </property>
    <property name="bottomMargin">
     <number>6</number>
    </property>
    <item>
-    <widget class="QLabel" name="lbl_placeholder">
-     <property name="styleSheet">
-      <string notr="true">color: #888888; font-style: italic;</string>
+    <layout class="QHBoxLayout" name="header_layout">
+     <item>
+      <widget class="QLabel" name="lbl_status">
+       <property name="styleSheet">
+        <string notr="true">color: #D7A64B; font-weight: bold; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Inhaltsdimensionen (Netto-Inhalte nach Prüfschritt 1)</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontal_spacer">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="chk_bar_chart">
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>Balkendiagramm</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="split_layout">
+     <property name="spacing">
+      <number>8</number>
      </property>
-     <property name="text">
-      <string>Bereich Inhalte (Record-Typen, Zellen &amp; Assets in Vorbereitung)</string>
-     </property>
-    </widget>
+     <item>
+      <widget class="QWidget" name="container_main" native="true">
+       <layout class="QVBoxLayout" name="layout_main_col">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <property name="leftMargin">
+         <number>2</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>2</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QStackedWidget" name="stacked_main"/>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="split_sep">
+       <property name="frameShape">
+        <enum>QFrame::Shape::VLine</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Shadow::Plain</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #304C7A; background-color: #304C7A; width: 1px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QWidget" name="container_comp" native="true">
+       <layout class="QVBoxLayout" name="layout_comp_col">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <property name="leftMargin">
+         <number>2</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>2</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QStackedWidget" name="stacked_comp"/>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

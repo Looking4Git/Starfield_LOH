@@ -112,15 +112,16 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
-### H. Tabellen & Bäume (`QTableView` / `QTreeView`)
+### H. Tabellen & Bäume (`QTableView` / `QTreeView` / `LOH_Control_HeaderView`)
 * **Körper:** Heller Hintergrund `#ECECEC`, alternierende Zeilen `#F2F2F2`, Textfarbe `#1E1E1E`, Gitterlinien `#D0D0D0`.
 * **Selektion:** Starfield-Blau (`#304C7A`) mit weißer Schrift (`#FFFFFF`).
 * **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
+* **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_HeaderView_Documentation.md).
 
 ---
 
-### I. Informationstextfelder & Kacheln (Card-View) & LOH_TileView
+### I. Informationstextfelder & Kacheln (Card-View) & LOH_Control_TileView
 * **Einsatz:** Kompakte Datenkarten, HUD-Kacheln und interaktive Konflikt-Karten (`Widget_ConflictCard`), bei denen Daten ohne Formularrahmen als reiner strukturierter Text dargestellt werden.
 * **Kartenrahmen:** Menühintergrund `#212121` (`rgb(33, 33, 33)`), Rahmen `1px solid #383838`, Rundung `8px`, Hover-Highlight `#5B7A9E`.
 * **Kopf-Badge:** Farbiges Typ-Banner oben (Rot `#C72138`, Orange `#E06236`, Gelb `#D7A64B`, Muted `#555555`), Rundung `4px`, zentrierter fetter Text.
@@ -130,9 +131,38 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Stabile Geometrie:** Alle 6 Datenzeilen sind stets im Layout vorhanden (leere Felder erhalten `""` statt `"-"`), wodurch die blaue Trennlinie kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
 * **Trennlinie:** Starfield-Blau `#304C7A`, Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
 * **Lupenfunktion (Modal Zoom Overlay bei Klick):** Statt unruhiger Breitenexpansion im Layout verbleiben Kacheln im Ribbon stabil auf 280 px. Ein Klick öffnet ein zentriertes Modal-Overlay (`LOH_TileZoomOverlay`) in doppelter Größe (560 × 400 px), das alle Details und lange Texte ohne Scrollen darstellt. Ein Klick auf die Lupe, daneben oder ESC schließt den Zoom sofort.
-* **Virtualisiertes Kachelband (`LOH_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Pages.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`).
+* **Virtualisiertes Kachelband (`LOH_Control_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Pages.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`). Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_TileView_Documentation.md).
 
+---
 
+### J. Inhaltsdiagramme (Spinnennetz- & Balkendiagramm)
+* **Einsatz:** Vergleichende visuelle Inhaltsanalyse in der Sektion *Inhalte* (`Section_Mod_Statistics_Content`).
+* **Radar-Chart (`Widget_ContentRadarChart`):**
+  * 32 dimensionale Achsenstränge für alle Starfield-LOH-Kategorien.
+  * Inaktive Achsen dezent abgeblendet (`#2D2D2D`), aktive Achsen (`#666666`), Siegerkategorie mit dezenter Speiche (`#666666`, kein gelber Vektor) und Label in Starfield-Gelb (`#D7A64B`, fett).
+  * Konzentrische Hilfskreise bei 25 %, 50 %, 75 % und 100 %.
+  * **Äußere Dimension (`dim_calc_outer`, Referenzen / Masse):** Gelbe Kontur (`#D7A64B`, 2px) mit transparenter gelber Füllung (`rgba(215, 166, 75, 0.25)`).
+  * **Innere Dimension (`dim_calc_inner`, Overrides / Tiefe):** Rote Kontur (`#C72138`, 2px) mit transparenter roter Füllung (`rgba(199, 33, 56, 0.35)`).
+  * **Aktive Polygon-Kettung:** Die Datenpolygone verbinden **ausschließlich aktive Kategorien direkt miteinander**. Inaktive Kategorien (Netto = 0 oder in Schritt 1 ausgeschieden) führen zu keinem Abfall in den Kreismittelpunkt, sodass eine zusammenhängende, geschlossene Fläche entsteht.
+* **Normierung & Skalierung:**
+  * Jede Achse ist über das globale Datenbank-Maximum der Kategorie (`View_Category_Dimension_Max.Max_Outer`) auf 0–100 % genormt.
+  * **Mod-basierte Aggregation:** Das globale Maximum wird über die Summe aller Komponenten einer Mod (`GROUP BY Mod_ID`) ermittelt. Dadurch wird der vollständige Inhalts-Fingerabdruck von Multi-Komponenten-Mods unverzerrt abgebildet.
+  * **Proportionale Vergleichbarkeit:** Sowohl die äußere Referenzmasse (`dim_calc_outer`) als auch die innere Override-Tiefe (`dim_calc_inner`) werden gegen denselben `Max_Outer`-Kategoriewert skaliert (`val / Max_Outer`), damit beide Werte auf derselben Achse direkt vergleichbar sind.
+* **HUD-Tooltip (Dark Mode):**
+  * Einheitliches kompaktes dunkles HUD-Design (`#1A1A1A`, Starfield-blauer Rand `#304C7A`, `padding: 4px 8px`).
+  * **Flache HTML-Tabelle:** Direkte `<table>`-Struktur ohne übergeordnetes `<div>` und ohne leere Trennzeilen, um künstliche Leer-Absatzblöcke der Qt-RichText-Engine zu unterbinden.
+  * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie, Weiß für aktive Kategorien, dezent Grau `#888888` für inaktive).
+  * Trennbalken: Direkte `border-bottom: 1px solid #304C7A; padding-bottom: 6px;` Unterstreichung der Titelzelle (hauchdünne 1px-Linie über die volle Tabellenbreite, bündig links und rechts, ausreichend Freiraum für Buchstaben-Unterlängen).
+  * Zeile 1: `Referenzen / Masse:` gefolgt vom direkten absoluten `dim_calc_outer`-Wert (`padding-top: 4px;`).
+  * Zeile 2: `Overrides / Tiefe:` gefolgt vom direkten absoluten `dim_calc_inner`-Wert.
+* **Horizontales Balkendiagramm (`Widget_ContentBarChart`):**
+  * Horizontale Balkenliste aller 32 Kategorien. Roter Overrides-Balken (`dim_calc_inner`) überlagert den gelben Referenzen-Balken (`dim_calc_outer`) mit identischem Tooltip.
+  * **Werteanzeige:** Reine absolute Zahlenwerte (ohne redundante Prozentangaben), inaktive Zeilen mit `-`.
+* **Umschaltung, Auto-Fit & Sektions-Dynamik:**
+  * Zweispaltige Aufteilung (Hauptmod links, Vergleichsmod rechts) ohne redundante Detailüberschriften für maximale Diagrammgröße.
+  * Checkbox *Balkendiagramm* oben rechts (mit Standard-Häkchen) toggelt beide Hälften synchron zwischen Radar- und Balkenansicht.
+  * **Auto-Fit Höhe:** Radar startet mit großzügiger Basishöhe (480 px); beim Umschalten auf Balkendiagramm expandiert die Sektion automatisch auf exakt 704 px (kalibriert auf 652 px Canvas-Höhe inkl. Kopfzeile, Abständen und `LOH_Control_SectionResizeGrip`, sodass alle 32 Zeilen bündig ohne toten Freiraum und ohne internen Rollbalken sichtbar sind).
+  * **`LOH_Control_SectionResizeGrip`:** Integrierter Sci-Fi-Ziehgriff am unteren Sektionsrand für stufenloses manuelles Aufziehen der Höhe per Mausdrag (`SizeVerCursor`) inkl. Doppelklick für Reset auf Standard. Siehe [LOH_Control_SectionResizeGrip_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_SectionResizeGrip_Documentation.md).
 
 ---
 
@@ -162,7 +192,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
-## 5. Docking-Geometrie & flackerfreies Schließen (LOH_DockManager-Standard)
+## 5. Docking-Geometrie & flackerfreies Schließen (`LOH_Control_WindowDocking`-Standard)
 
 1. **Dynamische Breitenführung bei manuellem Resize:**
    * Manuelle Größenänderungen des Hauptfensters synchronisieren kontinuierlich `base_main_width = max(1280, main_window.width() - (dock_w + SEPARATOR_WIDTH))`.
@@ -170,3 +200,4 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
    * Dock-Schließen erfolgt unter Kapselung von `main_window.setUpdatesEnabled(False)` und `main_window.layout().activate()`, bevor das Hauptfenster verkleinert wird.
 3. **Persistente Speicherung (`get_clean_window_width`):**
    * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite) abgelegt.
+   * Details siehe [LOH_Control_WindowDocking_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_WindowDocking_Documentation.md).

@@ -1357,6 +1357,62 @@ def get_mod_conflicts_matrix(mod_id: int) -> list[dict]:
         if conn:
             conn.close()
 
+def create_view_category_dimension_max(conn=None) -> bool:
+    """
+    Erstellt oder aktualisiert den View View_Category_Dimension_Max in der SQLite-Datenbank.
+    Ermittelt für jede der 32 Kategorien das globale Maximum von dim_calc_outer und dim_calc_inner
+    über alle Mod-Komponenten hinweg zur Skalierung und Normierung (0-100%) in Inhaltsdiagrammen.
+    """
+    close_conn = False
+    if conn is None:
+        conn = get_db_connection()
+        close_conn = True
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT ID, Position, Name FROM Categories_LOH ORDER BY Position")
+        cats = cur.fetchall()
+
+        parts = []
+        for c in cats:
+            c_name = c["Name"] if isinstance(c, sqlite3.Row) else c[2]
+            c_id = c["ID"] if isinstance(c, sqlite3.Row) else c[0]
+            pos = c["Position"] if isinstance(c, sqlite3.Row) else c[1]
+
+            if c_name == 'BGS':
+                part = f"""SELECT {c_id} AS Category_ID, {pos} AS Position, '{c_name}' AS Category_Name, 
+                                  1.0 AS Max_Outer, 1.0 AS Max_Inner"""
+            else:
+                col_out = f"dim_calc_outer_{c_name}"
+                col_in = f"dim_calc_inner_{c_name}"
+                part = f"""SELECT {c_id} AS Category_ID, {pos} AS Position, '{c_name}' AS Category_Name, 
+                                  COALESCE(MAX(mod_outer), 1.0) AS Max_Outer, 
+                                  COALESCE(MAX(mod_inner), 1.0) AS Max_Inner 
+                           FROM (
+                               SELECT mc.Mod_ID,
+                                      SUM(COALESCE(crb.\"{col_out}\", 0.0)) AS mod_outer,
+                                      SUM(COALESCE(crb.\"{col_in}\", 0.0)) AS mod_inner
+                               FROM Components_References_Base crb
+                               JOIN Mods_Components mc ON crb.Component_ID = mc.Component_ID
+                               GROUP BY mc.Mod_ID
+                           )"""
+            parts.append(part)
+
+        view_sql = f"""
+        DROP VIEW IF EXISTS View_Category_Dimension_Max;
+        CREATE VIEW View_Category_Dimension_Max AS
+        {" UNION ALL ".join(parts)};
+        """
+        cur.executescript(view_sql)
+        conn.commit()
+        return True
+    except Exception as e:
+        logging.error(f"Fehler beim Erstellen von View_Category_Dimension_Max: {e}")
+        return False
+    finally:
+        if close_conn and conn:
+            conn.close()
+
 def init_loh_executions_table() -> bool:
     """
     Erstellt die Tabelle LOH_Executions idempotent in der SQLite-Datenbank,

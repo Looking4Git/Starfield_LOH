@@ -8,6 +8,8 @@ import os
 import re
 import ssl
 import json
+import time
+import random
 import sqlite3
 import logging
 import urllib.request
@@ -15,7 +17,7 @@ import urllib.parse
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
-from Structure.Paths import STARFIELD_GAME_DATA_PATH, NEXUS_LOG_FILE
+from Structure.Paths import STARFIELD_GAME_DATA_PATH, NEXUS_LOG_FILE, NEXUS_BROWSER_PROFILE_DIR
 from Structure.Database import get_db_connection, record_script_start, record_script_end
 
 def get_nexus_logger():
@@ -101,32 +103,52 @@ def run_nexus_fetch(log_signal=None):
         author_mods_cache = {}
         
         with sync_playwright() as p:
-            # Browser initialisieren (Chrome-Spoofing wie in Bethesda_Fetch)
-            log("Initialisiere Chromium-Browser...")
-            browser = p.chromium.launch(headless=True, args=[
-                "--headless=new", "--disable-gpu", "--no-sandbox"
-            ])
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            # Persistentes Browser-Profil initialisieren (Cookies, Caches und Cloudflare-Clearance bleiben erhalten)
+            os.makedirs(NEXUS_BROWSER_PROFILE_DIR, exist_ok=True)
+            log(f"Initialisiere Chromium-Browser mit persistentem Profil ({NEXUS_BROWSER_PROFILE_DIR})...")
+            
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=NEXUS_BROWSER_PROFILE_DIR,
+                headless=True,
+                args=[
+                    "--headless=new",
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox"
+                ],
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+                viewport={"width": 1920, "height": 1080},
+                locale="de-DE",
+                timezone_id="Europe/Berlin",
+                extra_http_headers={
+                    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"Windows"',
+                }
             )
-            context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                if (!window.chrome) {
+                    window.chrome = { runtime: {} };
+                }
+                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                Object.defineProperty(navigator, 'languages', {get: () => ['de-DE', 'de', 'en-US', 'en']});
+            """)
             
-            page = context.new_page()
-            
-            # Asset-Blocker deaktiviert, um Cloudflare-Erkennung zu vermeiden
-            # def resource_blocker(route):
-            #     if route.request.resource_type in ["image", "stylesheet", "font", "media"]:
-            #         route.abort()
-            #     else:
-            #         route.continue_()
-            # page.route("**/*", resource_blocker)
+            page = context.pages[0] if context.pages else context.new_page()
             
             # 1. Haupt-Suchseite einmalig laden (wird für in-page Suchen genutzt, um Cloudflare zu umgehen)
             log("Lade Starfield-Suchseite auf Nexus Mods...")
             search_page_loaded = False
             try:
-                page.goto("https://www.nexusmods.com/games/starfield/mods", wait_until="domcontentloaded", timeout=25000)
-                page.wait_for_selector("#title-search-parameters", timeout=12000)
+                page.goto("https://www.nexusmods.com/games/starfield/mods", wait_until="domcontentloaded", timeout=30000)
+                for _ in range(12):
+                    t = page.title()
+                    if "nexus" in t.lower() and not ("just a moment" in t.lower() or "challenge" in t.lower()):
+                        break
+                    log(f"  -> Warte auf Initialisierung der Suchseite (Titel: '{t}')...")
+                    page.wait_for_timeout(1000)
+                page.wait_for_selector("#title-search-parameters", timeout=15000)
                 log("Suchseite erfolgreich geladen und initialisiert.")
                 search_page_loaded = True
             except Exception as e:
@@ -417,24 +439,24 @@ def run_nexus_fetch(log_signal=None):
                     log("  -> WARNUNG: Keine Nexus Mod-ID für diese Komponente ermittelbar (Evtl. als Adult-Content markiert und erfordert Login).")
                     continue
                 
-                # 2. Mod-Detailseite in neuem, frischen Kontext aufrufen und Daten scrapen
+                # 2. Mod-Detailseite im persistenten Kontext aufrufen und Daten scrapen
                 mod_page_url = f"https://www.nexusmods.com/starfield/mods/{nexus_mod_id}"
-                log(f"  -> Rufe Detailseite in neuem, frischen Kontext auf: {mod_page_url}")
+                log(f"  -> Rufe Detailseite auf: {mod_page_url}")
                 
-                detail_context = browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                )
-                detail_context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-                detail_page = detail_context.new_page()
+                # Humanes Rate-Spacing (1.5 bis 3.0 Sek. Pause)
+                sleep_time = round(random.uniform(1.5, 3.0), 2)
+                time.sleep(sleep_time)
+
+                detail_page = context.new_page()
                 try:
-                    detail_page.goto(mod_page_url, wait_until="domcontentloaded", timeout=20000)
+                    detail_page.goto(mod_page_url, wait_until="domcontentloaded", timeout=25000)
                     
                     # Warte, falls die Cloudflare-Challenge aktiv ist
-                    for i in range(10):
+                    for i in range(12):
                         current_title = detail_page.title()
-                        if "nexus" in current_title.lower():
+                        if "nexus" in current_title.lower() and not ("moment" in current_title.lower() or "challenge" in current_title.lower() or "cloudflare" in current_title.lower()):
                             break
-                        log(f"    -> Warte auf Laden der Nexus-Mod-Details (Titel aktuell: '{current_title}')...")
+                        log(f"    -> Warte auf Cloudflare-Freigabe (Titel aktuell: '{current_title}')...")
                         detail_page.wait_for_timeout(1000)
                         
                     html_content = detail_page.content()
@@ -467,7 +489,7 @@ def run_nexus_fetch(log_signal=None):
                                 online_name = h1_match.group(1).strip()
                                 
                     # Validitätsprüfung: Cloudflare Bot-Challenge erkennen und Daten-Korruption verhindern
-                    if not online_name or "just a moment" in online_name.lower() or "cloudflare" in online_name.lower():
+                    if not online_name or "moment" in online_name.lower() or "cloudflare" in online_name.lower() or "challenge" in online_name.lower() or online_name.lower().startswith("nur einen"):
                         log(f"  -> [ÜBERSPRUNGEN] Cloudflare Bot-Challenge aktiv für Mod ID {mod_id}. Bestehende Daten werden beibehalten.")
                         continue
                                 
@@ -634,12 +656,8 @@ def run_nexus_fetch(log_signal=None):
                         detail_page.close()
                     except:
                         pass
-                    try:
-                        detail_context.close()
-                    except:
-                        pass
                     
-            browser.close()
+            context.close()
             
         log(f"\n--- Nexus-Datenabgleich beendet. {success_count} von {processed_count} Mods erfolgreich aktualisiert. ---")
         record_script_end("Nexus_Fetch.py", datetime.now())
@@ -650,3 +668,7 @@ def run_nexus_fetch(log_signal=None):
     finally:
         if conn:
             conn.close()
+
+if __name__ == "__main__":
+    run_nexus_fetch()
+

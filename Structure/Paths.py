@@ -132,19 +132,21 @@ BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
 BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
 BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
 BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
+NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
 
 
 def update_runtime_data_paths(new_data_path: str):
     """
     Aktualisiert die dynamischen Nutzdatenpfade zur Laufzeit (z. B. nach Umzug via LOH_Change_Data_Path).
     """
-    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR
+    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR, NEXUS_BROWSER_PROFILE_DIR
     DATA_DIR = resolve_path(new_data_path, "Data")
     MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
     BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
     BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
     BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
     BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
+    NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
     
     for directory in [DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR]:
         os.makedirs(directory, exist_ok=True)
@@ -157,6 +159,7 @@ def update_runtime_data_paths(new_data_path: str):
         "BACKUPS_WORKSPACE_DIR": BACKUPS_WORKSPACE_DIR,
         "BACKUPS_ACTIVATION_DIR": BACKUPS_ACTIVATION_DIR,
         "BACKUPS_MOD_UPDATE_DIR": BACKUPS_MOD_UPDATE_DIR,
+        "NEXUS_BROWSER_PROFILE_DIR": NEXUS_BROWSER_PROFILE_DIR,
     }
     for mod in list(sys.modules.values()):
         if mod and hasattr(mod, "__dict__"):

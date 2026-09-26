@@ -61,3 +61,6 @@ Data/Backups/LOH_Workspace/Starfield_Mod_Update/*
 # Mod-Vorschaubilder (Ordnerstruktur bleibt über .gitkeep)
 Data/Mod_Images/*
 !Data/Mod_Images/.gitkeep
+
+# Nexus Browser Profil (dynamische Session-Daten, vollständig lokal)
+Data/Nexus_Browser_Profile/

@@ -111,66 +111,44 @@ SIG_BASELINE_CONFIG = {
 def _update_conflicts_batch(cur, step_id, step_desc, conflict_type, records):
     """
     Modularisierte Hilfsfunktion zur batchweisen Aktualisierung modifizierter Konfliktdatensätze.
-    records: Liste von Tupeln:
-      - 5er: (comp_id_a, comp_id_b, form_id, sig, reason)
-      - 7er: (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep)
-      - 9er: (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, cell_fid, cell_edid)
+    Unterstützt flexibel und fehlertolerant Records unterschiedlicher Länge (5, 7, 8, 9, 10+ Elemente).
     """
     if not records:
         return 0
 
-    sample_len = len(records[0])
-    if sample_len == 5:
-        data = [(step_id, step_desc, conflict_type, reason, a, b, f, s) for a, b, f, s, reason in records]
-        cur.executemany("""
-            UPDATE Mods_Conflicts
-            SET Step_ID = ?,
-                Step_Description = ?,
-                Conflict_Type = ?,
-                Reason = ?
-            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
-        """, data)
-    elif sample_len == 7:
-        data = [(step_id, step_desc, conflict_type, reason, req, dep, a, b, f, s) for a, b, f, s, reason, req, dep in records]
-        cur.executemany("""
-            UPDATE Mods_Conflicts
-            SET Step_ID = ?,
-                Step_Description = ?,
-                Conflict_Type = ?,
-                Reason = ?,
-                ID_Mod_Requirement = ?,
-                ID_Mod_Dependent = ?
-            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
-        """, data)
-    elif sample_len == 9:
-        data = [(step_id, step_desc, conflict_type, reason, req, dep, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, c_fid, c_edid in records]
-        cur.executemany("""
-            UPDATE Mods_Conflicts
-            SET Step_ID = ?,
-                Step_Description = ?,
-                Conflict_Type = ?,
-                Reason = ?,
-                ID_Mod_Requirement = ?,
-                ID_Mod_Dependent = ?,
-                Cell_FormID = COALESCE(Cell_FormID, ?),
-                Cell_EDID = COALESCE(Cell_EDID, ?)
-            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
-        """, data)
-    elif sample_len >= 10:
-        data = [(step_id, step_desc, conflict_type, reason, req, dep, sol_type, c_fid, c_edid, a, b, f, s) for a, b, f, s, reason, req, dep, sol_type, c_fid, c_edid in records]
-        cur.executemany("""
-            UPDATE Mods_Conflicts
-            SET Step_ID = ?,
-                Step_Description = ?,
-                Conflict_Type = ?,
-                Reason = ?,
-                ID_Mod_Requirement = ?,
-                ID_Mod_Dependent = ?,
-                Conflict_Solution_Type_ID = ?,
-                Cell_FormID = COALESCE(Cell_FormID, ?),
-                Cell_EDID = COALESCE(Cell_EDID, ?)
-            WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
-        """, data)
+    data = []
+    for r in records:
+        a, b, f, s = r[0], r[1], r[2], r[3]
+        reason = r[4]
+        req = r[5] if len(r) > 5 else None
+        dep = r[6] if len(r) > 6 else None
+        if len(r) == 9:
+            sol_type = None
+            c_fid = r[7]
+            c_edid = r[8]
+        elif len(r) >= 10:
+            sol_type = r[7]
+            c_fid = r[8]
+            c_edid = r[9]
+        else:
+            sol_type = None
+            c_fid = None
+            c_edid = None
+        data.append((step_id, step_desc, conflict_type, reason, req, dep, sol_type, c_fid, c_edid, a, b, f, s))
+
+    cur.executemany("""
+        UPDATE Mods_Conflicts
+        SET Step_ID = ?,
+            Step_Description = ?,
+            Conflict_Type = ?,
+            Reason = ?,
+            ID_Mod_Requirement = ?,
+            ID_Mod_Dependent = ?,
+            Conflict_Solution_Type_ID = ?,
+            Cell_FormID = COALESCE(Cell_FormID, ?),
+            Cell_EDID = COALESCE(Cell_EDID, ?)
+        WHERE Component_ID_A = ? AND Component_ID_B = ? AND FormID = ? AND Sig = ?;
+    """, data)
     return len(records)
 
 
@@ -903,7 +881,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
         # 1. Identitätsprüfung
         if data_a and data_b and data_a == data_b:
             reason = "Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel."
-            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, None))
+            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, None))
             continue
 
         is_packin, cell_edid = get_cell_info(cell_fid)

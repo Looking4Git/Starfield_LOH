@@ -466,6 +466,11 @@ def run_nexus_fetch(log_signal=None):
                             if h1_match:
                                 online_name = h1_match.group(1).strip()
                                 
+                    # Validitätsprüfung: Cloudflare Bot-Challenge erkennen und Daten-Korruption verhindern
+                    if not online_name or "just a moment" in online_name.lower() or "cloudflare" in online_name.lower():
+                        log(f"  -> [ÜBERSPRUNGEN] Cloudflare Bot-Challenge aktiv für Mod ID {mod_id}. Bestehende Daten werden beibehalten.")
+                        continue
+                                
                     # B. Autor extrahieren (Stabiles Profil-Link-Matching und uploader fallbacks)
                     author = ""
                     try:
@@ -550,7 +555,6 @@ def run_nexus_fetch(log_signal=None):
                         pass
                         
                     # Date_available robust aus dem stable time[data-date] Tag auslesen (Last updated Zeitstempel)
-                    from datetime import datetime
                     date_available = "n.a."
                     try:
                         timestamp_str = detail_page.locator('time[data-date]').first.get_attribute("data-date", timeout=1000)

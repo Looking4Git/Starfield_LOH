@@ -78,7 +78,7 @@ def get_setting(key, default=None):
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-                for sec in ["window", "ui", "paths", "settings", "creation_engine_limits"]:
+                for sec in ["window", "ui", "paths", "nexus", "settings", "creation_engine_limits"]:
                     if sec in cfg and isinstance(cfg[sec], dict) and key in cfg[sec]:
                         return cfg[sec][key]
                 if key in cfg:

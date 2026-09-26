@@ -18,6 +18,9 @@
     "starfield_data": "",
     "LOH_data": "Data"
   },
+  "nexus": {
+    "api_key": ""
+  },
   "settings": {
     "Auto_Save": 1,
     "Limit_Warning_Percentage": 90,

@@ -2,8 +2,8 @@
   "app_name": "Starfield Load Order Helper (LOH)",
   "version_major": 0,
   "version_minor": 0,
-  "version_build": 220,
-  "version_full": "0.00.220",
-  "git_commit": "33ae9c7",
-  "git_date": "2026-09-26"
+  "version_build": 225,
+  "version_full": "0.00.225",
+  "git_commit": "e63c871",
+  "git_date": "2026-09-27"
 }

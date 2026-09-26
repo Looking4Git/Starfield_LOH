@@ -1,0 +1,10 @@
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="64" height="64" version="1.1" viewBox="0 0 16.9 16.9" xmlns="http://www.w3.org/2000/svg">
+ <g id="eye">
+  <!-- Dahinterliegende Pupille: ausgewogene Größe in Orange (#e06236) -->
+  <circle cx="8.45" cy="8.45" r="2.9" fill="#e06236"/>
+  
+  <!-- Äußerer Augenbogen: Gelb (#d7a64b), dezent dünnere Linienstärke (1.6 mm) -->
+  <path d="M 2.2 8.45 C 4.6 3.6 12.3 3.6 14.7 8.45 C 12.3 13.3 4.6 13.3 2.2 8.45 Z" fill="none" stroke="#d7a64b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+ </g>
+</svg>

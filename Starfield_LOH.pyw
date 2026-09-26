@@ -27,6 +27,7 @@ DEFAULT_SETTINGS = {
     },
     "ui": {"sidebar_collapsed": False},
     "paths": {"starfield_data": r"E:\Steam\steamapps\common\Starfield\Data"},
+    "nexus": {"api_key": ""},
     "settings": {
         "Auto_Save": 0,
         "Limit_Warning_Percentage": 90,

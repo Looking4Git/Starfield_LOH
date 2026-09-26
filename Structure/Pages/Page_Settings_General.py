@@ -91,8 +91,8 @@ class Page_Settings_General(QWidget):
         self.lbl_status = QLabel()
         form_layout.addRow("", self.lbl_status)
 
-        # Zeile 2: Datenverzeichnis (Backups & Bilder)
-        lbl_data_path = QLabel("Datenverzeichnis (Backups & Bilder):")
+        # Zeile 2: Datenverzeichnis
+        lbl_data_path = QLabel("Datenverzeichnis:")
 
         data_row_layout = QHBoxLayout()
         data_row_layout.setSpacing(8)
@@ -120,7 +120,7 @@ class Page_Settings_General(QWidget):
         self.btn_reset_data_path.setFixedSize(36, 32)
         self.btn_reset_data_path.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reset_data_path.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Update.svg")))
-        self.btn_reset_data_path.setIconSize(QSize(18, 18))
+        self.btn_reset_data_path.setIconSize(QSize(22, 22))
         self.btn_reset_data_path.setToolTip("Standard wiederherstellen (relativ: ./Data)")
         self.btn_reset_data_path.clicked.connect(self.reset_default_data_path)
         data_row_layout.addWidget(self.btn_reset_data_path)
@@ -135,7 +135,69 @@ class Page_Settings_General(QWidget):
         self.update_data_status_display(current_data)
 
         # -------------------------------------------------------------
-        # 2. Abschnitt: Allgemein
+        # 2. Abschnitt: Nexus Mods
+        # -------------------------------------------------------------
+        layout.addSpacing(12)
+
+        sep_nexus = QFrame()
+        sep_nexus.setObjectName("detail_separator")
+        sep_nexus.setFrameShape(QFrame.Shape.HLine)
+        sep_nexus.setFrameShadow(QFrame.Shadow.Plain)
+        sep_nexus.setFixedHeight(4)
+        layout.addWidget(sep_nexus)
+        layout.addSpacing(8)
+
+        lbl_nexus_section = QLabel("Nexus Mods")
+        lbl_nexus_section.setObjectName("lbl_details")
+        layout.addWidget(lbl_nexus_section)
+        layout.addSpacing(8)
+
+        form_nexus_layout = QFormLayout()
+        form_nexus_layout.setContentsMargins(0, 0, 0, 0)
+        form_nexus_layout.setSpacing(8)
+        form_nexus_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        lbl_api_key = QLabel("Personal API Key:")
+
+        # Label-Breiten synchronisieren, damit alle Eingabefelder exakt bündig starten
+        lbl_col_width = max(
+            lbl_path.fontMetrics().horizontalAdvance(lbl_path.text()),
+            lbl_data_path.fontMetrics().horizontalAdvance(lbl_data_path.text()),
+            lbl_api_key.fontMetrics().horizontalAdvance(lbl_api_key.text()),
+        )
+        lbl_path.setFixedWidth(lbl_col_width)
+        lbl_data_path.setFixedWidth(lbl_col_width)
+        lbl_api_key.setFixedWidth(lbl_col_width)
+
+        api_row_layout = QHBoxLayout()
+        api_row_layout.setSpacing(8)
+
+        self.inp_nexus_api_key = QLineEdit()
+        self.inp_nexus_api_key.setObjectName("inp_nexus_api_key")
+        self.inp_nexus_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        current_api_key = get_setting("api_key", "") or ""
+        self.inp_nexus_api_key.setText(current_api_key)
+        self.inp_nexus_api_key.setFixedHeight(32)
+        self.inp_nexus_api_key.editingFinished.connect(self.on_nexus_api_key_edited)
+        self.inp_nexus_api_key.textChanged.connect(self.on_nexus_api_key_text_changed)
+        api_row_layout.addWidget(self.inp_nexus_api_key, 1)
+
+        self.btn_toggle_api_key = QPushButton()
+        self.btn_toggle_api_key.setObjectName("btn_toggle_api_key")
+        self.btn_toggle_api_key.setFixedSize(36, 32)
+        self.btn_toggle_api_key.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_api_key.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")))
+        self.btn_toggle_api_key.setIconSize(QSize(22, 22))
+        self.btn_toggle_api_key.setToolTip("API-Key einblenden")
+        self.btn_toggle_api_key.clicked.connect(self.toggle_api_key_visibility)
+        api_row_layout.addWidget(self.btn_toggle_api_key)
+
+        form_nexus_layout.addRow(lbl_api_key, api_row_layout)
+
+        layout.addLayout(form_nexus_layout)
+
+        # -------------------------------------------------------------
+        # 3. Abschnitt: Allgemein
         # -------------------------------------------------------------
         layout.addSpacing(12)
 
@@ -168,7 +230,7 @@ class Page_Settings_General(QWidget):
         layout.addWidget(self.chk_backup_strategy)
 
         # -------------------------------------------------------------
-        # 3. Abschnitt: Anzeige
+        # 4. Abschnitt: Anzeige
         # -------------------------------------------------------------
         layout.addSpacing(12)
 
@@ -201,7 +263,7 @@ class Page_Settings_General(QWidget):
         layout.addWidget(self.chk_prefer_tiles)
 
         # -------------------------------------------------------------
-        # 4. Abschnitt: Zurücksetzen
+        # 5. Abschnitt: Zurücksetzen
         # -------------------------------------------------------------
         layout.addSpacing(12)
 
@@ -265,6 +327,27 @@ class Page_Settings_General(QWidget):
         set_setting("settings", "Prefer_Conflict_Tiles", val)
         self.data_updated.emit()
 
+
+    def on_nexus_api_key_edited(self):
+        """Speichert den Nexus API-Key bei Abschluss der Texteingabe."""
+        val = self.inp_nexus_api_key.text().strip()
+        set_setting("nexus", "api_key", val)
+
+    def on_nexus_api_key_text_changed(self, text: str):
+        """Speichert den Nexus API-Key direkt bei Änderung."""
+        val = text.strip()
+        set_setting("nexus", "api_key", val)
+
+    def toggle_api_key_visibility(self):
+        """Schaltet zwischen verdecktem und Klartext-Echo-Modus um."""
+        if self.inp_nexus_api_key.echoMode() == QLineEdit.EchoMode.Password:
+            self.inp_nexus_api_key.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.btn_toggle_api_key.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Eye_Off.svg")))
+            self.btn_toggle_api_key.setToolTip("API-Key ausblenden")
+        else:
+            self.inp_nexus_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+            self.btn_toggle_api_key.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")))
+            self.btn_toggle_api_key.setToolTip("API-Key einblenden")
 
     def update_status_display(self, path: str):
         """Aktualisiert die Statusanzeige mit offiziellem Starfield-Grün (#1F7343) oder Gelb (#D7A64B)."""
@@ -484,6 +567,7 @@ class Page_Settings_General(QWidget):
                         cfg = json.load(f)
                 
                 cfg["paths"] = {"starfield_data": DEFAULT_GAME_PATH, "LOH_data": "Data"}
+                cfg["nexus"] = {"api_key": ""}
                 cfg["settings"] = {
                     "Auto_Save": 0,
                     "Limit_Warning_Percentage": 90,
@@ -507,6 +591,7 @@ class Page_Settings_General(QWidget):
             # 3. Pfadanzeige und Checkboxen auf Seite aktualisieren
             self.inp_starfield_data.setText(DEFAULT_GAME_PATH)
             self.update_status_display(DEFAULT_GAME_PATH)
+            self.inp_nexus_api_key.setText("")
             self.chk_auto_save.setChecked(False)
             self.chk_backup_strategy.setChecked(False)
             self.chk_prefer_content_bar.setChecked(False)

@@ -135,7 +135,40 @@ class Page_Settings_General(QWidget):
         self.update_data_status_display(current_data)
 
         # -------------------------------------------------------------
-        # 2. Abschnitt: Anzeige
+        # 2. Abschnitt: Allgemein
+        # -------------------------------------------------------------
+        layout.addSpacing(12)
+
+        sep_general = QFrame()
+        sep_general.setObjectName("detail_separator")
+        sep_general.setFrameShape(QFrame.Shape.HLine)
+        sep_general.setFrameShadow(QFrame.Shadow.Plain)
+        sep_general.setFixedHeight(4)
+        layout.addWidget(sep_general)
+        layout.addSpacing(8)
+
+        lbl_general_section = QLabel("Allgemein")
+        lbl_general_section.setObjectName("lbl_details")
+        layout.addWidget(lbl_general_section)
+        layout.addSpacing(6)
+
+        self.chk_auto_save = QCheckBox("Automatische Speicherung beim Wechsel des Mods oder der Anzeige.")
+        self.chk_auto_save.setObjectName("chk_auto_save")
+        auto_save_val = get_setting("Auto_Save", 0)
+        self.chk_auto_save.setChecked(auto_save_val == 1)
+        self.chk_auto_save.stateChanged.connect(self.on_auto_save_changed)
+        layout.addWidget(self.chk_auto_save)
+        layout.addSpacing(6)
+
+        self.chk_backup_strategy = QCheckBox("Sicherungen der Mod Dateien nach einem Starfield Mod Update aufbewahren.")
+        self.chk_backup_strategy.setObjectName("chk_backup_strategy")
+        backup_strat_val = get_setting("Starfield_Mod_Update_Backup_Strategy", False)
+        self.chk_backup_strategy.setChecked(bool(backup_strat_val))
+        self.chk_backup_strategy.stateChanged.connect(self.on_backup_strategy_changed)
+        layout.addWidget(self.chk_backup_strategy)
+
+        # -------------------------------------------------------------
+        # 3. Abschnitt: Anzeige
         # -------------------------------------------------------------
         layout.addSpacing(12)
 
@@ -168,7 +201,7 @@ class Page_Settings_General(QWidget):
         layout.addWidget(self.chk_prefer_tiles)
 
         # -------------------------------------------------------------
-        # 3. Abschnitt: Zurücksetzen
+        # 4. Abschnitt: Zurücksetzen
         # -------------------------------------------------------------
         layout.addSpacing(12)
 
@@ -207,6 +240,18 @@ class Page_Settings_General(QWidget):
 
         # Vertikaler Spacer nach unten
         layout.addStretch()
+
+    def on_auto_save_changed(self, state):
+        """Speichert die Präferenz für automatisches Speichern in den Settings."""
+        val = 1 if (state == Qt.CheckState.Checked.value or state == 2) else 0
+        set_setting("settings", "Auto_Save", val)
+        self.data_updated.emit()
+
+    def on_backup_strategy_changed(self, state):
+        """Speichert die Präferenz für Mod-Update-Sicherungen in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Starfield_Mod_Update_Backup_Strategy", val)
+        self.data_updated.emit()
 
     def on_prefer_content_bar_changed(self, state):
         """Speichert die Präferenz für Balkendiagramme im Inhalte-Abschnitt in den Settings."""
@@ -441,15 +486,18 @@ class Page_Settings_General(QWidget):
                 cfg["paths"] = {"starfield_data": DEFAULT_GAME_PATH, "LOH_data": "Data"}
                 cfg["settings"] = {
                     "Auto_Save": 0,
+                    "Limit_Warning_Percentage": 90,
+                    "Prefer_Content_BarChart": False,
+                    "Prefer_Conflict_Tiles": False,
+                    "Starfield_Mod_Update_Backup_Strategy": False
+                }
+                cfg["creation_engine_limits"] = {
                     "Limit_Full_Master": 254,
                     "Limit_Medium_Master": 1024,
                     "Limit_Small_Master": 4096,
                     "Projection_PointerHandles_Core": 1200000,
                     "Projection_PointerHandles_Mods": 23,
-                    "Limit_PointerHandles": 2097152,
-                    "Limit_Warning_Percentage": 90,
-                    "Prefer_Content_BarChart": False,
-                    "Prefer_Conflict_Tiles": False
+                    "Limit_PointerHandles": 2097152
                 }
                 with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                     json.dump(cfg, f, indent=2)
@@ -459,6 +507,8 @@ class Page_Settings_General(QWidget):
             # 3. Pfadanzeige und Checkboxen auf Seite aktualisieren
             self.inp_starfield_data.setText(DEFAULT_GAME_PATH)
             self.update_status_display(DEFAULT_GAME_PATH)
+            self.chk_auto_save.setChecked(False)
+            self.chk_backup_strategy.setChecked(False)
             self.chk_prefer_content_bar.setChecked(False)
             self.chk_prefer_tiles.setChecked(False)
 

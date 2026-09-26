@@ -2207,9 +2207,35 @@ CREATE INDEX "idx_mods_conflicts_formid" ON "Mods_Conflicts" ("FormID");
 CREATE INDEX "idx_mods_conflicts_sig" ON "Mods_Conflicts" ("Sig");
 CREATE INDEX "idx_mods_conflicts_type" ON "Mods_Conflicts" ("Conflict_Type");
 
+CREATE TABLE "LOH_Executions_States" (
+    "ID"    INTEGER PRIMARY KEY,
+    "State" TEXT NOT NULL
+);
+
 CREATE TABLE "LOH_Executions" (
     "Script_Name" TEXT PRIMARY KEY,
     "Date"        TEXT NOT NULL,
     "Time_Start"  TEXT NOT NULL,
-    "Time_End"    TEXT
+    "Time_End"    TEXT,
+    "State"       INTEGER,
+    FOREIGN KEY("State") REFERENCES "LOH_Executions_States"("ID")
 );
+
+CREATE TABLE "Mods_Updates_States" (
+    "ID"    INTEGER PRIMARY KEY,
+    "State" TEXT NOT NULL
+);
+
+CREATE TABLE "Mods_Updates" (
+    "Mod_ID"            INTEGER PRIMARY KEY,
+    "Date_installed"    TEXT,
+    "Version_installed" TEXT,
+    "Date_available"    TEXT,
+    "Version_available" TEXT,
+    "Date_update"       TEXT,
+    "Version_update"    TEXT,
+    "State_update"      INTEGER,
+    FOREIGN KEY("Mod_ID") REFERENCES "Mods"("ID"),
+    FOREIGN KEY("State_update") REFERENCES "Mods_Updates_States"("ID")
+);
+

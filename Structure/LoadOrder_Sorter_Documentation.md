@@ -39,11 +39,17 @@ Die Ausführung gliedert sich in zwei streng getrennte Phasen:
 Zur lückenlosen Dokumentation der Aktualität und Laufzeit der einzelnen Analyse- und Verarbeitungsmodule wird die programmspezifische Tabelle `LOH_Executions` genutzt:
 
 ```sql
+CREATE TABLE "LOH_Executions_States" (
+    "ID"    INTEGER PRIMARY KEY,
+    "State" TEXT NOT NULL
+);
+
 CREATE TABLE "LOH_Executions" (
     "Script_Name" TEXT PRIMARY KEY,
     "Date"        TEXT NOT NULL,
     "Time_Start"  TEXT NOT NULL,
-    "Time_End"    TEXT
+    "Time_End"    TEXT,
+    "State"       INTEGER REFERENCES "LOH_Executions_States"("ID")
 );
 ```
 
@@ -52,7 +58,7 @@ CREATE TABLE "LOH_Executions" (
 2. **Start-Zeitpunkt:** Beim Betreten der Hauptfunktion ruft das Modul `record_script_start(script_name)` auf. Hierbei wird das aktuelle Datum (`YYYY-MM-DD`) sowie `Time_Start` (`HH:MM:SS`) geschrieben. `Time_End` wird explizit auf `NULL` gesetzt.
 3. **Ende-Zeitpunkt:** Erst nach erfolgreichem, vollständigem Abschluss der Fachlogik ruft das Modul `record_script_end(script_name)` auf, wodurch `Time_End` mit dem aktuellen Zeitstempel belegt wird.
 4. **Abbruch / Exception:** Bricht der Lauf vorzeitig ab (z. B. durch Abbruch im Sicherheitsdialog, Benutzerstopp oder einen Ausnahmefehler), bleibt `Time_End = NULL`. Ein Lauf ohne `Time_End` gilt für Folgeprüfungen als **ungültig / nicht erfolgreich**.
-5. **Rücksetzen:** Beim Zurücksetzen der Datenbank über `Starfield_LOH_Reset.py` wird auch die Tabelle `LOH_Executions` vollständig bereinigt.
+5. **Rücksetzen:** Beim Zurücksetzen der Datenbank über `LOH_Database_Reset.py` wird die Tabelle `LOH_Executions` vollständig bereinigt. Die Stammdatentabelle `LOH_Executions_States` bleibt dabei dauerhaft erhalten (`master_tables`).
 
 #### Erfasste Module:
 * `Starfield_Get_Data.py`
@@ -61,6 +67,7 @@ CREATE TABLE "LOH_Executions" (
 * `Category_LOH_Classifier.py`
 * `Mods_Conflicts_Analyzer.py`
 * `LoadOrder_Sorter.py`
+* `Starfield_Mod_Update.py`
 
 ---
 

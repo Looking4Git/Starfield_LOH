@@ -8,10 +8,16 @@ from PySide6.QtGui import (QStandardItemModel, QStandardItem, QDesktopServices,
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Database import get_mods_with_updates, get_mod_image
+from Structure.Database import get_mods_with_updates, get_mod_image, get_script_last_execution
 from Structure.Paths import APP_ROOT
 from Structure.Pages.UI_Utils import make_button_premium
-from Structure.Starfield_Mod_Update import prepare_mod_update
+from Structure.Starfield_Mod_Update import (
+    step_check_previous_update,
+    step_prepare_update,
+    step_create_backup,
+    step_uninstall_mods,
+    ModUpdateScanner,
+)
 from Structure.Pages.Window_Mod_Update_Overlay import Window_Mod_Update_Overlay
 
 
@@ -148,6 +154,8 @@ class Page_Update(QWidget):
         self.inp_date_avail = ui.findChild(QLineEdit, "inp_date_avail")
         self.inp_ver_avail = ui.findChild(QLineEdit, "inp_ver_avail")
         self.lbl_preview_image = ui.findChild(QLabel, "lbl_preview_image")
+        self.inp_last_update_date = ui.findChild(QLineEdit, "inp_last_update_date")
+        self.lbl_last_update_reason = ui.findChild(QLabel, "lbl_last_update_reason")
 
         self.btn_open_url = ui.findChild(QPushButton, "btn_open_url")
         if self.btn_open_url:
@@ -209,8 +217,46 @@ class Page_Update(QWidget):
                 return f"{parts[2]}-{parts[1]}-{parts[0]}"
         return s
 
+    def update_last_execution_display(self):
+        """Aktualisiert die Anzeige des letzten Update-Status (Datum & Grund) aus LOH_Executions."""
+        if not self.inp_last_update_date or not self.lbl_last_update_reason:
+            return
+        last_exec = get_script_last_execution("Starfield_Mod_Update.py")
+        if not last_exec or not last_exec.get("Date"):
+            self.inp_last_update_date.clear()
+            self.lbl_last_update_reason.clear()
+            return
+
+        date_val = last_exec.get("Date") or ""
+        reason = last_exec.get("State_name") or last_exec.get("Reason") or ""
+        state_id = last_exec.get("State")
+        time_end = last_exec.get("Time_End")
+
+        self.inp_last_update_date.setText(self.format_date_display(date_val))
+
+        # Farbliche Unterscheidung:
+        # Grün (#4CAF50): State 4 ('Update erfolgreich'), State 10 ('Rollback erfolgreich')
+        # Rot (#C72138): State 5 ('Update manuell abgebrochen') oder unvollständiger Abbruch
+        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9
+        r_lower = reason.lower()
+        if state_id in (4, 10) or r_lower in ("update erfolgreich", "rollback erfolgreich"):
+            self.lbl_last_update_reason.setText(reason)
+            self.lbl_last_update_reason.setStyleSheet("color: #4CAF50; font-size: 13px; font-weight: bold; margin-left: 4px;")
+        elif state_id == 5 or "abgebrochen" in r_lower:
+            self.lbl_last_update_reason.setText(reason)
+            self.lbl_last_update_reason.setStyleSheet("color: #C72138; font-size: 13px; font-weight: bold; margin-left: 4px;")
+        elif state_id in (1, 2, 3, 6, 7, 8, 9):
+            self.lbl_last_update_reason.setText(reason)
+            self.lbl_last_update_reason.setStyleSheet("color: #D7A64B; font-size: 13px; font-weight: bold; margin-left: 4px;")
+        else:
+            fail_reason = reason if reason else "Nicht abgeschlossen"
+            color = "#4CAF50" if time_end else "#C72138"
+            self.lbl_last_update_reason.setText(fail_reason)
+            self.lbl_last_update_reason.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; margin-left: 4px;")
+
     def load_data(self):
-        """Lädt alle installierten Mods mit Date_available > Date_installed."""
+        """Lädt alle installierten Mods mit Updates und aktualisiert die Tabelle sowie die Ausführungsanzeige."""
+        self.update_last_execution_display()
         self.model = QStandardItemModel()
         mods_data = get_mods_with_updates()
 
@@ -250,13 +296,32 @@ class Page_Update(QWidget):
             item_ver_avail = QStandardItem(ver_avail)
             item_ver_avail.setData(ver_avail, self.SORT_ROLE)
 
+            # Update (Datum aus Mods_Updates)
+            raw_update_date = row_data.get("Date_update") or ""
+            item_date_update = QStandardItem(self.format_date_display(raw_update_date))
+            item_date_update.setData(self.format_date_sort(raw_update_date), self.SORT_ROLE)
+
+            # Version (Update aus Mods_Updates)
+            ver_update = row_data.get("Version_update") or ""
+            item_ver_update = QStandardItem(ver_update)
+            item_ver_update.setData(ver_update, self.SORT_ROLE)
+
+            # Status (aus Mods_Updates_States)
+            status_update = row_data.get("State_update_name") or ""
+            item_status_update = QStandardItem(status_update)
+            item_status_update.setData(status_update, self.SORT_ROLE)
+
             self.model.appendRow([
-                item_id, item_check, item_name, item_date_inst, item_ver_inst, item_date_avail, item_ver_avail
+                item_id, item_check, item_name,
+                item_date_inst, item_ver_inst,
+                item_date_avail, item_ver_avail,
+                item_date_update, item_ver_update,
+                item_status_update
             ])
 
         # Header-Beschriftungen setzen (mit Abstand für die Checkbox in Spalte 1)
         self.model.setHorizontalHeaderLabels([
-            "ID", "       Update", "Name", "Installiert", "Version", "Verfügbar", "Version"
+            "ID", "       Update", "Name", "Installiert", "Version", "Verfügbar", "Version", "Update", "Version", "Status"
         ])
 
         self.model.itemChanged.connect(self.on_item_changed)
@@ -270,10 +335,13 @@ class Page_Update(QWidget):
         self.table_view.resizeColumnToContents(4)  # Version
         self.table_view.resizeColumnToContents(5)  # Verfügbar
         self.table_view.resizeColumnToContents(6)  # Version
+        self.table_view.resizeColumnToContents(7)  # Update
+        self.table_view.resizeColumnToContents(8)  # Version
+        self.table_view.resizeColumnToContents(9)  # Status
 
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
 
         self.header.set_checked(True)
         self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
@@ -404,20 +472,44 @@ class Page_Update(QWidget):
             )
             return
 
-        try:
-            # 1. Sicherung und Vorbereitung über Backend-Modul durchführen
-            backup_path = prepare_mod_update(selected_mods)
-            logging.info(f"Page_Update: Update-Vorbereitung abgeschlossen in {backup_path}")
+        # Schritt 1: Prüfen des vorherigen Updates (Sicherheitsdialog falls unvollständig)
+        proceed = step_check_previous_update(parent_widget=self)
+        if not proceed:
+            return
 
-            # 2. Bestehendes Overlay schließen falls noch offen
+        try:
+            # Schritt 2: Vorbereiten des Updates (LOH_Executions & Mods_Updates initialisieren)
+            step_prepare_update(selected_mods)
+
+            # Schritt 3: Sicherung erstellen
+            backup_path = step_create_backup(selected_mods)
+            self.current_backup_path = backup_path
+
+            # Schritt 4: Deinstallation der Mods
+            step_uninstall_mods(selected_mods, backup_path)
+
+            # Nach Deinstallation: Tabelle und Ausführungsanzeige aktualisieren
+            self.load_data()
+
+            # Schritt 5: Overlay & Scanner starten
             if self.overlay_window is not None:
                 try:
                     self.overlay_window.close()
                 except Exception:
                     pass
 
-            # 3. Neues Overlay-Fenster instanziieren und anzeigen
             self.overlay_window = Window_Mod_Update_Overlay(selected_mods)
+
+            # Scanner instanziieren
+            self.scanner = ModUpdateScanner(
+                selected_mods=selected_mods,
+                backup_dir=backup_path,
+                overlay_window=self.overlay_window,
+                parent_page=self
+            )
+
+            # Bei Schließen des Overlays: Scanner stoppen, Abschluss/Rollback prüfen und Daten neu laden
+            self.overlay_window.closed.connect(self.on_overlay_closed)
 
             # Startpositionierung: Immer am oberen rechten Bildschirmrand mit dezentem Abstand (25px)
             from PySide6.QtWidgets import QApplication
@@ -431,11 +523,26 @@ class Page_Update(QWidget):
                 self.overlay_window.move(x, y)
 
             self.overlay_window.show()
+            self.scanner.start_scanner()
 
         except Exception as e:
             logging.error(f"Fehler beim Starten des Mod-Updates: {e}")
             QMessageBox.critical(
                 self,
                 "Fehler beim Update-Start",
-                f"Beim Vorbereiten des Mod-Updates ist ein Fehler aufgetreten:\n{str(e)}"
+                f"Beim Ausführen des Mod-Updates ist ein Fehler aufgetreten:\n{str(e)}"
             )
+
+    def on_overlay_closed(self):
+        """Wird aufgerufen wenn das Overlay geschlossen wird."""
+        if hasattr(self, 'scanner') and self.scanner:
+            self.scanner.stop_scanner()
+        if hasattr(self, 'current_backup_path') and self.current_backup_path:
+            try:
+                from Structure.Starfield_Mod_Update import step_complete_or_rollback
+                step_complete_or_rollback(self.current_backup_path)
+            except Exception as e:
+                logging.error(f"Fehler bei step_complete_or_rollback: {e}")
+        self.load_data()
+        self.data_updated.emit()
+

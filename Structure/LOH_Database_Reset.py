@@ -67,7 +67,8 @@ def reset_database_tables(db_path: Optional[str] = None, log_signal: Optional[Ca
             "LoadOrder_Classifier_Matrix",
             "LoadOrder_Sorter_Results",
             "Mods_Conflicts",
-            "LOH_Executions"
+            "LOH_Executions",
+            "Mods_Updates"
         ]
 
         for table in tables_to_clear:
@@ -81,7 +82,8 @@ def reset_database_tables(db_path: Optional[str] = None, log_signal: Optional[Ca
         # sqlite_sequence zurücksetzen (außer für Stammdaten)
         master_tables = [
             "Assessments", "Categories_LOH", "Platforms",
-            "Mods_State", "Categories_Creations", "Classifier_Result_Types"
+            "Mods_State", "Categories_Creations", "Classifier_Result_Types",
+            "Mods_Updates_States", "LOH_Executions_States"
         ]
         placeholders = ", ".join("?" for _ in master_tables)
         cursor.execute(f"DELETE FROM sqlite_sequence WHERE name NOT IN ({placeholders});", master_tables)

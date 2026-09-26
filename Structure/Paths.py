@@ -16,7 +16,8 @@ SETTINGS_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.json")
 SETTINGS_DEFAULT_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.default.json")
 VERSION_FILE = os.path.join(APP_ROOT, "version.json")
 MAIN_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Main.log")
-CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Check.log")
+GET_DATA_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Get_Data.log")
+CHECK_LOG_FILE = GET_DATA_LOG_FILE
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")
 MOD_UPDATE_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Update.log")
 DB_FILE = os.path.join(DATABASE_DIR, "Starfield_LOH.db")
@@ -77,7 +78,7 @@ def get_setting(key, default=None):
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-                for sec in ["window", "ui", "paths", "settings"]:
+                for sec in ["window", "ui", "paths", "settings", "creation_engine_limits"]:
                     if sec in cfg and isinstance(cfg[sec], dict) and key in cfg[sec]:
                         return cfg[sec][key]
                 if key in cfg:

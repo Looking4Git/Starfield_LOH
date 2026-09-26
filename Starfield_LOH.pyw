@@ -19,7 +19,7 @@ from Structure.Database import ensure_default_database_mode
 
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
-    "diaolg_table": {"width": 800, "height": 600, "x": 300, "y": 300},
+    "dialog_mod_selection": {"width": 800, "height": 600, "x": 300, "y": 300},
     "window_mod_statistics": {
         "min_width": 1000,
         "docked_width": 1000,
@@ -29,15 +29,18 @@ DEFAULT_SETTINGS = {
     "paths": {"starfield_data": r"E:\Steam\steamapps\common\Starfield\Data"},
     "settings": {
         "Auto_Save": 0,
+        "Limit_Warning_Percentage": 90,
+        "Prefer_Content_BarChart": False,
+        "Prefer_Conflict_Tiles": False,
+        "Starfield_Mod_Update_Backup_Strategy": False
+    },
+    "creation_engine_limits": {
         "Limit_Full_Master": 254,
         "Limit_Medium_Master": 1024,
         "Limit_Small_Master": 4096,
         "Projection_PointerHandles_Core": 1200000,
         "Projection_PointerHandles_Mods": 23,
-        "Limit_PointerHandles": 2097152,
-        "Limit_Warning_Percentage": 90,
-        "Prefer_Content_BarChart": False,
-        "Prefer_Conflict_Tiles": False
+        "Limit_PointerHandles": 2097152
     }
 }
 

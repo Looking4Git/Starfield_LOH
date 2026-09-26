@@ -494,8 +494,8 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
 }
 
 #Page_Settings #detail_view QLineEdit:read-only {
-    background-color: #ffffff;
-    color: #1e1e1e;
+    background-color: #D7A64B;
+    color: #000000;
     font-size: 14px;
 }
 

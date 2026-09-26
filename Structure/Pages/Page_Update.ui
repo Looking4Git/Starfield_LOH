@@ -496,7 +496,59 @@
            </property>
           </widget>
          </item>
+         <item row="10" column="0">
+          <widget class="QLabel" name="lbl_update_label">
+           <property name="text">
+            <string>Update:</string>
+           </property>
+          </widget>
+         </item>
          <item row="10" column="1">
+          <layout class="QHBoxLayout" name="layout_update_fields">
+           <property name="spacing">
+            <number>10</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="inp_last_update_date">
+             <property name="minimumSize">
+              <size>
+               <width>178</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>189</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold;</string>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbl_last_update_reason">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>1</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">font-size: 13px; font-weight: bold; margin-left: 6px;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="11" column="1">
           <layout class="QHBoxLayout" name="update_button_layout">
            <property name="spacing">
             <number>0</number>

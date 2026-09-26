@@ -11,7 +11,10 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT, BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, CHECK_LOG_FILE
+from Structure.Paths import (
+    STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT,
+    BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, GET_DATA_LOG_FILE, CHECK_LOG_FILE
+)
 from Structure.Database import (
     check_component_exists,
     get_mod_by_id,
@@ -532,14 +535,14 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
             conn.close()
 
 def get_check_logger():
-    os.makedirs(os.path.dirname(CHECK_LOG_FILE), exist_ok=True)
-    if not os.path.exists(CHECK_LOG_FILE):
-        open(CHECK_LOG_FILE, 'w', encoding='utf-8').close()
+    os.makedirs(os.path.dirname(GET_DATA_LOG_FILE), exist_ok=True)
+    if not os.path.exists(GET_DATA_LOG_FILE):
+        open(GET_DATA_LOG_FILE, 'w', encoding='utf-8').close()
         
-    logger = logging.getLogger("Starfield_Check")
+    logger = logging.getLogger("Starfield_Get_Data")
     logger.setLevel(logging.INFO)
     if not logger.handlers:
-        fh = logging.FileHandler(CHECK_LOG_FILE, encoding='utf-8')
+        fh = logging.FileHandler(GET_DATA_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         fh.setFormatter(formatter)
         logger.addHandler(fh)

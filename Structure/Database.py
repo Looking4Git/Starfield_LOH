@@ -1,6 +1,7 @@
 """Zentrale Datenbankverbindung (sqlite3) für Starfield LOH."""
 
 import os
+import re
 import sqlite3
 import logging
 from datetime import datetime, date
@@ -10,6 +11,22 @@ from Structure.Paths import DB_FILE, MOD_IMAGES_DIR
 import shutil
 
 TEMPLATE_DB_FILE = os.path.join(os.path.dirname(DB_FILE), "Starfield_LOH_Template.db")
+
+def parse_version_tuple(v_str):
+    """Zerlegt Versionsstrings in vergleichbare Segmente ((0, int) oder (1, str))."""
+    if not v_str:
+        return ()
+    parts = re.split(r'(\d+)', str(v_str).strip())
+    return tuple((0, int(x)) if x.isdigit() else (1, x.lower()) for x in parts if x)
+
+def is_version_newer_sql(avail, inst):
+    """Deterministische SQLite-Funktion: Gibt 1 zurück wenn avail > inst, sonst 0."""
+    if not avail or not inst:
+        return 0
+    try:
+        return 1 if parse_version_tuple(avail) > parse_version_tuple(inst) else 0
+    except Exception:
+        return 0
 
 def get_db_connection() -> sqlite3.Connection:
     """Stellt die Verbindung zur lokalen SQLite-Datenbank her.
@@ -25,6 +42,7 @@ def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.create_function("version_is_newer", 2, is_version_newer_sql)
     return conn
 
 def ensure_default_database_mode() -> None:
@@ -51,6 +69,53 @@ def ensure_default_database_mode() -> None:
         logging.warning(f"ensure_default_database_mode fehlgeschlagen: {e}")
     ensure_conflict_solution_types_schema()
     ensure_mods_category_loot_schema()
+    ensure_mods_updates_schema()
+
+def ensure_mods_updates_schema(conn: sqlite3.Connection = None) -> None:
+    """Stellt sicher, dass die Stammdatentabelle Mods_Updates_States und die Steuerungstabelle Mods_Updates existieren."""
+    close_after = False
+    if conn is None:
+        if not os.path.exists(DB_FILE):
+            return
+        conn = sqlite3.connect(DB_FILE)
+        close_after = True
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Mods_Updates_States (
+                ID INTEGER PRIMARY KEY,
+                State TEXT NOT NULL
+            );
+        """)
+        cur.executemany("""
+            INSERT OR IGNORE INTO Mods_Updates_States (ID, State) VALUES (?, ?);
+        """, [
+            (1, 'aus Plugins.txt entfernt'),
+            (2, 'aus Plugins.txt und ContentCatalog.txt entfernt'),
+            (3, 'Mod deinstalliert'),
+            (4, 'Update gestartet'),
+            (5, 'Update erfolgreich')
+        ])
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Mods_Updates (
+                Mod_ID INTEGER PRIMARY KEY,
+                Date_installed TEXT,
+                Version_installed TEXT,
+                Date_available TEXT,
+                Version_available TEXT,
+                Date_update TEXT,
+                Version_update TEXT,
+                State_update INTEGER,
+                FOREIGN KEY (Mod_ID) REFERENCES Mods(ID),
+                FOREIGN KEY (State_update) REFERENCES Mods_Updates_States(ID)
+            );
+        """)
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Fehler in ensure_mods_updates_schema: {e}")
+    finally:
+        if close_after and conn:
+            conn.close()
 
 def ensure_mods_category_loot_schema(conn: sqlite3.Connection = None) -> None:
     """Stellt sicher, dass die Tabelle Mods_Category_LOOT existiert."""
@@ -184,9 +249,9 @@ def get_mods_by_state(state_id: int) -> list[dict]:
 
 def get_mods_with_updates() -> list[dict]:
     """
-    Holt alle installierten Mods, für welche Date_available > Date_installed ist.
-    Unterstützt sowohl ISO- (YYYY-MM-DD) als auch deutsches Datumsformat (DD.MM.YYYY)
-    für den exakten chronologischen Vergleich.
+    Holt alle installierten Mods, für welche Date_available > Date_installed ist
+    oder (Date_available == Date_installed und Version_available > Version_installed).
+    Enthält einen LEFT JOIN auf Mods_Updates und Mods_Updates_States für den aktuellen Status.
     """
     query = """
         SELECT 
@@ -208,27 +273,55 @@ def get_mods_with_updates() -> list[dict]:
             m.Version_available,
             m.Assessment AS Assessment_ID,
             a.Description AS Assessment_Name,
-            a.Number_of_Stars
+            a.Number_of_Stars,
+            mu.Date_update,
+            mu.Version_update,
+            mu.State_update,
+            mus.State AS State_update_name
         FROM Mods m
         JOIN Mods_State ms ON m.State = ms.ID
         LEFT JOIN Platforms p ON m.Platform = p.ID
         LEFT JOIN Categories_LOH c ON m.Category_LOH = c.ID
         LEFT JOIN Assessments a ON m.Assessment = a.ID
+        LEFT JOIN Mods_Updates mu ON m.ID = mu.Mod_ID
+        LEFT JOIN Mods_Updates_States mus ON mu.State_update = mus.ID
         WHERE LOWER(ms.State) = 'installiert'
-          AND m.Date_available IS NOT NULL AND TRIM(m.Date_available) != ''
-          AND m.Date_installed IS NOT NULL AND TRIM(m.Date_installed) != ''
           AND (
-              CASE 
-                  WHEN m.Date_available LIKE '__.__.____' 
-                  THEN substr(m.Date_available, 7, 4) || '-' || substr(m.Date_available, 4, 2) || '-' || substr(m.Date_available, 1, 2) 
-                  ELSE m.Date_available 
-              END
-          ) > (
-              CASE 
-                  WHEN m.Date_installed LIKE '__.__.____' 
-                  THEN substr(m.Date_installed, 7, 4) || '-' || substr(m.Date_installed, 4, 2) || '-' || substr(m.Date_installed, 1, 2) 
-                  ELSE m.Date_installed 
-              END
+              (
+                  m.Date_available IS NOT NULL AND TRIM(m.Date_available) != ''
+                  AND m.Date_installed IS NOT NULL AND TRIM(m.Date_installed) != ''
+                  AND (
+                      CASE 
+                          WHEN m.Date_available LIKE '__.__.____' 
+                          THEN substr(m.Date_available, 7, 4) || '-' || substr(m.Date_available, 4, 2) || '-' || substr(m.Date_available, 1, 2) 
+                          ELSE m.Date_available 
+                      END
+                  ) > (
+                      CASE 
+                          WHEN m.Date_installed LIKE '__.__.____' 
+                          THEN substr(m.Date_installed, 7, 4) || '-' || substr(m.Date_installed, 4, 2) || '-' || substr(m.Date_installed, 1, 2) 
+                          ELSE m.Date_installed 
+                      END
+                  )
+              )
+              OR (
+                  m.Date_available IS NOT NULL AND TRIM(m.Date_available) != ''
+                  AND m.Date_installed IS NOT NULL AND TRIM(m.Date_installed) != ''
+                  AND (
+                      CASE 
+                          WHEN m.Date_available LIKE '__.__.____' 
+                          THEN substr(m.Date_available, 7, 4) || '-' || substr(m.Date_available, 4, 2) || '-' || substr(m.Date_available, 1, 2) 
+                          ELSE m.Date_available 
+                      END
+                  ) = (
+                      CASE 
+                          WHEN m.Date_installed LIKE '__.__.____' 
+                          THEN substr(m.Date_installed, 7, 4) || '-' || substr(m.Date_installed, 4, 2) || '-' || substr(m.Date_installed, 1, 2) 
+                          ELSE m.Date_installed 
+                      END
+                  )
+                  AND version_is_newer(m.Version_available, m.Version_installed) = 1
+              )
           )
         ORDER BY m.Name_Online COLLATE NOCASE ASC
     """
@@ -1422,39 +1515,82 @@ def init_loh_executions_table() -> bool:
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 1. Stammdatentabelle LOH_Executions_States anlegen und befüllen
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS LOH_Executions (
-                Script_Name TEXT PRIMARY KEY,
-                Date        TEXT NOT NULL,
-                Time_Start  TEXT NOT NULL,
-                Time_End    TEXT,
-                Reason      TEXT
+            CREATE TABLE IF NOT EXISTS LOH_Executions_States (
+                ID    INTEGER PRIMARY KEY,
+                State TEXT NOT NULL
             );
         """)
-        # Migration falls Alttabelle Time_End als NOT NULL angelegt hatte
+        seed_states = [
+            (1, "Mods deinstalliert"),
+            (2, "Updates unvollständig"),
+            (3, "Updates vollständig"),
+            (4, "Update erfolgreich"),
+            (5, "Update manuell abgebrochen"),
+            (6, "Rollback gestartet"),
+            (7, "Rollback Mods wieder hergestellt"),
+            (8, "Rollback ContentCatalog.txt wieder hergestellt"),
+            (9, "Rollback Plugins.txt wieder hergestellt"),
+            (10, "Rollback erfolgreich"),
+        ]
+        cursor.executemany("INSERT OR IGNORE INTO LOH_Executions_States (ID, State) VALUES (?, ?);", seed_states)
+
+        # 2. LOH_Executions anlegen bzw. migrieren
         cursor.execute("PRAGMA table_info(LOH_Executions)")
         cols = cursor.fetchall()
         col_names = [c["name"] for c in cols]
-        for c in cols:
-            if c["name"] == "Time_End" and c["notnull"] == 1:
-                cursor.execute("""
-                    CREATE TABLE LOH_Executions_migrated (
-                        Script_Name TEXT PRIMARY KEY,
-                        Date        TEXT NOT NULL,
-                        Time_Start  TEXT NOT NULL,
-                        Time_End    TEXT,
-                        Reason      TEXT
-                    );
-                """)
-                cursor.execute("INSERT INTO LOH_Executions_migrated SELECT Script_Name, Date, Time_Start, Time_End, NULL FROM LOH_Executions;")
-                cursor.execute("DROP TABLE LOH_Executions;")
-                cursor.execute("ALTER TABLE LOH_Executions_migrated RENAME TO LOH_Executions;")
-                col_names.append("Reason")
-                break
 
-        # Migration falls Spalte Reason noch nicht existiert
-        if "Reason" not in col_names:
-            cursor.execute("ALTER TABLE LOH_Executions ADD COLUMN Reason TEXT;")
+        if not col_names:
+            cursor.execute("""
+                CREATE TABLE LOH_Executions (
+                    Script_Name TEXT PRIMARY KEY,
+                    Date        TEXT NOT NULL,
+                    Time_Start  TEXT NOT NULL,
+                    Time_End    TEXT,
+                    State       INTEGER REFERENCES LOH_Executions_States(ID)
+                );
+            """)
+        elif "State" not in col_names:
+            # Migration von 'Reason' zu 'State'
+            cursor.execute("""
+                CREATE TABLE LOH_Executions_migrated (
+                    Script_Name TEXT PRIMARY KEY,
+                    Date        TEXT NOT NULL,
+                    Time_Start  TEXT NOT NULL,
+                    Time_End    TEXT,
+                    State       INTEGER REFERENCES LOH_Executions_States(ID)
+                );
+            """)
+            cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End, Reason FROM LOH_Executions")
+            existing_rows = cursor.fetchall()
+            reason_map = {
+                "mods deinstalliert": 1,
+                "updates unvollständig": 2,
+                "updates vollständig": 3,
+                "update erfolgreich": 4,
+                "update manuell abgebrochen": 5,
+                "user abort": 5,
+                "rollback gestartet": 6,
+                "rollback mods wieder hergestellt": 7,
+                "rollback contentcatalog.txt wieder hergestellt": 8,
+                "rollback plugins.txt wieder hergestellt": 9,
+                "rollback erfolgreich": 10,
+            }
+            for row in existing_rows:
+                s_name = row["Script_Name"]
+                d = row["Date"]
+                t_start = row["Time_Start"]
+                t_end = row["Time_End"]
+                r = row["Reason"]
+                st_val = reason_map.get(r.lower()) if r else None
+                cursor.execute("""
+                    INSERT INTO LOH_Executions_migrated (Script_Name, Date, Time_Start, Time_End, State)
+                    VALUES (?, ?, ?, ?, ?);
+                """, (s_name, d, t_start, t_end, st_val))
+            cursor.execute("DROP TABLE LOH_Executions;")
+            cursor.execute("ALTER TABLE LOH_Executions_migrated RENAME TO LOH_Executions;")
 
         conn.commit()
         return True
@@ -1465,10 +1601,51 @@ def init_loh_executions_table() -> bool:
         if conn:
             conn.close()
 
-def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
+def _resolve_state_id(val: str | int) -> int | None:
+    """Hilfsfunktion: Löst einen State-String oder int in eine gültige State-ID auf."""
+    if isinstance(val, int):
+        return val
+    if not val:
+        return None
+    val_clean = str(val).strip()
+    if val_clean.isdigit():
+        return int(val_clean)
+    mapping = {
+        "mods deinstalliert": 1,
+        "updates unvollständig": 2,
+        "updates vollständig": 3,
+        "update erfolgreich": 4,
+        "update manuell abgebrochen": 5,
+        "user abort": 5,
+        "rollback gestartet": 6,
+        "rollback mods wieder hergestellt": 7,
+        "rollback contentcatalog.txt wieder hergestellt": 8,
+        "rollback plugins.txt wieder hergestellt": 9,
+        "rollback erfolgreich": 10,
+    }
+    return mapping.get(val_clean.lower())
+
+def get_execution_state_text(state_id: int | None) -> str:
+    """Liefert den Klartext-Status aus LOH_Executions_States zur übergebenen ID."""
+    if state_id is None:
+        return ""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT State FROM LOH_Executions_States WHERE ID = ?", (state_id,))
+        row = cursor.fetchone()
+        return row["State"] if row else ""
+    except Exception:
+        return ""
+    finally:
+        if conn:
+            conn.close()
+
+def record_script_start(script_name: str, start_dt: datetime = None, state: int = None) -> bool:
     """
     Wird beim Start eines Skripts aufgerufen.
-    Setzt Date und Time_Start und löscht Time_End sowie Reason (setzt sie auf NULL).
+    Setzt Date und Time_Start und löscht Time_End sowie State (setzt sie auf NULL bzw. optionalen Initial-State).
     """
     if start_dt is None:
         start_dt = datetime.now()
@@ -1480,14 +1657,14 @@ def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End, Reason)
-            VALUES (?, ?, ?, NULL, NULL)
+            INSERT INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End, State)
+            VALUES (?, ?, ?, NULL, ?)
             ON CONFLICT(Script_Name) DO UPDATE SET
                 Date = excluded.Date,
                 Time_Start = excluded.Time_Start,
                 Time_End = NULL,
-                Reason = NULL;
-        """, (script_name, date_str, time_start_str))
+                State = excluded.State;
+        """, (script_name, date_str, time_start_str, state))
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -1497,31 +1674,28 @@ def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
         if conn:
             conn.close()
 
-def record_script_end(script_name: str, end_dt: datetime = None, reason: str = None) -> bool:
+def record_script_end(script_name: str, end_dt: datetime = None, state: int = None, reason: str = None) -> bool:
     """
     Wird bei Beendigung eines Skripts aufgerufen.
-    Setzt Time_End und optional den Grund (Reason) für das Skript.
+    Setzt Time_End und optional den State (ID oder via Reason-String).
     """
     if end_dt is None:
         end_dt = datetime.now()
     init_loh_executions_table()
     time_end_str = end_dt.strftime("%H:%M:%S")
+
+    if state is None and reason is not None:
+        state = _resolve_state_id(reason)
+
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        if reason is not None:
-            cursor.execute("""
-                UPDATE LOH_Executions
-                SET Time_End = ?, Reason = ?
-                WHERE Script_Name = ?;
-            """, (time_end_str, reason, script_name))
-        else:
-            cursor.execute("""
-                UPDATE LOH_Executions
-                SET Time_End = ?
-                WHERE Script_Name = ?;
-            """, (time_end_str, script_name))
+        cursor.execute("""
+            UPDATE LOH_Executions
+            SET Time_End = ?, State = ?
+            WHERE Script_Name = ?;
+        """, (time_end_str, state, script_name))
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -1531,23 +1705,27 @@ def record_script_end(script_name: str, end_dt: datetime = None, reason: str = N
         if conn:
             conn.close()
 
-def record_script_abort(script_name: str, end_dt: datetime = None, reason: str = "User abort") -> bool:
+def record_script_abort(script_name: str, end_dt: datetime = None, state: int = 5, reason: str = None) -> bool:
     """
     Wird bei manuellem Abbruch eines Skripts aufgerufen.
-    Setzt Time_End und Reason (standardmäßig 'User abort').
+    Setzt Time_End und State (standardmäßig 5 = 'Update manuell abgebrochen').
     """
-    return record_script_end(script_name, end_dt, reason=reason)
+    if state is None and reason is not None:
+        state = _resolve_state_id(reason)
+    if state is None:
+        state = 5
+    return record_script_end(script_name, end_dt, state=state)
 
-def record_script_execution(script_name: str, start_dt: datetime, end_dt: datetime = None) -> bool:
+def record_script_execution(script_name: str, start_dt: datetime, end_dt: datetime = None, state: int = None) -> bool:
     """
     Kombinierte Hilfsfunktion: Setzt Startzeit (löscht Time_End) und trägt optional direkt Time_End ein.
     """
-    ok = record_script_start(script_name, start_dt)
+    ok = record_script_start(script_name, start_dt, state=state)
     if ok and end_dt is not None:
-        return record_script_end(script_name, end_dt)
+        return record_script_end(script_name, end_dt, state=state)
     return ok
 
-def set_script_execution_manual(script_name: str, date_str: str, time_start: str = "12:00:00", time_end: str = "12:05:00") -> bool:
+def set_script_execution_manual(script_name: str, date_str: str, time_start: str = "12:00:00", time_end: str = "12:05:00", state: int = None) -> bool:
     """
     Setzt manuell ein Ausführungsdatum in LOH_Executions für Test- und Simulationszwecke.
     """
@@ -1557,9 +1735,9 @@ def set_script_execution_manual(script_name: str, date_str: str, time_start: str
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT OR REPLACE INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End)
-            VALUES (?, ?, ?, ?)
-        """, (script_name, date_str, time_start, time_end))
+            INSERT OR REPLACE INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End, State)
+            VALUES (?, ?, ?, ?, ?)
+        """, (script_name, date_str, time_start, time_end, state))
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -1569,19 +1747,49 @@ def set_script_execution_manual(script_name: str, date_str: str, time_start: str
         if conn:
             conn.close()
 
+def update_script_execution_state(script_name: str, state: int | None) -> bool:
+    """Aktualisiert den State in LOH_Executions (ohne Time_End zu verändern)."""
+    init_loh_executions_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE LOH_Executions SET State = ? WHERE Script_Name = ?", (state, script_name))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei update_script_execution_state: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def update_script_execution_reason(script_name: str, reason: str | int) -> bool:
+    """Rückwärtskompatible Hilfsfunktion: Aktualisiert den State über ID oder String."""
+    state_id = _resolve_state_id(reason)
+    return update_script_execution_state(script_name, state_id)
+
 def get_script_last_execution(script_name: str) -> dict | None:
     """
-    Liest den letzten protokollierten Ausführungszeitpunkt eines Skripts aus LOH_Executions aus.
+    Liest den letzten protokollierten Ausführungszeitpunkt eines Skripts aus LOH_Executions aus,
+    inklusive aufgelöstem State-Namen.
     """
     init_loh_executions_table()
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End, Reason FROM LOH_Executions WHERE Script_Name = ?", (script_name,))
+        cursor.execute("""
+            SELECT e.Script_Name, e.Date, e.Time_Start, e.Time_End, e.State, s.State AS State_name
+            FROM LOH_Executions e
+            LEFT JOIN LOH_Executions_States s ON e.State = s.ID
+            WHERE e.Script_Name = ?
+        """, (script_name,))
         row = cursor.fetchone()
         if row:
-            return dict(row)
+            d = dict(row)
+            d["Reason"] = d.get("State_name") or ""
+            return d
         return None
     except sqlite3.Error as e:
         logging.error(f"Fehler bei get_script_last_execution für {script_name}: {e}")
@@ -1703,6 +1911,167 @@ def check_sorter_prerequisites() -> dict:
             "newer_mods_conflicts": [],
             "has_newer_mods": False
         }
+    finally:
+        if conn:
+            conn.close()
+
+
+def update_script_execution_reason(script_name: str, reason: str) -> bool:
+    """Aktualisiert nur den Reason in LOH_Executions (ohne Time_End zu verändern)."""
+    init_loh_executions_table()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE LOH_Executions SET Reason = ? WHERE Script_Name = ?", (reason, script_name))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei update_script_execution_reason: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_incomplete_mods_updates() -> list[dict]:
+    """Prüft, ob in Mods_Updates Zeilen existieren, welche einen Status eingetragen haben."""
+    ensure_mods_updates_schema()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT mu.*, mus.State AS State_name 
+            FROM Mods_Updates mu
+            LEFT JOIN Mods_Updates_States mus ON mu.State_update = mus.ID
+            WHERE mu.State_update IS NOT NULL
+        """)
+        return [dict(row) for row in cur.fetchall()]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_incomplete_mods_updates: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+
+def clear_mods_updates() -> bool:
+    """Leert die Steuerungstabelle Mods_Updates."""
+    ensure_mods_updates_schema()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM Mods_Updates;")
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei clear_mods_updates: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def init_mods_updates(selected_mods: list[dict], update_date: str) -> bool:
+    """
+    Nimmt die markierten Mods in Mods_Updates auf.
+    Kopiert Date_installed, Version_installed, Date_available, Version_available.
+    Belegt Date_update mit dem übergebenen Systemdatum (DD.MM.YYYY) und Version_update mit Version_available.
+    """
+    ensure_mods_updates_schema()
+    clear_mods_updates()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        for mod in selected_mods:
+            mod_id = mod.get("ID")
+            if not mod_id:
+                continue
+            cur.execute("""
+                INSERT INTO Mods_Updates (
+                    Mod_ID, Date_installed, Version_installed,
+                    Date_available, Version_available,
+                    Date_update, Version_update, State_update
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+            """, (
+                mod_id,
+                mod.get("Date_installed"),
+                mod.get("Version_installed"),
+                mod.get("Date_available"),
+                mod.get("Version_available"),
+                update_date,
+                mod.get("Version_available")
+            ))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei init_mods_updates: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def set_mod_update_state(mod_id: int, state_id: int) -> bool:
+    """Setzt den Status State_update für eine Mod in Mods_Updates."""
+    ensure_mods_updates_schema()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE Mods_Updates SET State_update = ? WHERE Mod_ID = ?", (state_id, mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei set_mod_update_state für Mod {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def apply_completed_mod_updates() -> bool:
+    """
+    Überträgt Date_update und Version_update aus Mods_Updates nach Date_installed und Version_installed
+    in die Mods-Tabelle für alle erfolgreich durchgeführten Mods und leert anschließend Mods_Updates.
+    """
+    ensure_mods_updates_schema()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE Mods
+            SET Date_installed = (SELECT mu.Date_update FROM Mods_Updates mu WHERE mu.Mod_ID = Mods.ID),
+                Version_installed = (SELECT mu.Version_update FROM Mods_Updates mu WHERE mu.Mod_ID = Mods.ID)
+            WHERE ID IN (SELECT Mod_ID FROM Mods_Updates WHERE State_update = 5);
+        """)
+        cur.execute("DELETE FROM Mods_Updates;")
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei apply_completed_mod_updates: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_all_mods_updates() -> list[dict]:
+    """Liefert alle Zeilen aus Mods_Updates zurück."""
+    ensure_mods_updates_schema()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM Mods_Updates;")
+        return [dict(r) for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_all_mods_updates: {e}")
+        return []
     finally:
         if conn:
             conn.close()

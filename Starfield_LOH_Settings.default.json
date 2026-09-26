@@ -5,7 +5,7 @@
     "x": 100,
     "y": 100
   },
-  "diaolg_table": {
+  "dialog_mod_selection": {
     "width": 840,
     "height": 900,
     "x": 200,
@@ -20,14 +20,17 @@
   },
   "settings": {
     "Auto_Save": 1,
+    "Limit_Warning_Percentage": 90,
+    "Prefer_Content_BarChart": false,
+    "Prefer_Conflict_Tiles": false,
+    "Starfield_Mod_Update_Backup_Strategy": false
+  },
+  "creation_engine_limits": {
     "Limit_Full_Master": 254,
     "Limit_Medium_Master": 1024,
     "Limit_Small_Master": 4096,
     "Projection_PointerHandles_Core": 1200000,
     "Projection_PointerHandles_Mods": 23,
-    "Limit_PointerHandles": 2097152,
-    "Prefer_Content_BarChart": false,
-    "Prefer_Conflict_Tiles": false
+    "Limit_PointerHandles": 2097152
   }
 }
-

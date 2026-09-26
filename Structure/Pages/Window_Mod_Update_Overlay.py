@@ -100,6 +100,19 @@ class ModUpdateCard(QFrame):
             pass
         self.lbl_thumbnail.setText("Kein Bild")
 
+    def set_status_updating(self):
+        """Aktualisiert das Statusfeld auf Update gestartet (Icon_Update in Starfield Gelb)."""
+        self.lbl_status.setText("")
+        icon_path = os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg")
+        if os.path.exists(icon_path):
+            pix = QPixmap(icon_path).scaled(28, 28, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.lbl_status.setPixmap(pix)
+        self.lbl_status.setStyleSheet("""
+            background-color: rgba(215, 166, 75, 0.25);
+            border: 1px solid rgba(215, 166, 75, 0.65);
+            border-radius: 2px;
+        """)
+
     def set_status_installed(self):
         """Aktualisiert das Statusfeld auf erfolgreich installiert (Icon)."""
         self.lbl_status.setText("")
@@ -369,7 +382,7 @@ class Window_Mod_Update_Overlay(QWidget):
 
         # Absatz 2 (hellgrau #ECECEC, normal, 13px)
         lbl_p2 = QLabel(
-            "Der Starfield LOH bietet Ihnen in Folge Optionen an, wie Sie mit dem bisherigen Updateverlauf in der Datenbank verfahren möchten.",
+            "Der Starfield LOH versucht nach Möglichkeit ein automatisches Rollback der deinstallierten Mods durchzuführen.",
             card
         )
         lbl_p2.setWordWrap(True)
@@ -539,17 +552,30 @@ class Window_Mod_Update_Overlay(QWidget):
         """Benutzer bestätigt den vorzeitigen Abbruch des Mod-Updates."""
         try:
             from Structure.Starfield_Mod_Update import abort_mod_update
-            abort_mod_update(reason="User abort")
+            abort_mod_update(reason="Update manuell abgebrochen")
         except Exception as e:
             import logging
             logging.error(f"Fehler bei abort_mod_update: {e}")
         self.close()
 
+    def update_mod_card_status(self, mod_id: int, status_code: int):
+        """Aktualisiert das Icon der entsprechenden Mod-Kachel und den Zähler."""
+        for card in self.card_widgets:
+            if card.mod_id == mod_id:
+                if status_code == 4:
+                    card.set_status_updating()
+                elif status_code == 5:
+                    card.set_status_installed()
+                    card._is_completed = True
+        completed = sum(1 for c in self.card_widgets if getattr(c, "_is_completed", False))
+        total = len(self.card_widgets)
+        self.lbl_counter.setText(f"{completed} von {total} Mods aktualisiert")
+
     def show_completion_view(self):
         """Schaltet auf die Abschlussmeldung um und protokolliert erfolgreichen Abschluss."""
         try:
             from Structure.Starfield_Mod_Update import complete_mod_update
-            complete_mod_update(reason="Successful")
+            complete_mod_update(reason="Update erfolgreich")
         except Exception as e:
             import logging
             logging.error(f"Fehler bei complete_mod_update: {e}")

@@ -72,7 +72,11 @@ class ModSelectionDialog(QDialog):
             except Exception:
                 pass
                 
-        dia_cfg = self.settings_data.get("dialog_table") or self.settings_data.get("diaolg_table", {"width": 800, "height": 600, "x": 300, "y": 300})
+        dia_cfg = (
+            self.settings_data.get("dialog_mod_selection")
+            or self.settings_data.get("dialog_table")
+            or self.settings_data.get("diaolg_table", {"width": 800, "height": 600, "x": 300, "y": 300})
+        )
         self.resize(dia_cfg.get("width", 800), dia_cfg.get("height", 600))
         self.move(dia_cfg.get("x", 300), dia_cfg.get("y", 300))
         
@@ -289,16 +293,14 @@ class ModSelectionDialog(QDialog):
             except Exception:
                 pass
                 
-        if "dialog_table" not in settings_data:
-            settings_data["dialog_table"] = {}
-            
-        settings_data["dialog_table"]["width"] = self.width()
-        settings_data["dialog_table"]["height"] = self.height()
-        settings_data["dialog_table"]["x"] = self.x()
-        settings_data["dialog_table"]["y"] = self.y()
-        
-        # Kompatibilität zum alten Tippfehler-Schlüssel sicherstellen
-        settings_data["diaolg_table"] = settings_data["dialog_table"]
+        settings_data["dialog_mod_selection"] = {
+            "width": self.width(),
+            "height": self.height(),
+            "x": self.x(),
+            "y": self.y()
+        }
+        settings_data.pop("dialog_table", None)
+        settings_data.pop("diaolg_table", None)
         
         try:
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:

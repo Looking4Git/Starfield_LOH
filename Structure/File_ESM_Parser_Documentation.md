@@ -171,7 +171,7 @@ Das Modul `Structure/Parser_Reporter.py` entkoppelt die Statusausgabe vollständ
   * In diesem Intervall emittiert der Reporter bei aktiven Scans strukturierte Zwischenblöcke (`[PROGRESS_BLOCK]\n...`).
   * Die Komponente [Structure/Pages/Widget_LogConsole.py](file:///d:/Starfield_LOH/Structure/Pages/Widget_LogConsole.py) ersetzt den Text ab der Startposition der aktuellen Datei atomar per `QTextCursor`, sodass die Zählerstände auch direkt im Programmfenster sichtbar live mitzählen.
   * Bei `finish()` sendet der Reporter den Abschlussblock (`[PROGRESS_FINAL]\n...`), wodurch die Zeile `-> Scan nach X Sekunden abgeschlossen.` fixiert und der Block abgeschlossen wird.
-* **Zentrales Logfile (`write_to_log_func`):** Schreibt erst bei `reporter.finish()` den gesamten Block gebündelt in `Logs/Starfield_LOH_Check.log`. Dadurch bleibt das Logfile frei von Zwischenständen und bietet perfekte Debugging-Übersicht.
+* **Zentrales Logfile (`write_to_log_func`):** Schreibt erst bei `reporter.finish()` den gesamten Block gebündelt in `Logs/Starfield_LOH_Get_Data.log`. Dadurch bleibt das Logfile frei von Zwischenständen und bietet perfekte Debugging-Übersicht.
 * **Abschlusszeile mit gerundeten Sekunden:**
   `   -> Scan nach 16 Sekunden abgeschlossen.`
 

@@ -44,7 +44,6 @@ class Page_Settings_Info(QWidget):
             inp = QLineEdit(value_text)
             inp.setReadOnly(True)
             inp.setFixedHeight(32)
-            inp.setStyleSheet("font-size: 14px;")
             return lbl, inp
 
         info = load_version_info()

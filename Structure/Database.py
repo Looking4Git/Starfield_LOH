@@ -1416,7 +1416,7 @@ def create_view_category_dimension_max(conn=None) -> bool:
 def init_loh_executions_table() -> bool:
     """
     Erstellt die Tabelle LOH_Executions idempotent in der SQLite-Datenbank,
-    falls diese noch nicht existiert. Time_End ist NULL-fähig (für gestartete, aber abgebrochene Läufe).
+    falls diese noch nicht existiert. Time_End und Reason sind NULL-fähig (für laufende oder abgebrochene Läufe).
     """
     conn = None
     try:
@@ -1427,12 +1427,14 @@ def init_loh_executions_table() -> bool:
                 Script_Name TEXT PRIMARY KEY,
                 Date        TEXT NOT NULL,
                 Time_Start  TEXT NOT NULL,
-                Time_End    TEXT
+                Time_End    TEXT,
+                Reason      TEXT
             );
         """)
         # Migration falls Alttabelle Time_End als NOT NULL angelegt hatte
         cursor.execute("PRAGMA table_info(LOH_Executions)")
         cols = cursor.fetchall()
+        col_names = [c["name"] for c in cols]
         for c in cols:
             if c["name"] == "Time_End" and c["notnull"] == 1:
                 cursor.execute("""
@@ -1440,13 +1442,20 @@ def init_loh_executions_table() -> bool:
                         Script_Name TEXT PRIMARY KEY,
                         Date        TEXT NOT NULL,
                         Time_Start  TEXT NOT NULL,
-                        Time_End    TEXT
+                        Time_End    TEXT,
+                        Reason      TEXT
                     );
                 """)
-                cursor.execute("INSERT INTO LOH_Executions_migrated SELECT Script_Name, Date, Time_Start, Time_End FROM LOH_Executions;")
+                cursor.execute("INSERT INTO LOH_Executions_migrated SELECT Script_Name, Date, Time_Start, Time_End, NULL FROM LOH_Executions;")
                 cursor.execute("DROP TABLE LOH_Executions;")
                 cursor.execute("ALTER TABLE LOH_Executions_migrated RENAME TO LOH_Executions;")
+                col_names.append("Reason")
                 break
+
+        # Migration falls Spalte Reason noch nicht existiert
+        if "Reason" not in col_names:
+            cursor.execute("ALTER TABLE LOH_Executions ADD COLUMN Reason TEXT;")
+
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -1459,7 +1468,7 @@ def init_loh_executions_table() -> bool:
 def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
     """
     Wird beim Start eines Skripts aufgerufen.
-    Setzt Date und Time_Start und löscht Time_End (setzt es auf NULL).
+    Setzt Date und Time_Start und löscht Time_End sowie Reason (setzt sie auf NULL).
     """
     if start_dt is None:
         start_dt = datetime.now()
@@ -1471,12 +1480,13 @@ def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End)
-            VALUES (?, ?, ?, NULL)
+            INSERT INTO LOH_Executions (Script_Name, Date, Time_Start, Time_End, Reason)
+            VALUES (?, ?, ?, NULL, NULL)
             ON CONFLICT(Script_Name) DO UPDATE SET
                 Date = excluded.Date,
                 Time_Start = excluded.Time_Start,
-                Time_End = NULL;
+                Time_End = NULL,
+                Reason = NULL;
         """, (script_name, date_str, time_start_str))
         conn.commit()
         return True
@@ -1487,10 +1497,10 @@ def record_script_start(script_name: str, start_dt: datetime = None) -> bool:
         if conn:
             conn.close()
 
-def record_script_end(script_name: str, end_dt: datetime = None) -> bool:
+def record_script_end(script_name: str, end_dt: datetime = None, reason: str = None) -> bool:
     """
-    Wird bei erfolgreichem Abschluss eines Skripts aufgerufen.
-    Setzt Time_End für das Skript.
+    Wird bei Beendigung eines Skripts aufgerufen.
+    Setzt Time_End und optional den Grund (Reason) für das Skript.
     """
     if end_dt is None:
         end_dt = datetime.now()
@@ -1500,11 +1510,18 @@ def record_script_end(script_name: str, end_dt: datetime = None) -> bool:
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE LOH_Executions
-            SET Time_End = ?
-            WHERE Script_Name = ?;
-        """, (time_end_str, script_name))
+        if reason is not None:
+            cursor.execute("""
+                UPDATE LOH_Executions
+                SET Time_End = ?, Reason = ?
+                WHERE Script_Name = ?;
+            """, (time_end_str, reason, script_name))
+        else:
+            cursor.execute("""
+                UPDATE LOH_Executions
+                SET Time_End = ?
+                WHERE Script_Name = ?;
+            """, (time_end_str, script_name))
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -1513,6 +1530,13 @@ def record_script_end(script_name: str, end_dt: datetime = None) -> bool:
     finally:
         if conn:
             conn.close()
+
+def record_script_abort(script_name: str, end_dt: datetime = None, reason: str = "User abort") -> bool:
+    """
+    Wird bei manuellem Abbruch eines Skripts aufgerufen.
+    Setzt Time_End und Reason (standardmäßig 'User abort').
+    """
+    return record_script_end(script_name, end_dt, reason=reason)
 
 def record_script_execution(script_name: str, start_dt: datetime, end_dt: datetime = None) -> bool:
     """
@@ -1554,7 +1578,7 @@ def get_script_last_execution(script_name: str) -> dict | None:
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End FROM LOH_Executions WHERE Script_Name = ?", (script_name,))
+        cursor.execute("SELECT Script_Name, Date, Time_Start, Time_End, Reason FROM LOH_Executions WHERE Script_Name = ?", (script_name,))
         row = cursor.fetchone()
         if row:
             return dict(row)

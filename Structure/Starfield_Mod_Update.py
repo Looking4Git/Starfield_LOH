@@ -90,10 +90,19 @@ def prepare_mod_update(selected_mods: list[dict], log_callback=None) -> str:
         target_catalog = os.path.join(backup_dir, "ContentCatalog.txt")
         shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, target_catalog)
         log_message(f"ContentCatalog.txt gesichert nach: {target_catalog}", log_callback)
-    else:
-        log_message(f"HINWEIS: Keine Live-ContentCatalog.txt unter '{STARFIELD_CONTENT_CATALOG_PATH}' gefunden.", log_callback)
-
-    record_script_end("Starfield_Mod_Update.py")
     log_message("=== Starfield_Mod_Update: Vorbereitung erfolgreich abgeschlossen ===\n", log_callback)
 
     return backup_dir
+
+
+def abort_mod_update(reason: str = "User abort", log_callback=None):
+    """Protokolliert den manuellen Abbruch des Mod-Updates in Log und LOH_Executions."""
+    log_message(f"=== Starfield_Mod_Update: Update abgebrochen ({reason}) ===", log_callback)
+    from Structure.Database import record_script_abort
+    record_script_abort("Starfield_Mod_Update.py", reason=reason)
+
+
+def complete_mod_update(reason: str = "Successful", log_callback=None):
+    """Protokolliert den erfolgreichen Abschluss aller Mod-Updates in Log und LOH_Executions."""
+    log_message(f"=== Starfield_Mod_Update: Alle Mod-Updates abgeschlossen ({reason}) ===", log_callback)
+    record_script_end("Starfield_Mod_Update.py", reason=reason)

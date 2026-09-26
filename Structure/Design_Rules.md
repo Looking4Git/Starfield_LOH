@@ -19,6 +19,9 @@ Das Gesamtdesign orientiert sich an einem hochwertigen Sci-Fi-Dark-Mode mit klar
 | **Kritischer Akzent** | `#C72138` | **Starfield Rot**: Fehler, Gefahrenbuttons, Mod-Voraussetzungen |
 | **Kennzeichnung** | `#1F7343` | **Starfield Grün**: Mod-Abhängigkeiten, Bestätigungen |
 | **Pointer Core** | `#E06236` | **Starfield Orange**: Basis- und Core-Kennzahlen |
+| **Starfield Creations Cyan** | `#25A4BA` / `rgb(37, 164, 186)` | **Starfield Creations**: Ingame Creations Store Statusanzeigen, Zähler, Footer-Hinweise, Scrollbar-Akzente |
+| **Starfield Creations Schiefergrau** | `#394450` / `rgb(57, 68, 80)` | **Creation Store Rahmen**: Ingame Kachelrahmen, Fensterrahmen, Statusrahmen des Overlays |
+| **Starfield Creations Dark Blue** | `#03041C` / `rgb(3, 4, 28)` | **Creations Kachelhintergrund**: Originaler dunkler Beschriftungshintergrund des Bethesda Creation Stores, Kachelbasis im Overlay |
 | **Helle Flächen / Tabellen**| `#ECECEC` / `#FFFFFF` | Tabellenhintergrund, editierbare Eingabefelder |
 | **Standardtext (dunkel)**| `#000000` / `#1E1E1E` | Text auf hellen Hintergründen (Tabellen, Eingabefelder) |
 | **Standardtext (hell)** | `#ECECEC` / `#E0E0E0` | Text auf dunklen Hintergründen (Labels, Sektionstexte) |
@@ -204,3 +207,23 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 3. **Persistente Speicherung (`get_clean_window_width`):**
    * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite) abgelegt.
    * Details siehe [LOH_Control_WindowDocking_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_WindowDocking_Documentation.md).
+
+---
+
+## 6. Starfield Creations & Desktop-Overlay-Design (`Window_Mod_Update_Overlay`)
+
+Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich während des Re-Installationsprozesses als Always-On-Top Begleitfenster über das laufende Starfield legt, gelten **gesonderte, bewusst an den Bethesda Creation Store angepasste Sci-Fi-Designregeln**:
+
+1. **Optische Einbettung in das Ingame-Design:**
+   * Um für den Benutzer wie ein nativer Bestandteil des Bethesda Creation Stores zu wirken, übernimmt das Overlay die Farb- und Formensprache der Ingame-Menüs anstelle der Standard-Desktop-UI.
+2. **Farbgebung:**
+   * **Fensterhintergrund:** Sci-Fi Tiefschwarz `rgba(10, 14, 20, 0.82)` (82 % Deckkraft für optimalen Kontrast bei erhaltener Durchsichtigkeit des Spielhintergrunds).
+   * **Rahmen (Fenster & Statusquadrate):** Creation-Store Schiefergrau `#394450`.
+   * **Kachelhintergrund (Listeneinträge & Statusfelder):** Starfield Creations Dark Blue `#03041C` (in Teiltransparenz `rgba(3, 4, 28, 0.55)`).
+   * **Zähler & Footer-Hinweise:** Starfield Creations Cyan `#25A4BA` (identisch zum in-game Aktivierungs- und Preissymbol).
+   * **Scrollbalken-Schieber:** Starfield Creations Cyan `rgba(37, 164, 186, 0.55)` (Hover: `#25A4BA`).
+   * **Listeneinträge-Hover:** Abgedunkeltes Schiefergrau `#394450` mit Highlight `rgba(12, 18, 46, 0.78)`.
+3. **Formensprache & Eckenradien:**
+   * Äußerer Fensterrahmen: Schwebender `border-radius: 8px;` als klare Kante über dem Spiel.
+   * Innere Kacheln, Thumbnails, Statusfelder und Schaltflächen: Starfield-Standard `border-radius: 2px;`.
+

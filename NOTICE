@@ -1,0 +1,53 @@
+Starfield Load Order Helper (LOH)
+Copyright (c) 2026 Looking4Git
+
+Dieses Produkt enthält Softwarekomponenten von Drittanbietern und nutzt offene Datenquellen.
+Nachfolgend sind die Lizenz- und Attributionshinweise der verwendeten Komponenten aufgeführt:
+
+================================================================================
+1. PySide6 (Qt für Python)
+================================================================================
+Lizenz: GNU Lesser General Public License Version 3 (LGPLv3)
+Copyright (c) The Qt Company Ltd. und weitere Mitwirkende.
+Website: https://www.qt.io / https://wiki.qt.io/Qt_for_Python
+
+PySide6 wird als dynamisch gebundene Bibliothek verwendet. Modifikationen an den 
+PySide6-Quelltexten wurden nicht vorgenommen. Gemäß LGPLv3 ist der Nutzer berechtigt,
+die verwendeten Qt-Bibliotheken zu prüfen oder durch kompatible Versionen auszutauschen
+(Relinking). Die vollständigen Lizenztexte der LGPLv3 und GPLv3 können unter 
+https://www.gnu.org/licenses/lgpl-3.0.html und https://www.gnu.org/licenses/gpl-3.0.html
+eingesehen werden.
+
+================================================================================
+2. Playwright for Python
+================================================================================
+Lizenz: Apache License 2.0
+Copyright (c) Microsoft Corporation.
+Website: https://playwright.dev / https://github.com/microsoft/playwright-python
+
+Lizenziert unter der Apache-Lizenz, Version 2.0 (die „Lizenz"); die Nutzung ist nur im
+Rahmen der Lizenz gestattet. Eine Kopie der Lizenz kann unter folgendem Link eingesehen werden:
+http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+3. LOOT (Load Order Optimisation Tool) - Starfield Masterlist
+================================================================================
+Lizenz: Creative Commons Zero v1.0 Universal (CC0 1.0) - Public Domain Dedication
+Website: https://loot.github.io / https://github.com/loot/starfield
+
+Die vom Projekt abgerufene und genutzte Starfield-Sortiermeisterliste unterliegt der
+CC0 1.0 Public Domain Dedication. Sämtliche Urheber- und Leistungsschutzrechte wurden
+im Rahmen des rechtlich Möglichen an die Allgemeinheit abgetreten.
+
+================================================================================
+4. Markenrechtliche Hinweise & Haftungsausschluss
+================================================================================
+- Starfield™ ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
+- Nexus Mods™ ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
+
+Der Starfield Load Order Helper (LOH) ist ein unabhängiges, nicht-kommerzielles
+Community-Projekt und steht in keiner geschäftlichen Beziehung zu Bethesda Softworks LLC,
+ZeniMax Media Inc. oder Black Tree Gaming Ltd.
+
+Der Abruf von Mod-Metadaten erfolgt ausschließlich lokal und automatisiert über den
+persönlichen Browser-Kontext des Anwenders zur Konfiguration seiner installierten Modifikationen.

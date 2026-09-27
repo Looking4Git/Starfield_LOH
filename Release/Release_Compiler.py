@@ -91,7 +91,7 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
         "--clean",
-        "--onefile",
+        "--onedir",
         "--windowed",
         "--name", "Starfield_LOH",
         f"--distpath={staging_dir}",
@@ -123,9 +123,14 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     rel_cfg = load_release_config()
     manifest = rel_cfg.get("packaging", {})
 
+    # Zielverzeichnis: Bei --onedir liegt die App unter staging_dir/Starfield_LOH
+    app_target_dir = os.path.join(staging_dir, "Starfield_LOH")
+    if not os.path.exists(app_target_dir):
+        app_target_dir = staging_dir
+
     # A. Leere Verzeichnisse initialisieren (z.B. Data, Data/Mod_Images, Logs)
     for empty_dir in manifest.get("empty_directories", []):
-        target_dir = os.path.join(staging_dir, empty_dir)
+        target_dir = os.path.join(app_target_dir, empty_dir)
         os.makedirs(target_dir, exist_ok=True)
 
     # B. Ganze Verzeichnisse oder gefilterte Ordnerinhalte kopieren
@@ -136,7 +141,7 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         pattern = dir_spec.get("pattern", "")
 
         src_full = os.path.join(APP_ROOT, src_rel)
-        dst_full = os.path.join(staging_dir, dst_rel)
+        dst_full = os.path.join(app_target_dir, dst_rel)
 
         if not os.path.exists(src_full):
             continue
@@ -154,7 +159,7 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         src_rel = file_spec.get("source", "")
         dst_rel = file_spec.get("target", "")
         src_full = os.path.join(APP_ROOT, src_rel)
-        dst_full = os.path.join(staging_dir, dst_rel)
+        dst_full = os.path.join(app_target_dir, dst_rel)
 
         if os.path.exists(src_full):
             os.makedirs(os.path.dirname(dst_full), exist_ok=True)
@@ -165,14 +170,14 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     tpl_src_rel = tpl_spec.get("source", "Database/Starfield_LOH_Template.db")
     tpl_dst_rel = tpl_spec.get("target", "Database/Starfield_LOH.db")
     tpl_src_full = os.path.join(APP_ROOT, tpl_src_rel)
-    tpl_dst_full = os.path.join(staging_dir, tpl_dst_rel)
+    tpl_dst_full = os.path.join(app_target_dir, tpl_dst_rel)
 
     if os.path.exists(tpl_src_full):
         os.makedirs(os.path.dirname(tpl_dst_full), exist_ok=True)
         shutil.copy2(tpl_src_full, tpl_dst_full)
 
     # E. Release Notes generieren
-    rel_notes_path = os.path.join(staging_dir, "RELEASE_NOTES.md")
+    rel_notes_path = os.path.join(app_target_dir, "RELEASE_NOTES.md")
     with open(rel_notes_path, "w", encoding="utf-8") as f:
         f.write(f"# Starfield Load Order Helper (LOH) - Version {ver_full}\n\n")
         if release_notes_text.strip():

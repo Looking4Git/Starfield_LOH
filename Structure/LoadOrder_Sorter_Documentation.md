@@ -73,7 +73,7 @@ CREATE TABLE "LOH_Executions" (
 
 ### 3. Vorab-Sicherheitsprüfungen (`check_sorter_prerequisites`)
 
-Vor jedem Sortierversuch prüft `check_sorter_prerequisites()` in `Structure/Database.py` folgende Kriterien gegen die Datenbank:
+Vor jedem Sortierversuch prüft `check_sorter_prerequisites()` (definiert in `Structure/Database_Profiles.py`, re-exportiert über `Structure/Database.py`) folgende Kriterien gegen die Datenbank:
 
 1. **Prüfung auf aktive Mods:** Sind überhaupt installierte Mods (`Mod_State = 'installiert'`) vorhanden?
 2. **Prüfung 1 (Category_LOH unvollständig):**
@@ -122,8 +122,8 @@ Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_so
 [Schritt 1: Vorsortieren nach Kategorien]
       │ (Grobe Zuordnung aller installierten Komponenten nach Hauptkategorie Pos 1..32)
       ▼
-[Schritt 2: Globale Abhängigkeitsvalidierung]
-      │ (Diagnostische Prüfung übergeordneter Masterfiles & Requirements über Kategoriegrenzen)
+[Schritt 2: Globale Abhängigkeitsauflösung]
+      │ (Aktive Umsortierung abhängiger Komponenten/Patches hinter ihre Voraussetzungen)
       ▼
 [Schritt 3: Kategorie-Feinsortierung & Binnen-Nachbesserung]
       │ (Semantische Steuertabelle CATEGORY_FINE_SORT_STEPS je Kategorie 01–32)
@@ -132,10 +132,11 @@ Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_so
       │ ├── 3.3: Band Nachfolger (nur Binnengruppen-Partner mit Sub_Pos > Main_Pos)
       │ ├── 3.4: Mod-Kohäsion (zusammenhängender Komponentenblock mehrteiliger Mods)
       │ ├── 3.5: Mod-Abhängigkeit im DAG (Voraussetzungen & Masterfiles)
-      │ └── 3.6: Konflikt-Milderung & Konflikt-Abhängigkeit (CONFLICT_RESOLUTION_STEPS)
-      │          ├── 3.6.1: Konflikt Milderung (Lokal vs Global)
-      │          ├── 3.6.2: Konflikt Milderung (gezielter Mod)
-      │          └── 3.6.3: Konflikt Abhängigkeit (Delete vs. Disable / NavMesh-Reparatur)
+      │ ├── 3.6: Konflikt-Milderung & Konflikt-Abhängigkeit (CONFLICT_RESOLUTION_STEPS)
+      │ │          ├── 3.6.1: Konflikt Milderung (Lokal vs Global)
+      │ │          ├── 3.6.2: Konflikt Milderung (gezielter Mod)
+      │ │          └── 3.6.3: Konflikt Abhängigkeit (Delete vs. Disable / NavMesh-Reparatur)
+      │ └── 3.7: Finale topologische Schutzprüfung (Absicherung gegen Rest-Inversionen)
       ▼
 [Schritt 4: Persistierung in LoadOrder_Sorter_Results]
       │ (Atomares Schreiben der lückenlosen Positionen 1..N mit Begründung in LoadOrder_Sorter_Results,
@@ -147,13 +148,15 @@ Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_so
 * Offizielle BGS-Creations (`Author == 'BethesdaGameStudios'` oder `Category_LOH == 1`) fallen regulär in Kategorie 1 und bilden damit natürlich die Spitze der Ladereihenfolge (Positionen 1 bis $N_{bgs}$).
 * Lädt für jede Komponente die berechneten Matrix-Werte der kategoriespezifischen Eingriffstiefe (`dim_calc_inner_*`) und die Summe der Gesamt-Overrides (`calc_Total_Override_Val`).
 
-#### Schritt 2: Globale Abhängigkeitsvalidierung (`_step_validate_global_dependencies`)
-* Arbeitet als rein diagnostische Validierung über die gesamte Liste aller installierten Komponenten (Position 1 bis 32).
-* Prüft globale Vorgaben über Kategoriegrenzen hinweg:
-  1. **Masterfile-Header (`MAST`):** Aus `Mods_Requirements_Masterfile_List`.
-  2. **Mod-Requirements:** Aus `Mods_Requirements`.
-* Erkennt und protokolliert etwaige Verletzungen (z. B. wenn eine Voraussetzung in einer späteren Kategorie liegt als die abhängige Komponente).
-* **Keine automatische Kategorie-Verschiebung:** Kategorien bleiben im Sorter unantastbar. Die Korrektur fehlerhafter Kategoriezuordnungen obliegt dem Benutzer bzw. der vorgeschalteten Klassifizierung.
+#### Schritt 2: Globale Abhängigkeitsauflösung (`_step_validate_global_dependencies`)
+* Überwindet starre Kategoriengrenzen zugunsten harter Creation Engine 2 Voraussetzungen: Wenn eine abhängige Mod (z. B. ein Patch) einer früheren Kategorie angehört als ihre benötigte Voraussetzung (Basis-Mod / Masterfile), wird die abhängige Komponente im Arbeitskontext des Sorters aktiv in den Kategoriebereich der höchsten Voraussetzung verschoben.
+* **Wichtige Differenzierung (Stammdaten vs. Ladereihenfolge):**
+  - **Stammdaten bleiben unverändert:** Die fachliche Zuordnung der Mod in der Tabelle `Mods` (`Category_LOH`) wird dabei **nicht** modifiziert und bleibt für Filterungen und Übersichten zu 100 % erhalten.
+  - **Ladereihenfolge wird geheilt:** In der errechneten Ladereihenfolge erhält die technische Abhängigkeit absoluten Vorrang, sodass Patches garantiert hinter ihren Masterfiles einsortiert werden.
+* **Transparente Kennzeichnung:**
+  - Jede so verschobene Komponente erhält die Kennung `Step_ID = "2.1"`, `Step_Description = 'Globale Abhängigkeit'` und die Begründung: *„in Kategoriebereich [<Pos>] <Kategorie> verschoben. (Globale Abhängigkeit: Voraussetzung '<Eltern-Mod>')“*.
+* **Teilschritt 3.7: Finale topologische Schutzprüfung (`_step_heal_global_final_dependencies`):**
+  - Als abschließender Schutzwall vor der Persistierung (Schritt 4) prüft der Sorter die gesamte sequenzierte Liste nochmals topologisch gegen alle Masterfiles (`MAST`) und Mod-Requirements (`Mods_Requirements`). Sollten Rest-Inversionen vorliegen, werden abhängige Komponenten unmittelbar hinter ihre Eltern-Komponenten gezogen (`Step_ID = "3.7"`).
 
 #### Schritt 3: Kategorie-Feinsortierung (`_step_fine_sort_categories`)
 Iteriert über eine semantische Steuertabelle über alle 32 aktiven Kategorien (inkl. Kategorie 1 BGS) und führt für jede Kategorie `fine_sort_category(cat_id)` aus.

@@ -2,6 +2,7 @@ import sys
 import json
 import os
 import ctypes
+import logging
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QFrame, QStackedWidget, 
                                QLabel, QSizePolicy)
@@ -14,7 +15,7 @@ from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Pages.Page_Settings import Page_Settings
 from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
 from Structure.LOH_Control_WindowDocking import LOH_Control_WindowDocking
-from Structure.Paths import SETTINGS_FILE
+from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
 from Structure.Database import ensure_default_database_mode
 
 DEFAULT_SETTINGS = {
@@ -325,7 +326,6 @@ class StarfieldLOH(QMainWindow):
                     btn_ok.setText("OK")
                 
                 try:
-                    import ctypes
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(int(box.winId()), 20, ctypes.byref(ctypes.c_int(1)), 4)
                 except Exception:
                     pass
@@ -361,20 +361,23 @@ class StarfieldLOH(QMainWindow):
         return {"app_info": {"name": "Starfield Load Order Helper"}, "paths": {"graphics": "Graphics", "style": "Style"}}
 
     def load_settings(self):
+        def _deep_merge_dict(defaults: dict, overrides: dict) -> dict:
+            """Führt zwei Dictionaries rekursiv zusammen. Vorrang haben die Werte in overrides."""
+            result = defaults.copy()
+            for k, v in overrides.items():
+                if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+                    result[k] = _deep_merge_dict(result[k], v)
+                else:
+                    result[k] = v
+            return result
+
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 try:
                     loaded = json.load(f)
-                    # Sicherstellen, dass alle Keys aus DEFAULT_SETTINGS existieren (Merge)
-                    settings = DEFAULT_SETTINGS.copy()
-                    for key in DEFAULT_SETTINGS:
-                        if key in loaded and isinstance(loaded[key], dict):
-                            settings[key] = {**DEFAULT_SETTINGS[key], **loaded[key]}
-                        elif key in loaded:
-                            settings[key] = loaded[key]
-                    return settings
-                except Exception:
-                    pass
+                    return _deep_merge_dict(DEFAULT_SETTINGS, loaded)
+                except Exception as e:
+                    logging.error(f"Fehler beim Laden der Einstellungen: {e}")
         # Fallback auf Standard-Einstellungen
         return DEFAULT_SETTINGS.copy()
 
@@ -447,10 +450,29 @@ class StarfieldLOH(QMainWindow):
         if combined_qss:
             QApplication.instance().setStyleSheet(combined_qss)
 
+def setup_main_logging():
+    """Initialisiert das zentrale Logging für das Hauptprogramm."""
+    try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        logging.basicConfig(
+            filename=MAIN_LOG_FILE,
+            filemode="a",
+            format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            datefmt="%d.%m.%Y %H:%M:%S",
+            level=logging.INFO,
+            encoding="utf-8"
+        )
+    except Exception as e:
+        print(f"Konnte Haupt-Logging nicht initialisieren: {e}")
+
 if __name__ == "__main__":
+    setup_main_logging()
+    logging.info("Starfield Load Order Helper gestartet.")
     ensure_default_database_mode()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     window = StarfieldLOH()
     window.show()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    logging.info("Starfield Load Order Helper regulär beendet.")
+    sys.exit(exit_code)

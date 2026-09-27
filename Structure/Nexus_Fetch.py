@@ -53,6 +53,15 @@ def write_to_log(message: str):
     logger.info(message)
 
 
+def _get_ssl_context() -> ssl.SSLContext:
+    """Erstellt einen verifizierten SSL-Kontext mit Zertifikatsvalidierung."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
 # ---------------------------------------------------------------------------
 # Bild-Download
 # ---------------------------------------------------------------------------
@@ -69,7 +78,7 @@ def download_image(image_url: str) -> bytes | None:
             "Connection": "keep-alive"
         }
         req = urllib.request.Request(image_url, headers=headers)
-        ctx = ssl._create_unverified_context()
+        ctx = _get_ssl_context()
         with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
             return response.read()
     except Exception as e:
@@ -133,7 +142,7 @@ class NexusAPIClient:
                 "User-Agent": "Starfield_LOH/1.0"
             }
         )
-        ctx = ssl._create_unverified_context()
+        ctx = _get_ssl_context()
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=8) as res:
                 self._update_rate_limits(res.headers)
@@ -195,7 +204,7 @@ class NexusAPIClient:
                 "User-Agent": "Starfield_LOH/1.0"
             }
         )
-        ctx = ssl._create_unverified_context()
+        ctx = _get_ssl_context()
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=8) as res:
                 self._update_rate_limits(res.headers)

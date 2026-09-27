@@ -3,12 +3,8 @@ import shutil
 import json
 import logging
 from datetime import datetime
-try:
-    from PySide6.QtWidgets import QMessageBox
-    from PySide6.QtCore import Qt
-except ImportError:
-    from PyQt6.QtWidgets import QMessageBox
-    from PyQt6.QtCore import Qt
+from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import Qt
 
 from Structure.Paths import (
     APP_ROOT, DATABASE_DIR, LOGS_DIR, GRAPHICS_DIR, STYLE_DIR,

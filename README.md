@@ -21,7 +21,7 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
 
 ## Hauptfunktionen
 
-- **Binäres Reverse Engineering (`File_ESM_Parser.py`, `File_BA2_Parser.py`):** Direktes Parsen von Plugin- (`.esm`) und Archiv-Dateien (`.ba2`) zur Erkennung von FormIDs, Overrides, Cell-/Location-Änderungen und Master-Abhängigkeiten.
+- **Binäres Parsing zur Datenanalyse (Read-Only) (`File_ESM_Parser.py`, `File_BA2_Parser.py`):** Direktes, rein lesendes Parsen von Plugin- (`.esm`) und Archiv-Dateien (`.ba2`) zur Erkennung von FormIDs, Overrides, Cell-/Location-Änderungen und Master-Abhängigkeiten.
 - **Automatisierte Metadaten-Anbindung (`Bethesda_Fetch.py`, `Nexus_Fetch.py`, `LOOT_Fetch.py`):** Playwright- und webgestütztes Auslesen von Bethesda Creation Store und Nexus Mods Daten sowie Abgleich gegen die offizielle Starfield LOOT-Masterlist ohne Erfordernis privater API-Schlüssel oder Registrierungen.
 - **Automatisierte Mod-Klassifizierung (`Category_LOH_Classifier.py`):** Logische Erkennung und Zuordnung von Mods in das LLO-Kategoriensystem (Logical Load Order, Positionen 1 bis 32) anhand von internen Datenstrukturen, Keyword-Signaturen und Store-Metadaten.
 - **Umfassende Konflikt-Analyse (`Mods_Conflicts_Analyzer.py`):** Tiefgehende Untersuchung von Überschreibungen auf Record- und FormID-Ebene, Cell- und Worldspace-Kollisionen sowie Asset-Konflikten zur frühzeitigen Erkennung von Instabilitäten.
@@ -30,7 +30,11 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
   2. Stufe 2 (Strukturierte Einordnung innerhalb einer Kategorie): Feinsortierung und Binnengruppen-Gravitation unter Berücksichtigung von Touchpoint-Ausschlüssen und Unterkategorien.
   3. Stufe 3 (Beachten von Abhängigkeiten und Konfliktvermeidung): Auflösen von Mod-Voraussetzungen, Masterfile-Abhängigkeiten sowie intelligente Konfliktauflösung bei Überschreibungen (Delete-vs-Disable, gezielte Overrides).
   4. Stufe 4 (Profil-Validierung & Export): Ausgabe einer konsistenten, optimierten Ladereihenfolge direkt in die aktive `Plugins.txt`.
-- **Transaktionale Profil-Verwaltung (`Starfield_Profile_Activation.py`, `LOH_Backup_Manager.py`):** Sicheres Speichern, Wechseln und Aktivieren unterschiedlicher Mod-Zusammenstellungen inklusive automatisierter Backups im Verzeichnis `Data/Backups/`.
+- **Begleitete Mod-Update-Pipeline mit automatischem Backup & Rollback (`Starfield_Mod_Update.py`, `Window_Mod_Update_Overlay.py`):** Strukturierter Prozess zur Aktualisierung von Creations-Mods mit automatischer Erkennung neuerer Versionen:
+  1. *Sichere Vorbereitung:* Saubere Austragung und isoliertes Backup betroffener Mod-Dateien vor Spielstart.
+  2. *Begleitendes Desktop-HUD & Live-Scanner:* Rahmenloses Echtzeit-Overlay während des Spiels mit 500ms-Hintergrund-Scanner zur Erkennung abgeschlossener Downloads (`ContentCatalog.txt`) und Aktivierungen (`Plugins.txt`).
+  3. *Automatisches Rollback-System:* Lückenlose Wiederherstellung des Ausgangszustands bei vorzeitigem Abbruch oder Fehlschlag des Update-Laufs.
+- **Profil-Verwaltung mit automatischen Backups (`Starfield_Profile_Activation.py`, `LOH_Backup_Manager.py`):** Sicheres Speichern, Wechseln und Aktivieren unterschiedlicher Mod-Zusammenstellungen inklusive automatisierter Backups im Verzeichnis `Data/Backups/`.
 
 ---
 
@@ -52,7 +56,7 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
     </td>
     <td>
       <strong>KI-Unterstützung & Methodik</strong><br>
-      Die Anwendung entstand mit der Unterstützung moderner künstlicher Intelligenz. Zum Einsatz kam die <strong>Google Antigravity IDE</strong> mit eingebundenen Gemini-Agenten. Die KI wurde maßgeblich für die Datenanalyse der Mod-Dateien (Reverse Engineering von Creation Engine 2 Strukturen) und die Codierungsunterstützung genutzt. Zusätzlich wurde sie für die vergleichende Synthese von Informationsquellen (wie LLO oder LOOT) herangezogen – stets unter striktem Abgleich mit den Quelldokumenten und menschlicher Validierung.
+      Die Anwendung entstand mit der Unterstützung moderner künstlicher Intelligenz. Zum Einsatz kam die <strong>Google Antigravity IDE</strong> mit eingebundenen Gemini-Agenten. Die KI wurde maßgeblich für die Datenanalyse der Mod-Dateien (binäres Parsing von Creation Engine 2 Strukturen) und die Codierungsunterstützung genutzt. Zusätzlich wurde sie für die vergleichende Synthese von Informationsquellen (wie LLO oder LOOT) herangezogen – stets unter striktem Abgleich mit den Quelldokumenten und menschlicher Validierung.
     </td>
   </tr>
 </table>
@@ -93,8 +97,11 @@ Beim ersten Start initialisiert sich die Arbeitsdatenbank (`Database/Starfield_L
 
 Dieses Projekt ist unter der **[MIT-Lizenz](LICENSE)** lizenziert.
 
-### Markenrechtlicher Disclaimer
+### Markenrechtlicher Disclaimer & Drittanbieter
 - **Starfield™** ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
 - **Nexus Mods™** ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
+- **LOOT (Load Order Optimisation Tool):** Verwendet die offizielle Starfield Masterlist, lizenziert unter [Creative Commons Zero (CC0 1.0)](https://github.com/loot/starfield).
+- **Bethesda Creations & Webdaten:** Der Abruf öffentlich sichtbarer Metadaten erfolgt rein im lokalen Browser-Kontext des Benutzers zur persönlichen Konfiguration seiner installierten Mods. Dieses Tool steht in keiner Verbindung zu Bethesda Softworks und wird nicht von Bethesda autorisiert.
 - Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.
 - Entwickelt mit Python und PySide6 (Qt für Python, lizenziert unter der LGPLv3).
+- Detaillierte Lizenz- und Urheberrechtsangaben aller verwendeten Komponenten sind in der Datei **[NOTICE](NOTICE)** hinterlegt.

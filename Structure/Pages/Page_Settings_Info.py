@@ -150,7 +150,7 @@ class Page_Settings_Info(QWidget):
         text_layout_ai.addWidget(lbl_title_ai)
 
         lbl_desc_ai = QLabel(
-            "Die KI wurde hauptsächlich für die Datenanalyse der Mod-Dateien (Reverse Engineering) "
+            "Die KI wurde hauptsächlich für die Datenanalyse der Mod-Dateien (binäres Parsing zur Datenanalyse) "
             "und Codierungsunterstützung genutzt. Zusätzlich wurde diese auch für die Zusammenfassung der "
             "Informationsquellen wie LLO oder LOOT genutzt. Dabei wurde stets auf einen Abgleich mit den "
             "Quelldokumenten geachtet. Die Architektur und Programmlogik hingegen beruhen vollständig auf "
@@ -186,10 +186,14 @@ class Page_Settings_Info(QWidget):
             "Nexus Mods™ ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd. "
             "Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen "
             "Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.\n\n"
+            "LOOT (Load Order Optimisation Tool): Verwendet die Starfield-Masterlist, lizenziert unter Creative Commons Zero (CC0 1.0).\n\n"
+            "Bethesda Creations & Webdaten: Der Abruf öffentlich zugänglicher Mod-Metadaten erfolgt rein im lokalen "
+            "Browser-Kontext des Benutzers zur persönlichen Konfiguration seiner installierten Modifikationen.\n\n"
             "Die Nutzung der Software erfolgt auf eigene Verantwortung. Vor Änderungen an Spieldateien und "
-            "Konfigurationen (wie der Plugins.txt) werden automatische Sicherheitskopien im Verzeichnis /Backups angelegt. "
+            "Konfigurationen (wie der Plugins.txt) werden automatische Sicherheitskopien im Verzeichnis Data/Backups angelegt. "
             "Für etwaige Datenverluste oder Beeinträchtigungen von Spielständen wird keine Haftung übernommen.\n\n"
-            "Entwickelt mit Python und PySide6 (Qt für Python – lizenziert unter LGPLv3)."
+            "Entwickelt mit Python und PySide6 (Qt für Python – lizenziert unter LGPLv3). "
+            "Vollständige Lizenz- und Attributionsangaben aller Drittanbieter-Komponenten siehe Datei NOTICE."
         )
         lbl_legal.setStyleSheet("color: #a0a0a0; font-size: 13px; line-height: 1.4;")
         lbl_legal.setWordWrap(True)

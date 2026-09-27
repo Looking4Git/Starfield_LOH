@@ -119,7 +119,8 @@ class DragDropStandardItemModel(QStandardItemModel):
     def mimeData(self, indexes):
         self.dragged_mod_id = None
         if indexes:
-            item = self.item(indexes[0].row(), 0)
+            drag_row = indexes[0].row()
+            item = self.item(drag_row, 0)
             if item:
                 data = item.data(Qt.ItemDataRole.UserRole)
                 if data:
@@ -129,6 +130,12 @@ class DragDropStandardItemModel(QStandardItemModel):
                         self.dragged_mod_id = row_data.get("Mod_ID")
                     except Exception:
                         pass
+            # Wichtig: Immer ALLE Spalten der Zeile serialisieren.
+            # QTableView selektiert nur sichtbare Spalten. Wenn Spalten (z. B. Spalte 0 'Neu')
+            # ausgeblendet sind, würde dropMimeData die sichtbaren Spalten sonst um eine Position
+            # nach links verschieben und die Zellinhalte korrumpieren!
+            full_row_indexes = [self.index(drag_row, c) for c in range(self.columnCount())]
+            return super().mimeData(full_row_indexes)
         return super().mimeData(indexes)
 
     def dropMimeData(self, data, action, row, column, parent):
@@ -1028,7 +1035,7 @@ class Page_LoadOrder(QWidget):
                 
             row = item.row()
             pos_item = self.model.item(row, self.COL_POS)
-            if not pos_item:
+            if not pos_item or not pos_item.text().isdigit():
                 return
                 
             position = int(pos_item.text())
@@ -1115,7 +1122,15 @@ class Page_LoadOrder(QWidget):
             
             # DB mit neuen Positionen in einer einzigen Transaktion updaten
             if positions_to_update:
-                update_load_order_positions(profile_id, positions_to_update)
+                success = update_load_order_positions(profile_id, positions_to_update)
+                if not success:
+                    logging.error(f"Fehler beim Aktualisieren der LoadOrder-Positionen für Profil ID {profile_id}.")
+                    self.show_message_box(
+                        "Fehler beim Speichern",
+                        "Die neue Ladereihenfolge konnte nicht in der Datenbank gespeichert werden.",
+                        QMessageBox.Icon.Critical
+                    )
+                    return
                 
         finally:
             self.model.blockSignals(False)
@@ -1680,33 +1695,58 @@ class Page_LoadOrder(QWidget):
 
     def validate_proposed_positions(self, proposed_list, moved_mod_id):
         """
-        Prüft, ob die vorgeschlagene Ladereihenfolge die Voraussetzungen verletzt.
+        Prüft, ob die vorgeschlagene Verschiebung von moved_mod_id dessen Voraussetzungen
+        oder abhängige Mods verletzt.
         Gibt (True, "") zurück, wenn alles ok ist, andernfalls (False, "Fehlermeldung").
         """
-        mod_positions = {}
+        if moved_mod_id is None:
+            return True, ""
+
+        moved_id = int(moved_mod_id)
+        mod_min_pos = {}
+        mod_max_pos = {}
         mod_names = {}
         
         for index, entry in enumerate(proposed_list):
-            mod_id = entry.get("Mod_ID")
-            if mod_id is not None:
-                mod_positions[int(mod_id)] = index + 1
-                mod_names[int(mod_id)] = entry.get("Name_Online") or entry.get("Name_ContentCatalog") or "Unbekannt"
-                
-        from Structure.Database import get_mod_requirements_for_ui
-        for mod_id, pos in mod_positions.items():
-            reqs = get_mod_requirements_for_ui(mod_id)
-            for req in reqs:
-                req_id = int(req["ID"])
-                if req_id in mod_positions:
-                    req_pos = mod_positions[req_id]
-                    if req_pos >= pos:
-                        mod_name = mod_names[mod_id]
-                        req_name = mod_names[req_id]
-                        if moved_mod_id == req_id:
-                            return False, f"Der Mod '{req_name}' darf nicht unter den davon abhängigen Mod '{mod_name}' verschoben werden."
-                        else:
-                            return False, f"Der Mod '{mod_name}' darf nicht vor die benötigte Voraussetzung '{req_name}' verschoben werden."
-                            
+            m_id = entry.get("Mod_ID")
+            if m_id is not None:
+                m_id = int(m_id)
+                pos = index + 1
+                if m_id not in mod_min_pos:
+                    mod_min_pos[m_id] = pos
+                mod_max_pos[m_id] = pos
+                if m_id not in mod_names:
+                    mod_names[m_id] = entry.get("Name_Online") or entry.get("Name_ContentCatalog") or "Unbekannt"
+
+        moved_min = mod_min_pos.get(moved_id)
+        moved_max = mod_max_pos.get(moved_id)
+        moved_name = mod_names.get(moved_id, "Unbekannt")
+
+        if moved_min is None or moved_max is None:
+            return True, ""
+
+        from Structure.Database import get_mod_requirements_for_ui, get_mod_dependencies_for_ui
+
+        # 1. Prüfen, ob moved_mod_id vor eine benötigte Voraussetzung geschoben wurde
+        reqs = get_mod_requirements_for_ui(moved_id)
+        for req in reqs:
+            req_id = int(req["ID"])
+            if req_id in mod_max_pos:
+                req_max = mod_max_pos[req_id]
+                if req_max >= moved_min:
+                    req_name = mod_names.get(req_id, req.get("Name_Online") or "Unbekannt")
+                    return False, f"Der Mod '{moved_name}' darf nicht vor die benötigte Voraussetzung '{req_name}' verschoben werden."
+
+        # 2. Prüfen, ob moved_mod_id hinter einen davon abhängigen Mod geschoben wurde
+        deps = get_mod_dependencies_for_ui(moved_id)
+        for dep in deps:
+            dep_id = int(dep["ID"])
+            if dep_id in mod_min_pos:
+                dep_min = mod_min_pos[dep_id]
+                if moved_max >= dep_min:
+                    dep_name = mod_names.get(dep_id, dep.get("Name_Online") or "Unbekannt")
+                    return False, f"Der Mod '{moved_name}' darf nicht unter den davon abhängigen Mod '{dep_name}' verschoben werden."
+
         return True, ""
 
     def update_sorter_status(self):

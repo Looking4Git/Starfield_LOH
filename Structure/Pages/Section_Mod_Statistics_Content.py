@@ -103,7 +103,7 @@ class Section_Mod_Statistics_Content(QWidget):
         # 4. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=380,
+            min_height=480,
             max_height=1000,
             default_height=self.default_radar_height,
             parent=self
@@ -130,7 +130,7 @@ class Section_Mod_Statistics_Content(QWidget):
         # Auto-Fit Höhe: Balkendiagramm expandiert auf 704 px für alle 32 Zeilen ohne Scrollen und ohne Leerraum
         target_h = self.default_bar_height if is_bar else self.default_radar_height
         self.resize_grip.set_default_height(target_h)
-        self.resize_grip.set_min_height(380 if not is_bar else 500)
+        self.resize_grip.set_min_height(480 if not is_bar else 500)
         self.setFixedHeight(target_h)
 
     def _load_category_maxes(self):

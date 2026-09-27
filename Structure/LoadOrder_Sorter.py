@@ -171,47 +171,29 @@ def _step_presort_by_categories(cursor, log_msg, ctx: SorterContext):
 
 def _step_validate_global_dependencies(cursor, log_msg, ctx: SorterContext):
     """
-    Schritt 2: Globale Abhängigkeitsvalidierung über die gesamte Liste.
-    Prüft rein diagnostisch kategorieübergreifende Abhängigkeiten aus Masterfile-Headern (MAST)
-    und Mod-Requirements. Ändert keine Kategorien, sondern stellt sicher, dass alle übergeordneten
-    Voraussetzungen durch die vorgegebene Kategoriereihenfolge 1..32 eingehalten werden.
+    Schritt 2: Globale Abhängigkeitsauflösung über die gesamte Liste.
+    Erkennt kategorieübergreifende Abhängigkeiten aus Masterfile-Headern (MAST)
+    und Mod-Requirements. Verschiebt abhängige Komponenten im Sorter-Arbeitskontext
+    (ctx.category_components) aktiv in den Kategoriebereich ihrer höchsten Voraussetzung,
+    sodass sie in Schritt 3 hinter ihren Voraussetzungen einsortiert werden.
+    WICHTIG: Die Stammdaten in der Tabelle Mods (Category_LOH) bleiben dabei unverändert!
     """
-    comp_to_pos = {}
-    mod_to_comps = {}
-    file_to_comp = {}
+    cursor.execute("SELECT ID, Position, Name FROM Categories_LOH")
+    categories = cursor.fetchall()
+    cat_pos_map = {row[0]: row[1] for row in categories}
+    cat_id_by_pos = {row[1]: row[0] for row in categories}
+    cat_name_map = {row[0]: row[2] for row in categories}
 
-    cursor.execute("SELECT ID, Position FROM Categories_LOH")
-    cat_pos_map = dict(cursor.fetchall())
-
-    for cat_id, comps in ctx.category_components.items():
-        pos = cat_pos_map.get(cat_id, 999)
-        for c in comps:
-            cid = c['Component_ID']
-            mid = c['Mod_ID']
-            comp_to_pos[cid] = pos
-            mod_to_comps.setdefault(mid, []).append(cid)
-            file_to_comp[c['File'].lower()] = cid
-
-    inversions = 0
-
-    # 1. Header-Masterfiles prüfen (MAST)
+    # 1. Header-Masterfiles (MAST) laden
     cursor.execute("""
         SELECT mrl.ID_Mod, LOWER(mrl.Masterfile)
         FROM Mods_Requirements_Masterfile_List mrl
         JOIN Mods m ON mrl.ID_Mod = m.ID
         WHERE m.State = 1
     """)
-    for dep_mid, master_file in cursor.fetchall():
-        parent_cid = file_to_comp.get(master_file)
-        child_cids = mod_to_comps.get(dep_mid, [])
-        if parent_cid and parent_cid in comp_to_pos:
-            parent_pos = comp_to_pos[parent_cid]
-            for ch_cid in child_cids:
-                if ch_cid in comp_to_pos and comp_to_pos[ch_cid] < parent_pos:
-                    inversions += 1
-                    log_msg(f"  [WARNUNG] Plugin ID {ch_cid} liegt in früherer Kategorie ({comp_to_pos[ch_cid]}) als Masterfile '{master_file}' ({parent_pos}).")
+    mast_requirements = cursor.fetchall()
 
-    # 2. Mod-Requirements prüfen
+    # 2. Mod-Requirements laden
     cursor.execute("""
         SELECT mr.ID_Mod_Requirement, mr.ID_Mod
         FROM Mods_Requirements mr
@@ -219,20 +201,89 @@ def _step_validate_global_dependencies(cursor, log_msg, ctx: SorterContext):
         JOIN Mods m2 ON mr.ID_Mod = m2.ID
         WHERE m1.State = 1 AND m2.State = 1
     """)
-    for req_mid, dep_mid in cursor.fetchall():
-        parent_cids = mod_to_comps.get(req_mid, [])
-        child_cids = mod_to_comps.get(dep_mid, [])
-        for p_cid in parent_cids:
-            parent_pos = comp_to_pos.get(p_cid, 1)
-            for ch_cid in child_cids:
-                if ch_cid in comp_to_pos and comp_to_pos[ch_cid] < parent_pos:
-                    inversions += 1
-                    log_msg(f"  [WARNUNG] Mod ID {dep_mid} liegt in früherer Kategorie ({comp_to_pos[ch_cid]}) als Voraussetzung Mod ID {req_mid} ({parent_pos}).")
+    mod_requirements = cursor.fetchall()
 
-    if inversions == 0:
-        log_msg("  -> Globale Abhängigkeiten validiert (alle kategorieübergreifenden Voraussetzungen durch Kategoriereihenfolge erfüllt).")
+    total_shifts = 0
+    max_iterations = 32
+
+    for _ in range(max_iterations):
+        comp_to_cat = {}
+        comp_by_id = {}
+        mod_to_comps = {}
+        file_to_comp = {}
+
+        for cat_id, comps in ctx.category_components.items():
+            for c in comps:
+                cid = c['Component_ID']
+                mid = c['Mod_ID']
+                comp_to_cat[cid] = cat_id
+                comp_by_id[cid] = c
+                mod_to_comps.setdefault(mid, []).append(c)
+                file_to_comp[c['File'].lower()] = cid
+
+        shifts_this_round = []
+
+        # A. Header-Masterfiles prüfen
+        for dep_mid, master_file in mast_requirements:
+            parent_cid = file_to_comp.get(master_file)
+            child_comps = mod_to_comps.get(dep_mid, [])
+            if parent_cid and parent_cid in comp_to_cat:
+                p_cat_id = comp_to_cat[parent_cid]
+                p_cat_pos = cat_pos_map.get(p_cat_id, 1)
+                for ch_comp in child_comps:
+                    ch_cid = ch_comp['Component_ID']
+                    ch_cat_id = comp_to_cat.get(ch_cid)
+                    ch_cat_pos = cat_pos_map.get(ch_cat_id, 999)
+                    if ch_cat_pos < p_cat_pos:
+                        target_cat_id = cat_id_by_pos.get(p_cat_pos, p_cat_id)
+                        p_name = comp_by_id[parent_cid].get('Name_ContentCatalog') or master_file
+                        shifts_this_round.append((ch_comp, ch_cat_id, target_cat_id, p_name))
+
+        # B. Mod-Requirements prüfen
+        for req_mid, dep_mid in mod_requirements:
+            parent_comps = mod_to_comps.get(req_mid, [])
+            child_comps = mod_to_comps.get(dep_mid, [])
+            if parent_comps and child_comps:
+                p_cat_pos = max(cat_pos_map.get(comp_to_cat.get(p['Component_ID']), 1) for p in parent_comps)
+                target_cat_id = cat_id_by_pos.get(p_cat_pos)
+                p_name = parent_comps[0].get('Name_ContentCatalog') or f"Mod ID {req_mid}"
+                for ch_comp in child_comps:
+                    ch_cid = ch_comp['Component_ID']
+                    ch_cat_id = comp_to_cat.get(ch_cid)
+                    ch_cat_pos = cat_pos_map.get(ch_cat_id, 999)
+                    if ch_cat_pos < p_cat_pos:
+                        shifts_this_round.append((ch_comp, ch_cat_id, target_cat_id, p_name))
+
+        if not shifts_this_round:
+            break
+
+        seen_shift = set()
+        for ch_comp, from_cat_id, to_cat_id, p_name in shifts_this_round:
+            cid = ch_comp['Component_ID']
+            if cid in seen_shift:
+                continue
+            seen_shift.add(cid)
+
+            if from_cat_id in ctx.category_components and ch_comp in ctx.category_components[from_cat_id]:
+                ctx.category_components[from_cat_id].remove(ch_comp)
+
+            ctx.category_components.setdefault(to_cat_id, []).append(ch_comp)
+
+            to_cat_pos = cat_pos_map.get(to_cat_id, 0)
+            to_cat_name = cat_name_map.get(to_cat_id, f"Kategorie {to_cat_id}")
+            ch_name = ch_comp.get('Name_ContentCatalog') or ch_comp['File']
+
+            ch_comp['sorter_step_id'] = '2.1'
+            ch_comp['sorter_step_desc'] = 'Globale Abhängigkeit'
+            ch_comp['sorter_reason'] = f"in Kategoriebereich [{to_cat_pos:02d}] {to_cat_name} verschoben. (Globale Abhängigkeit: Voraussetzung '{p_name}')"
+
+            log_msg(f"  -> Mod '{ch_name}' in Kategoriebereich [{to_cat_pos:02d}] {to_cat_name} verschoben (Voraussetzung: '{p_name}').")
+            total_shifts += 1
+
+    if total_shifts == 0:
+        log_msg("  -> Globale Abhängigkeiten validiert (alle kategorieübergreifenden Voraussetzungen erfüllt).")
     else:
-        log_msg(f"  -> Globale Abhängigkeiten validiert ({inversions} Kategorie-Inversionen festgestellt).")
+        log_msg(f"  -> Globale Abhängigkeiten aufgelöst ({total_shifts} Komponenten in höhere Kategoriebereiche verschoben).")
 
 
 
@@ -820,6 +871,107 @@ def fine_sort_category(cursor, log_msg, cat_id, cat_name, cat_pos, components, p
     return healed_list
 
 
+def _step_heal_global_final_dependencies(cursor, log_msg, all_comps: list[dict]) -> list[dict]:
+    """
+    Teilschritt 3.7: Finale topologische Schutzprüfung über die gesamte Liste.
+    Stellt sicher, dass nach allen Bänder- und Intra-Kategorie-Sortierungen
+    keine Komponente vor ihrer Voraussetzung (MAST oder Mod_Requirements) platziert ist.
+    Sollte eine Rest-Inversion existieren, wird die abhängige Komponente unmittelbar
+    hinter die Voraussetzung verschoben.
+    """
+    if len(all_comps) <= 1:
+        return all_comps
+
+    cursor.execute("""
+        SELECT mrl.ID_Mod, LOWER(mrl.Masterfile)
+        FROM Mods_Requirements_Masterfile_List mrl
+        JOIN Mods m ON mrl.ID_Mod = m.ID
+        WHERE m.State = 1
+    """)
+    mast_requirements = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT mr.ID_Mod_Requirement, mr.ID_Mod
+        FROM Mods_Requirements mr
+        JOIN Mods m1 ON mr.ID_Mod_Requirement = m1.ID
+        JOIN Mods m2 ON mr.ID_Mod = m2.ID
+        WHERE m1.State = 1 AND m2.State = 1
+    """)
+    mod_requirements = cursor.fetchall()
+
+    healed_list = list(all_comps)
+    total_healed = 0
+    max_rounds = len(healed_list)
+
+    for _ in range(max_rounds):
+        cid_to_pos = {c['Component_ID']: idx for idx, c in enumerate(healed_list)}
+        file_to_cid = {c['File'].lower(): c['Component_ID'] for c in healed_list}
+        mod_to_cids = {}
+        for c in healed_list:
+            mod_to_cids.setdefault(c['Mod_ID'], []).append(c['Component_ID'])
+
+        inversion_found = False
+
+        # 1. Header-Masterfiles prüfen
+        for dep_mid, master_file in mast_requirements:
+            p_cid = file_to_cid.get(master_file)
+            ch_cids = mod_to_cids.get(dep_mid, [])
+            if p_cid and p_cid in cid_to_pos:
+                p_idx = cid_to_pos[p_cid]
+                for ch_cid in ch_cids:
+                    if ch_cid in cid_to_pos:
+                        ch_idx = cid_to_pos[ch_cid]
+                        if ch_idx < p_idx:
+                            ch_comp = healed_list.pop(ch_idx)
+                            new_p_idx = next(i for i, c in enumerate(healed_list) if c['Component_ID'] == p_cid)
+                            healed_list.insert(new_p_idx + 1, ch_comp)
+                            p_name = healed_list[new_p_idx].get('Name_ContentCatalog') or master_file
+                            ch_comp['sorter_step_id'] = '3.7'
+                            ch_comp['sorter_step_desc'] = 'Finale Abhängigkeitsprüfung'
+                            ch_comp['sorter_reason'] = f"hinter '{p_name}' verschoben. (Finale Abhängigkeitsheilung)"
+                            total_healed += 1
+                            inversion_found = True
+                            break
+                if inversion_found:
+                    break
+
+        if inversion_found:
+            continue
+
+        # 2. Mod-Requirements prüfen
+        for req_mid, dep_mid in mod_requirements:
+            p_cids = mod_to_cids.get(req_mid, [])
+            ch_cids = mod_to_cids.get(dep_mid, [])
+            if p_cids and ch_cids:
+                max_p_idx = max(cid_to_pos[p] for p in p_cids if p in cid_to_pos)
+                for ch_cid in ch_cids:
+                    if ch_cid in cid_to_pos:
+                        ch_idx = cid_to_pos[ch_cid]
+                        if ch_idx < max_p_idx:
+                            ch_comp = healed_list.pop(ch_idx)
+                            new_max_p_idx = max(i for i, c in enumerate(healed_list) if c['Component_ID'] in p_cids)
+                            healed_list.insert(new_max_p_idx + 1, ch_comp)
+                            p_name = healed_list[new_max_p_idx].get('Name_ContentCatalog') or f"Mod ID {req_mid}"
+                            ch_comp['sorter_step_id'] = '3.7'
+                            ch_comp['sorter_step_desc'] = 'Finale Abhängigkeitsprüfung'
+                            ch_comp['sorter_reason'] = f"hinter '{p_name}' verschoben. (Finale Abhängigkeitsheilung)"
+                            total_healed += 1
+                            inversion_found = True
+                            break
+                if inversion_found:
+                    break
+
+        if not inversion_found:
+            break
+
+    if total_healed > 0:
+        log_msg(f"  -> Teilschritt 3.7: {total_healed} finale Abhängigkeitsinversion(en) geheilt.")
+    else:
+        log_msg("  -> Teilschritt 3.7: Finale Abhängigkeitsprüfung ohne Abweichungen bestätigt.")
+
+    return healed_list
+
+
 def _step_fine_sort_categories(cursor, log_msg, ctx: SorterContext):
     """
     Schritt 3: Kategorie-Feinsortierung (Semantische Steuertabelle).
@@ -846,7 +998,7 @@ def _step_fine_sort_categories(cursor, log_msg, ctx: SorterContext):
 
         all_sorted_components.extend(sorted_cat_comps)
 
-    ctx.final_sorted_components = all_sorted_components
+    ctx.final_sorted_components = _step_heal_global_final_dependencies(cursor, log_msg, all_sorted_components)
     log_msg(f"  -> Feinsortierung abgeschlossen: Gesamtumfang {len(ctx.final_sorted_components)} Komponenten.")
 
 

@@ -3,7 +3,10 @@ import sys
 import json
 
 # 1. Root-Verzeichnis der Anwendung ermitteln (Starfield_LOH)
-APP_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if getattr(sys, 'frozen', False):
+    APP_ROOT = os.path.dirname(sys.executable)
+else:
+    APP_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 2. Feste Anwendungsordner definieren
 DATABASE_DIR = os.path.join(APP_ROOT, "Database")

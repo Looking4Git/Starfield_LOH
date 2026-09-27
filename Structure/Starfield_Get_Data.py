@@ -7,9 +7,6 @@ import logging
 import struct
 import sys
 
-_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
 
 from Structure.Paths import (
     STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT,
@@ -991,7 +988,7 @@ def run_local_check(log_signal):
                     # Neuen unbekannten Mod in DB einfügen (State = 1 für 'installiert')
                     note_val = None
                     if filename.lower().endswith('.esp'):
-                        note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .eps Plugin!"
+                        note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .esp Plugin!"
 
                     cursor.execute("""
                         INSERT INTO Mods (Platform, Name_ContentCatalog, State, Note)

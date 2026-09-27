@@ -8,7 +8,7 @@ import logging
 import html
 import urllib.request
 from playwright.sync_api import sync_playwright
-from Structure.Database import record_script_start, record_script_end
+from Structure.Database import record_script_start, record_script_end, get_db_connection
 from Structure.Paths import DB_FILE, LOGS_DIR
 
 def setup_logging():
@@ -143,7 +143,7 @@ def run_fetch(log_signal=None):
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute("SELECT ID, ID_ContentCatalog, URL FROM Mods WHERE Platform = 1 AND ID_ContentCatalog IS NOT NULL")
@@ -192,8 +192,8 @@ def run_fetch(log_signal=None):
                                         
                                 if captured_json:
                                     page.evaluate("setTimeout(() => window.stop(), 10)") 
-                            except:
-                                pass
+                            except Exception as e:
+                                logger.debug(f"Fehler bei JSON-Antwortauswertung: {e}")
                 
                 page.on("response", handle_response)
                 
@@ -235,8 +235,8 @@ def run_fetch(log_signal=None):
                         
                 try:
                     page.close()
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Fehler beim Schließen der Seite: {e}")
                 
                 if success and captured_json:
                     # Stammdaten extrahieren
@@ -312,8 +312,8 @@ def run_fetch(log_signal=None):
                                         # Nur das Datum für die UI aufbereiten
                                         reines_datum = datetime(dt.year, dt.month, dt.day)
                                         gefundene_versionen.append({"datum": reines_datum, "version": v_name})
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Fehler bei Versionsauflösung: {e}")
                         
                     if gefundene_versionen:
                         neuestes = max(gefundene_versionen, key=lambda x: x["datum"])
@@ -330,6 +330,10 @@ def run_fetch(log_signal=None):
                     log_msg("  ❌ FEHLER: Keine Daten gefunden.")
                     error_count += 1
                     
+                # Periodischer Zwischen-Commit alle 10 Mods zur Datensicherung
+                if index % 10 == 0:
+                    conn.commit()
+
                 # Pause zwischen Anfragen
                 time.sleep(1)
 

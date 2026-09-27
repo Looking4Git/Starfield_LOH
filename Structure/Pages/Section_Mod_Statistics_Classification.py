@@ -63,11 +63,31 @@ class Section_Mod_Statistics_Classification(QWidget):
         layout.setSpacing(4)
         layout.addWidget(self.ui)
 
-        # 1. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
+        # 1. Dynamische Ermittlung der Maximalhöhe (Anzahl Kategorien - 1 Schritte)
+        cat_count = 32
+        conn = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM Categories_LOH")
+            row = cursor.fetchone()
+            if row and row[0] > 0:
+                cat_count = row[0]
+        except Exception:
+            pass
+        finally:
+            if conn:
+                conn.close()
+
+        # Exakte Maximalhöhe: (Kategorien - 1) Zeilen à 24 px + 70 px (Kopf, Rollbalken, Grip, Spacing/Puffer)
+        rows = max(1, cat_count - 1)
+        dynamic_max_height = (rows * 24) + 70
+
+        # 2. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
             min_height=324,
-            max_height=800,
+            max_height=dynamic_max_height,
             default_height=324,
             parent=self
         )

@@ -48,6 +48,10 @@
       {
         "source": "LICENSE",
         "target": "LICENSE"
+      },
+      {
+        "source": "NOTICE",
+        "target": "NOTICE"
       }
     ],
     "template_database": {

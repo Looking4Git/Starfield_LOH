@@ -100,7 +100,11 @@ def bundle_playwright_browsers(app_target_dir: str, log) -> tuple[bool, str]:
 
         log(f"Kopiere {folder_name} in das Bundle ({dest_dir})...")
         os.makedirs(target_local_browsers, exist_ok=True)
-        shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
+        shutil.copytree(
+            src_dir, dest_dir, 
+            ignore=shutil.ignore_patterns("debug.log", "*.log"),
+            dirs_exist_ok=True
+        )
 
         size_mb = sum(
             os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dest_dir) for f in fs

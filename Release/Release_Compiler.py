@@ -26,6 +26,93 @@ from Structure.Paths import (
 from Release.Build_Database_Template import build_template_database, TEMPLATE_DB_PATH
 
 
+def bundle_playwright_browsers(app_target_dir: str, log) -> tuple[bool, str]:
+    """
+    Bündelt die benötigte Playwright Chromium-Headless-Shell im nativen
+    _internal/playwright/driver/package/.local-browsers Verzeichnis der App.
+    """
+    import json
+    import playwright
+    from pathlib import Path
+
+    try:
+        pw_root = Path(playwright.__file__).parent
+        browsers_json_path = pw_root / "driver" / "package" / "browsers.json"
+        
+        rev = None
+        if browsers_json_path.exists():
+            try:
+                data = json.loads(browsers_json_path.read_text(encoding="utf-8"))
+                for b in data.get("browsers", []):
+                    if b.get("name") == "chromium-headless-shell":
+                        rev = b.get("revision")
+                        break
+            except Exception as e:
+                log(f"Hinweis beim Lesen von browsers.json: {e}")
+
+        folder_name = f"chromium_headless_shell-{rev}" if rev else None
+        
+        # Lokaler Speicherort von ms-playwright
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        ms_pw_dir = os.path.join(local_app_data, "ms-playwright")
+        
+        src_dir = None
+        if folder_name and os.path.exists(os.path.join(ms_pw_dir, folder_name)):
+            src_dir = os.path.join(ms_pw_dir, folder_name)
+        elif os.path.exists(ms_pw_dir):
+            # Fallback: Suche nach dem neuesten chromium_headless_shell Ordner
+            candidates = [d for d in os.listdir(ms_pw_dir) if d.startswith("chromium_headless_shell")]
+            if candidates:
+                candidates.sort(reverse=True)
+                folder_name = candidates[0]
+                src_dir = os.path.join(ms_pw_dir, folder_name)
+                
+        # Falls nicht vorhanden: Automatisch installieren
+        if not src_dir or not os.path.exists(src_dir):
+            log("Chromium Headless Shell nicht gefunden. Installiere via 'py -m playwright install chromium'...")
+            cmd = [sys.executable, "-m", "playwright", "install", "chromium"]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode != 0:
+                err = f"Automatischer Download von Playwright Chromium fehlgeschlagen: {res.stderr}"
+                log(f"FEHLER: {err}")
+                return False, err
+                
+            # Erneute Prüfung nach Installation
+            if folder_name and os.path.exists(os.path.join(ms_pw_dir, folder_name)):
+                src_dir = os.path.join(ms_pw_dir, folder_name)
+            elif os.path.exists(ms_pw_dir):
+                candidates = [d for d in os.listdir(ms_pw_dir) if d.startswith("chromium_headless_shell")]
+                if candidates:
+                    candidates.sort(reverse=True)
+                    folder_name = candidates[0]
+                    src_dir = os.path.join(ms_pw_dir, folder_name)
+
+        if not src_dir or not os.path.exists(src_dir):
+            err = "Playwright Chromium-Ordner konnte weder im System gefunden noch installiert werden."
+            log(f"FEHLER: {err}")
+            return False, err
+
+        # Zielpfad im Staging-Ordner
+        target_local_browsers = os.path.join(
+            app_target_dir, "_internal", "playwright", "driver", "package", ".local-browsers"
+        )
+        dest_dir = os.path.join(target_local_browsers, folder_name)
+
+        log(f"Kopiere {folder_name} in das Bundle ({dest_dir})...")
+        os.makedirs(target_local_browsers, exist_ok=True)
+        shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
+
+        size_mb = sum(
+            os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dest_dir) for f in fs
+        ) / (1024 * 1024)
+        log(f"[OK] Playwright Chromium-Headless-Shell erfolgreich gebündelt: {folder_name} ({size_mb:.1f} MB)")
+        return True, ""
+    except Exception as ex:
+        err = f"Unerwarteter Fehler beim Bündeln des Playwright-Browsers: {ex}"
+        log(f"FEHLER: {err}")
+        return False, err
+
+
 def compile_release_package(version_info: dict, release_notes_text: str = "", log_func=None) -> tuple[bool, str]:
     """
     Führt die vollständige Kompilierung und Paketierung einer portablen ZIP-Version durch.
@@ -186,6 +273,12 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
             f.write("Offizielles Release-Paket für Starfield Load Order Helper.\n\n")
         f.write("---\n")
         f.write("Entwickelt von Looking4 mit Unterstützung von Antigravity AI.\n")
+
+    # F. Playwright Chromium-Headless-Shell für portable Distribution bündeln
+    log("3b/5: Bündle Playwright Chromium-Headless-Shell...")
+    ok_pw, err_pw = bundle_playwright_browsers(app_target_dir, log=log)
+    if not ok_pw:
+        return False, err_pw
 
     # 5. Packen als komprimiertes ZIP-Archiv
     log(f"4/5: Packe Release-Archiv: {os.path.basename(zip_path)}...")

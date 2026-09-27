@@ -35,6 +35,15 @@ Die Erstellung der portablen Windows-Binärdatei erfolgt über `Release_Compiler
    * `--icon=Graphics/Starfield_LOH.ico`: Bindet das offizielle Starfield Multi-Resolution Icon fest in den Header der `.exe` ein.
    * `--clean`, `--noconfirm`: Garantiert reproduzierbare Builds ohne Cache-Altlasten.
 
+### 2.1 Playwright Browser-Bundling (`bundle_playwright_browsers`)
+In der kompilierten PyInstaller-Umgebung (`sys.frozen == True`) erzwingt Playwright intern die Umgebungsvariable `PLAYWRIGHT_BROWSERS_PATH="0"`. Dies weist den Playwright-Treiber an, Chromium-Binärdateien nativ unter `_internal\playwright\driver\package\.local-browsers\` zu erwarten.
+
+Um sicherzustellen, dass die portable Version auf beliebigen Zielsystemen ohne vorherige Python- oder Browser-Installation funktioniert, führt `Release_Compiler.py` vor dem Packen des ZIP-Archivs folgendes automatisches Staging aus:
+1. **Revisionserkennung:** Auslesen der benötigten Browser-Revision für `chromium-headless-shell` direkt aus `browsers.json` des installierten Playwright-Pakets.
+2. **Automatische Bereitstellung:** Existiert der Browser-Ordner (`chromium_headless_shell-<rev>`) nicht in `%LOCALAPPDATA%\ms-playwright`, wird er automatisch via `py -m playwright install chromium` bezogen.
+3. **Natives Staging:** Kopieren des gesamten Ordners in das Staging-Verzeichnis unter `_internal\playwright\driver\package\.local-browsers\chromium_headless_shell-<rev>\`.
+4. **Vollständige Autarkie:** Beim Start der kompilierten Anwendung (`Starfield_LOH.exe`) finden die Module [Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) und [Nexus_Fetch.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch.py) den integrierten Headless-Browser vollständig nativ, ohne dass Pfad-Hacks oder Umgebungsvariablen nötig sind.
+
 ---
 
 ## 3. ZIP-Packaging & Verzeichnisstruktur (Flacher Standard)

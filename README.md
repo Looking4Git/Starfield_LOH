@@ -66,26 +66,36 @@ Damit erkennt der Starfield LOH Daten- und Modkonflikte und unterstützt den Spi
 ## Systemanforderungen
 
 - **Betriebssystem:** Windows 10 oder Windows 11 (64-Bit)
-- **Python:** Version 3.12 oder neuer
+- **Python:** Version 3.12 oder neuer *(nur bei Ausführung aus dem Quellcode erforderlich; die portable Release-Version ist autark)*
 - **Spiel:** Starfield (Steam-Installation mit gültigem Spieleverzeichnis)
 
 ---
 
 ## Schnellstart & Installation
 
-### 1. Repository klonen
+### Option A: Portable Version (Empfohlen für Anwender)
+Die portable Version ist vollständig autark vorkompiliert und benötigt **weder eine Python-Installation noch ein manuelles Browser-Setup**:
+
+1. Lade das neueste Release-Archiv (`Starfield_LOH_vX.X.X_Portable.zip`) unter [Releases](https://github.com/Looking4Git/Starfield_LOH/releases) herunter.
+2. Entpacke das ZIP-Archiv in ein beliebiges lokales Verzeichnis (z. B. `D:\Starfield_LOH\`).
+3. Starte `Starfield_LOH.exe`.
+   *(Der für den Datenabruf erforderliche Chromium-Headless-Browser ist bereits fest in das Paket integriert).*
+
+### Option B: Ausführung aus dem Quellcode (Für Entwickler)
+
+#### 1. Repository klonen
 ```bash
 git clone https://github.com/Looking4Git/Starfield_LOH.git
 cd Starfield_LOH
 ```
 
-### 2. Abhängigkeiten installieren
+#### 2. Abhängigkeiten installieren
 ```bash
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 3. Anwendung starten
+#### 3. Anwendung starten
 ```bash
 python Starfield_LOH.pyw
 ```

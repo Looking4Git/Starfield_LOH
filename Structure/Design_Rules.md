@@ -234,9 +234,9 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
 1. **Multi-Resolution Standard:**
    * Für das Windows-Dateisystem, den Desktop, Explorer-Ansichten und die Taskleiste wird ein einheitlicher Multi-Resolution ICO-Container (`Graphics/Starfield_LOH.ico`) geführt.
    * Der Container muss zwingend alle 7 Windows-Standardauflösungen enthalten: **16x16, 24x24, 32x32, 48x48, 64x64, 128x128 und 256x256 Pixel** (PNG-komprimiert).
-2. **Dunkler Squircle-Hintergrund (Kontrastsicherheit):**
+2. **Dunkler Anthrazit-Hintergrund (Kontrastsicherheit & fließende Ecken):**
    * Da das 4-teilige Starfield-Mod-Symbol helle und goldene Elemente enthält, darf es nicht freigestellt mit transparentem Hintergrund im Windows Explorer abgelegt werden (Gefahr des Verblassens bei hellen Explorer-Themes).
-   * Das Icon besitzt einen abgerundeten Squircle-Hintergrund (`#0D0D0D`, Eckenradius ca. 22%) mit dezenter Kontrastkante (`#252830`), sodass es sowohl auf weißem Explorer-Hintergrund als auch auf der dunklen Windows-Taskleiste immer brillant zur Geltung kommt.
+   * Das Icon besitzt einen abgerundeten Hintergrund im feinen Sci-Fi-Anthrazit (`#151515`, Eckenradius ca. 22%) mit dezenter Kontrastkante (`#2E323A`) und sauberem Pen-Inset ohne Randbeschnitt, sodass es sowohl auf weißem Explorer-Hintergrund als auch auf der dunklen Windows-Taskleiste mit fließenden, tangentialen Rundungen brillant zur Geltung kommt.
 
 ---
 

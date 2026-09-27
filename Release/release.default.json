@@ -2,5 +2,57 @@
   "github_token": "",
   "release_title": "",
   "release_notes": "",
-  "release_file": ""
+  "release_file": "",
+  "packaging": {
+    "directories_to_copy": [
+      {
+        "source": "Graphics",
+        "target": "Graphics"
+      },
+      {
+        "source": "Style",
+        "target": "Style"
+      },
+      {
+        "source": "Structure/Pages",
+        "target": "Structure/Pages",
+        "pattern": "*.ui"
+      }
+    ],
+    "empty_directories": [
+      "Data",
+      "Data/Mod_Images",
+      "Logs"
+    ],
+    "files_to_copy": [
+      {
+        "source": "Database/schema.txt",
+        "target": "Database/schema.txt"
+      },
+      {
+        "source": "Starfield_LOH_Settings.default.json",
+        "target": "Starfield_LOH_Settings.default.json"
+      },
+      {
+        "source": "Starfield_LOH_Settings.default.json",
+        "target": "Starfield_LOH_Settings.json"
+      },
+      {
+        "source": "version.json",
+        "target": "version.json"
+      },
+      {
+        "source": "README.md",
+        "target": "README.md"
+      },
+      {
+        "source": "LICENSE",
+        "target": "LICENSE"
+      }
+    ],
+    "template_database": {
+      "source": "Database/Starfield_LOH_Template.db",
+      "target": "Database/Starfield_LOH.db"
+    }
+  }
 }

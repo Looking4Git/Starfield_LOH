@@ -117,44 +117,61 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         log(f"FEHLER: {err}")
         return False, err
 
-    # 4. Produktiv-Dateien in das Staging-Verzeichnis kopieren
-    log("3/5: Kopiere Produktiv-Ressourcen in das Staging-Verzeichnis...")
+    # 4. Produktiv-Dateien in das Staging-Verzeichnis kopieren (via packaging-Manifest)
+    log("3/5: Kopiere Produktiv-Ressourcen basierend auf release.json Manifest...")
+    from Release.Release_GitHub_Manager import load_release_config
+    rel_cfg = load_release_config()
+    manifest = rel_cfg.get("packaging", {})
 
-    # A. Initiales Database-Verzeichnis mit Template-DB als Starfield_LOH.db
-    staging_db_dir = os.path.join(staging_dir, "Database")
-    os.makedirs(staging_db_dir, exist_ok=True)
-    shutil.copy2(TEMPLATE_DB_PATH, os.path.join(staging_db_dir, "Starfield_LOH.db"))
-    schema_src = os.path.join(DATABASE_DIR, "schema.txt")
-    if os.path.exists(schema_src):
-        shutil.copy2(schema_src, os.path.join(staging_db_dir, "schema.txt"))
+    # A. Leere Verzeichnisse initialisieren (z.B. Data, Data/Mod_Images, Logs)
+    for empty_dir in manifest.get("empty_directories", []):
+        target_dir = os.path.join(staging_dir, empty_dir)
+        os.makedirs(target_dir, exist_ok=True)
 
-    # B. Graphics-Verzeichnis (Icons, Grafiken)
-    staging_graphics_dir = os.path.join(staging_dir, "Graphics")
-    if os.path.exists(GRAPHICS_DIR):
-        shutil.copytree(GRAPHICS_DIR, staging_graphics_dir, dirs_exist_ok=True)
+    # B. Ganze Verzeichnisse oder gefilterte Ordnerinhalte kopieren
+    import fnmatch
+    for dir_spec in manifest.get("directories_to_copy", []):
+        src_rel = dir_spec.get("source", "")
+        dst_rel = dir_spec.get("target", "")
+        pattern = dir_spec.get("pattern", "")
 
-    # C. Style-Verzeichnis (QSS-Stylesheets)
-    staging_style_dir = os.path.join(staging_dir, "Style")
-    if os.path.exists(STYLE_DIR):
-        shutil.copytree(STYLE_DIR, staging_style_dir, dirs_exist_ok=True)
+        src_full = os.path.join(APP_ROOT, src_rel)
+        dst_full = os.path.join(staging_dir, dst_rel)
 
-    # D. Standard-Konfiguration als Vorlage
-    if os.path.exists(SETTINGS_DEFAULT_FILE):
-        shutil.copy2(SETTINGS_DEFAULT_FILE, os.path.join(staging_dir, "Starfield_LOH_Settings.default.json"))
-        # Auch als initiale Startdatei beilegen
-        shutil.copy2(SETTINGS_DEFAULT_FILE, os.path.join(staging_dir, "Starfield_LOH_Settings.json"))
+        if not os.path.exists(src_full):
+            continue
 
-    # E. Aktuelle version.json
-    if os.path.exists(VERSION_FILE):
-        shutil.copy2(VERSION_FILE, os.path.join(staging_dir, "version.json"))
+        os.makedirs(dst_full, exist_ok=True)
+        if pattern:
+            for item in os.listdir(src_full):
+                if fnmatch.fnmatch(item, pattern):
+                    shutil.copy2(os.path.join(src_full, item), os.path.join(dst_full, item))
+        else:
+            shutil.copytree(src_full, dst_full, dirs_exist_ok=True)
 
-    # F. Lizenz & Readme
-    for doc in ["LICENSE", "README.md"]:
-        doc_src = os.path.join(APP_ROOT, doc)
-        if os.path.exists(doc_src):
-            shutil.copy2(doc_src, os.path.join(staging_dir, doc))
+    # C. Einzelne Produktivdateien kopieren
+    for file_spec in manifest.get("files_to_copy", []):
+        src_rel = file_spec.get("source", "")
+        dst_rel = file_spec.get("target", "")
+        src_full = os.path.join(APP_ROOT, src_rel)
+        dst_full = os.path.join(staging_dir, dst_rel)
 
-    # G. Release Notes generieren
+        if os.path.exists(src_full):
+            os.makedirs(os.path.dirname(dst_full), exist_ok=True)
+            shutil.copy2(src_full, dst_full)
+
+    # D. Template-Datenbank als lauffähige Standard-Datenbank hinterlegen
+    tpl_spec = manifest.get("template_database", {})
+    tpl_src_rel = tpl_spec.get("source", "Database/Starfield_LOH_Template.db")
+    tpl_dst_rel = tpl_spec.get("target", "Database/Starfield_LOH.db")
+    tpl_src_full = os.path.join(APP_ROOT, tpl_src_rel)
+    tpl_dst_full = os.path.join(staging_dir, tpl_dst_rel)
+
+    if os.path.exists(tpl_src_full):
+        os.makedirs(os.path.dirname(tpl_dst_full), exist_ok=True)
+        shutil.copy2(tpl_src_full, tpl_dst_full)
+
+    # E. Release Notes generieren
     rel_notes_path = os.path.join(staging_dir, "RELEASE_NOTES.md")
     with open(rel_notes_path, "w", encoding="utf-8") as f:
         f.write(f"# Starfield Load Order Helper (LOH) - Version {ver_full}\n\n")

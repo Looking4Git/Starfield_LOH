@@ -21,12 +21,23 @@ from Structure.Paths import (
     encrypt_dpapi, decrypt_dpapi, ensure_release_file
 )
 
-DEFAULT_RELEASE_DATA = {
-    "github_token": "",
-    "release_title": "",
-    "release_notes": "",
-    "release_file": ""
-}
+def get_default_release_config() -> dict:
+    """Lädt die Standard-Release-Konfiguration aus release.default.json."""
+    if os.path.exists(RELEASE_DEFAULT_FILE):
+        try:
+            with open(RELEASE_DEFAULT_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    return loaded
+        except Exception:
+            pass
+    return {
+        "github_token": "",
+        "release_title": "",
+        "release_notes": "",
+        "release_file": "",
+        "packaging": {}
+    }
 
 
 def load_release_config() -> dict:
@@ -35,7 +46,7 @@ def load_release_config() -> dict:
     Entschlüsselt den GitHub Personal Access Token transparent via Windows DPAPI.
     """
     ensure_release_file()
-    data = dict(DEFAULT_RELEASE_DATA)
+    data = get_default_release_config()
 
     if os.path.exists(RELEASE_JSON_FILE):
         try:
@@ -58,14 +69,16 @@ def save_release_config(
     github_token: str = None,
     release_title: str = None,
     release_notes: str = None,
-    release_file: str = None
+    release_file: str = None,
+    packaging: dict = None
 ) -> dict:
     """
     Speichert Werte in release.json.
     Verschlüsselt den GitHub-Token sicher via Windows DPAPI.
+    Erhält das Packaging-Manifest vollständig.
     """
     ensure_release_file()
-    cfg = dict(DEFAULT_RELEASE_DATA)
+    cfg = get_default_release_config()
 
     # Bestehende Konfiguration einlesen
     if os.path.exists(RELEASE_JSON_FILE):
@@ -92,6 +105,9 @@ def save_release_config(
 
     if release_file is not None:
         cfg["release_file"] = release_file
+
+    if packaging is not None:
+        cfg["packaging"] = packaging
 
     with open(RELEASE_JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)

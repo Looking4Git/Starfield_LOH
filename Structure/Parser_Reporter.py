@@ -8,10 +8,16 @@ import os
 import sys
 import time
 
-# ANSI-Escape-Unterstützung unter Windows aktivieren
-if os.name == 'nt':
+# ANSI-Escape-Unterstützung unter Windows aktivieren (ausschließlich wenn echte Konsole vorliegt, ohne Prozess-Spawn)
+if os.name == 'nt' and hasattr(sys.stdout, 'isatty') and sys.stdout and sys.stdout.isatty():
     try:
-        os.system('')
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        h_out = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
+        if h_out and h_out != -1:
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(h_out, ctypes.byref(mode)):
+                kernel32.SetConsoleMode(h_out, mode.value | 0x0004)  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
     except Exception:
         pass
 

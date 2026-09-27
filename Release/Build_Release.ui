@@ -990,6 +990,120 @@
     </layout>
    </item>
 
+   <!-- release.json aktualisieren Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_save">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_save_release">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>release.json aktualisieren</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_rel_save_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_save">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Compile Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_compile">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_compile">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Compile</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_compile_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit zur Kompilierung.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_compile">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
    <!-- GitHub Token Eingabe -->
    <item>
     <layout class="QHBoxLayout" name="row_rel_token">
@@ -1127,120 +1241,6 @@
         <string/>
        </property>
       </widget>
-     </item>
-    </layout>
-   </item>
-
-   <!-- release.json aktualisieren Button & Status -->
-   <item>
-    <layout class="QHBoxLayout" name="row_rel_save">
-     <property name="spacing">
-      <number>12</number>
-     </property>
-     <item>
-      <widget class="QPushButton" name="btn_save_release">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>30</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>200</width>
-         <height>30</height>
-        </size>
-       </property>
-       <property name="cursor">
-        <cursorShape>PointingHandCursor</cursorShape>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
-       </property>
-       <property name="text">
-        <string>release.json aktualisieren</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="lbl_rel_save_status">
-       <property name="styleSheet">
-        <string notr="true">color: #888888; font-size: 12px;</string>
-       </property>
-       <property name="text">
-        <string>Bereit.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="spacer_rel_save">
-       <property name="orientation">
-        <enum>Qt::Orientation::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
-   </item>
-
-   <!-- Compile Button & Status -->
-   <item>
-    <layout class="QHBoxLayout" name="row_rel_compile">
-     <property name="spacing">
-      <number>12</number>
-     </property>
-     <item>
-      <widget class="QPushButton" name="btn_compile">
-       <property name="minimumSize">
-        <size>
-         <width>200</width>
-         <height>30</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>200</width>
-         <height>30</height>
-        </size>
-       </property>
-       <property name="cursor">
-        <cursorShape>PointingHandCursor</cursorShape>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
-       </property>
-       <property name="text">
-        <string>Compile</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="lbl_compile_status">
-       <property name="styleSheet">
-        <string notr="true">color: #888888; font-size: 12px;</string>
-       </property>
-       <property name="text">
-        <string>Bereit zur Kompilierung.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="spacer_compile">
-       <property name="orientation">
-        <enum>Qt::Orientation::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
      </item>
     </layout>
    </item>

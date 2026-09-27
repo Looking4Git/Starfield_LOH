@@ -84,8 +84,8 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     # 3. Kompilierung via PyInstaller
     log("2/5: Kompiliere Starfield_LOH.pyw via PyInstaller (kann 1-2 Minuten dauern)...")
     main_script = os.path.join(APP_ROOT, "Starfield_LOH.pyw")
-    icon_ico = os.path.join(GRAPHICS_DIR, "Icon_App.ico")
-    icon_svg = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
+    icon_ico = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
+    icon_svg = os.path.join(GRAPHICS_DIR, "Icon_Mods.svg")
 
     pyinstaller_cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -191,10 +191,10 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     log(f"4/5: Packe Release-Archiv: {os.path.basename(zip_path)}...")
     try:
         with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
-            for root, dirs, files in os.walk(staging_dir):
+            for root, dirs, files in os.walk(app_target_dir):
                 for file in files:
                     file_abs = os.path.join(root, file)
-                    arcname = os.path.relpath(file_abs, staging_dir)
+                    arcname = os.path.relpath(file_abs, app_target_dir)
                     zipf.write(file_abs, arcname)
     except Exception as ze:
         err = f"Fehler beim Erstellen der ZIP-Datei: {ze}"

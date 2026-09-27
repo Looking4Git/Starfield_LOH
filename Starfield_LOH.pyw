@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QFrame, QStackedWidget, 
                                QLabel, QSizePolicy)
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtGui import QIcon, QPixmap, QColor, QPalette
 from Structure.Pages.Page_Mods import Page_Mods
 from Structure.Pages.Page_LoadOrder import Page_LoadOrder
 from Structure.Pages.Page_Update import Page_Update
@@ -104,9 +104,12 @@ class StarfieldLOH(QMainWindow):
         app_info = self.manifest.get("app_info", {})
         self.setWindowTitle(app_info.get("name", "Starfield Load Order Helper"))
 
-        app_icon_path = os.path.join(self.graphics_path, "Icon_Mods.svg")
-        if os.path.exists(app_icon_path):
-            self.setWindowIcon(QIcon(app_icon_path))
+        app_icon_ico = os.path.join(self.graphics_path, "Starfield_LOH.ico")
+        app_icon_svg = os.path.join(self.graphics_path, "Icon_Mods.svg")
+        if os.path.exists(app_icon_ico):
+            self.setWindowIcon(QIcon(app_icon_ico))
+        elif os.path.exists(app_icon_svg):
+            self.setWindowIcon(QIcon(app_icon_svg))
 
         # 2. Fenster Geometrie STRIKT aus Settings anwenden
         win_cfg = self.settings.get("window", {})
@@ -471,6 +474,23 @@ if __name__ == "__main__":
     ensure_default_database_mode()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # Dunkle Basisfarbe setzen (#0D0D0D), um Aufflackern der hellen Systempalette zu verhindern
+    palette = QPalette()
+    dark_bg = QColor("#0D0D0D")
+    palette.setColor(QPalette.ColorRole.Window, dark_bg)
+    palette.setColor(QPalette.ColorRole.Base, dark_bg)
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#141414"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#E0E0E0"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#E0E0E0"))
+    palette.setColor(QPalette.ColorRole.Button, QColor("#1A1A1A"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#E0E0E0"))
+    app.setPalette(palette)
+
+    ico_path = os.path.join(os.path.dirname(__file__), "Graphics", "Starfield_LOH.ico")
+    if os.path.exists(ico_path):
+        app.setWindowIcon(QIcon(ico_path))
+
     window = StarfieldLOH()
     window.show()
     exit_code = app.exec()

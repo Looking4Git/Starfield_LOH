@@ -39,6 +39,7 @@ __all__ = [
     "get_mod_category_stats",
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
+    "has_classifier_categories",
 ]
 
 
@@ -773,3 +774,22 @@ def apply_all_classifier_categories() -> int:
     finally:
         if conn:
             conn.close()
+
+
+def has_classifier_categories() -> bool:
+    """
+    Prüft, ob für mindestens eine installierte Mod eine berechnete Classifier-Kategorie vorliegt.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM Mods WHERE State = 1 AND Category_LOH_Classifier IS NOT NULL LIMIT 1")
+        return cursor.fetchone() is not None
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei has_classifier_categories: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+

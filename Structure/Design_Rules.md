@@ -227,3 +227,34 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
    * Äußerer Fensterrahmen: Schwebender `border-radius: 8px;` als klare Kante über dem Spiel.
    * Innere Kacheln, Thumbnails, Statusfelder und Schaltflächen: Starfield-Standard `border-radius: 2px;`.
 
+---
+
+## 7. Programmsymbol & Windows-Icon-Standard (`Starfield_LOH.ico`)
+
+1. **Multi-Resolution Standard:**
+   * Für das Windows-Dateisystem, den Desktop, Explorer-Ansichten und die Taskleiste wird ein einheitlicher Multi-Resolution ICO-Container (`Graphics/Starfield_LOH.ico`) geführt.
+   * Der Container muss zwingend alle 7 Windows-Standardauflösungen enthalten: **16x16, 24x24, 32x32, 48x48, 64x64, 128x128 und 256x256 Pixel** (PNG-komprimiert).
+2. **Dunkler Squircle-Hintergrund (Kontrastsicherheit):**
+   * Da das 4-teilige Starfield-Mod-Symbol helle und goldene Elemente enthält, darf es nicht freigestellt mit transparentem Hintergrund im Windows Explorer abgelegt werden (Gefahr des Verblassens bei hellen Explorer-Themes).
+   * Das Icon besitzt einen abgerundeten Squircle-Hintergrund (`#0D0D0D`, Eckenradius ca. 22%) mit dezenter Kontrastkante (`#252830`), sodass es sowohl auf weißem Explorer-Hintergrund als auch auf der dunklen Windows-Taskleiste immer brillant zur Geltung kommt.
+
+---
+
+## 8. Initialisierung, Flackerfreiheit & Prozessdisziplin beim Anwendungsstart
+
+1. **Strikte Prozessfreiheit auf Modulebene (Kein `os.system`):**
+   * In keinem Modul darf auf Modulebene `os.system('')`, `cmd.exe` oder ein externer Subprozess aufgerufen werden.
+   * In kompilierten GUI-Anwendungen (`--windowed`) oder unter `pythonw.exe` besitzt der Prozess kein eigenes Konsolenfenster. Ein Shell-Aufruf zwingt Windows dazu, für Sekundenbruchteile ein leeres Terminal-Fenster einzublenden, was beim Anwender als störendes Flackern wahrgenommen wird.
+   * Terminal-Funktionen wie ANSI/VT100 dürfen ausschließlich über direkte Ctypes-API-Aufrufe (`kernel32.SetConsoleMode`) und nur nach Prüfung auf eine reale Konsole (`sys.stdout.isatty()`) erfolgen.
+2. **Dunkle Basis-Palette (`QPalette`):**
+   * Direkt nach Erzeugung der `QApplication` wird die Basisfarbpalette auf `#0D0D0D` festgelegt. Dadurch verhindert Qt, dass das Windows DWM beim Fensteraufbau kurz den hellen Systemstandard zeichnet, bevor Stylesheets geladen sind.
+
+---
+
+## 9. Aktivierungssteuerung für Aktionsbuttons (Data-Driven Button State)
+
+1. **Schutz vor Leer-Operationen:**
+   * Schaltflächen, die Massenoperationen anstoßen (wie `btn_apply_classifier_all` oder `btn_apply_sorter_all`), dürfen niemals klickbar sein, wenn in der Datenbank keine relevanten Quelldaten vorliegen.
+2. **Zustandssynchronisation:**
+   * Der Aktivierungsstatus (`setEnabled`) wird initial bei Fenstererzeugung, nach jedem Datenladen (`load_data`) sowie unmittelbar nach Abschluss einer Übernahmehandlung synchron über Prüffunktionen (`has_classifier_categories()`, `has_sorter_results()`) nachgeführt.
+

@@ -14,7 +14,7 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  update_mod_category_and_note, update_profile_description,
                                  update_load_order_positions, get_mod_requirements_for_ui,
                                  delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
-                                 apply_all_classifier_categories, get_script_last_execution,
+                                 apply_all_classifier_categories, has_classifier_categories, get_script_last_execution,
                                  apply_sorter_to_profile, apply_sorter_to_all_profiles,
                                  has_sorter_results, get_mod_conflicts_for_ui)
 from Structure.Paths import APP_ROOT
@@ -307,7 +307,9 @@ class Page_LoadOrder(QWidget):
             self.btn_apply_classifier_mod.clicked.connect(self.on_apply_classifier_mod_clicked)
         if self.btn_apply_classifier_all:
             make_button_premium(self.btn_apply_classifier_all, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down_Double.svg"), "Alle", icon_size=(26, 14))
+            self.btn_apply_classifier_all.setEnabled(False)
             self.btn_apply_classifier_all.clicked.connect(self.on_apply_classifier_all_clicked)
+        self.update_classifier_status()
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.tree_requirements = ui.findChild(QTreeView, "tree_requirements")
@@ -863,8 +865,9 @@ class Page_LoadOrder(QWidget):
         # Sichtbarkeit der Sorter-Spalten anwenden
         self.apply_column_visibility()
         
-        # Sorter-Status aktualisieren
+        # Sorter- & Classifier-Status aktualisieren
         self.update_sorter_status()
+        self.update_classifier_status()
         
         # Falls aktuell eine abweichende Sortierung aktiv ist, diese anwenden
         if self._current_sort_col in (self.COL_NEW, self.COL_POS):
@@ -889,6 +892,7 @@ class Page_LoadOrder(QWidget):
             self.inp_classifier_category.clear()
         if hasattr(self, 'btn_apply_classifier_mod') and self.btn_apply_classifier_mod:
             self.btn_apply_classifier_mod.setEnabled(False)
+        self.update_classifier_status()
         self.cmb_category.setCurrentIndex(-1)
         self.inp_name_online.clear()
         self.inp_note.clear()
@@ -1771,6 +1775,12 @@ class Page_LoadOrder(QWidget):
             self.btn_apply_sorter_profile.setEnabled(has_results and self.current_profile_id is not None)
         if hasattr(self, 'btn_apply_sorter_all') and self.btn_apply_sorter_all:
             self.btn_apply_sorter_all.setEnabled(has_results)
+
+    def update_classifier_status(self):
+        """Aktualisiert die Aktivierungssteuerung der Classifier-Aktionsbuttons."""
+        has_classifier = has_classifier_categories()
+        if hasattr(self, 'btn_apply_classifier_all') and self.btn_apply_classifier_all:
+            self.btn_apply_classifier_all.setEnabled(has_classifier)
 
     def on_toggle_sorter_columns(self, checked: bool):
         """Wird ausgelöst, wenn die Checkbox 'anzeigen' im Sorter-Bereich getoggelt wird."""

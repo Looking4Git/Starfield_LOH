@@ -93,6 +93,7 @@ from Structure.Database_Mods import (
     get_mod_category_stats,
     update_mod_classifier_category,
     apply_all_classifier_categories,
+    has_classifier_categories,
 )
 
 __all__ = [
@@ -169,4 +170,5 @@ __all__ = [
     "get_mod_category_stats",
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
+    "has_classifier_categories",
 ]

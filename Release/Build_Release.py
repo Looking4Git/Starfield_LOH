@@ -29,7 +29,7 @@ from Structure.Version import (
 )
 from Release.Build_Database_Template import build_template_database
 from Release.Release_Compiler import compile_release_package
-from Release.GitHub_Release_Manager import (
+from Release.Release_GitHub_Manager import (
     load_release_config, save_release_config, publish_github_release
 )
 

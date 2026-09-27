@@ -58,5 +58,11 @@
       "source": "Database/Starfield_LOH_Template.db",
       "target": "Database/Starfield_LOH.db"
     }
+  },
+  "signing": {
+    "enabled": false,
+    "pfx_file": "Release/certs/Starfield_LOH_CodeSign.pfx",
+    "pfx_password": "",
+    "timestamp_server": "http://timestamp.digicert.com"
   }
 }

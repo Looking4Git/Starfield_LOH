@@ -108,7 +108,24 @@ Das Manifest steuert deklarativ, welche Dateien und Ordner in das Auslieferungsp
 
 ---
 
-## 6. Verbindliche Regeln für KI-Assistenten
+## 6. Code-Signierung (Authenticode) & SHA-256 Prüfsummen
+
+Zum kryptographischen Schutz vor Manipulationen und Schadsoftware-Injektionen durch Dritte verfügt die Release-Pipeline über integrierte Integritätsnachweise:
+
+1. **Authenticode-Signierung (`Release_Certificate_Manager.py`):**
+   * Verwendet PowerShell `Set-AuthenticodeSignature` (ohne Abhängigkeit vom Windows SDK).
+   * Signiert `Starfield_LOH.exe` vor dem Zippen mit dem privaten Projekt-Zertifikat (`Starfield_LOH_CodeSign.pfx`).
+   * Bindet einen kryptographischen RFC-3161 Zeitstempel (`http://timestamp.digicert.com`) ein, wodurch die Signatur auch nach Ablauf des Zertifikats dauerhaft gültig bleibt.
+   * Der private Schlüssel (`.pfx`) und das Kennwort verbleiben strikt privat auf dem Entwicklungsrechner (`Release/certs/` und `*.pfx` in `.gitignore`).
+2. **SHA-256 Prüfsummendatei (`SHA256SUMS.txt`):**
+   * Nach dem Zippen berechnet `Release_Compiler.py` automatisch die SHA-256 Hashwerte der portablen ZIP-Datei sowie der ausführbaren `Starfield_LOH.exe` und speichert diese als `SHA256SUMS.txt`.
+3. **GitHub Release-Assets (`Release_GitHub_Manager.py`):**
+   * Beim Upload werden neben dem ZIP-Archiv automatisch auch die `SHA256SUMS.txt` und das öffentliche Verifikations-Zertifikat `Starfield_LOH_CodeSign.cer` als Release-Assets bereitgestellt.
+   * Anwender können die Signatur im Windows Explorer (Eigenschaften -> Digitale Signaturen) oder per PowerShell (`Get-AuthenticodeSignature`) verifizieren. Bei Veränderung von auch nur 1 Byte meldet Windows sofort `HashMismatch`.
+
+---
+
+## 7. Verbindliche Regeln für KI-Assistenten
 
 1. **Versionsführung (`version.json`):**
    * Die Datei `version.json` wird **ausschließlich** über das GUI-Werkzeug [Release/Build_Release.py](file:///d:/Starfield_LOH/Release/Build_Release.py) durch den menschlichen Architekten geführt.

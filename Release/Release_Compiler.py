@@ -284,6 +284,37 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     if not ok_pw:
         return False, err_pw
 
+    # G. Code-Signierung (Authenticode) der Starfield_LOH.exe
+    target_exe = os.path.join(app_target_dir, "Starfield_LOH.exe")
+    signing_cfg = rel_cfg.get("signing", {})
+    if signing_cfg.get("enabled", False):
+        log("3c/5: Signiere Starfield_LOH.exe digital (Authenticode)...")
+        from Release.Release_Certificate_Manager import sign_executable, DEFAULT_PFX_PATH, DEFAULT_PASSWORD
+        pfx_file = signing_cfg.get("pfx_file", DEFAULT_PFX_PATH)
+        pfx_full = os.path.normpath(os.path.join(APP_ROOT, pfx_file)) if not os.path.isabs(pfx_file) else pfx_file
+        pfx_pwd = signing_cfg.get("pfx_password", DEFAULT_PASSWORD)
+        ts_server = signing_cfg.get("timestamp_server", "http://timestamp.digicert.com")
+
+        ok_sign, msg_sign = sign_executable(
+            exe_path=target_exe,
+            pfx_path=pfx_full,
+            password=pfx_pwd,
+            timestamp_server=ts_server,
+            log_func=log
+        )
+        if not ok_sign:
+            log(f"WARNUNG: Signierung nicht erfolgreich: {msg_sign}")
+
+    # SHA-256 Hash der kompilierten EXE-Datei vor der Staging-Bereinigung berechnen
+    import hashlib
+    exe_hash = None
+    if os.path.exists(target_exe):
+        h_exe = hashlib.sha256()
+        with open(target_exe, "rb") as ef:
+            for chunk in iter(lambda: ef.read(65536), b""):
+                h_exe.update(chunk)
+        exe_hash = h_exe.hexdigest()
+
     # 5. Packen als komprimiertes ZIP-Archiv
     log(f"4/5: Packe Release-Archiv: {os.path.basename(zip_path)}...")
     try:
@@ -297,6 +328,31 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         err = f"Fehler beim Erstellen der ZIP-Datei: {ze}"
         log(f"FEHLER: {err}")
         return False, err
+
+    # SHA-256 Hash des ZIP-Archivs berechnen und SHA256SUMS.txt erzeugen
+    zip_hash = None
+    if os.path.exists(zip_path):
+        h_zip = hashlib.sha256()
+        with open(zip_path, "rb") as zf:
+            for chunk in iter(lambda: zf.read(65536), b""):
+                h_zip.update(chunk)
+        zip_hash = h_zip.hexdigest()
+
+    checksum_lines = []
+    if zip_hash:
+        checksum_lines.append(f"{zip_hash} *{os.path.basename(zip_path)}")
+        log(f"   SHA-256 ({os.path.basename(zip_path)}): {zip_hash}")
+    if exe_hash:
+        checksum_lines.append(f"{exe_hash} *Starfield_LOH.exe")
+        log(f"   SHA-256 (Starfield_LOH.exe): {exe_hash}")
+
+    checksum_file = os.path.join(RELEASE_BUILD_DIR, "SHA256SUMS.txt")
+    try:
+        with open(checksum_file, "w", encoding="utf-8") as cs_f:
+            cs_f.write("\n".join(checksum_lines) + "\n")
+        log(f"[OK] Prüfsummendatei erstellt: '{os.path.basename(checksum_file)}'")
+    except Exception as cse:
+        log(f"WARNUNG: Konnte SHA256SUMS.txt nicht schreiben: {cse}")
 
     # 6. Bereinigung des Staging-Ordners & temporärer PyInstaller-Work-Dateien
     log("5/5: Bereinige temporäre Staging- und Compiler-Dateien...")

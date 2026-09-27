@@ -269,6 +269,44 @@ def publish_github_release(
         log(f"Fehler beim Hochladen des Assets: {e}")
         return False, f"Fehler beim Asset-Upload: {e}"
 
+    # 2b. Prüfsummendatei SHA256SUMS.txt als Asset hochladen (falls vorhanden)
+    checksum_file = os.path.join(os.path.dirname(zip_path), "SHA256SUMS.txt")
+    if os.path.exists(checksum_file):
+        cs_filename = os.path.basename(checksum_file)
+        cs_size = os.path.getsize(checksum_file)
+        log(f"2b/3: Lade Prüfsummendatei '{cs_filename}' zu GitHub hoch...")
+        upload_cs_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(cs_filename)}"
+        cs_headers = dict(headers)
+        cs_headers["Content-Type"] = "text/plain"
+        cs_headers["Content-Length"] = str(cs_size)
+        try:
+            with open(checksum_file, "rb") as cs_f:
+                cs_data = cs_f.read()
+            req_cs = urllib.request.Request(upload_cs_url, data=cs_data, headers=cs_headers, method="POST")
+            with urllib.request.urlopen(req_cs) as resp_cs:
+                log(f"✓ Prüfsummendatei erfolgreich hochgeladen.")
+        except Exception as cse:
+            log(f"Warnung beim Hochladen der Prüfsummendatei: {cse}")
+
+    # 2c. Öffentliches Zertifikat (.cer) als Verifikations-Asset hochladen (falls vorhanden)
+    cer_file = os.path.join(RELEASE_DIR, "certs", "Starfield_LOH_CodeSign.cer")
+    if os.path.exists(cer_file):
+        cer_filename = os.path.basename(cer_file)
+        cer_size = os.path.getsize(cer_file)
+        log(f"2c/3: Lade öffentliches Zertifikat '{cer_filename}' zu GitHub hoch...")
+        upload_cer_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(cer_filename)}"
+        cer_headers = dict(headers)
+        cer_headers["Content-Type"] = "application/x-x509-ca-cert"
+        cer_headers["Content-Length"] = str(cer_size)
+        try:
+            with open(cer_file, "rb") as cer_f:
+                cer_data = cer_f.read()
+            req_cer = urllib.request.Request(upload_cer_url, data=cer_data, headers=cer_headers, method="POST")
+            with urllib.request.urlopen(req_cer) as resp_cer:
+                log(f"✓ Öffentliches Zertifikat erfolgreich hochgeladen.")
+        except Exception as cere:
+            log(f"Warnung beim Hochladen des Zertifikats: {cere}")
+
     # 3. Bereinigen der Formular-Felder in release.json nach erfolgreichem Upload
     log("✓ Leere Release Name und Beschreibung in release.json...")
     save_release_config(release_title="", release_notes="")

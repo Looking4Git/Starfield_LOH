@@ -68,6 +68,8 @@ Data/Nexus_Browser_Profile/
 # Release-Management & Packaging
 Release/release.json
 Release/Build_Release/
+Release/certs/
+*.pfx
 build/
 dist/
 *.spec

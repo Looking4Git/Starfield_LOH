@@ -15,6 +15,10 @@ LOGS_DIR = os.path.join(APP_ROOT, "Logs")
 SETTINGS_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.json")
 SETTINGS_DEFAULT_FILE = os.path.join(APP_ROOT, "Starfield_LOH_Settings.default.json")
 VERSION_FILE = os.path.join(APP_ROOT, "version.json")
+RELEASE_DIR = os.path.join(APP_ROOT, "Release")
+RELEASE_BUILD_DIR = os.path.join(RELEASE_DIR, "Build_Release")
+RELEASE_JSON_FILE = os.path.join(RELEASE_DIR, "release.json")
+RELEASE_DEFAULT_FILE = os.path.join(RELEASE_DIR, "release.default.json")
 MAIN_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Main.log")
 GET_DATA_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Get_Data.log")
 CHECK_LOG_FILE = GET_DATA_LOG_FILE
@@ -34,6 +38,18 @@ def ensure_settings_file():
             pass
 
 ensure_settings_file()
+
+
+def ensure_release_file():
+    """Initialisiert Release/release.json aus release.default.json, falls noch nicht vorhanden."""
+    if not os.path.exists(RELEASE_JSON_FILE) and os.path.exists(RELEASE_DEFAULT_FILE):
+        try:
+            import shutil
+            shutil.copy2(RELEASE_DEFAULT_FILE, RELEASE_JSON_FILE)
+        except Exception:
+            pass
+
+ensure_release_file()
 
 
 def resolve_path(path_val: str, default_relative: str = "Data") -> str:

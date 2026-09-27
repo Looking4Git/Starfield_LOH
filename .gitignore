@@ -64,3 +64,10 @@ Data/Mod_Images/*
 
 # Nexus Browser Profil (dynamische Session-Daten, vollständig lokal)
 Data/Nexus_Browser_Profile/
+
+# Release-Management & Packaging
+Release/release.json
+Release/Build_Release/
+build/
+dist/
+*.spec

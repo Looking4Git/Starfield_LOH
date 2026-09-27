@@ -6,11 +6,12 @@ from Structure.Paths import APP_ROOT, VERSION_FILE
 DEFAULT_VERSION = {
     "app_name": "Starfield Load Order Helper (LOH)",
     "version_major": 0,
-    "version_minor": 0,
-    "version_build": 186,
-    "version_full": "0.00.186",
-    "git_commit": "46dc778",
-    "git_date": "2026-09-13"
+    "version_minor": 1,
+    "version_patch": 0,
+    "version_build": 226,
+    "version_full": "0.1.0+226",
+    "git_commit": "96bd0fd",
+    "git_date": "2026-09-27"
 }
 
 
@@ -62,6 +63,7 @@ def load_version_info() -> dict:
     """
     Liest die Versionsinformationen aus version.json.
     Gibt ein vollständiges Dictionary mit Fallback-Werten zurück.
+    Unterstützt SemVer 2.0: Major.Minor.Patch+Build.
     """
     data = dict(DEFAULT_VERSION)
     if os.path.exists(VERSION_FILE):
@@ -73,24 +75,45 @@ def load_version_info() -> dict:
         except Exception:
             pass
 
-    # Sicherstellen, dass version_full stets konsistent berechnet vorliegt
-    major = data.get("version_major", 0)
-    minor = data.get("version_minor", 0)
-    build = data.get("version_build", 0)
-    data["version_full"] = f"{major}.{minor:02d}.{build}"
+    # Sicherstellen, dass SemVer-Felder ganzzahlig und konsistent formatiert sind
+    major = int(data.get("version_major", 0))
+    minor = int(data.get("version_minor", 0))
+    patch = int(data.get("version_patch", 0))
+    build = int(data.get("version_build", 0))
+
+    data["version_major"] = major
+    data["version_minor"] = minor
+    data["version_patch"] = patch
+    data["version_build"] = build
+    data["version_full"] = f"{major}.{minor}.{patch}+{build}"
     return data
 
 
-def save_version_info(major: int, minor: int, build: int, commit: str = "", date: str = "", app_name: str = "") -> dict:
+def save_version_info(
+    major: int,
+    minor: int,
+    patch: int = 0,
+    build: int = 0,
+    commit: str = "",
+    date: str = "",
+    app_name: str = ""
+) -> dict:
     """
-    Schreibt die Versionsinformationen formatiert in version.json.
+    Schreibt die Versionsinformationen SemVer 2.0 konform in version.json.
+    Format: Major.Minor.Patch+Build
     """
-    version_full = f"{major}.{minor:02d}.{build}"
+    major_int = int(major)
+    minor_int = int(minor)
+    patch_int = int(patch)
+    build_int = int(build)
+
+    version_full = f"{major_int}.{minor_int}.{patch_int}+{build_int}"
     data = {
         "app_name": app_name or DEFAULT_VERSION["app_name"],
-        "version_major": int(major),
-        "version_minor": int(minor),
-        "version_build": int(build),
+        "version_major": major_int,
+        "version_minor": minor_int,
+        "version_patch": patch_int,
+        "version_build": build_int,
         "version_full": version_full,
         "git_commit": commit or DEFAULT_VERSION["git_commit"],
         "git_date": date or DEFAULT_VERSION["git_date"]
@@ -105,9 +128,9 @@ def save_version_info(major: int, minor: int, build: int, commit: str = "", date
 def format_version_string(info: dict) -> str:
     """
     Formatiert die Version für die Anzeige in der Benutzeroberfläche.
-    Beispiel: '0.00.186 (Build 46dc778 vom 13.09.2026)'
+    Beispiel: '0.1.0+226 (Commit 96bd0fd vom 27.09.2026)'
     """
-    version_full = info.get("version_full", "0.00.0")
+    version_full = info.get("version_full", "0.1.0+0")
     commit = info.get("git_commit", "")
     date_str = info.get("git_date", "")
 
@@ -119,11 +142,11 @@ def format_version_string(info: dict) -> str:
             formatted_date = f"{parts[2]}.{parts[1]}.{parts[0]}"
 
     if commit and commit != "Unbekannt" and formatted_date:
-        return f"{version_full} (Build {commit} vom {formatted_date})"
+        return f"{version_full} (Commit {commit} vom {formatted_date})"
     elif commit and commit != "Unbekannt":
-        return f"{version_full} (Build {commit})"
+        return f"{version_full} (Commit {commit})"
     return version_full
 
 
 # Globale Modul-Variable für Python-Kompatibilität
-__version__ = load_version_info().get("version_full", "0.00.186")
+__version__ = load_version_info().get("version_full", "0.1.0+226")

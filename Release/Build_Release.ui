@@ -1,0 +1,1220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>BuildReleaseWindow</class>
+ <widget class="QWidget" name="BuildReleaseWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>760</width>
+    <height>740</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Starfield LOH - Release &amp; Version Manager</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: #141414; color: #ECECEC;</string>
+  </property>
+  <layout class="QVBoxLayout" name="main_layout">
+   <property name="spacing">
+    <number>8</number>
+   </property>
+   <property name="leftMargin">
+    <number>18</number>
+   </property>
+   <property name="topMargin">
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>18</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
+
+   <!-- KOPFZEILE -->
+   <item>
+    <widget class="QLabel" name="title">
+     <property name="styleSheet">
+      <string notr="true">font-size: 16px; font-weight: bold; color: #ECECEC;</string>
+     </property>
+     <property name="text">
+      <string>Starfield LOH - Release &amp; Version Manager</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="subtitle">
+     <property name="styleSheet">
+      <string notr="true">font-size: 12px; color: #888888;</string>
+     </property>
+     <property name="text">
+      <string>Zentrale Verwaltung von Git-Commits, Versionierung und GitHub-Veröffentlichung</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="sep_header">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #304C7A; border: none;</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::HLine</enum>
+     </property>
+    </widget>
+   </item>
+
+   <!-- 1. ABSCHNITT: GIT -->
+   <item>
+    <widget class="QLabel" name="lbl_section_git">
+     <property name="styleSheet">
+      <string notr="true">color: #D7A64B; font-size: 13px; font-weight: bold;</string>
+     </property>
+     <property name="text">
+      <string>1. Git</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="git_msg_layout">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_msg">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Nachricht:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="inp_commit_msg">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>62</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>62</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #1f1f1f; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
+       </property>
+       <property name="placeholderText">
+        <string>Commit-Titel und optionale Beschreibung eingeben...</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="git_btn_layout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_git_commit">
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Git Commit</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_git_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_git">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="sep_git">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #304C7A; border: none;</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::HLine</enum>
+     </property>
+    </widget>
+   </item>
+
+   <!-- 2. ABSCHNITT: VERSIONIERUNG -->
+   <item>
+    <widget class="QLabel" name="lbl_section_ver">
+     <property name="styleSheet">
+      <string notr="true">color: #D7A64B; font-size: 13px; font-weight: bold;</string>
+     </property>
+     <property name="text">
+      <string>2. Versionierung</string>
+     </property>
+    </widget>
+   </item>
+   <!-- Zeile 1: Aktuell -->
+   <item>
+    <layout class="QHBoxLayout" name="row1_layout">
+     <property name="spacing">
+      <number>6</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_row1">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Aktuell:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="cur_major">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #99732B; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="dot1_1">
+       <property name="styleSheet">
+        <string notr="true">color: #ECECEC; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="cur_minor">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #99732B; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="dot1_2">
+       <property name="styleSheet">
+        <string notr="true">color: #ECECEC; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="cur_patch">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #99732B; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="plus1">
+       <property name="styleSheet">
+        <string notr="true">color: #D7A64B; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>+</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="cur_build">
+       <property name="minimumSize">
+        <size>
+         <width>55</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>55</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #99732B; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_cur_commit">
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 12px; margin-left: 10px;</string>
+       </property>
+       <property name="text">
+        <string>Commit: - vom -</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_row1">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Zeile 2: Neu / Ziel -->
+   <item>
+    <layout class="QHBoxLayout" name="row2_layout">
+     <property name="spacing">
+      <number>6</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_row2">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Neu / Ziel:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="new_major">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #ffffff; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #888888; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="dot2_1">
+       <property name="styleSheet">
+        <string notr="true">color: #ECECEC; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="new_minor">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #ffffff; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #888888; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="dot2_2">
+       <property name="styleSheet">
+        <string notr="true">color: #ECECEC; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="new_patch">
+       <property name="minimumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>42</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #ffffff; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #888888; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="plus2">
+       <property name="styleSheet">
+        <string notr="true">color: #D7A64B; font-size: 14px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>+</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="new_build">
+       <property name="minimumSize">
+        <size>
+         <width>55</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>55</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #ffffff; color: #000000; font-weight: bold; font-size: 13px; border: 1px solid #888888; border-radius: 2px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_new_commit">
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 12px; margin-left: 10px;</string>
+       </property>
+       <property name="text">
+        <string>Commit: - vom -</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_row2">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Speicher-Button Versionierung -->
+   <item>
+    <layout class="QHBoxLayout" name="ver_btn_layout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_save">
+       <property name="minimumSize">
+        <size>
+         <width>190</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>version.json aktualisieren</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_ver">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="sep_ver">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #304C7A; border: none;</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::HLine</enum>
+     </property>
+    </widget>
+   </item>
+
+   <!-- 3. ABSCHNITT: GITHUB -->
+   <item>
+    <widget class="QLabel" name="lbl_section_gh">
+     <property name="styleSheet">
+      <string notr="true">color: #D7A64B; font-size: 13px; font-weight: bold;</string>
+     </property>
+     <property name="text">
+      <string>3. GitHub</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="row_remote">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_remote_title">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Remote:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_remote_info">
+       <property name="styleSheet">
+        <string notr="true">color: #ECECEC; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>origin/main | Letzter Upload: -</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_remote">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="row_sync">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_sync_title">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Status:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_sync_info">
+       <property name="styleSheet">
+        <string notr="true">color: #D7A64B; font-size: 12px; font-weight: bold;</string>
+       </property>
+       <property name="text">
+        <string>Prüfe GitHub-Status...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_sync">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="gh_btn_layout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_push">
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>GitHub Push</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_push_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit zum Push.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_push">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="sep_gh">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>2</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #304C7A; border: none;</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::HLine</enum>
+     </property>
+    </widget>
+   </item>
+
+   <!-- 4. ABSCHNITT: RELEASE -->
+   <item>
+    <widget class="QLabel" name="lbl_section_rel">
+     <property name="styleSheet">
+      <string notr="true">color: #D7A64B; font-size: 13px; font-weight: bold;</string>
+     </property>
+     <property name="text">
+      <string>4. Release</string>
+     </property>
+    </widget>
+   </item>
+
+   <!-- Release Name / Kurzbezeichnung -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_name">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_rel_title">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Release Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="inp_rel_title">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #1f1f1f; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; padding: 0 8px; font-size: 13px;</string>
+       </property>
+       <property name="placeholderText">
+        <string>z.B. Starfield LOH Beta 1</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Release Beschreibung -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_notes">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_rel_notes">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Beschreibung:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="inp_rel_notes">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>56</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>56</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #1f1f1f; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
+       </property>
+       <property name="placeholderText">
+        <string>Release-Notizen / Changelog eingeben...</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Compile Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_compile">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_compile">
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Compile</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_compile_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit zur Kompilierung.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_compile">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- GitHub Token Eingabe -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_token">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_token">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>GitHub Token:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="inp_token">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="echoMode">
+        <enum>QLineEdit::EchoMode::Password</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #1f1f1f; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; padding: 0 8px; font-size: 13px;</string>
+       </property>
+       <property name="placeholderText">
+        <string>GitHub Personal Access Token (PAT) für Release-Upload...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_toggle_token">
+       <property name="minimumSize">
+        <size>
+         <width>75</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #2b2b2b; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; font-size: 11px; } QPushButton:hover { background-color: #3a3a3a; }</string>
+       </property>
+       <property name="text">
+        <string>Anzeigen</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Release Datei Auswahl -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_file">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_rel_file">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Release Datei:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="inp_rel_file">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #1f1f1f; color: #ECECEC; border: 1px solid #555555; border-radius: 2px; padding: 0 8px; font-size: 12px;</string>
+       </property>
+       <property name="placeholderText">
+        <string>Pfad zur ZIP-Datei auswählen oder Compile ausführen...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_choose_file">
+       <property name="minimumSize">
+        <size>
+         <width>32</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>32</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; border: none; border-radius: 2px; } QPushButton:hover { background-color: #5b7a9e; }</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Release Push Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_push">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_release_push">
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #1F7343; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #2a9457; } QPushButton:pressed { background-color: #155230; }</string>
+       </property>
+       <property name="text">
+        <string>Release Push</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_rel_push_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit zum Release-Upload.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_push">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <item>
+    <spacer name="spacer_bottom">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

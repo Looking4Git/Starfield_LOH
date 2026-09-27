@@ -4,7 +4,7 @@ Zentrales GUI-Werkzeug für den Entwickler zur Steuerung des 4-Stufen-Release-Pr
   1. Git:        Template-DB erstellen & lokalen Git-Commit durchführen.
   2. Version:    Aktuellen Build-Stand prüfen & version.json fortschreiben (SemVer 2.0).
   3. GitHub:     Live-Synchronisationsstatus prüfen & GitHub Push ausführen.
-  4. Release:    Release kompilieren (Portable ZIP), konfigurieren & via GitHub API veröffentlichen.
+  4. Release:    Release konfigurieren (release.json), kompilieren & via GitHub API veröffentlichen.
 """
 
 import os
@@ -46,7 +46,7 @@ def _format_date(date_str: str) -> str:
 class BuildReleaseWindow(QWidget):
     """
     Kompaktes Werkzeugfenster zur Steuerung des 4-Stufen-Release-Workflows:
-    Git Commit -> Versionierung -> GitHub Push -> Release Compilation & Publish.
+    Git Commit -> Versionierung -> GitHub Push -> Release Management.
     """
 
     def __init__(self):
@@ -69,7 +69,7 @@ class BuildReleaseWindow(QWidget):
 
         # Fenstereigenschaften
         self.setWindowTitle(self.ui.windowTitle())
-        self.resize(760, 720)
+        self.resize(760, 750)
         self.setStyleSheet(self.ui.styleSheet())
 
         # Layout übernehmen
@@ -101,6 +101,10 @@ class BuildReleaseWindow(QWidget):
         if os.path.exists(folder_icon):
             self.ui.btn_choose_file.setIcon(QIcon(folder_icon))
 
+        eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
+        if os.path.exists(eye_icon):
+            self.ui.btn_toggle_token.setIcon(QIcon(eye_icon))
+
         # Validatoren für Versionierung (Neu / Ziel)
         int_val = QIntValidator(0, 999, self)
         self.ui.new_major.setValidator(int_val)
@@ -115,13 +119,8 @@ class BuildReleaseWindow(QWidget):
         self.ui.btn_compile.clicked.connect(self.on_compile)
         self.ui.btn_toggle_token.clicked.connect(self.on_toggle_token)
         self.ui.btn_choose_file.clicked.connect(self.on_choose_file)
+        self.ui.btn_save_release.clicked.connect(self.on_save_release)
         self.ui.btn_release_push.clicked.connect(self.on_release_push)
-
-        # Auto-Save bei Textänderungen in Release-Feldern
-        self.ui.inp_rel_title.textChanged.connect(self._auto_save_release_cfg)
-        self.ui.inp_rel_notes.textChanged.connect(self._auto_save_release_cfg)
-        self.ui.inp_token.textChanged.connect(self._auto_save_release_cfg)
-        self.ui.inp_rel_file.textChanged.connect(self._auto_save_release_cfg)
 
     def load_data(self):
         """Liest version.json, git-Metadaten und release.json ein."""
@@ -166,20 +165,6 @@ class BuildReleaseWindow(QWidget):
         self.ui.inp_rel_notes.setPlainText(rel_cfg.get("release_notes", ""))
         self.ui.inp_token.setText(rel_cfg.get("github_token", ""))
         self.ui.inp_rel_file.setText(rel_cfg.get("release_file", ""))
-
-    def _auto_save_release_cfg(self):
-        """Speichert die Release-Felder geräuschlos in release.json."""
-        token_val = self.ui.inp_token.text()
-        title_val = self.ui.inp_rel_title.text()
-        notes_val = self.ui.inp_rel_notes.toPlainText()
-        file_val = self.ui.inp_rel_file.text()
-
-        save_release_config(
-            github_token=token_val,
-            release_title=title_val,
-            release_notes=notes_val,
-            release_file=file_val
-        )
 
     def _check_github_status(self):
         """Prüft den Synchronisationsstatus mit GitHub origin/main."""
@@ -373,13 +358,17 @@ class BuildReleaseWindow(QWidget):
     # 4. Abschnitt: Release Management
     # =============================================================
     def on_toggle_token(self):
-        """Schaltet zwischen Maskierung und Klartext für den GitHub Token um."""
+        """Schaltet zwischen Maskierung und Klartext für den GitHub Token um (Eye-Icon)."""
         if self.ui.inp_token.echoMode() == QLineEdit.EchoMode.Password:
             self.ui.inp_token.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.ui.btn_toggle_token.setText("Verbergen")
+            off_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye_Off.svg")
+            if os.path.exists(off_icon):
+                self.ui.btn_toggle_token.setIcon(QIcon(off_icon))
         else:
             self.ui.inp_token.setEchoMode(QLineEdit.EchoMode.Password)
-            self.ui.btn_toggle_token.setText("Anzeigen")
+            eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
+            if os.path.exists(eye_icon):
+                self.ui.btn_toggle_token.setIcon(QIcon(eye_icon))
 
     def on_choose_file(self):
         """Öffnet den Dateiauswahldialog für eine Release-ZIP-Datei."""
@@ -395,7 +384,23 @@ class BuildReleaseWindow(QWidget):
         )
         if file_path:
             self.ui.inp_rel_file.setText(os.path.normpath(file_path))
-            self._auto_save_release_cfg()
+
+    def on_save_release(self):
+        """Speichert die Release-Konfiguration (Token, Name, Notizen, Datei) explizit in release.json."""
+        token_val = self.ui.inp_token.text()
+        title_val = self.ui.inp_rel_title.text()
+        notes_val = self.ui.inp_rel_notes.toPlainText()
+        file_val = self.ui.inp_rel_file.text()
+
+        save_release_config(
+            github_token=token_val,
+            release_title=title_val,
+            release_notes=notes_val,
+            release_file=file_val
+        )
+
+        self.ui.lbl_rel_save_status.setText("✓ release.json erfolgreich gespeichert.")
+        self.ui.lbl_rel_save_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
 
     def on_compile(self):
         """Startet den Kompilierungs- und Paketierungsprozess."""
@@ -414,8 +419,10 @@ class BuildReleaseWindow(QWidget):
 
             ok, res_path = compile_release_package(v_info, notes, log_func=log_callback)
             if ok:
-                self.ui.inp_rel_file.setText(os.path.normpath(res_path))
-                self._auto_save_release_cfg()
+                norm_zip = os.path.normpath(res_path)
+                self.ui.inp_rel_file.setText(norm_zip)
+                # Release-Datei auch direkt in release.json festhalten
+                save_release_config(release_file=norm_zip)
                 self.ui.lbl_compile_status.setText(f"✓ ZIP erstellt: {os.path.basename(res_path)}")
                 self.ui.lbl_compile_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
                 QMessageBox.information(self, "Compile erfolgreich", f"Release-Paket wurde erfolgreich erstellt:\n\n{res_path}")

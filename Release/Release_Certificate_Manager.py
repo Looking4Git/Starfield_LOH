@@ -470,19 +470,13 @@ try:
 
             ok, msg = create_self_signed_certificate(pfx_path=self.pfx_path, password=p1)
             if ok:
-                # release.json sicher DPAPI-verschlüsselt mit dem neuen Passwort aktualisieren
-                try:
-                    from Release.Release_GitHub_Manager import save_release_config
-                    save_release_config(pfx_password=p1)
-                except Exception as e:
-                    print(f"Fehler beim Speichern in release.json: {e}")
-
                 QMessageBox.information(
                     self,
                     "Zertifikat erstellt",
                     f"Das Code-Signing-Zertifikat wurde erfolgreich erstellt!\n\n"
-                    f"Datei: {os.path.basename(self.pfx_path)}\n"
-                    f"Das Kennwort wurde sicher in Ihrer lokalen release.json hinterlegt."
+                    f"Datei: {os.path.basename(self.pfx_path)}\n\n"
+                    "Hinweis: Bitte tragen Sie das Passwort im Build_Release-Tool ein, "
+                    "um es für künftige Releases zu hinterlegen."
                 )
                 self.accept()
             else:

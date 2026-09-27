@@ -69,7 +69,7 @@ class BuildReleaseWindow(QWidget):
 
         # Fenstereigenschaften
         self.setWindowTitle(self.ui.windowTitle())
-        self.resize(760, 750)
+        self.resize(760, 840)
         self.setStyleSheet(self.ui.styleSheet())
 
         # Layout übernehmen
@@ -105,6 +105,10 @@ class BuildReleaseWindow(QWidget):
         if os.path.exists(eye_icon):
             self.ui.btn_toggle_token.setIcon(QIcon(eye_icon))
 
+        update_icon = os.path.join(GRAPHICS_DIR, "Icon_Update.svg")
+        if os.path.exists(update_icon):
+            self.ui.btn_suggest_title.setIcon(QIcon(update_icon))
+
         # Validatoren für Versionierung (Neu / Ziel)
         int_val = QIntValidator(0, 999, self)
         self.ui.new_major.setValidator(int_val)
@@ -116,11 +120,21 @@ class BuildReleaseWindow(QWidget):
         self.ui.btn_git_commit.clicked.connect(self.on_git_commit)
         self.ui.btn_save.clicked.connect(self.on_save)
         self.ui.btn_push.clicked.connect(self.on_github_push)
+        self.ui.btn_suggest_title.clicked.connect(self.on_suggest_title)
         self.ui.btn_compile.clicked.connect(self.on_compile)
         self.ui.btn_toggle_token.clicked.connect(self.on_toggle_token)
         self.ui.btn_choose_file.clicked.connect(self.on_choose_file)
         self.ui.btn_save_release.clicked.connect(self.on_save_release)
         self.ui.btn_release_push.clicked.connect(self.on_release_push)
+
+    def on_suggest_title(self):
+        """Generiert automatisch einen Namensvorschlag für das Release."""
+        major = self.ui.new_major.text().strip() or "0"
+        minor = self.ui.new_minor.text().strip() or "1"
+        patch = self.ui.new_patch.text().strip() or "0"
+        build = self.ui.new_build.text().strip() or "0"
+        suggested = f"Starfield_LOH_{major}.{minor}.{patch}+{build}"
+        self.ui.inp_rel_title.setText(suggested)
 
     def load_data(self):
         """Liest version.json, git-Metadaten und release.json ein."""

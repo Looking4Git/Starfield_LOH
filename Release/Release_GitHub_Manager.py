@@ -62,6 +62,13 @@ def load_release_config() -> dict:
     if token and isinstance(token, str) and token.startswith("dpapi:"):
         data["github_token"] = decrypt_dpapi(token)
 
+    # PFX-Passwort entschlüsseln falls verschlüsselt
+    signing_sec = data.get("signing")
+    if isinstance(signing_sec, dict):
+        pfx_pwd = signing_sec.get("pfx_password", "")
+        if pfx_pwd and isinstance(pfx_pwd, str) and pfx_pwd.startswith("dpapi:"):
+            signing_sec["pfx_password"] = decrypt_dpapi(pfx_pwd)
+
     return data
 
 
@@ -70,12 +77,14 @@ def save_release_config(
     release_title: str = None,
     release_notes: str = None,
     release_file: str = None,
-    packaging: dict = None
+    packaging: dict = None,
+    pfx_password: str = None,
+    signing: dict = None
 ) -> dict:
     """
     Speichert Werte in release.json.
-    Verschlüsselt den GitHub-Token sicher via Windows DPAPI.
-    Erhält das Packaging-Manifest vollständig.
+    Verschlüsselt sensible Werte (GitHub-Token, PFX-Passwort) sicher via Windows DPAPI.
+    Erhält das Packaging-Manifest und Signing-Einstellungen vollständig.
     """
     ensure_release_file()
     cfg = get_default_release_config()
@@ -108,6 +117,22 @@ def save_release_config(
 
     if packaging is not None:
         cfg["packaging"] = packaging
+
+    if signing is not None:
+        cfg["signing"] = signing
+
+    if pfx_password is not None:
+        if "signing" not in cfg or not isinstance(cfg["signing"], dict):
+            cfg["signing"] = {
+                "enabled": True,
+                "pfx_file": "Release/certs/Starfield_LOH_CodeSign.pfx",
+                "pfx_password": "",
+                "timestamp_server": "http://timestamp.digicert.com"
+            }
+        if pfx_password.strip():
+            cfg["signing"]["pfx_password"] = encrypt_dpapi(pfx_password.strip())
+        else:
+            cfg["signing"]["pfx_password"] = ""
 
     with open(RELEASE_JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)

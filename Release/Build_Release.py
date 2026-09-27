@@ -104,6 +104,7 @@ class BuildReleaseWindow(QWidget):
         eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
         if os.path.exists(eye_icon):
             self.ui.btn_toggle_token.setIcon(QIcon(eye_icon))
+            self.ui.btn_toggle_pfx_pwd.setIcon(QIcon(eye_icon))
 
         update_icon = os.path.join(GRAPHICS_DIR, "Icon_Update.svg")
         if os.path.exists(update_icon):
@@ -123,6 +124,7 @@ class BuildReleaseWindow(QWidget):
         self.ui.btn_suggest_title.clicked.connect(self.on_suggest_title)
         self.ui.btn_compile.clicked.connect(self.on_compile)
         self.ui.btn_toggle_token.clicked.connect(self.on_toggle_token)
+        self.ui.btn_toggle_pfx_pwd.clicked.connect(self.on_toggle_pfx_pwd)
         self.ui.btn_choose_file.clicked.connect(self.on_choose_file)
         self.ui.btn_save_release.clicked.connect(self.on_save_release)
         self.ui.btn_release_push.clicked.connect(self.on_release_push)
@@ -178,6 +180,7 @@ class BuildReleaseWindow(QWidget):
         self.ui.inp_rel_title.setText(rel_cfg.get("release_title", ""))
         self.ui.inp_rel_notes.setPlainText(rel_cfg.get("release_notes", ""))
         self.ui.inp_token.setText(rel_cfg.get("github_token", ""))
+        self.ui.inp_pfx_pwd.setText(rel_cfg.get("signing", {}).get("pfx_password", ""))
         self.ui.inp_rel_file.setText(rel_cfg.get("release_file", ""))
 
     def _check_github_status(self):
@@ -384,6 +387,19 @@ class BuildReleaseWindow(QWidget):
             if os.path.exists(eye_icon):
                 self.ui.btn_toggle_token.setIcon(QIcon(eye_icon))
 
+    def on_toggle_pfx_pwd(self):
+        """Schaltet zwischen Maskierung und Klartext für das PFX-Passwort um (Eye-Icon)."""
+        if self.ui.inp_pfx_pwd.echoMode() == QLineEdit.EchoMode.Password:
+            self.ui.inp_pfx_pwd.setEchoMode(QLineEdit.EchoMode.Normal)
+            off_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye_Off.svg")
+            if os.path.exists(off_icon):
+                self.ui.btn_toggle_pfx_pwd.setIcon(QIcon(off_icon))
+        else:
+            self.ui.inp_pfx_pwd.setEchoMode(QLineEdit.EchoMode.Password)
+            eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
+            if os.path.exists(eye_icon):
+                self.ui.btn_toggle_pfx_pwd.setIcon(QIcon(eye_icon))
+
     def on_choose_file(self):
         """Öffnet den Dateiauswahldialog für eine Release-ZIP-Datei."""
         init_dir = os.path.join(RELEASE_DIR, "Build_Release")
@@ -400,8 +416,9 @@ class BuildReleaseWindow(QWidget):
             self.ui.inp_rel_file.setText(os.path.normpath(file_path))
 
     def on_save_release(self):
-        """Speichert die Release-Konfiguration (Token, Name, Notizen, Datei) explizit in release.json."""
+        """Speichert die Release-Konfiguration (Token, PFX-Passwort, Name, Notizen, Datei) explizit in release.json."""
         token_val = self.ui.inp_token.text()
+        pfx_pwd_val = self.ui.inp_pfx_pwd.text()
         title_val = self.ui.inp_rel_title.text()
         notes_val = self.ui.inp_rel_notes.toPlainText()
         file_val = self.ui.inp_rel_file.text()
@@ -410,7 +427,8 @@ class BuildReleaseWindow(QWidget):
             github_token=token_val,
             release_title=title_val,
             release_notes=notes_val,
-            release_file=file_val
+            release_file=file_val,
+            pfx_password=pfx_pwd_val
         )
 
         self.ui.lbl_rel_save_status.setText("✓ release.json erfolgreich gespeichert.")

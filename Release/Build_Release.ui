@@ -1176,6 +1176,78 @@
     </layout>
    </item>
 
+   <!-- PFX Passwort Eingabe -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_pfx_pwd">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_pfx_pwd">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>PFX Passwort:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="inp_pfx_pwd">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="echoMode">
+        <enum>QLineEdit::EchoMode::Password</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 0 8px; font-size: 13px;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_toggle_pfx_pwd">
+       <property name="minimumSize">
+        <size>
+         <width>32</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>32</width>
+         <height>28</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; border: none; border-radius: 2px; } QPushButton:hover { background-color: #5b7a9e; }</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
    <!-- Release Datei Auswahl -->
    <item>
     <layout class="QHBoxLayout" name="row_rel_file">

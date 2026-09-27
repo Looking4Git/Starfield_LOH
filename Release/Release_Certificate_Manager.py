@@ -470,21 +470,10 @@ try:
 
             ok, msg = create_self_signed_certificate(pfx_path=self.pfx_path, password=p1)
             if ok:
-                # release.json sicher mit dem neuen Passwort aktualisieren
+                # release.json sicher DPAPI-verschlüsselt mit dem neuen Passwort aktualisieren
                 try:
-                    import json
-                    rel_json_path = os.path.join(RELEASE_DIR, "release.json")
-                    if os.path.exists(rel_json_path):
-                        with open(rel_json_path, "r", encoding="utf-8") as f:
-                            cfg = json.load(f)
-                    else:
-                        cfg = {}
-                    if "signing" not in cfg:
-                        cfg["signing"] = {}
-                    cfg["signing"]["pfx_password"] = p1
-                    cfg["signing"]["enabled"] = True
-                    with open(rel_json_path, "w", encoding="utf-8") as f:
-                        json.dump(cfg, f, indent=2)
+                    from Release.Release_GitHub_Manager import save_release_config
+                    save_release_config(pfx_password=p1)
                 except Exception as e:
                     print(f"Fehler beim Speichern in release.json: {e}")
 

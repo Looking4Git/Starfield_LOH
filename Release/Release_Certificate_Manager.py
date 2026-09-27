@@ -2,6 +2,7 @@
 Release Certificate Manager für Starfield LOH
 Verwaltet Code-Signing-Zertifikate und die digitale Authenticode-Signierung
 von Windows-Binärdateien (.exe) via PowerShell (ohne Windows SDK-Abhängigkeit).
+Inklusive grafischem PySide6-Dialog mit Passwortwiederholung zur komfortablen Einrichtung.
 """
 
 import os
@@ -13,7 +14,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from Structure.Paths import APP_ROOT, RELEASE_DIR
+from Structure.Paths import APP_ROOT, RELEASE_DIR, GRAPHICS_DIR
 
 CERTS_DIR = os.path.join(RELEASE_DIR, "certs")
 DEFAULT_PFX_PATH = os.path.join(CERTS_DIR, "Starfield_LOH_CodeSign.pfx")
@@ -181,9 +182,6 @@ def sign_executable(
             elif line.startswith("STATUS_MESSAGE:"):
                 status_msg = line.split(":", 1)[1].strip()
 
-        # Status "Valid" = Gültige Signatur
-        # Status "UnknownError" = Signatur vorhanden & Hash korrekt, aber Root-CA ist nicht im Windows Store
-        # (Standard bei selbstsignierten Entwickler-Zertifikaten)
         if status in ("Valid", "UnknownError") and res.returncode == 0:
             if status == "Valid":
                 log("[OK] Datei erfolgreich digital signiert (Status: Valid).")
@@ -259,66 +257,292 @@ def verify_signature(exe_path: str, log_func=None) -> tuple[bool, str]:
         return False, str(e)
 
 
-if __name__ == "__main__":
-    import argparse
-    import getpass
-    import json
+# =============================================================================
+# Grafischer PySide6-Dialog für Passwort-Eingabe und Wiederholung
+# =============================================================================
 
-    parser = argparse.ArgumentParser(description="Starfield LOH Certificate & Signing Manager")
-    parser.add_argument("action", choices=["create", "sign", "verify"], help="Auszuführende Aktion")
-    parser.add_argument("--file", help="Datei zum Signieren oder Verifizieren")
-    parser.add_argument("--pfx", default=DEFAULT_PFX_PATH, help="Pfad zur PFX-Datei")
-    parser.add_argument("--password", default=None, help="PFX-Passwort (falls nicht angegeben, wird interaktiv gefragt)")
+try:
+    from PySide6.QtWidgets import (
+        QApplication, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+        QLineEdit, QPushButton, QMessageBox
+    )
+    from PySide6.QtGui import QIcon
+    from PySide6.QtCore import Qt
 
-    args = parser.parse_args()
+    class CertificatePasswordDialog(QDialog):
+        """
+        Eleganter, modal gesteuerter Dialog mit Windows 11 Dark-Theme
+        zur sicheren Eingabe und Bestätigung des Zertifikat-Kennworts.
+        """
+        def __init__(self, parent=None, pfx_path=DEFAULT_PFX_PATH):
+            super().__init__(parent)
+            self.pfx_path = pfx_path
+            self.setWindowTitle("Starfield LOH - Code-Signing Zertifikat")
+            self.setMinimumWidth(500)
+            self.setStyleSheet("""
+                QDialog {
+                    background-color: #121212;
+                    color: #ECECEC;
+                }
+                QLabel {
+                    color: #ECECEC;
+                    font-size: 13px;
+                }
+                QLineEdit {
+                    background-color: #FFFFFF;
+                    color: #121212;
+                    border: 1px solid #333333;
+                    border-radius: 4px;
+                    padding: 7px 10px;
+                    font-size: 13px;
+                }
+                QLineEdit:focus {
+                    border: 2px solid #304C7A;
+                }
+                QPushButton#btn_primary {
+                    background-color: #304C7A;
+                    color: #FFFFFF;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 20px;
+                    font-size: 13px;
+                }
+                QPushButton#btn_primary:hover {
+                    background-color: #3E619B;
+                }
+                QPushButton#btn_secondary {
+                    background-color: #2B2B2B;
+                    color: #ECECEC;
+                    border: 1px solid #444444;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-size: 13px;
+                }
+                QPushButton#btn_secondary:hover {
+                    background-color: #383838;
+                }
+                QPushButton#btn_eye {
+                    background-color: #2B2B2B;
+                    border: 1px solid #444444;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QPushButton#btn_eye:hover {
+                    background-color: #3A3A3A;
+                }
+            """)
 
-    if args.action == "create":
-        pwd = args.password
-        if not pwd:
-            if sys.stdin.isatty():
-                print("\n=== Neues Code-Signing-Zertifikat erstellen ===")
-                while True:
-                    p1 = getpass.getpass("Geben Sie das gewünschte PFX-Passwort ein: ")
-                    if not p1.strip():
-                        print("Fehler: Passwort darf nicht leer sein.")
-                        continue
-                    p2 = getpass.getpass("Passwort bestätigen: ")
-                    if p1 != p2:
-                        print("Fehler: Passwörter stimmen nicht überein. Bitte erneut versuchen.\n")
-                        continue
-                    pwd = p1
-                    break
+            # Windows 11 Dark Mode Titelleiste aktivieren
+            if sys.platform == "win32":
+                try:
+                    import ctypes
+                    hwnd = self.winId().__int__()
+                    policy = ctypes.c_int(1)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(policy), ctypes.sizeof(policy))
+                except Exception:
+                    pass
+
+            app_icon = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
+            if os.path.exists(app_icon):
+                self.setWindowIcon(QIcon(app_icon))
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(24, 20, 24, 20)
+            layout.setSpacing(14)
+
+            # Titel
+            lbl_title = QLabel("Code-Signing-Zertifikat erstellen")
+            lbl_title.setStyleSheet("font-size: 17px; font-weight: bold; color: #D7A64B;")
+            layout.addWidget(lbl_title)
+
+            # Beschreibung
+            lbl_desc = QLabel(
+                "Vergeben Sie ein sicheres Kennwort zum Schutz Ihres privaten PFX-Schlüssels.\n"
+                "Das Kennwort wird automatisch in Ihrer lokalen, privaten 'release.json' gespeichert."
+            )
+            lbl_desc.setWordWrap(True)
+            lbl_desc.setStyleSheet("color: #AAAAAA; font-size: 12px; line-height: 1.4;")
+            layout.addWidget(lbl_desc)
+
+            layout.addSpacing(6)
+
+            # Feld 1: Passwort
+            lbl_p1 = QLabel("Neues PFX-Passwort:")
+            layout.addWidget(lbl_p1)
+
+            row_p1 = QHBoxLayout()
+            row_p1.setSpacing(6)
+            self.inp_pwd = QLineEdit()
+            self.inp_pwd.setEchoMode(QLineEdit.EchoMode.Password)
+            self.inp_pwd.setPlaceholderText("Geben Sie ein sicheres Kennwort ein")
+            row_p1.addWidget(self.inp_pwd)
+
+            self.btn_eye1 = QPushButton()
+            self.btn_eye1.setObjectName("btn_eye")
+            self.btn_eye1.setFixedSize(36, 36)
+            eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
+            if os.path.exists(eye_icon):
+                self.btn_eye1.setIcon(QIcon(eye_icon))
+            self.btn_eye1.clicked.connect(lambda: self._toggle_echo(self.inp_pwd, self.btn_eye1))
+            row_p1.addWidget(self.btn_eye1)
+            layout.addLayout(row_p1)
+
+            # Feld 2: Passwort wiederholen
+            lbl_p2 = QLabel("Passwort wiederholen:")
+            layout.addWidget(lbl_p2)
+
+            row_p2 = QHBoxLayout()
+            row_p2.setSpacing(6)
+            self.inp_pwd_confirm = QLineEdit()
+            self.inp_pwd_confirm.setEchoMode(QLineEdit.EchoMode.Password)
+            self.inp_pwd_confirm.setPlaceholderText("Kennwort zur Bestätigung wiederholen")
+            row_p2.addWidget(self.inp_pwd_confirm)
+
+            self.btn_eye2 = QPushButton()
+            self.btn_eye2.setObjectName("btn_eye")
+            self.btn_eye2.setFixedSize(36, 36)
+            if os.path.exists(eye_icon):
+                self.btn_eye2.setIcon(QIcon(eye_icon))
+            self.btn_eye2.clicked.connect(lambda: self._toggle_echo(self.inp_pwd_confirm, self.btn_eye2))
+            row_p2.addWidget(self.btn_eye2)
+            layout.addLayout(row_p2)
+
+            # Status / Fehleranzeige
+            self.lbl_status = QLabel("")
+            self.lbl_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
+            self.lbl_status.setWordWrap(True)
+            layout.addWidget(self.lbl_status)
+
+            layout.addSpacing(6)
+
+            # Buttons
+            row_btn = QHBoxLayout()
+            row_btn.addStretch()
+
+            btn_cancel = QPushButton("Abbrechen")
+            btn_cancel.setObjectName("btn_secondary")
+            btn_cancel.clicked.connect(self.reject)
+            row_btn.addWidget(btn_cancel)
+
+            self.btn_create = QPushButton("Zertifikat erstellen")
+            self.btn_create.setObjectName("btn_primary")
+            self.btn_create.clicked.connect(self._on_create)
+            row_btn.addWidget(self.btn_create)
+
+            layout.addLayout(row_btn)
+
+        def _toggle_echo(self, line_edit, button):
+            eye_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye.svg")
+            eye_off_icon = os.path.join(GRAPHICS_DIR, "Icon_Eye_Off.svg")
+            if line_edit.echoMode() == QLineEdit.EchoMode.Password:
+                line_edit.setEchoMode(QLineEdit.EchoMode.Normal)
+                if os.path.exists(eye_off_icon):
+                    button.setIcon(QIcon(eye_off_icon))
             else:
-                rel_json_path = os.path.join(RELEASE_DIR, "release.json")
-                if os.path.exists(rel_json_path):
-                    try:
+                line_edit.setEchoMode(QLineEdit.EchoMode.Password)
+                if os.path.exists(eye_icon):
+                    button.setIcon(QIcon(eye_icon))
+
+        def _on_create(self):
+            p1 = self.inp_pwd.text().strip()
+            p2 = self.inp_pwd_confirm.text().strip()
+
+            if not p1:
+                self.lbl_status.setText("Bitte geben Sie ein Passwort ein.")
+                self.inp_pwd.setFocus()
+                return
+
+            if len(p1) < 6:
+                self.lbl_status.setText("Das Passwort muss mindestens 6 Zeichen lang sein.")
+                self.inp_pwd.setFocus()
+                return
+
+            if p1 != p2:
+                self.lbl_status.setText("Die Passwörter stimmen nicht überein.")
+                self.inp_pwd_confirm.setFocus()
+                return
+
+            self.lbl_status.setText("Erstelle Zertifikat...")
+            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 12px; font-weight: bold;")
+            self.btn_create.setEnabled(False)
+            QApplication.processEvents()
+
+            ok, msg = create_self_signed_certificate(pfx_path=self.pfx_path, password=p1)
+            if ok:
+                # release.json sicher mit dem neuen Passwort aktualisieren
+                try:
+                    import json
+                    rel_json_path = os.path.join(RELEASE_DIR, "release.json")
+                    if os.path.exists(rel_json_path):
                         with open(rel_json_path, "r", encoding="utf-8") as f:
                             cfg = json.load(f)
-                        pwd = cfg.get("signing", {}).get("pfx_password", DEFAULT_PASSWORD)
-                    except Exception:
-                        pwd = DEFAULT_PASSWORD
-                else:
-                    pwd = DEFAULT_PASSWORD
-
-        success, msg = create_self_signed_certificate(pfx_path=args.pfx, password=pwd)
-
-        if success and pwd:
-            try:
-                rel_json_path = os.path.join(RELEASE_DIR, "release.json")
-                if os.path.exists(rel_json_path):
-                    with open(rel_json_path, "r", encoding="utf-8") as f:
-                        cfg = json.load(f)
+                    else:
+                        cfg = {}
                     if "signing" not in cfg:
                         cfg["signing"] = {}
-                    cfg["signing"]["pfx_password"] = pwd
+                    cfg["signing"]["pfx_password"] = p1
                     cfg["signing"]["enabled"] = True
                     with open(rel_json_path, "w", encoding="utf-8") as f:
                         json.dump(cfg, f, indent=2)
-                    print("[OK] release.json automatisch mit dem neuen Passwort aktualisiert.")
-            except Exception as e:
-                print(f"Hinweis: release.json konnte nicht automatisch aktualisiert werden: {e}")
+                except Exception as e:
+                    print(f"Fehler beim Speichern in release.json: {e}")
 
-        sys.exit(0 if success else 1)
+                QMessageBox.information(
+                    self,
+                    "Zertifikat erstellt",
+                    f"Das Code-Signing-Zertifikat wurde erfolgreich erstellt!\n\n"
+                    f"Datei: {os.path.basename(self.pfx_path)}\n"
+                    f"Das Kennwort wurde sicher in Ihrer lokalen release.json hinterlegt."
+                )
+                self.accept()
+            else:
+                self.lbl_status.setText(f"Fehler: {msg}")
+                self.lbl_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
+                self.btn_create.setEnabled(True)
+
+    def open_certificate_dialog(parent=None, pfx_path=DEFAULT_PFX_PATH) -> bool:
+        """Öffnet den grafischen PySide6-Dialog zur Zertifikatserstellung."""
+        app = QApplication.instance()
+        owns_app = False
+        if app is None:
+            app = QApplication(sys.argv)
+            owns_app = True
+
+        dlg = CertificatePasswordDialog(parent=parent, pfx_path=pfx_path)
+        res = dlg.exec()
+        return res == QDialog.DialogCode.Accepted
+
+except ImportError:
+    CertificatePasswordDialog = None
+    open_certificate_dialog = None
+
+
+if __name__ == "__main__":
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(description="Starfield LOH Certificate & Signing Manager")
+    parser.add_argument("action", nargs="?", default="create", choices=["create", "sign", "verify", "gui"], help="Auszuführende Aktion (Standard: create)")
+    parser.add_argument("--file", help="Datei zum Signieren oder Verifizieren")
+    parser.add_argument("--pfx", default=DEFAULT_PFX_PATH, help="Pfad zur PFX-Datei")
+    parser.add_argument("--password", default=None, help="PFX-Passwort")
+
+    args = parser.parse_args()
+
+    if args.action in ("create", "gui"):
+        # Wenn ein Passwort per CLI übergeben wurde, erstelle es direkt ohne GUI
+        if args.password:
+            success, msg = create_self_signed_certificate(pfx_path=args.pfx, password=args.password)
+            sys.exit(0 if success else 1)
+        else:
+            # Andernfalls öffne die grafische Oberfläche
+            if open_certificate_dialog:
+                ok = open_certificate_dialog(pfx_path=args.pfx)
+                sys.exit(0 if ok else 1)
+            else:
+                print("PySide6 ist nicht verfügbar für die grafische Oberfläche.")
+                sys.exit(1)
 
     elif args.action == "sign":
         if not args.file:

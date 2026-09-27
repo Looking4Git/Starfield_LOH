@@ -194,7 +194,12 @@ class Page_Settings_General(QWidget):
 
         form_nexus_layout.addRow(lbl_api_key, api_row_layout)
 
+        self.lbl_nexus_status = QLabel()
+        self.lbl_nexus_status.setObjectName("lbl_nexus_status")
+        form_nexus_layout.addRow("", self.lbl_nexus_status)
+
         layout.addLayout(form_nexus_layout)
+        self.update_nexus_status_display(current_api_key)
 
         # -------------------------------------------------------------
         # 3. Abschnitt: Allgemein
@@ -329,14 +334,42 @@ class Page_Settings_General(QWidget):
 
 
     def on_nexus_api_key_edited(self):
-        """Speichert den Nexus API-Key bei Abschluss der Texteingabe."""
+        """Speichert den Nexus API-Key bei Abschluss der Texteingabe und prüft den Status."""
         val = self.inp_nexus_api_key.text().strip()
         set_setting("nexus", "api_key", val)
+        self.update_nexus_status_display(val)
 
     def on_nexus_api_key_text_changed(self, text: str):
-        """Speichert den Nexus API-Key direkt bei Änderung."""
+        """Reagiert auf Textänderungen (z. B. sofortige Statusanpassung bei Leeren)."""
         val = text.strip()
-        set_setting("nexus", "api_key", val)
+        if not val:
+            set_setting("nexus", "api_key", "")
+            self.update_nexus_status_display("")
+
+    def update_nexus_status_display(self, api_key: str):
+        """Aktualisiert die Statusanzeige für den Nexus API-Key mit offiziellen Starfield-Farben."""
+        clean_key = (api_key or "").strip()
+        if not clean_key:
+            self.lbl_nexus_status.setText("ℹ Kein API-Key hinterlegt (Datenabruf erfolgt rein über Playwright-Webabgleich).")
+            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
+        try:
+            from Structure.Nexus_Fetch import validate_nexus_api_key
+            res = validate_nexus_api_key(clean_key)
+            if res.get("valid"):
+                user_name = res.get("user_name", "Unbekannt")
+                daily_rem = res.get("daily_remaining", 0)
+                daily_lim = res.get("daily_limit", 0)
+                self.lbl_nexus_status.setText(f"✓ API-Key aktiv: {user_name} (Noch {daily_rem:,} / {daily_lim:,} Aufrufe heute frei).")
+                self.lbl_nexus_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
+            else:
+                msg = res.get("message", "API-Key ungültig")
+                self.lbl_nexus_status.setText(f"⚠ {msg}.")
+                self.lbl_nexus_status.setStyleSheet("color: #C72138; font-size: 14px; font-weight: bold;")
+        except Exception as e:
+            self.lbl_nexus_status.setText(f"⚠ Validierung fehlgeschlagen: {e}")
+            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
 
     def toggle_api_key_visibility(self):
         """Schaltet zwischen verdecktem und Klartext-Echo-Modus um."""
@@ -592,6 +625,7 @@ class Page_Settings_General(QWidget):
             self.inp_starfield_data.setText(DEFAULT_GAME_PATH)
             self.update_status_display(DEFAULT_GAME_PATH)
             self.inp_nexus_api_key.setText("")
+            self.update_nexus_status_display("")
             self.chk_auto_save.setChecked(False)
             self.chk_backup_strategy.setChecked(False)
             self.chk_prefer_content_bar.setChecked(False)

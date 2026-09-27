@@ -70,9 +70,65 @@ def to_storable_path(target_path: str) -> str:
     return norm_target
 
 
+# --- Windows DPAPI Sicherheits-Layer für sensible Einstellungen (API-Keys) ---
+try:
+    import ctypes
+    import ctypes.wintypes
+    import base64
+
+    class _DATA_BLOB(ctypes.Structure):
+        _fields_ = [
+            ("cbData", ctypes.wintypes.DWORD),
+            ("pbData", ctypes.POINTER(ctypes.c_byte))
+        ]
+
+    def encrypt_dpapi(plain_text: str) -> str:
+        """Verschlüsselt einen String über die native Windows Data Protection API (DPAPI)."""
+        if not plain_text or not isinstance(plain_text, str):
+            return ""
+        if plain_text.startswith("dpapi:"):
+            return plain_text
+        try:
+            data = plain_text.encode('utf-8')
+            blob_in = _DATA_BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data, len(data)), ctypes.POINTER(ctypes.c_byte)))
+            blob_out = _DATA_BLOB()
+            if ctypes.windll.crypt32.CryptProtectData(ctypes.byref(blob_in), "Starfield_LOH_Secret", None, None, None, 1, ctypes.byref(blob_out)):
+                encrypted_bytes = ctypes.string_at(blob_out.pbData, blob_out.cbData)
+                ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+                return "dpapi:" + base64.b64encode(encrypted_bytes).decode('ascii')
+        except Exception as e:
+            print(f"Fehler bei DPAPI-Verschlüsselung: {e}")
+        return plain_text
+
+    def decrypt_dpapi(cipher_text: str) -> str:
+        """Entschlüsselt einen mit Windows DPAPI geschützten String."""
+        if not cipher_text or not isinstance(cipher_text, str):
+            return ""
+        if not cipher_text.startswith("dpapi:"):
+            return cipher_text
+        try:
+            raw_b64 = cipher_text[6:]
+            encrypted_bytes = base64.b64decode(raw_b64)
+            blob_in = _DATA_BLOB(len(encrypted_bytes), ctypes.cast(ctypes.create_string_buffer(encrypted_bytes, len(encrypted_bytes)), ctypes.POINTER(ctypes.c_byte)))
+            blob_out = _DATA_BLOB()
+            if ctypes.windll.crypt32.CryptUnprotectData(ctypes.byref(blob_in), None, None, None, None, 1, ctypes.byref(blob_out)):
+                decrypted_bytes = ctypes.string_at(blob_out.pbData, blob_out.cbData)
+                ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+                return decrypted_bytes.decode('utf-8')
+        except Exception as e:
+            print(f"Fehler bei DPAPI-Entschlüsselung: {e}")
+        return cipher_text
+except Exception:
+    def encrypt_dpapi(plain_text: str) -> str:
+        return plain_text
+    def decrypt_dpapi(cipher_text: str) -> str:
+        return cipher_text
+
+
 def get_setting(key, default=None):
     """
     Hilfsfunktion zum Laden eines spezifischen Einstellungs-Wertes aus Starfield_LOH_Settings.json.
+    Entschlüsselt DPAPI-gesicherte Werte transparent und migriert Altbestände.
     """
     try:
         if os.path.exists(SETTINGS_FILE):
@@ -80,9 +136,25 @@ def get_setting(key, default=None):
                 cfg = json.load(f)
                 for sec in ["window", "ui", "paths", "nexus", "settings", "creation_engine_limits"]:
                     if sec in cfg and isinstance(cfg[sec], dict) and key in cfg[sec]:
-                        return cfg[sec][key]
+                        val = cfg[sec][key]
+                        if (sec == "nexus" and key == "api_key") or key == "api_key":
+                            if isinstance(val, str) and val:
+                                if val.startswith("dpapi:"):
+                                    return decrypt_dpapi(val)
+                                else:
+                                    # Transparente Altbestand-Migration: Sofort verschlüsselt speichern
+                                    set_setting(sec, key, val)
+                                    return val
+                        return val
                 if key in cfg:
-                    return cfg[key]
+                    val = cfg[key]
+                    if key == "api_key" and isinstance(val, str) and val:
+                        if val.startswith("dpapi:"):
+                            return decrypt_dpapi(val)
+                        else:
+                            set_setting("nexus", key, val)
+                            return val
+                    return val
     except Exception:
         pass
     return default
@@ -91,6 +163,7 @@ def get_setting(key, default=None):
 def set_setting(section: str, key: str, value):
     """
     Hilfsfunktion zum Speichern eines Einstellungs-Wertes in Starfield_LOH_Settings.json.
+    Verschlüsselt sensible Schlüssel (wie api_key) automatisch mit DPAPI.
     Aktualisiert auch dynamisch geladene Laufzeitvariablen.
     """
     global STARFIELD_GAME_DATA_PATH
@@ -103,12 +176,18 @@ def set_setting(section: str, key: str, value):
             except Exception:
                 cfg = {}
         
+        # Speichere sensible Keys verschlüsselt
+        val_to_store = value
+        if (section == "nexus" and key == "api_key") or key == "api_key":
+            if isinstance(value, str) and value.strip() and not value.startswith("dpapi:"):
+                val_to_store = encrypt_dpapi(value.strip())
+
         if section:
             if section not in cfg or not isinstance(cfg[section], dict):
                 cfg[section] = {}
-            cfg[section][key] = value
+            cfg[section][key] = val_to_store
         else:
-            cfg[key] = value
+            cfg[key] = val_to_store
 
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
@@ -122,6 +201,16 @@ def set_setting(section: str, key: str, value):
     except Exception as e:
         print(f"Fehler beim Speichern der Einstellung {section}.{key}: {e}")
         return False
+
+
+def get_nexus_api_key() -> str:
+    """Gibt den entschlüsselten Nexus API-Key zurück."""
+    return get_setting("api_key", "") or ""
+
+
+def set_nexus_api_key(api_key: str) -> bool:
+    """Speichert den Nexus API-Key sicher DPAPI-verschlüsselt ab."""
+    return set_setting("nexus", "api_key", api_key.strip())
 
 
 # 3. Dynamische Nutzdaten-Verzeichnisse (Standard: portabel unter APP_ROOT/Data)

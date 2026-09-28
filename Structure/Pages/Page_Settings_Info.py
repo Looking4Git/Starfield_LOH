@@ -208,12 +208,22 @@ class Page_Settings_Info(QWidget):
         layout.addStretch()
 
     def update_certificate_status(self):
-        """Aktualisiert die Statusanzeige für das digitale Zertifikat / Authenticode-Signatur."""
+        """
+        Aktualisiert die Statusanzeige für das digitale Zertifikat / Authenticode-Signatur.
+        Nach dem Prinzip 'Silent on Success' wird das Label nur eingeblendet, wenn eine
+        Warnung vorliegt (unsigniert, manipuliert oder abweichender Fingerabdruck).
+        """
         try:
             from Structure.Security import check_binary_signature
             _, text, color = check_binary_signature()
-            self.lbl_cert_status.setText(text)
-            self.lbl_cert_status.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+            if text:
+                self.lbl_cert_status.setText(text)
+                self.lbl_cert_status.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+                self.lbl_cert_status.setVisible(True)
+            else:
+                self.lbl_cert_status.setText("")
+                self.lbl_cert_status.setVisible(False)
         except Exception as e:
             self.lbl_cert_status.setText(f"⚠ Signaturprüfung fehlgeschlagen: {e}")
-            self.lbl_cert_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            self.lbl_cert_status.setStyleSheet("color: #C72138; font-size: 14px; font-weight: bold;")
+            self.lbl_cert_status.setVisible(True)

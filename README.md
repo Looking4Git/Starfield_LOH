@@ -115,3 +115,26 @@ Dieses Projekt ist unter der **[MIT-Lizenz](LICENSE)** lizenziert.
 - Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.
 - Entwickelt mit Python und PySide6 (Qt für Python, lizenziert unter der LGPLv3).
 - Detaillierte Lizenz- und Urheberrechtsangaben aller verwendeten Komponenten sind in der Datei **[NOTICE](NOTICE)** hinterlegt.
+
+---
+
+## Echtheitsprüfung & Signatur
+
+Offizielle Release-Binärdateien (`Starfield_LOH.exe`) werden digital mit Microsoft Authenticode signiert. Zur Überprüfung der Integrität und Echtheit kann der kryptografische Fingerabdruck (SHA-1 Thumbprint) in den Windows-Dateieigenschaften (*Rechtsklick auf die Datei &rarr; Eigenschaften &rarr; Digitale Signaturen &rarr; Details*) mit dem offiziellen Schlüssel abgeglichen werden:
+
+<div align="center">
+  <br>
+  <table border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" bgcolor="#FFFFFF" style="background-color: #FFFFFF; padding: 12px 28px; border-radius: 6px; border: 1px solid #D0D7DE;">
+        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px;">
+          1C70DCFE3AA3A3E645AF5D39B0240BEF16A0A413
+        </span>
+      </td>
+    </tr>
+  </table>
+  <p align="center">
+    <sub><strong>Offizieller Looking4 Authenticode-Fingerabdruck (SHA-1 Thumbprint)</strong></sub>
+  </p>
+  <br>
+</div>

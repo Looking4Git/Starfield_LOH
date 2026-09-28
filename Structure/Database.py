@@ -43,6 +43,7 @@ from Structure.Database_Executions import (
     clear_mods_updates,
     init_mods_updates,
     set_mod_update_state,
+    update_mod_update_version,
     apply_completed_mod_updates,
     get_all_mods_updates,
 )
@@ -94,6 +95,7 @@ from Structure.Database_Mods import (
     update_mod_classifier_category,
     apply_all_classifier_categories,
     has_classifier_categories,
+    get_mods_for_update_view,
 )
 
 __all__ = [
@@ -126,6 +128,7 @@ __all__ = [
     "clear_mods_updates",
     "init_mods_updates",
     "set_mod_update_state",
+    "update_mod_update_version",
     "apply_completed_mod_updates",
     "get_all_mods_updates",
     # Views
@@ -171,4 +174,5 @@ __all__ = [
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
     "has_classifier_categories",
+    "get_mods_for_update_view",
 ]

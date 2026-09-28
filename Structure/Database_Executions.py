@@ -35,8 +35,11 @@ def _resolve_state_id(val: str | int) -> int | None:
         "rollback gestartet": 6,
         "rollback mods wieder hergestellt": 7,
         "rollback contentcatalog.txt wieder hergestellt": 8,
-        "rollback plugins.txt wieder hergestellt": 9,
         "rollback erfolgreich": 10,
+        "validierung fehlerhaft": 11,
+        "validierungsfehler": 11,
+        "validierung erfolgreich": 12,
+        "update / rollback erfolgreich": 13,
     }
     return mapping.get(val_clean.lower())
 
@@ -265,10 +268,22 @@ def set_mod_update_state(mod_id: int, state_id: int) -> bool:
         return False
 
 
+def update_mod_update_version(mod_id: int, new_version: str) -> bool:
+    """Aktualisiert die Version_update für eine Mod in Mods_Updates."""
+    ensure_mods_updates_schema()
+    try:
+        with db_cursor(auto_commit=True) as cur:
+            cur.execute("UPDATE Mods_Updates SET Version_update = ? WHERE Mod_ID = ?", (new_version, mod_id))
+            return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei update_mod_update_version für Mod {mod_id}: {e}")
+        return False
+
+
 def apply_completed_mod_updates() -> bool:
     """
     Überträgt Date_update und Version_update aus Mods_Updates nach Date_installed und Version_installed
-    in die Mods-Tabelle für alle erfolgreich durchgeführten Mods und leert anschließend Mods_Updates.
+    in die Mods-Tabelle für alle erfolgreich durchgeführten Mods (State_update IN (5, 9)) und leert anschließend Mods_Updates.
     """
     ensure_mods_updates_schema()
     try:
@@ -277,7 +292,7 @@ def apply_completed_mod_updates() -> bool:
                 UPDATE Mods
                 SET Date_installed = (SELECT mu.Date_update FROM Mods_Updates mu WHERE mu.Mod_ID = Mods.ID),
                     Version_installed = (SELECT mu.Version_update FROM Mods_Updates mu WHERE mu.Mod_ID = Mods.ID)
-                WHERE ID IN (SELECT Mod_ID FROM Mods_Updates WHERE State_update = 5);
+                WHERE ID IN (SELECT Mod_ID FROM Mods_Updates WHERE State_update IN (5, 9));
             """)
             cur.execute("DELETE FROM Mods_Updates;")
             return True

@@ -2,13 +2,13 @@ import os
 import logging
 from datetime import datetime
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QScrollArea,
-                               QLineEdit, QTextEdit, QLabel, QPushButton, QHeaderView, QMessageBox)
+                               QLineEdit, QTextEdit, QLabel, QPushButton, QHeaderView, QMessageBox, QComboBox)
 from PySide6.QtGui import (QStandardItemModel, QStandardItem, QDesktopServices,
                            QPixmap, QPainter, QColor)
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Database import get_mods_with_updates, get_mod_image, get_script_last_execution
+from Structure.Database import get_mods_with_updates, get_mods_for_update_view, get_mod_image, get_script_last_execution
 from Structure.Paths import APP_ROOT
 from Structure.Pages.UI_Utils import make_button_premium
 from Structure.Starfield_Mod_Update import (
@@ -16,7 +16,9 @@ from Structure.Starfield_Mod_Update import (
     step_prepare_update,
     step_create_backup,
     step_uninstall_mods,
+    auto_rollback,
     ModUpdateScanner,
+    resolve_update_status,
 )
 from Structure.Pages.Window_Mod_Update_Overlay import Window_Mod_Update_Overlay
 
@@ -102,10 +104,12 @@ class CheckboxHeaderView(QHeaderView):
 
 class Page_Update(QWidget):
     data_updated = Signal()
+    log_message_emitted = Signal(str)
 
     def __init__(self):
         super().__init__()
         self.setObjectName("Page_Update")
+        self.current_mode = "updates"
         self.setup_ui()
 
     def showEvent(self, event):
@@ -142,6 +146,14 @@ class Page_Update(QWidget):
         self.current_mod_id = ""
         self.current_mod_data = None
 
+        # Filter "Anzeige" initialisieren
+        self.cmb_mode_filter = ui.findChild(QComboBox, "cmb_mode_filter")
+        if self.cmb_mode_filter:
+            self.cmb_mode_filter.addItem("Updates", "updates")
+            self.cmb_mode_filter.addItem("Reinstallation", "reinstall")
+            self.cmb_mode_filter.addItem("Wiederherstellung", "restore")
+            self.cmb_mode_filter.currentIndexChanged.connect(self.on_mode_filter_changed)
+
         # Details-Felder referenzieren
         self.inp_name_online = ui.findChild(QLineEdit, "inp_name_online")
         self.inp_name_catalog = ui.findChild(QLineEdit, "inp_name_catalog")
@@ -166,6 +178,11 @@ class Page_Update(QWidget):
         if self.btn_start_update:
             make_button_premium(self.btn_start_update, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Update starten", centered=True)
             self.btn_start_update.clicked.connect(self.on_start_update_clicked)
+
+        self.btn_resolve_update_status = ui.findChild(QPushButton, "btn_resolve_update_status")
+        if self.btn_resolve_update_status:
+            make_button_premium(self.btn_resolve_update_status, os.path.join(APP_ROOT, "Graphics", "Icon_Check.svg"), "Update Status klären", centered=True)
+            self.btn_resolve_update_status.clicked.connect(self.on_resolve_update_status_clicked)
 
         self.overlay_window = None
 
@@ -217,6 +234,45 @@ class Page_Update(QWidget):
                 return f"{parts[2]}-{parts[1]}-{parts[0]}"
         return s
 
+    def log(self, message: str):
+        """Protokolliert eine Nachricht und sendet sie über log_message_emitted an angebundene Konsolen."""
+        logging.info(message)
+        self.log_message_emitted.emit(message)
+
+    def on_mode_filter_changed(self, index):
+        """Wird aufgerufen, wenn der Benutzer im Filter 'Anzeige' einen anderen Modus wählt."""
+        if self.cmb_mode_filter:
+            self.current_mode = self.cmb_mode_filter.currentData() or "updates"
+            self.load_data()
+
+    def get_active_backup_path(self) -> str | None:
+        """Findet das aktive Sicherungsverzeichnis für Starfield_Mod_Update."""
+        if getattr(self, "current_backup_path", None) and os.path.isdir(self.current_backup_path):
+            return self.current_backup_path
+        backup_root = os.path.join(APP_ROOT, "Backups", "Starfield_Mod_Update")
+        if os.path.exists(backup_root):
+            subdirs = [os.path.join(backup_root, d) for d in os.listdir(backup_root) if os.path.isdir(os.path.join(backup_root, d))]
+            subdirs.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            for d in subdirs:
+                if os.path.exists(os.path.join(d, "manifest.json")):
+                    return d
+        return None
+
+    def on_resolve_update_status_clicked(self):
+        """Wird aufgerufen, wenn der Benutzer auf 'Update Status klären' klickt."""
+        backup_path = self.get_active_backup_path()
+        if not backup_path:
+            QMessageBox.warning(
+                self,
+                "Kein Sicherungsverzeichnis",
+                "Es konnte kein aktives Update-Sicherungsverzeichnis mit gültigem Manifest gefunden werden."
+            )
+            return
+
+        success = resolve_update_status(backup_path, log_callback=self.log, parent_widget=self)
+        self.load_data()
+        self.data_updated.emit()
+
     def update_last_execution_display(self):
         """Aktualisiert die Anzeige des letzten Update-Status (Datum & Grund) aus LOH_Executions."""
         if not self.inp_last_update_date or not self.lbl_last_update_reason:
@@ -225,6 +281,10 @@ class Page_Update(QWidget):
         if not last_exec or not last_exec.get("Date"):
             self.inp_last_update_date.clear()
             self.lbl_last_update_reason.clear()
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(False)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(True)
             return
 
         date_val = last_exec.get("Date") or ""
@@ -235,17 +295,16 @@ class Page_Update(QWidget):
         self.inp_last_update_date.setText(self.format_date_display(date_val))
 
         # Farbliche Unterscheidung:
-        # Grün (#4CAF50): State 4 ('Update erfolgreich'), State 10 ('Rollback erfolgreich')
-        # Rot (#C72138): State 5 ('Update manuell abgebrochen') oder unvollständiger Abbruch
-        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9
-        r_lower = reason.lower()
-        if state_id in (4, 10) or r_lower in ("update erfolgreich", "rollback erfolgreich"):
+        # Grün (#4CAF50): State 4 ('Update erfolgreich')
+        # Rot (#C72138): State 5 ('Update manuell abgebrochen'), State 10 ('Rollback erfolgreich'), State 11 ('Validierung fehlerhaft')
+        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9, 12 ('Validierung erfolgreich'), 13 ('Update / Rollback erfolgreich')
+        if state_id == 4:
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #4CAF50; font-size: 13px; font-weight: bold; margin-left: 4px;")
-        elif state_id == 5 or "abgebrochen" in r_lower:
+        elif state_id in (5, 10, 11):
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #C72138; font-size: 13px; font-weight: bold; margin-left: 4px;")
-        elif state_id in (1, 2, 3, 6, 7, 8, 9):
+        elif state_id in (1, 2, 3, 6, 7, 8, 9, 12, 13):
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #D7A64B; font-size: 13px; font-weight: bold; margin-left: 4px;")
         else:
@@ -254,23 +313,43 @@ class Page_Update(QWidget):
             self.lbl_last_update_reason.setText(fail_reason)
             self.lbl_last_update_reason.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; margin-left: 4px;")
 
+        # Steuerung der Schaltflächen:
+        # In Warteposition (Zustand 5 = Abgebrochen, Zustand 11 = Validierung fehlerhaft):
+        # 'Update Status klären' aktivieren, 'Update starten' deaktivieren.
+        if state_id in (5, 11):
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(True)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+        else:
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(False)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(True)
+
     def load_data(self):
-        """Lädt alle installierten Mods mit Updates und aktualisiert die Tabelle sowie die Ausführungsanzeige."""
+        """Lädt alle Mods basierend auf dem gewählten Anzeigemodus ('updates', 'reinstall', 'restore')."""
         self.update_last_execution_display()
         self.model = QStandardItemModel()
-        mods_data = get_mods_with_updates()
+        mode = getattr(self, "current_mode", "updates")
+        mods_data = get_mods_for_update_view(mode)
 
         self.clear_detail_form()
+
+        # Checkbox-Standard: bei 'updates' alle angehakt, bei 'reinstall'/'restore' alle ausgehakt
+        is_default_checked = (mode == "updates")
+        default_check_state = Qt.CheckState.Checked if is_default_checked else Qt.CheckState.Unchecked
+        default_sort_val = 1 if is_default_checked else 0
 
         for row_data in mods_data:
             item_id = QStandardItem(str(row_data["ID"]))
             item_id.setData(row_data, Qt.ItemDataRole.UserRole)
 
-            # Checkbox für Update (Standardmäßig aktiviert)
+            # Checkbox für Update / Auswahl
             item_check = QStandardItem()
             item_check.setCheckable(True)
-            item_check.setCheckState(Qt.CheckState.Checked)
-            item_check.setData(1, self.SORT_ROLE)
+            item_check.setCheckState(default_check_state)
+            item_check.setData(default_sort_val, self.SORT_ROLE)
 
             name = row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or ""
             item_name = QStandardItem(name)
@@ -343,7 +422,7 @@ class Page_Update(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
 
-        self.header.set_checked(True)
+        self.header.set_checked(is_default_checked)
         self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
 
         if self.model.rowCount() > 0:
@@ -473,20 +552,30 @@ class Page_Update(QWidget):
             return
 
         # Schritt 1: Prüfen des vorherigen Updates (Sicherheitsdialog falls unvollständig)
-        proceed = step_check_previous_update(parent_widget=self)
+        proceed = step_check_previous_update(parent_widget=self, log_callback=self.log)
         if not proceed:
             return
 
         try:
             # Schritt 2: Vorbereiten des Updates (LOH_Executions & Mods_Updates initialisieren)
-            step_prepare_update(selected_mods)
+            step_prepare_update(selected_mods, log_callback=self.log)
 
             # Schritt 3: Sicherung erstellen
-            backup_path = step_create_backup(selected_mods)
+            backup_path = step_create_backup(selected_mods, log_callback=self.log)
             self.current_backup_path = backup_path
 
             # Schritt 4: Deinstallation der Mods
-            step_uninstall_mods(selected_mods, backup_path)
+            uninstall_ok = step_uninstall_mods(selected_mods, backup_path, log_callback=self.log)
+            if not uninstall_ok:
+                auto_rollback(backup_path, log_callback=self.log)
+                self.load_data()
+                QMessageBox.critical(
+                    self,
+                    "Fehler bei der Deinstallation",
+                    "Die Deinstallation der Mods wurde aus Sicherheitsgründen abgebrochen (Integritätsprüfung für ContentCatalog.txt fehlgeschlagen).\n\n"
+                    "Ein automatisches Rollback wurde durchgeführt, um Datenverlust zu verhindern."
+                )
+                return
 
             # Nach Deinstallation: Tabelle und Ausführungsanzeige aktualisieren
             self.load_data()
@@ -540,7 +629,7 @@ class Page_Update(QWidget):
         if hasattr(self, 'current_backup_path') and self.current_backup_path:
             try:
                 from Structure.Starfield_Mod_Update import step_complete_or_rollback
-                step_complete_or_rollback(self.current_backup_path)
+                step_complete_or_rollback(self.current_backup_path, log_callback=self.log, parent_widget=self)
             except Exception as e:
                 logging.error(f"Fehler bei step_complete_or_rollback: {e}")
         self.load_data()

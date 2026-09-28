@@ -86,13 +86,14 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             conn.close()
 
 
-def get_mods_with_updates() -> list[dict]:
+def get_mods_for_update_view(mode: str = "updates") -> list[dict]:
     """
-    Holt alle installierten Mods, für welche Date_available > Date_installed ist
-    oder (Date_available == Date_installed und Version_available > Version_installed).
-    Enthält einen LEFT JOIN auf Mods_Updates und Mods_Updates_States für den aktuellen Status.
+    Holt Mods für die Seite Page_Update je nach gewähltem Anzeigemodus:
+    - 'updates': Mods mit verfügbarem Update (Date_available > Date_installed oder neuere Version).
+    - 'reinstall': Alle installierten Mods der Plattform Creations (Platform = 1, State = 1).
+    - 'restore': Alle deinstallierten/entfernten Mods der Plattform Creations (Platform = 1, State = 2).
     """
-    query = """
+    base_select = """
         SELECT 
             m.ID, 
             p.Name AS Platform_Name,
@@ -124,6 +125,16 @@ def get_mods_with_updates() -> list[dict]:
         LEFT JOIN Assessments a ON m.Assessment = a.ID
         LEFT JOIN Mods_Updates mu ON m.ID = mu.Mod_ID
         LEFT JOIN Mods_Updates_States mus ON mu.State_update = mus.ID
+    """
+
+    mode_clean = (mode or "updates").lower().strip()
+
+    if mode_clean == "reinstall":
+        where_clause = "WHERE m.Platform = 1 AND LOWER(ms.State) = 'installiert'"
+    elif mode_clean == "restore":
+        where_clause = "WHERE m.Platform = 1 AND LOWER(ms.State) = 'entfernt'"
+    else:  # "updates"
+        where_clause = """
         WHERE LOWER(ms.State) = 'installiert'
           AND (
               (
@@ -162,8 +173,10 @@ def get_mods_with_updates() -> list[dict]:
                   AND version_is_newer(m.Version_available, m.Version_installed) = 1
               )
           )
-        ORDER BY m.Name_Online COLLATE NOCASE ASC
-    """
+        """
+
+    query = f"{base_select}\n{where_clause}\nORDER BY COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Mod ' || m.ID) COLLATE NOCASE ASC"
+
     conn = None
     try:
         conn = get_db_connection()
@@ -171,11 +184,16 @@ def get_mods_with_updates() -> list[dict]:
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        logging.error(f"Fehler beim Abrufen der Mods mit Updates: {e}")
+        logging.error(f"Fehler beim Abrufen der Mods für Modus '{mode_clean}': {e}")
         return []
     finally:
         if conn:
             conn.close()
+
+
+def get_mods_with_updates() -> list[dict]:
+    """Rückwärtskompatibler Wrapper: Ruft get_mods_for_update_view('updates') auf."""
+    return get_mods_for_update_view("updates")
 
 
 def get_mod_image(mod_id: int) -> bytes | None:

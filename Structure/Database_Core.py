@@ -136,13 +136,18 @@ def ensure_mods_updates_schema(conn: sqlite3.Connection = None) -> None:
             );
         """)
         cur.executemany("""
-            INSERT OR IGNORE INTO Mods_Updates_States (ID, State) VALUES (?, ?);
+            INSERT OR REPLACE INTO Mods_Updates_States (ID, State) VALUES (?, ?);
         """, [
             (1, 'aus Plugins.txt entfernt'),
             (2, 'aus Plugins.txt und ContentCatalog.txt entfernt'),
             (3, 'Mod deinstalliert'),
-            (4, 'Update gestartet'),
-            (5, 'Update erfolgreich')
+            (4, 'Update wird installiert'),
+            (5, 'Update abgeschlossen'),
+            (6, 'Plugins.txt fehlt'),
+            (7, 'Spieledateien fehlen'),
+            (8, 'ContentCatalog.txt fehlt'),
+            (9, 'Plugins.txt ergänzt'),
+            (10, 'Rollback erfolgreich')
         ])
         cur.execute("""
             CREATE TABLE IF NOT EXISTS Mods_Updates (
@@ -303,8 +308,11 @@ def init_loh_executions_table() -> bool:
                 (8, "Rollback ContentCatalog.txt wieder hergestellt"),
                 (9, "Rollback Plugins.txt wieder hergestellt"),
                 (10, "Rollback erfolgreich"),
+                (11, "Validierung fehlerhaft"),
+                (12, "Validierung erfolgreich"),
+                (13, "Update / Rollback erfolgreich"),
             ]
-            cursor.executemany("INSERT OR IGNORE INTO LOH_Executions_States (ID, State) VALUES (?, ?);", seed_states)
+            cursor.executemany("INSERT OR REPLACE INTO LOH_Executions_States (ID, State) VALUES (?, ?);", seed_states)
 
             # 2. LOH_Executions anlegen bzw. migrieren
             cursor.execute("PRAGMA table_info(LOH_Executions)")

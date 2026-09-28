@@ -194,6 +194,10 @@ class StarfieldLOH(QMainWindow):
         self.content_stack.addWidget(self.page_tools)
         self.btn_tools.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_tools))
 
+        # Protokoll-Stream von Mod-Update an Konsole auf Page_Tools weiterleiten
+        if hasattr(self.page_update, "log_message_emitted") and hasattr(self.page_tools, "log_console"):
+            self.page_update.log_message_emitted.connect(self.page_tools.log_console.append_log)
+
         self.page_settings = Page_Settings()
         self.page_settings.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_settings)

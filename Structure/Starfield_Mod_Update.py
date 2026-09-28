@@ -1,16 +1,18 @@
 """
 Hauptmodul: Starfield_Mod_Update
 Zuständig für die strukturierte Sicherung, Deinstallations-Vorbereitung,
-den Hintergrund-Scanner (20s) und die Prozessführung beim Aktualisieren
-von Creations-Mods über das Desktop-Overlay.
+den Hintergrund-Scanner (0,5s), die Validierung und die Prozessführung beim
+Aktualisieren von Creations-Mods über das Desktop-Overlay oder die Statusklärung.
 
-Implementiert die 6-stufige semantische Pipeline:
+Implementiert die 8-stufige semantische Pipeline:
 - Schritt 1: Prüfen des vorherigen Updates (LOH_Executions & Mods_Updates)
 - Schritt 2: Vorbereiten des Updates (record_script_start, Mods_Updates befüllen)
 - Schritt 3: Sicherungskopie erstellen (Plugins.txt, ContentCatalog.txt, Mods/ Verzeichnis)
 - Schritt 4: Deinstallation der Mods (Plugins.txt, ContentCatalog.txt, Data/ -> Backup Mods/)
-- Schritt 5: Starfield Creation Store Update & Live-Scan (20s non-blocking Überwachung)
-- Schritt 6: Abschluss des Updates (Übertrag nach Mods, Cleanup & LOH_Executions)
+- Schritt 5: Starfield Creation Store Update & Live-Scan (0,5s non-blocking Überwachung)
+- Schritt 6: Validierung ContentCatalog (Kopie ContentCatalog_Neu.txt, Einweg-Teilmengenprüfung)
+- Schritt 7: Abschluss des Updates (Dynamischer Versionsabgleich, Übertrag nach Mods, Cleanup)
+- Schritt 8: Update Status klären (Zustandsmatrix-Analyse bei State 5/11, selektive Übernahme/Rollback)
 """
 
 import os
@@ -42,8 +44,11 @@ from Structure.Database import (
     get_all_mods_updates,
     init_mods_updates,
     set_mod_update_state,
+    update_mod_update_version,
     apply_completed_mod_updates,
     clear_mods_updates,
+    is_version_newer_sql,
+    parse_version_tuple,
 )
 from Structure.LOH_Backup_Manager import prepare_backup_directory
 from Structure.Paths import get_setting
@@ -264,10 +269,12 @@ def step_uninstall_mods(selected_mods: list[dict], backup_dir: str, log_callback
 
     # 2. ContentCatalog.txt laden
     catalog_data = {}
+    initial_catalog_keys_count = 0
     if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
         try:
             with open(STARFIELD_CONTENT_CATALOG_PATH, 'r', encoding='utf-8-sig') as f:
                 catalog_data = json.load(f)
+            initial_catalog_keys_count = len(catalog_data)
         except Exception as e:
             log_message(f"Warnung beim Lesen von ContentCatalog.txt: {e}", log_callback)
 
@@ -300,20 +307,25 @@ def step_uninstall_mods(selected_mods: list[dict], backup_dir: str, log_callback
 
         # B. Aus ContentCatalog.txt austragen
         key_to_delete = None
-        if creation_id and creation_id in catalog_data:
+        if creation_id and creation_id in catalog_data and creation_id != "ContentCatalog":
             key_to_delete = creation_id
         else:
-            # Fallback: Nach Titel oder Dateien suchen
+            # Fallback: Nach Titel oder Dateien suchen (Metadaten-Knoten 'ContentCatalog' strikt ausschließen)
             for key, val in catalog_data.items():
+                if key == "ContentCatalog":
+                    continue
                 if isinstance(val, dict):
                     title = (val.get("Title") or "").strip().lower()
                     files = [f.lower() for f in val.get("Files", [])]
                     if (catalog_name and title == catalog_name) or any(f in comp_files_lower for f in files):
                         key_to_delete = key
                         break
-        if key_to_delete and key_to_delete in catalog_data:
+        if key_to_delete and key_to_delete in catalog_data and key_to_delete != "ContentCatalog":
             del catalog_data[key_to_delete]
             catalog_changed = True
+            log_message(f"  -> Mod-Eintrag aus ContentCatalog.txt entfernt: {key_to_delete}", log_callback)
+        else:
+            log_message(f"  -> HINWEIS: Kein austragbarer Eintrag für Mod '{mod_name}' in ContentCatalog.txt gefunden.", log_callback)
 
         set_mod_update_state(mod_id, 2)  # Status: aus Plugins.txt und ContentCatalog.txt entfernt
 
@@ -328,6 +340,8 @@ def step_uninstall_mods(selected_mods: list[dict], backup_dir: str, log_callback
                     log_message(f"  -> Datei verschoben: {comp_file}", log_callback)
                 except Exception as me:
                     log_message(f"  WARNUNG: Konnte {comp_file} nicht verschieben: {me}", log_callback)
+            else:
+                log_message(f"  -> HINWEIS: Datei '{comp_file}' existiert nicht in Data/ (akzeptiert).", log_callback)
 
         set_mod_update_state(mod_id, 3)  # Status: Mod deinstalliert
 
@@ -341,12 +355,26 @@ def step_uninstall_mods(selected_mods: list[dict], backup_dir: str, log_callback
             log_message(f"FEHLER beim Schreiben von Plugins.txt: {pe}", log_callback)
 
     if catalog_changed:
+        # Sanity-Check: Verhindern, dass versehentlich mehr Einträge als ausgewählt gelöscht wurden
+        expected_min = max(1, initial_catalog_keys_count - len(selected_mods))
+        if len(catalog_data) < expected_min or (initial_catalog_keys_count > 0 and "ContentCatalog" not in catalog_data):
+            err_msg = (
+                f"SICHERHEITSABBRUCH: ContentCatalog.txt Integritätsprüfung fehlgeschlagen! "
+                f"Ursprünglich: {initial_catalog_keys_count}, Nach Deinstallation: {len(catalog_data)}, "
+                f"Erwartetes Minimum: {expected_min}. Schreiben abgebrochen zum Schutz vor Datenverlust."
+            )
+            log_message(err_msg, log_callback)
+            logging.error(err_msg)
+            return False
+
         try:
-            with open(STARFIELD_CONTENT_CATALOG_PATH, 'w', encoding='utf-8-sig') as f:
+            # Reines UTF-8 ohne BOM (Bethesda-kompatibel) und LF-Zeilenumbrüche schreiben
+            with open(STARFIELD_CONTENT_CATALOG_PATH, 'w', encoding='utf-8', newline='\n') as f:
                 json.dump(catalog_data, f, indent=2, ensure_ascii=False)
-            log_message("ContentCatalog.txt nach Deinstallation aktualisiert.", log_callback)
+            log_message(f"ContentCatalog.txt nach Deinstallation aktualisiert ({len(catalog_data)} Einträge erhalten, rein UTF-8/LF).", log_callback)
         except Exception as ce:
             log_message(f"FEHLER beim Schreiben von ContentCatalog.txt: {ce}", log_callback)
+            return False
 
     update_script_execution_state("Starfield_Mod_Update.py", 1)
     log_message("Schritt 4: Alle ausgewählten Mods deinstalliert (LOH_Executions State: 1 'Mods deinstalliert').\n", log_callback)
@@ -593,52 +621,551 @@ def auto_rollback(backup_dir: str, log_callback=None) -> bool:
     return True
 
 
-def step_complete_update(backup_dir: str, log_callback=None) -> bool:
+def create_backup_snapshots(backup_dir: str, log_callback=None) -> tuple[str, str]:
     """
-    Schritt 6: Abschluss des Updates:
-    - Date_update und Version_update nach Date_installed und Version_installed in Mods übertragen
-    - Tabelle Mods_Updates leeren
-    - Backup Unterverzeichnis Mods/ je nach Starfield_Mod_Update_Backup_Strategy behandeln
-    - LOH_Executions Status auf State 4 ('Update erfolgreich') setzen
+    Erstellt aktuelle Snapshots der Live-Dateien ContentCatalog.txt und Plugins.txt
+    im Backup-Verzeichnis unter ContentCatalog_Neu.txt und Plugins_Neu.txt.
     """
-    log_message("=== Starfield_Mod_Update: Schritt 6 - Abschluss gestartet ===", log_callback)
+    catalog_new_path = os.path.join(backup_dir, "ContentCatalog_Neu.txt")
+    plugins_new_path = os.path.join(backup_dir, "Plugins_Neu.txt")
 
-    # 1. In Datenbank übernehmen & Mods_Updates leeren
-    apply_completed_mod_updates()
-    log_message("Mod-Daten in Datenbank aktualisiert (Date_installed & Version_installed) und Mods_Updates geleert.", log_callback)
-
-    # 2. Backup-Unterverzeichnis 'Mods' prüfen
-    keep_backup = get_setting("Starfield_Mod_Update_Backup_Strategy", False)
-    mods_backup_dir = os.path.join(backup_dir, "Mods")
-    if not keep_backup:
-        if os.path.exists(mods_backup_dir):
-            try:
-                shutil.rmtree(mods_backup_dir, ignore_errors=True)
-                log_message(f"Backup-Unterverzeichnis 'Mods/' bereinigt: {mods_backup_dir}", log_callback)
-            except Exception as e:
-                log_message(f"Warnung beim Löschen von Mods/: {e}", log_callback)
+    if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
+        try:
+            shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, catalog_new_path)
+            log_message(f"Snapshot ContentCatalog_Neu.txt erstellt: {catalog_new_path}", log_callback)
+        except Exception as e:
+            log_message(f"WARNUNG: Konnte ContentCatalog_Neu.txt nicht erstellen: {e}", log_callback)
     else:
-        log_message(f"Backup-Unterverzeichnis 'Mods/' gemäß Backup-Strategie aufbewahrt: {mods_backup_dir}", log_callback)
+        log_message(f"HINWEIS: Keine Live-Datei unter '{STARFIELD_CONTENT_CATALOG_PATH}' gefunden.", log_callback)
 
-    # 3. LOH_Executions abschließen
-    record_script_end("Starfield_Mod_Update.py", state=4)
-    log_message("=== Starfield_Mod_Update: Prozess erfolgreich beendet (State: 4 'Update erfolgreich') ===\n", log_callback)
+    if os.path.exists(STARFIELD_PLUGINS_PATH):
+        try:
+            shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_new_path)
+            log_message(f"Snapshot Plugins_Neu.txt erstellt: {plugins_new_path}", log_callback)
+        except Exception as e:
+            log_message(f"WARNUNG: Konnte Plugins_Neu.txt nicht erstellen: {e}", log_callback)
+    else:
+        log_message(f"HINWEIS: Keine Live-Datei unter '{STARFIELD_PLUGINS_PATH}' gefunden.", log_callback)
+
+    return catalog_new_path, plugins_new_path
+
+
+def step_validate_content_catalog(backup_dir: str, log_callback=None) -> tuple[bool, list[str]]:
+    """
+    Schritt 6: Validiert den aktuellen ContentCatalog.txt gegen die Sicherung vor dem Update.
+    Erstellt Snapshots ContentCatalog_Neu.txt und Plugins_Neu.txt im Backup-Verzeichnis.
+    Führt einen einseitigen Teilmengen-Vergleich durch:
+    Keine Mod aus dem Backup darf im neuen ContentCatalog fehlen (neue Mods sind explizit erlaubt).
+    Liefert (True, []) bei Erfolg (State 12) oder (False, [Fehlende_Titel]) bei Diskrepanzen (State 11).
+    """
+    log_message("=== Starfield_Mod_Update: Schritt 6 - Validierung ContentCatalog.txt gestartet ===", log_callback)
+    catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
+    catalog_new_path, _ = create_backup_snapshots(backup_dir, log_callback)
+
+    if not os.path.exists(catalog_backup_path):
+        log_message(f"HINWEIS: Kein Backup-Katalog unter '{catalog_backup_path}' gefunden. Validierung übersprungen.", log_callback)
+        update_script_execution_state("Starfield_Mod_Update.py", 12, reason="Validierung erfolgreich")
+        return True, []
+
+    if not os.path.exists(catalog_new_path):
+        err_msg = f"FEHLER: Live-ContentCatalog unter '{STARFIELD_CONTENT_CATALOG_PATH}' nicht gefunden!"
+        log_message(err_msg, log_callback)
+        update_script_execution_state("Starfield_Mod_Update.py", 11, reason="Validierung fehlerhaft")
+        return False, ["ContentCatalog.txt nicht gefunden"]
+
+    # Beide Kataloge laden
+    orig_data = {}
+    new_data = {}
+    try:
+        with open(catalog_backup_path, "r", encoding="utf-8-sig") as f:
+            orig_data = json.load(f)
+    except Exception as e:
+        log_message(f"FEHLER beim Lesen von {catalog_backup_path}: {e}", log_callback)
+        update_script_execution_state("Starfield_Mod_Update.py", 11, reason="Validierung fehlerhaft")
+        return False, [f"Lesefehler Backup: {e}"]
+
+    try:
+        with open(catalog_new_path, "r", encoding="utf-8-sig") as f:
+            new_data = json.load(f)
+    except Exception as e:
+        log_message(f"FEHLER beim Lesen von {catalog_new_path}: {e}", log_callback)
+        update_script_execution_state("Starfield_Mod_Update.py", 11, reason="Validierung fehlerhaft")
+        return False, [f"Lesefehler Live: {e}"]
+
+    orig_ids = {k: v for k, v in orig_data.items() if k != "ContentCatalog" and isinstance(v, dict)}
+    new_ids = {k for k in new_data.keys() if k != "ContentCatalog"}
+
+    missing_keys = set(orig_ids.keys()) - new_ids
+    if missing_keys:
+        missing_titles = []
+        for k in missing_keys:
+            title = orig_ids[k].get("Title") or k
+            missing_titles.append(f"{title} ({k})")
+        err_msg = (
+            f"VALIDIERUNGSFEHLER: {len(missing_keys)} Mod(s) aus dem Backup fehlen im aktuellen ContentCatalog!\n"
+            f"Fehlend: {', '.join(missing_titles[:5])}"
+        )
+        log_message(err_msg, log_callback)
+        update_script_execution_state("Starfield_Mod_Update.py", 11, reason="Validierung fehlerhaft")
+        return False, missing_titles
+
+    added_count = len(new_ids - set(orig_ids.keys()))
+    log_message(
+        f"Validierung erfolgreich: Alle {len(orig_ids)} Mods aus dem Backup sind im ContentCatalog vorhanden. "
+        f"(Neue/weitere Mods erkannt: {added_count})",
+        log_callback
+    )
+    update_script_execution_state("Starfield_Mod_Update.py", 12, reason="Validierung erfolgreich")
+    return True, []
+
+
+def evaluate_mod_state_matrix(selected_mods: list[dict], backup_dir: str, log_callback=None) -> dict[int, int]:
+    """
+    Wertet jede Mod im Update-Lauf anhand der 4-dimensionalen Zustandsmatrix aus:
+    - 5: Update abgeschlossen
+    - 6: Plugins.txt fehlt
+    - 7: Spieledateien fehlen
+    - 3: Mod deinstalliert
+    - 8: ContentCatalog.txt fehlt
+    Führt zudem einen dynamischen Versionsabgleich mit ContentCatalog_Neu.txt durch.
+    """
+    log_message("=== Starfield_Mod_Update: Auswertung Zustandsmatrix gestartet ===", log_callback)
+    catalog_new_path, plugins_new_path = create_backup_snapshots(backup_dir, log_callback)
+    catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
+
+    # Live-/Snapshot-Katalog laden
+    catalog_data = {}
+    if os.path.exists(catalog_new_path):
+        try:
+            with open(catalog_new_path, "r", encoding="utf-8-sig") as f:
+                catalog_data = json.load(f)
+        except Exception as e:
+            log_message(f"Warnung beim Lesen von {catalog_new_path}: {e}", log_callback)
+
+    # Backup-Katalog laden
+    orig_catalog_data = {}
+    if os.path.exists(catalog_backup_path):
+        try:
+            with open(catalog_backup_path, "r", encoding="utf-8-sig") as f:
+                orig_catalog_data = json.load(f)
+        except Exception as e:
+            log_message(f"Warnung beim Lesen von {catalog_backup_path}: {e}", log_callback)
+
+    # Aktive Plugins laden
+    active_plugins = set()
+    if os.path.exists(plugins_new_path):
+        try:
+            with open(plugins_new_path, "r", encoding="utf-8-sig") as f:
+                for line in f:
+                    s = line.strip()
+                    if s.startswith("*"):
+                        active_plugins.add(s[1:].strip().lower())
+        except Exception as e:
+            log_message(f"Warnung beim Lesen von {plugins_new_path}: {e}", log_callback)
+
+    results = {}
+
+    for mod in selected_mods:
+        mod_id = mod.get("ID")
+        mod_name = mod.get("Name_Online") or mod.get("Name_ContentCatalog") or f"Mod {mod_id}"
+        creation_id = (mod.get("ID_ContentCatalog") or "").strip()
+        catalog_name = (mod.get("Name_ContentCatalog") or "").strip().lower()
+
+        components = _get_mod_components(mod_id)
+        comp_files = [c["File"] for c in components]
+        comp_files_lower = [f.lower() for f in comp_files]
+
+        # 1. Eintrag im neuen ContentCatalog suchen
+        cat_entry = None
+        if creation_id and creation_id in catalog_data and creation_id != "ContentCatalog":
+            cat_entry = catalog_data[creation_id]
+        else:
+            for k, v in catalog_data.items():
+                if k == "ContentCatalog" or not isinstance(v, dict):
+                    continue
+                t = (v.get("Title") or "").strip().lower()
+                c_files = [cf.lower() for cf in v.get("Files", [])]
+                if (catalog_name and t == catalog_name) or any(f in comp_files_lower for f in c_files):
+                    cat_entry = v
+                    break
+
+        in_catalog = (cat_entry is not None)
+
+        # Dynamischer Versionsabgleich aus dem neuen Katalog
+        if in_catalog and cat_entry:
+            cat_version = str(cat_entry.get("Version") or "").strip()
+            curr_update_ver = str(mod.get("Version_update") or "").strip()
+            if cat_version and is_version_newer_sql(cat_version, curr_update_ver):
+                update_mod_update_version(mod_id, cat_version)
+                log_message(
+                    f"HINWEIS: Neuere Version im Store für Mod '{mod_name}' gefunden: {cat_version} "
+                    f"(bisher erwartet: {curr_update_ver}). Version_update auf {cat_version} angehoben.",
+                    log_callback
+                )
+
+        # 2. Eintrag in Plugins.txt prüfen
+        in_plugins = any(f in active_plugins for f in comp_files_lower)
+
+        # 3. Dateien in Data/ und Backup prüfen
+        data_missing = []
+        for cf in comp_files:
+            df = os.path.join(STARFIELD_GAME_DATA_PATH, cf)
+            if not os.path.exists(df):
+                data_missing.append(cf)
+
+        all_files_in_data = (len(data_missing) == 0)
+
+        # 4. Status anhand der Matrix ableiten
+        if in_catalog and in_plugins and all_files_in_data:
+            state = 5  # Update abgeschlossen
+            log_message(f"Mod '{mod_name}' (ID {mod_id}): Z1 -> Status 5 ('Update abgeschlossen')", log_callback)
+        elif in_catalog and (not in_plugins) and all_files_in_data:
+            state = 6  # Plugins.txt fehlt
+            log_message(f"Mod '{mod_name}' (ID {mod_id}): Z2 -> Status 6 ('Plugins.txt fehlt')", log_callback)
+        elif in_catalog and (not all_files_in_data):
+            state = 7  # Spieledateien fehlen
+            log_message(f"Mod '{mod_name}' (ID {mod_id}): Z3 -> Status 7 ('Spieledateien fehlen': {len(data_missing)} Datei(en))", log_callback)
+        elif not in_catalog:
+            # Prüfen ob im Backup vorhanden war
+            was_in_backup = False
+            if creation_id and creation_id in orig_catalog_data:
+                was_in_backup = True
+            else:
+                for k, v in orig_catalog_data.items():
+                    if k == "ContentCatalog" or not isinstance(v, dict):
+                        continue
+                    t = (v.get("Title") or "").strip().lower()
+                    if catalog_name and t == catalog_name:
+                        was_in_backup = True
+                        break
+            if was_in_backup:
+                state = 8  # ContentCatalog.txt fehlt
+                log_message(f"Mod '{mod_name}' (ID {mod_id}): Z6 -> Status 8 ('ContentCatalog.txt fehlt')", log_callback)
+            else:
+                state = 3  # Mod deinstalliert
+                log_message(f"Mod '{mod_name}' (ID {mod_id}): Z4 -> Status 3 ('Mod deinstalliert')", log_callback)
+        else:
+            state = 3
+            log_message(f"Mod '{mod_name}' (ID {mod_id}): Fallback -> Status 3 ('Mod deinstalliert')", log_callback)
+
+        set_mod_update_state(mod_id, state)
+        results[mod_id] = state
+
+    return results
+
+
+def _activate_single_mod_plugin(mod: dict, log_callback=None) -> bool:
+    """Nimmt die Masterdatei-Komponenten einer Mod in Plugins.txt auf und setzt Mod-Status 9."""
+    mod_id = mod.get("ID")
+    mod_name = mod.get("Name_Online") or mod.get("Name_ContentCatalog") or f"Mod {mod_id}"
+    components = _get_mod_components(mod_id)
+
+    plugins_lines = []
+    if os.path.exists(STARFIELD_PLUGINS_PATH):
+        try:
+            with open(STARFIELD_PLUGINS_PATH, "r", encoding="utf-8-sig") as f:
+                plugins_lines = f.readlines()
+        except Exception as e:
+            log_message(f"Warnung beim Lesen von Plugins.txt: {e}", log_callback)
+
+    existing_plugins_lower = {line.strip().lstrip("*").strip().lower() for line in plugins_lines if line.strip()}
+    added = False
+
+    for c in components:
+        comp_file = c.get("File", "")
+        if comp_file and comp_file.lower() not in existing_plugins_lower:
+            plugins_lines.append(f"*{comp_file}\n")
+            added = True
+            log_message(f"  -> Plugin in Plugins.txt ergänzt: *{comp_file}", log_callback)
+
+    if added:
+        try:
+            with open(STARFIELD_PLUGINS_PATH, "w", encoding="utf-8-sig") as f:
+                f.writelines(plugins_lines)
+            log_message(f"Plugins.txt für Mod '{mod_name}' aktualisiert.", log_callback)
+        except Exception as pe:
+            log_message(f"FEHLER beim Schreiben von Plugins.txt: {pe}", log_callback)
+            return False
+
+    set_mod_update_state(mod_id, 9)  # Status: Plugins.txt ergänzt
+    log_message(f"Mod '{mod_name}' (ID {mod_id}) auf Status 9 ('Plugins.txt ergänzt') gesetzt.", log_callback)
     return True
 
 
-def step_complete_or_rollback(backup_dir: str, log_callback=None) -> bool:
+def _rollback_single_mod(mod: dict, backup_dir: str, log_callback=None) -> bool:
     """
-    Abschlussschritt mit Verzweigung:
-    - Lautet der Status auf 5 ('Update manuell abgebrochen'), wird auto_rollback aufgerufen.
-    - Lautet der Status auf 3 ('Updates vollständig') oder 4 oder None, wird step_complete_update ausgeführt.
+    Führt einen gezielten Rollback für eine einzelne Mod aus:
+    1. Unvollständigen Eintrag aus ContentCatalog.txt entfernen und Backup-Eintrag restaurieren
+    2. Spieldateien aus Backup/Mods/ nach Data/ zurückverschieben
+    3. Plugin in Plugins.txt wiederherstellen
+    4. Mod-Status auf 10 ('Rollback erfolgreich') setzen
+    """
+    mod_id = mod.get("ID")
+    mod_name = mod.get("Name_Online") or mod.get("Name_ContentCatalog") or f"Mod {mod_id}"
+    creation_id = (mod.get("ID_ContentCatalog") or "").strip()
+    catalog_name = (mod.get("Name_ContentCatalog") or "").strip().lower()
+
+    components = _get_mod_components(mod_id)
+    comp_files = [c["File"] for c in components]
+    comp_files_lower = {f.lower() for f in comp_files}
+
+    log_message(f"Starte Rollback für Mod: '{mod_name}' (ID {mod_id})", log_callback)
+
+    # 1. ContentCatalog.txt bereinigen und ursprünglichen Block restaurieren
+    catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
+    if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH) and os.path.exists(catalog_backup_path):
+        try:
+            with open(STARFIELD_CONTENT_CATALOG_PATH, "r", encoding="utf-8-sig") as f:
+                live_cat = json.load(f)
+            with open(catalog_backup_path, "r", encoding="utf-8-sig") as f:
+                orig_cat = json.load(f)
+
+            # Unvollständigen / neuen Eintrag im Live-Katalog entfernen
+            key_to_del = None
+            if creation_id and creation_id in live_cat and creation_id != "ContentCatalog":
+                key_to_del = creation_id
+            else:
+                for k, v in live_cat.items():
+                    if k == "ContentCatalog" or not isinstance(v, dict):
+                        continue
+                    t = (v.get("Title") or "").strip().lower()
+                    files = [f.lower() for f in v.get("Files", [])]
+                    if (catalog_name and t == catalog_name) or any(f in comp_files_lower for f in files):
+                        key_to_del = k
+                        break
+            if key_to_del and key_to_del in live_cat:
+                del live_cat[key_to_del]
+
+            # Originalen Eintrag aus dem Backup restaurieren
+            key_to_restore = None
+            if creation_id and creation_id in orig_cat and creation_id != "ContentCatalog":
+                key_to_restore = creation_id
+            else:
+                for k, v in orig_cat.items():
+                    if k == "ContentCatalog" or not isinstance(v, dict):
+                        continue
+                    t = (v.get("Title") or "").strip().lower()
+                    if catalog_name and t == catalog_name:
+                        key_to_restore = k
+                        break
+
+            if key_to_restore and key_to_restore in orig_cat:
+                live_cat[key_to_restore] = orig_cat[key_to_restore]
+                log_message(f"  -> ContentCatalog-Eintrag restauriert: {key_to_restore}", log_callback)
+
+            with open(STARFIELD_CONTENT_CATALOG_PATH, "w", encoding="utf-8", newline="\n") as f:
+                json.dump(live_cat, f, indent=2, ensure_ascii=False)
+        except Exception as ce:
+            log_message(f"Fehler bei Katalog-Restaurierung für '{mod_name}': {ce}", log_callback)
+
+    # 2. Mod-Dateien aus Backup/Mods/ nach Data/ zurückverschieben
+    mods_backup_dir = os.path.join(backup_dir, "Mods")
+    if os.path.exists(mods_backup_dir):
+        for comp_file in comp_files:
+            src_file = os.path.join(mods_backup_dir, comp_file)
+            if os.path.exists(src_file):
+                dst_file = os.path.join(STARFIELD_GAME_DATA_PATH, comp_file)
+                try:
+                    os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                    if os.path.exists(dst_file):
+                        try:
+                            os.remove(dst_file)
+                        except Exception:
+                            pass
+                    shutil.move(src_file, dst_file)
+                    log_message(f"  -> Spieldatei zurückverschoben: {comp_file}", log_callback)
+                except Exception as me:
+                    log_message(f"  WARNUNG: Konnte {comp_file} nicht zurückverschieben: {me}", log_callback)
+
+    # 3. Plugins.txt Zeilen aus Backup wiederherstellen
+    plugins_backup_path = os.path.join(backup_dir, "Plugins.txt")
+    if os.path.exists(STARFIELD_PLUGINS_PATH) and os.path.exists(plugins_backup_path):
+        try:
+            with open(plugins_backup_path, "r", encoding="utf-8-sig") as f:
+                orig_plugins = f.readlines()
+            with open(STARFIELD_PLUGINS_PATH, "r", encoding="utf-8-sig") as f:
+                live_plugins = f.readlines()
+
+            # Alle Zeilen aus orig_plugins für diese Mod übernehmen falls in live_plugins nicht vorhanden
+            live_plugins_lower = {l.strip().lstrip("*").strip().lower() for l in live_plugins}
+            changed_plugins = False
+            for line in orig_plugins:
+                clean = line.strip().lstrip("*").strip().lower()
+                if clean in comp_files_lower and clean not in live_plugins_lower:
+                    live_plugins.append(line if line.endswith("\n") else line + "\n")
+                    changed_plugins = True
+                    log_message(f"  -> Plugin wieder in Plugins.txt aufgenommen: {line.strip()}", log_callback)
+
+            if changed_plugins:
+                with open(STARFIELD_PLUGINS_PATH, "w", encoding="utf-8-sig") as f:
+                    f.writelines(live_plugins)
+        except Exception as pe:
+            log_message(f"Warnung bei Plugins.txt Restaurierung für '{mod_name}': {pe}", log_callback)
+
+    set_mod_update_state(mod_id, 10)  # Status: Rollback erfolgreich
+    log_message(f"Mod '{mod_name}' (ID {mod_id}) auf Status 10 ('Rollback erfolgreich') gesetzt.", log_callback)
+    return True
+
+
+def _apply_single_mod_update(mod: dict, backup_dir: str, log_callback=None):
+    """Bereinigt das Backup für eine erfolgreich aktualisierte Mod (Status 5 oder 9)."""
+    keep_backup = get_setting("Starfield_Mod_Update_Backup_Strategy", False)
+    if not keep_backup:
+        mod_id = mod.get("ID")
+        components = _get_mod_components(mod_id)
+        mods_backup_dir = os.path.join(backup_dir, "Mods")
+        if os.path.exists(mods_backup_dir):
+            for c in components:
+                backup_file = os.path.join(mods_backup_dir, c.get("File", ""))
+                if os.path.exists(backup_file):
+                    try:
+                        os.remove(backup_file)
+                    except Exception:
+                        pass
+
+
+def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None) -> tuple[int, str]:
+    """
+    Schritt 8: Klärt den Update-Status für alle Mods im aktuellen Lauf:
+    1. Erstellt frische Snapshots (ContentCatalog_Neu.txt, Plugins_Neu.txt)
+    2. Wertet die Zustandsmatrix für jede Mod aus (Status 3, 5, 6, 7, 8)
+    3. Führt die modebenen Aktionen aus:
+       - Status 6 -> Plugin in Plugins.txt aufnehmen -> Status 9 -> Übernahme
+       - Status 5 -> Übernahme
+       - Status 3, 7, 8 -> Erweiterter Rollback für diese Mod -> Status 10
+    4. Ermittelt das Gesamtergebnis:
+       - Alle 5 oder 9 -> State 4 ('Update erfolgreich', Grün)
+       - Alle 10 -> State 10 ('Rollback erfolgreich', Rot)
+       - Gemischt -> State 13 ('Update / Rollback erfolgreich', Gelb)
+    5. Bereinigt Mods_Updates und leere Backup-Verzeichnisse
+    """
+    log_message("=== Starfield_Mod_Update: Schritt 8 - Update Status klären gestartet ===", log_callback)
+
+    from Structure.Database import get_all_mods_updates, get_mod_by_id
+    updates = get_all_mods_updates()
+    if not updates:
+        log_message("Keine offenen Mods in Mods_Updates gefunden.", log_callback)
+        return 4, "Keine offenen Updates"
+
+    # Mod-Objekte laden
+    selected_mods = []
+    for u in updates:
+        m_id = u.get("Mod_ID")
+        m_data = get_mod_by_id(m_id)
+        if m_data:
+            # Version_update aus Mods_Updates beibehalten
+            m_data["Version_update"] = u.get("Version_update")
+            selected_mods.append(m_data)
+
+    # 1. & 2. Matrix auswerten
+    matrix_results = evaluate_mod_state_matrix(selected_mods, backup_dir, log_callback)
+
+    # 3. Modebene Aktionen ausführen
+    for mod in selected_mods:
+        m_id = mod.get("ID")
+        state = matrix_results.get(m_id, 3)
+
+        if state == 6:
+            # Plugins.txt fehlt -> Plugin aufnehmen -> Status 9
+            _activate_single_mod_plugin(mod, log_callback)
+            _apply_single_mod_update(mod, backup_dir, log_callback)
+            matrix_results[m_id] = 9
+        elif state == 5:
+            # Update abgeschlossen -> Übernahme
+            _apply_single_mod_update(mod, backup_dir, log_callback)
+        elif state in (3, 7, 8):
+            # Deinstalliert oder unvollständig -> Rollback für diese Mod -> Status 10
+            _rollback_single_mod(mod, backup_dir, log_callback)
+            matrix_results[m_id] = 10
+
+    # 4. In Datenbank übernehmen (überträgt Status 5 und 9, leert Mods_Updates)
+    apply_completed_mod_updates()
+    log_message("Mod-Daten für erfolgreiche Updates in Datenbank übernommen und Mods_Updates bereinigt.", log_callback)
+
+    # Leeres Unterverzeichnis Mods/ im Backup entfernen
+    mods_backup_dir = os.path.join(backup_dir, "Mods")
+    if os.path.exists(mods_backup_dir):
+        try:
+            # Prüfen ob noch Dateien vorhanden sind
+            has_files = False
+            for root, dirs, files in os.walk(mods_backup_dir):
+                if files:
+                    has_files = True
+                    break
+            if not has_files:
+                shutil.rmtree(mods_backup_dir, ignore_errors=True)
+                log_message("Leeres Backup-Unterverzeichnis 'Mods/' bereinigt.", log_callback)
+        except Exception:
+            pass
+
+    # 5. Gesamtergebnis ableiten
+    final_states = list(matrix_results.values())
+    if all(s in (5, 9) for s in final_states):
+        final_state = 4
+        final_reason = "Update erfolgreich"
+    elif all(s == 10 for s in final_states):
+        final_state = 10
+        final_reason = "Rollback erfolgreich"
+    else:
+        final_state = 13
+        final_reason = "Update / Rollback erfolgreich"
+
+    record_script_end("Starfield_Mod_Update.py", state=final_state, reason=final_reason)
+    log_message(f"=== Starfield_Mod_Update: Prozess beendet (State: {final_state} '{final_reason}') ===\n", log_callback)
+    return final_state, final_reason
+
+
+def step_complete_update(backup_dir: str, log_callback=None, parent_widget=None) -> bool:
+    """
+    Schritt 7: Regulärer Abschluss des Updates (Happy Path):
+    1. Validierung ContentCatalog (State 12 bei Erfolg)
+    2. Übergabe an resolve_update_status zur modebenen Abwicklung
+    """
+    log_message("=== Starfield_Mod_Update: Schritt 7 - Abschluss gestartet ===", log_callback)
+
+    valid, missing = step_validate_content_catalog(backup_dir, log_callback)
+    if not valid:
+        record_script_abort("Starfield_Mod_Update.py", state=11, reason="Validierung fehlerhaft")
+        log_message("=== Starfield_Mod_Update: Prozess abgebrochen (State: 11 'Validierung fehlerhaft') ===\n", log_callback)
+        if parent_widget:
+            missing_list_str = "\n".join(f"- {m}" for m in missing[:10])
+            if len(missing) > 10:
+                missing_list_str += f"\n... und {len(missing)-10} weitere"
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Critical,
+                "Validierungsfehler ContentCatalog",
+                f"Die Validierung des ContentCatalog nach dem Update ist fehlgeschlagen!\n\n"
+                f"Im aktuellen ContentCatalog fehlen folgende Mods aus dem vorherigen Stand:\n"
+                f"{missing_list_str}\n\n"
+                f"Der Status wurde in LOH_Executions auf 'Validierung fehlerhaft' (State 11) gesetzt.\n"
+                f"Bitte nutzen Sie die Schaltfläche 'Update Status klären', um den Zustand aufzulösen.",
+                QMessageBox.StandardButton.Ok,
+                parent_widget
+            )
+            _set_dark_title_bar(msg_box)
+            msg_box.exec()
+        return False
+
+    final_state, final_reason = resolve_update_status(backup_dir, log_callback, parent_widget)
+    return final_state in (4, 13)
+
+
+def step_complete_or_rollback(backup_dir: str, log_callback=None, parent_widget=None) -> bool:
+    """
+    Wird beim Schließen des Overlays oder bei regulärem Abschluss aufgerufen:
+    - Lautet der Status auf 3 ('Updates vollständig') oder 12 ('Validierung erfolgreich'): regulärer Abschluss.
+    - Lautet der Status auf 5 ('Update manuell abgebrochen') oder 11 ('Validierung fehlerhaft'):
+      Kein sofortiger destruktiver Eingriff! Verbleibt in Warteposition zur manuellen Klärung.
     """
     exec_info = get_script_last_execution("Starfield_Mod_Update.py")
     state = exec_info.get("State") if exec_info else None
 
-    if state == 5:
-        return auto_rollback(backup_dir, log_callback)
-    elif state in (3, 4) or state is None:
-        return step_complete_update(backup_dir, log_callback)
+    if state in (3, 12):
+        return step_complete_update(backup_dir, log_callback, parent_widget=parent_widget)
+    elif state in (5, 11):
+        log_message(f"Update befindet sich im Zustand {state} ('Klärungsbedarf'). Verharre in Warteposition für 'Update Status klären'.", log_callback)
+        return False
+
     return False
 
 
@@ -663,7 +1190,9 @@ UPDATE_STEPS = [
     (3, "Sicherungskopie erstellen", step_create_backup),
     (4, "Deinstallation der Mods", step_uninstall_mods),
     (5, "Starfield Creation Store Update & Scan", ModUpdateScanner),
-    (6, "Abschluss des Updates", step_complete_or_rollback),
+    (6, "Validierung ContentCatalog", step_validate_content_catalog),
+    (7, "Abschluss des Updates", step_complete_or_rollback),
+    (8, "Update Status klären", resolve_update_status),
 ]
 
 

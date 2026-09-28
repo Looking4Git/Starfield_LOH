@@ -36,6 +36,7 @@ def get_default_release_config() -> dict:
         "release_title": "",
         "release_notes": "",
         "release_file": "",
+        "is_prerelease": True,
         "packaging": {}
     }
 
@@ -56,6 +57,10 @@ def load_release_config() -> dict:
                     data.update(loaded)
         except Exception:
             pass
+
+    # Pre-Release / Beta Schalter
+    if "is_prerelease" not in data:
+        data["is_prerelease"] = data.get("is_beta", True)
 
     # GitHub-Token entschlüsseln falls verschlüsselt
     token = data.get("github_token", "")
@@ -79,7 +84,8 @@ def save_release_config(
     release_file: str = None,
     packaging: dict = None,
     pfx_password: str = None,
-    signing: dict = None
+    signing: dict = None,
+    is_prerelease: bool = None
 ) -> dict:
     """
     Speichert Werte in release.json.
@@ -114,6 +120,9 @@ def save_release_config(
 
     if release_file is not None:
         cfg["release_file"] = release_file
+
+    if is_prerelease is not None:
+        cfg["is_prerelease"] = bool(is_prerelease)
 
     if packaging is not None:
         cfg["packaging"] = packaging

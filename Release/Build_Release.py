@@ -110,6 +110,33 @@ class BuildReleaseWindow(QWidget):
         if os.path.exists(update_icon):
             self.ui.btn_suggest_title.setIcon(QIcon(update_icon))
 
+        # Checkbox Styling für Beta (Design_Rules konform)
+        check_icon = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
+        self.ui.chk_beta.setStyleSheet(f"""
+            QCheckBox {{
+                color: #e0e0e0;
+                font-size: 13px;
+                spacing: 6px;
+            }}
+            QCheckBox::indicator {{
+                width: 14px;
+                height: 14px;
+                border: 1px solid #5b7a9e;
+                border-radius: 2px;
+                background-color: #ffffff;
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: #d7a64b;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: #d7a64b;
+                image: url({check_icon});
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: #ffffff;
+            }}
+        """)
+
         # Validatoren für Versionierung (Neu / Ziel)
         int_val = QIntValidator(0, 999, self)
         self.ui.new_major.setValidator(int_val)
@@ -177,6 +204,7 @@ class BuildReleaseWindow(QWidget):
 
         # 3. Release-Konfiguration
         rel_cfg = load_release_config()
+        self.ui.chk_beta.setChecked(bool(rel_cfg.get("is_prerelease", True)))
         self.ui.inp_rel_title.setText(rel_cfg.get("release_title", ""))
         self.ui.inp_rel_notes.setPlainText(rel_cfg.get("release_notes", ""))
         self.ui.inp_token.setText(rel_cfg.get("github_token", ""))
@@ -422,13 +450,15 @@ class BuildReleaseWindow(QWidget):
         title_val = self.ui.inp_rel_title.text()
         notes_val = self.ui.inp_rel_notes.toPlainText()
         file_val = self.ui.inp_rel_file.text()
+        is_prerelease_val = self.ui.chk_beta.isChecked()
 
         save_release_config(
             github_token=token_val,
             release_title=title_val,
             release_notes=notes_val,
             release_file=file_val,
-            pfx_password=pfx_pwd_val
+            pfx_password=pfx_pwd_val,
+            is_prerelease=is_prerelease_val
         )
 
         self.ui.lbl_rel_save_status.setText("✓ release.json erfolgreich gespeichert.")
@@ -508,7 +538,7 @@ class BuildReleaseWindow(QWidget):
 
         try:
             v_info = load_version_info()
-            is_beta = (v_info.get("version_major", 0) == 0)
+            is_beta = self.ui.chk_beta.isChecked()
 
             def log_callback(msg: str):
                 self.ui.lbl_rel_push_status.setText(msg[:65])

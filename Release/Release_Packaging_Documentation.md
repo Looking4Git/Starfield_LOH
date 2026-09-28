@@ -60,12 +60,17 @@ Um für Windows-Anwender ein nahtloses und erwartungskonformes Entpack-Erlebnis 
 
 ---
 
-## 4. Packaging-Manifest (`Release/release.json`)
+## 4. Packaging-Manifest & Release-Konfiguration (`Release/release.json`)
 
-Das Manifest steuert deklarativ, welche Dateien und Ordner in das Auslieferungspaket wandern:
+Das Manifest steuert deklarativ, welche Dateien und Ordner in das Auslieferungspaket wandern, und verwaltet die GitHub-Release-Parameter:
 
 ```json
 {
+  "github_token": "dpapi:...",
+  "release_title": "Starfield_LOH_0.1.0+42",
+  "release_notes": "...",
+  "release_file": "...",
+  "is_prerelease": true,
   "packaging": {
     "empty_directories": [
       "Data",
@@ -93,6 +98,8 @@ Das Manifest steuert deklarativ, welche Dateien und Ordner in das Auslieferungsp
 
 * **Automatisches Bootstrapping:**
   `Database/Starfield_LOH_Template.db` wird im Zielverzeichnis direkt als sofort startfähige `Database/Starfield_LOH.db` abgelegt.
+* **Beta- / Pre-Release-Kennzeichnung (`is_prerelease`):**
+  Über die Checkbox »Beta« (`chk_beta`) im Release-Tool [Build_Release.py](file:///d:/Starfield_LOH/Release/Build_Release.py) wird gesteuert, ob das GitHub-Release als Vorabversion (`"prerelease": true`) oder reguläres Release (`"prerelease": false`) angelegt wird. Der Wert wird persistent in `release.json` gespeichert.
 
 ---
 

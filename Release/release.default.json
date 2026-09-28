@@ -3,6 +3,7 @@
   "release_title": "",
   "release_notes": "",
   "release_file": "",
+  "is_prerelease": true,
   "packaging": {
     "directories_to_copy": [
       {

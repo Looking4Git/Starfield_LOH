@@ -868,6 +868,38 @@
     </widget>
    </item>
 
+   <!-- Beta Checkbox (Pre-Release) -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_beta">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QCheckBox" name="chk_beta">
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>Beta</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_beta">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
    <!-- Release Name / Kurzbezeichnung -->
    <item>
     <layout class="QHBoxLayout" name="row_rel_name">

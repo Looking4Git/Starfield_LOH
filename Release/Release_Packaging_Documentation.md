@@ -122,6 +122,11 @@ Zum kryptographischen Schutz vor Manipulationen und Schadsoftware-Injektionen du
 3. **GitHub Release-Assets (`Release_GitHub_Manager.py`):**
    * Beim Upload werden neben dem ZIP-Archiv automatisch auch die `SHA256SUMS.txt` und das öffentliche Verifikations-Zertifikat `Starfield_LOH_CodeSign.cer` als Release-Assets bereitgestellt.
    * Anwender können die Signatur im Windows Explorer (Eigenschaften -> Digitale Signaturen) oder per PowerShell (`Get-AuthenticodeSignature`) verifizieren. Bei Veränderung von auch nur 1 Byte meldet Windows sofort `HashMismatch`.
+4. **Integrierte In-App Verifikation (`Structure/Security.py` & `Page_Settings_Info.py`):**
+   * Die Anwendung prüft beim Aufruf der Einstellungsseite (*Allgemein -> Info*) direkt unter der Programmversion ihre eigene Authenticode-Signatur.
+   * Zeigt bei gültiger Signatur von Looking4 ein grünes Verifikations-Badge (`✓ Zertifikat verifiziert: Looking4 (Authenticode)`).
+   * Schlägt bei Manipulation oder fehlender Signatur sofort optisch Alarm (`✗ Zertifikat ungültig: Keine von Looking4 erstellte Programmversion! (manipuliert)` bzw. `⚠ Nicht signierte Anwendungsdatei: Keine von Looking4 erstellte Programmversion! (manipuliert)`).
+   * Im Entwicklungsmodus (Start als unkompiliertes Python-Skript) wird neutral in Starfield-Gelb `ℹ Entwicklungsmodus (Unsigniertes Skript)` signalisiert.
 
 ---
 

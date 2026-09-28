@@ -56,6 +56,11 @@ class Page_Settings_Info(QWidget):
         lbl_version, self.inp_version = make_field("Programmversion:", ver_text)
         form_layout.addRow(lbl_version, self.inp_version)
 
+        self.lbl_cert_status = QLabel()
+        self.lbl_cert_status.setObjectName("lbl_cert_status")
+        form_layout.addRow("", self.lbl_cert_status)
+        self.update_certificate_status()
+
         layout.addLayout(form_layout)
 
         # =============================================================
@@ -201,3 +206,14 @@ class Page_Settings_Info(QWidget):
 
         # Spacer nach unten
         layout.addStretch()
+
+    def update_certificate_status(self):
+        """Aktualisiert die Statusanzeige für das digitale Zertifikat / Authenticode-Signatur."""
+        try:
+            from Structure.Security import check_binary_signature
+            _, text, color = check_binary_signature()
+            self.lbl_cert_status.setText(text)
+            self.lbl_cert_status.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+        except Exception as e:
+            self.lbl_cert_status.setText(f"⚠ Signaturprüfung fehlgeschlagen: {e}")
+            self.lbl_cert_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")

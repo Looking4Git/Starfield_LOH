@@ -136,10 +136,10 @@ Führt ausschließlich fachliche Detailzustände für den Update- und Rollback-P
 | **7** | `Rollback Mods wieder hergestellt` | Amber | Mod-Dateien zurück nach `Data/` verschoben |
 | **8** | `Rollback ContentCatalog.txt wieder hergestellt` | Amber | ContentCatalog.txt aus Backup restauriert |
 | **9** | `Rollback Plugins.txt wieder hergestellt` | Amber | Plugins.txt aus Backup restauriert |
-| **10** | `Rollback erfolgreich` | Rot (`#C72138`) | Gesamtes Rollback für alle Mods abgeschlossen |
+| **10** | `Rollback erfolgreich` | Grün (`#4CAF50`) | Gesamtes Rollback für alle Mods abgeschlossen |
 | **11** | `Validierung fehlerhaft` | Rot (`#C72138`) | Diskrepanz im ContentCatalog; Warteposition für 'Update Status klären' |
 | **12** | `Validierung erfolgreich` | Amber (`#D7A64B`) | Schritt 6: Katalog vollständig; Vorbereitung für Schritt 7 |
-| **13** | `Update / Rollback erfolgreich` | Amber (`#D7A64B`) | Schritt 8: Gemischter Abschluss (einige Mods aktualisiert, andere zurückgerollt) |
+| **13** | `Update / Rollback erfolgreich` | Grün (`#4CAF50`) | Schritt 8: Gemischter Abschluss (einige Mods aktualisiert, andere zurückgerollt) |
 
 ---
 
@@ -189,6 +189,7 @@ Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebenein
   * Bei Deaktivierung (Warteposition State 5 oder 11): Hintergrund `#222D3D` (abgedunkeltes Blau), Text `#666666`, Icon auf 35 % Transparenz gedimmt.
   * Aktiviert bei regulärem Zustand (State 4, 10, 13).
   * Deaktiviert in der Warteposition (State 5 oder 11).
+  * **Wichtig:** Während eines laufenden Updatelaufs (`is_update_running` bzw. aktive Zwischenzustände) ist »Update starten« (ebenso wie »Update prüfen«) strikt deaktiviert.
 * **»Update prüfen« (`btn_resolve_update_status`):**
   * Startet die gezielte Analyse und Reconciliation (`resolve_update_status`).
   * Farbvariante: Starfield-Rot (`#C72138`, Hover `#E03048`, Pressed `#A0182B`), Icon `Icon_Update.svg`.
@@ -198,9 +199,9 @@ Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebenein
   * **Wechselseitige Sperre:** Wenn »Update prüfen« aktiv ist, ist »Update starten« strikt inaktiv (und umgekehrt).
 
 ### B. Statusanzeige (`lbl_last_update_reason`)
-* **Grün (`#4CAF50`):** State 4 (`Update erfolgreich`)
-* **Rot (`#C72138`):** State 5 (`Update manuell abgebrochen`), State 10 (`Rollback erfolgreich`), State 11 (`Validierung fehlerhaft`)
-* **Amber / Starfield-Gold (`#D7A64B`):** State 12 (`Validierung erfolgreich`), State 13 (`Update / Rollback erfolgreich`) sowie laufende Zwischenschritte.
+* **Grün (`#4CAF50`):** State 4 (`Update erfolgreich`), State 10 (`Rollback erfolgreich`), State 13 (`Update / Rollback erfolgreich`)
+* **Rot (`#C72138`):** State 5 (`Update manuell abgebrochen`), State 11 (`Validierung fehlerhaft`)
+* **Amber / Starfield-Gold (`#D7A64B`):** State 12 (`Validierung erfolgreich`) sowie laufende Zwischenschritte.
 
 ### C. Filter »Anzeige«
 * **Updates (`updates`):** Zeigt alle installierten Mods mit vorliegendem Update. Checkboxen standardmäßig **angehakt**.

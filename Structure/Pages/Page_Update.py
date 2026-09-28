@@ -197,6 +197,7 @@ class Page_Update(QWidget):
             self.btn_resolve_update_status.clicked.connect(self.on_resolve_update_status_clicked)
 
         self.overlay_window = None
+        self.is_update_running = False
 
         # Tabelle konfigurieren
         self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -317,16 +318,16 @@ class Page_Update(QWidget):
         self.inp_last_update_date.setText(self.format_date_display(date_val))
 
         # Farbliche Unterscheidung:
-        # Grün (#4CAF50): State 4 ('Update erfolgreich')
-        # Rot (#C72138): State 5 ('Update manuell abgebrochen'), State 10 ('Rollback erfolgreich'), State 11 ('Validierung fehlerhaft')
-        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9, 12 ('Validierung erfolgreich'), 13 ('Update / Rollback erfolgreich')
-        if state_id == 4:
+        # Grün (#4CAF50): State 4 ('Update erfolgreich'), State 10 ('Rollback erfolgreich'), State 13 ('Update / Rollback erfolgreich')
+        # Rot (#C72138): State 5 ('Update manuell abgebrochen'), State 11 ('Validierung fehlerhaft')
+        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9, 12 ('Validierung erfolgreich')
+        if state_id in (4, 10, 13):
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #4CAF50; font-size: 13px; font-weight: bold; margin-left: 4px;")
-        elif state_id in (5, 10, 11):
+        elif state_id in (5, 11):
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #C72138; font-size: 13px; font-weight: bold; margin-left: 4px;")
-        elif state_id in (1, 2, 3, 6, 7, 8, 9, 12, 13):
+        elif state_id in (1, 2, 3, 6, 7, 8, 9, 12):
             self.lbl_last_update_reason.setText(reason)
             self.lbl_last_update_reason.setStyleSheet("color: #D7A64B; font-size: 13px; font-weight: bold; margin-left: 4px;")
         else:
@@ -336,13 +337,20 @@ class Page_Update(QWidget):
             self.lbl_last_update_reason.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; margin-left: 4px;")
 
         # Steuerung der Schaltflächen:
-        # In Warteposition (Zustand 5 = Abgebrochen, Zustand 11 = Validierung fehlerhaft):
-        # 'Update Status klären' aktivieren, 'Update starten' deaktivieren.
-        if state_id in (5, 11):
+        # 1. Wenn ein Updatelauf aktiv ist: 'Update starten' und 'Update prüfen' deaktivieren
+        if getattr(self, "is_update_running", False) or (not time_end and state_id in (1, 2, 3, 6, 7, 8, 9)):
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(False)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+        # 2. In Warteposition (Zustand 5 = Abgebrochen, Zustand 11 = Validierung fehlerhaft):
+        # 'Update prüfen' aktivieren, 'Update starten' deaktivieren.
+        elif state_id in (5, 11):
             if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
                 self.btn_resolve_update_status.setEnabled(True)
             if hasattr(self, "btn_start_update") and self.btn_start_update:
                 self.btn_start_update.setEnabled(False)
+        # 3. Normalzustand / Abgeschlossen:
         else:
             if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
                 self.btn_resolve_update_status.setEnabled(False)
@@ -579,6 +587,12 @@ class Page_Update(QWidget):
             return
 
         try:
+            self.is_update_running = True
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(False)
+
             # Schritt 2: Vorbereiten des Updates (LOH_Executions & Mods_Updates initialisieren)
             step_prepare_update(selected_mods, log_callback=self.log)
 
@@ -590,6 +604,7 @@ class Page_Update(QWidget):
             uninstall_ok = step_uninstall_mods(selected_mods, backup_path, log_callback=self.log)
             if not uninstall_ok:
                 auto_rollback(backup_path, log_callback=self.log)
+                self.is_update_running = False
                 self.load_data()
                 QMessageBox.critical(
                     self,
@@ -637,6 +652,8 @@ class Page_Update(QWidget):
             self.scanner.start_scanner()
 
         except Exception as e:
+            self.is_update_running = False
+            self.load_data()
             logging.error(f"Fehler beim Starten des Mod-Updates: {e}")
             QMessageBox.critical(
                 self,
@@ -654,6 +671,7 @@ class Page_Update(QWidget):
                 step_complete_or_rollback(self.current_backup_path, log_callback=self.log, parent_widget=self)
             except Exception as e:
                 logging.error(f"Fehler bei step_complete_or_rollback: {e}")
+        self.is_update_running = False
         self.load_data()
         self.data_updated.emit()
 

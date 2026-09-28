@@ -1049,8 +1049,8 @@ def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None
        - Status 3, 7, 8 -> Erweiterter Rollback für diese Mod -> Status 10
     4. Ermittelt das Gesamtergebnis:
        - Alle 5 oder 9 -> State 4 ('Update erfolgreich', Grün)
-       - Alle 10 -> State 10 ('Rollback erfolgreich', Rot)
-       - Gemischt -> State 13 ('Update / Rollback erfolgreich', Gelb)
+       - Alle 10 -> State 10 ('Rollback erfolgreich', Grün)
+       - Gemischt -> State 13 ('Update / Rollback erfolgreich', Grün)
     5. Bereinigt Mods_Updates und leere Backup-Verzeichnisse
     """
     log_message("=== Starfield_Mod_Update: Schritt 8 - Update Status klären gestartet ===", log_callback)

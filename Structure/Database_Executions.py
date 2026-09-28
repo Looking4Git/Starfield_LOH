@@ -149,9 +149,11 @@ def set_script_execution_manual(script_name: str, date_str: str, time_start: str
         return False
 
 
-def update_script_execution_state(script_name: str, state: int | None) -> bool:
+def update_script_execution_state(script_name: str, state: int | None, reason: str | None = None) -> bool:
     """Aktualisiert den State in LOH_Executions (ohne Time_End zu verändern)."""
     init_loh_executions_table()
+    if state is None and reason is not None:
+        state = _resolve_state_id(reason)
     try:
         with db_cursor(auto_commit=True) as cur:
             cur.execute("UPDATE LOH_Executions SET State = ? WHERE Script_Name = ?", (state, script_name))

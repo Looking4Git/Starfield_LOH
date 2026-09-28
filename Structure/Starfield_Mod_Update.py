@@ -17,6 +17,7 @@ Implementiert die 8-stufige semantische Pipeline:
 
 import os
 import sys
+import re
 import json
 import shutil
 import logging
@@ -514,11 +515,16 @@ class ModUpdateScanner(QObject):
         if all_done:
             log_message("=== Starfield_Mod_Update: Alle Mods erfolgreich aktualisiert! ===")
             self.stop_scanner()
-            update_script_execution_state("Starfield_Mod_Update.py", 3)
+            update_script_execution_state("Starfield_Mod_Update.py", 3, reason="Updates vollständig")
             if self.overlay_window:
                 self.overlay_window.show_completion_view()
-            # Schritt 6 ausführen
-            step_complete_update(self.backup_dir)
+            # Schritt 7 & 8: Validierung & DB-Übertrag ausführen
+            try:
+                step_complete_update(self.backup_dir, log_callback=log_message, parent_widget=self.parent_page)
+            except Exception as e:
+                logging.error(f"Fehler in step_complete_update: {e}", exc_info=True)
+                log_message(f"FEHLER beim Abschluss des Updates: {e}")
+
             if self.parent_page and hasattr(self.parent_page, "load_data"):
                 self.parent_page.load_data()
             if self.parent_page and hasattr(self.parent_page, "data_updated"):
@@ -719,6 +725,13 @@ def step_validate_content_catalog(backup_dir: str, log_callback=None) -> tuple[b
     return True, []
 
 
+def clean_catalog_version(raw_version: str) -> str:
+    """Bereinigt den Bethesda Build-Timestamp-Prefix aus der ContentCatalog-Version (z. B. 1763590455.22 -> 22)."""
+    if not raw_version:
+        return ""
+    return re.sub(r'^\d{9,12}\.', '', str(raw_version).strip())
+
+
 def evaluate_mod_state_matrix(selected_mods: list[dict], backup_dir: str, log_callback=None) -> dict[int, int]:
     """
     Wertet jede Mod im Update-Lauf anhand der 4-dimensionalen Zustandsmatrix aus:
@@ -793,7 +806,8 @@ def evaluate_mod_state_matrix(selected_mods: list[dict], backup_dir: str, log_ca
 
         # Dynamischer Versionsabgleich aus dem neuen Katalog
         if in_catalog and cat_entry:
-            cat_version = str(cat_entry.get("Version") or "").strip()
+            raw_cat_ver = str(cat_entry.get("Version") or "").strip()
+            cat_version = clean_catalog_version(raw_cat_ver)
             curr_update_ver = str(mod.get("Version_update") or "").strip()
             if cat_version and is_version_newer_sql(cat_version, curr_update_ver):
                 update_mod_update_version(mod_id, cat_version)
@@ -1156,6 +1170,7 @@ def step_complete_or_rollback(backup_dir: str, log_callback=None, parent_widget=
     - Lautet der Status auf 3 ('Updates vollständig') oder 12 ('Validierung erfolgreich'): regulärer Abschluss.
     - Lautet der Status auf 5 ('Update manuell abgebrochen') oder 11 ('Validierung fehlerhaft'):
       Kein sofortiger destruktiver Eingriff! Verbleibt in Warteposition zur manuellen Klärung.
+    - Lautet der Status noch auf 1 oder 2: Overlay wurde vorzeitig geschlossen -> Setzt State 5 (Warteposition).
     """
     exec_info = get_script_last_execution("Starfield_Mod_Update.py")
     state = exec_info.get("State") if exec_info else None
@@ -1163,7 +1178,11 @@ def step_complete_or_rollback(backup_dir: str, log_callback=None, parent_widget=
     if state in (3, 12):
         return step_complete_update(backup_dir, log_callback, parent_widget=parent_widget)
     elif state in (5, 11):
-        log_message(f"Update befindet sich im Zustand {state} ('Klärungsbedarf'). Verharre in Warteposition für 'Update Status klären'.", log_callback)
+        log_message(f"Update befindet sich im Zustand {state} ('Klärungsbedarf'). Verharre in Warteposition für 'Update prüfen'.", log_callback)
+        return False
+    elif state in (1, 2):
+        log_message("Overlay wurde vor Abschluss aller Downloads geschlossen. Setze Warteposition (State 5 'Update manuell abgebrochen').", log_callback)
+        record_script_abort("Starfield_Mod_Update.py", state=5, reason="Update manuell abgebrochen")
         return False
 
     return False

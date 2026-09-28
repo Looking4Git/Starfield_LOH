@@ -176,12 +176,24 @@ class Page_Update(QWidget):
 
         self.btn_start_update = ui.findChild(QPushButton, "btn_start_update")
         if self.btn_start_update:
-            make_button_premium(self.btn_start_update, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Update starten", centered=True)
+            make_button_premium(
+                self.btn_start_update,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"),
+                "Update starten",
+                centered=False,
+                variant="blue"
+            )
             self.btn_start_update.clicked.connect(self.on_start_update_clicked)
 
         self.btn_resolve_update_status = ui.findChild(QPushButton, "btn_resolve_update_status")
         if self.btn_resolve_update_status:
-            make_button_premium(self.btn_resolve_update_status, os.path.join(APP_ROOT, "Graphics", "Icon_Check.svg"), "Update Status klären", centered=True)
+            make_button_premium(
+                self.btn_resolve_update_status,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"),
+                "Update prüfen",
+                centered=False,
+                variant="red"
+            )
             self.btn_resolve_update_status.clicked.connect(self.on_resolve_update_status_clicked)
 
         self.overlay_window = None
@@ -249,27 +261,37 @@ class Page_Update(QWidget):
         """Findet das aktive Sicherungsverzeichnis für Starfield_Mod_Update."""
         if getattr(self, "current_backup_path", None) and os.path.isdir(self.current_backup_path):
             return self.current_backup_path
-        backup_root = os.path.join(APP_ROOT, "Backups", "Starfield_Mod_Update")
+        from Structure.Paths import BACKUPS_DIR
+        backup_root = os.path.join(BACKUPS_DIR, "LOH_Workspace", "Starfield_Mod_Update")
         if os.path.exists(backup_root):
             subdirs = [os.path.join(backup_root, d) for d in os.listdir(backup_root) if os.path.isdir(os.path.join(backup_root, d))]
             subdirs.sort(key=lambda p: os.path.getmtime(p), reverse=True)
             for d in subdirs:
-                if os.path.exists(os.path.join(d, "manifest.json")):
+                if os.path.exists(os.path.join(d, "ContentCatalog.txt")):
                     return d
         return None
 
     def on_resolve_update_status_clicked(self):
-        """Wird aufgerufen, wenn der Benutzer auf 'Update Status klären' klickt."""
+        """Wird aufgerufen, wenn der Benutzer auf 'Update prüfen' klickt."""
         backup_path = self.get_active_backup_path()
         if not backup_path:
             QMessageBox.warning(
                 self,
                 "Kein Sicherungsverzeichnis",
-                "Es konnte kein aktives Update-Sicherungsverzeichnis mit gültigem Manifest gefunden werden."
+                "Es konnte kein aktives Update-Sicherungsverzeichnis mit ContentCatalog.txt gefunden werden."
             )
             return
 
-        success = resolve_update_status(backup_path, log_callback=self.log, parent_widget=self)
+        try:
+            success = resolve_update_status(backup_path, log_callback=self.log, parent_widget=self)
+        except Exception as e:
+            logging.error(f"Fehler bei resolve_update_status: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Fehler beim Prüfen",
+                f"Beim Prüfen des Update-Status ist ein Fehler aufgetreten:\n{str(e)}"
+            )
+
         self.load_data()
         self.data_updated.emit()
 

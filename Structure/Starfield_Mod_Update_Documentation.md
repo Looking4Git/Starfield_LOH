@@ -67,7 +67,7 @@ Schritt 6: Validierung ContentCatalog (step_validate_content_catalog)
        │
        ▼
 Schritt 7: Klärung & Reconciliation (resolve_update_status)
-       ├─ Einstieg über Schritt 6 (bei Erfolg) ODER Klick auf 'Update Status klären' (bei State 5 / 11)
+       ├─ Einstieg über Schritt 6 (bei Erfolg) ODER Klick auf 'Update prüfen' (bei State 5 / 11)
        ├─ evaluate_mod_state_matrix(): Prüfung jeder Mod gegen die 4-dimensionale Matrix
        │    ├─ Dynamischer Versionsabgleich: Liegt in ContentCatalog_Neu eine höhere Version vor,
        │    │  wird Version_update in der Datenbank automatisch hochgezogen.
@@ -182,15 +182,20 @@ Das Overlay begleitet den Benutzer während Starfield im Vollbild oder Fenstermo
 ## 6. Benutzeroberfläche & Steuerung auf der Update-Seite (`Page_Update.py`)
 
 ### A. Schaltflächen im Update-Bereich
-Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebeneinander zur Verfügung:
+Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebeneinander zur Verfügung (beide linksbündig formatiert mit dynamischem Inaktiv-Styling):
 * **»Update starten« (`btn_start_update`):**
   * Startet die Vorbereitung, Sicherung, Deinstallation und das Overlay.
+  * Farbvariante: Starfield-Blau (`#304C7A`), Text `#ECECEC`.
+  * Bei Deaktivierung (Warteposition State 5 oder 11): Hintergrund `#222D3D` (abgedunkeltes Blau), Text `#666666`, Icon auf 35 % Transparenz gedimmt.
   * Aktiviert bei regulärem Zustand (State 4, 10, 13).
   * Deaktiviert in der Warteposition (State 5 oder 11).
-* **»Update Status klären« (`btn_resolve_update_status`):**
+* **»Update prüfen« (`btn_resolve_update_status`):**
   * Startet die gezielte Analyse und Reconciliation (`resolve_update_status`).
+  * Farbvariante: Starfield-Rot (`#C72138`, Hover `#E03048`, Pressed `#A0182B`), Icon `Icon_Update.svg`.
+  * Bei Deaktivierung (regulärer Zustand): Hintergrund `#422226` (abgedunkeltes Rot), Text `#666666`, Icon auf 35 % Transparenz gedimmt.
   * Aktiviert, wenn der letzte Ausführungszustand `5` (`Update manuell abgebrochen`) oder `11` (`Validierung fehlerhaft`) ist.
   * Deaktiviert, wenn kein offener Klärungsbedarf besteht.
+  * **Wechselseitige Sperre:** Wenn »Update prüfen« aktiv ist, ist »Update starten« strikt inaktiv (und umgekehrt).
 
 ### B. Statusanzeige (`lbl_last_update_reason`)
 * **Grün (`#4CAF50`):** State 4 (`Update erfolgreich`)

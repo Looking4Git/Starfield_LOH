@@ -572,13 +572,7 @@ class Window_Mod_Update_Overlay(QWidget):
         self.lbl_counter.setText(f"{completed} von {total} Mods aktualisiert")
 
     def show_completion_view(self):
-        """Schaltet auf die Abschlussmeldung um und protokolliert erfolgreichen Abschluss."""
-        try:
-            from Structure.Starfield_Mod_Update import complete_mod_update
-            complete_mod_update(reason="Update erfolgreich")
-        except Exception as e:
-            import logging
-            logging.error(f"Fehler bei complete_mod_update: {e}")
+        """Schaltet auf die Abschlussmeldung im Overlay um."""
         total = len(self.selected_mods)
         self.lbl_counter.setText(f"{total} von {total} Mods aktualisiert")
         self.stacked_widget.setCurrentIndex(2)

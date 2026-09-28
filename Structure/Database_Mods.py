@@ -242,7 +242,7 @@ def get_lookup_data(table_name: str, order_by: str = "ID") -> list[dict]:
         return []
         
     # Erlaubte Spalten für order_by absichern (Schutz gegen SQL-Injection)
-    allowed_columns = ["ID", "Name", "Category", "Sorting", "Assessment", "State"]
+    allowed_columns = ["ID", "Position", "Name", "Category", "Sorting", "Assessment", "State"]
     order_parts = order_by.strip().split()
     col = order_parts[0] if order_parts else ""
     direction = order_parts[1].upper() if len(order_parts) > 1 else "ASC"

@@ -180,7 +180,12 @@ def _perform_copy(src_dir: str, dst_dir: str) -> tuple[bool, str]:
             "Mod_Images",
             "Backups",
             os.path.join("Backups", "Profile_Activation"),
-            os.path.join("Backups", "LOH_Workspace")
+            os.path.join("Backups", "Starfield_Mod_Update"),
+            os.path.join("Backups", "LOH_Workspace"),
+            os.path.join("Backups", "LOH_Workspace", "Starfield_Get_Data"),
+            os.path.join("Backups", "LOH_Workspace", "Starfield_LoadOrder_Import"),
+            os.path.join("Backups", "LOH_Workspace", "Starfield_Check_Deleted"),
+            os.path.join("Backups", "LOH_Workspace", "Starfield_LoadOrder_Check")
         ]:
             os.makedirs(os.path.join(dst_dir, sub), exist_ok=True)
 

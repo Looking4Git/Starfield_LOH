@@ -78,6 +78,13 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Eingabebereich:** Weißer Hintergrund (`#FFFFFF`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
 * **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund Starfield-Blau (`#304C7A`), Hover `#5B7A9E`, Rahmen `none`.
 * **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), weiß, zentriert.
+* **Aufklappliste / Popup-Ansicht (`QComboBox QAbstractItemView`):**
+  * Hintergrund: Reinweiß (`#FFFFFF`).
+  * Textfarbe der Einträge: Tiefschwarz (`#000000`).
+  * Selektion (`selection-background-color`): Starfield-Blau (`#304C7A`), Textfarbe Weiß (`#FFFFFF`).
+  * Mausberührung (`item:hover`): Helles Blau (`#5B7A9E`), Textfarbe Weiß (`#FFFFFF`).
+  * Rahmen: `1px solid #304C7A`.
+  * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Pages.qss` für alle Hauptseiten sowie alle angedockten Diagnose- und Statistikfenster. Lokale Widget-Stylesheets müssen diese View-Eigenschaften zwingend mitführen.
 * **Mindestbreite:** Im Formularbereich standardmäßig `220px`.
 
 ---
@@ -93,6 +100,9 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
 * **Gefahrenbuttons (`btn_danger`, z. B. Löschen):**
   * Hintergrund: Starfield-Rot (`#C72138`), Hover `#E03048`, Pressed `#A0182B`.
+* **Spezifische Icon-Standards:**
+  * **Webseiten-Aufruf (z. B. `btn_open_url` auf `Page_Mods` und `Page_Update`):** Nutzt verbindlich `Graphics/Icon_Downstream.svg`.
+  * **Fetch- und Synchronisations-Aktionen (z. B. `btn_fetch`, `btn_nexus_fetch`, `btn_loot_fetch` auf `Page_Tools`):** Nutzen verbindlich `Graphics/Icon_Cloud.svg`.
 
 ---
 

@@ -171,7 +171,7 @@ class Page_Update(QWidget):
 
         self.btn_open_url = ui.findChild(QPushButton, "btn_open_url")
         if self.btn_open_url:
-            make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Web.svg"), "Öffnen")
+            make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Downstream.svg"), "Öffnen")
             self.btn_open_url.clicked.connect(self.open_mod_url)
 
         self.btn_start_update = ui.findChild(QPushButton, "btn_start_update")
@@ -263,7 +263,10 @@ class Page_Update(QWidget):
         if getattr(self, "current_backup_path", None) and os.path.isdir(self.current_backup_path):
             return self.current_backup_path
         from Structure.Paths import BACKUPS_DIR
-        backup_root = os.path.join(BACKUPS_DIR, "LOH_Workspace", "Starfield_Mod_Update")
+        backup_root = os.path.join(BACKUPS_DIR, "Starfield_Mod_Update")
+        if not os.path.exists(backup_root):
+            # Fallback für Altbestände
+            backup_root = os.path.join(BACKUPS_DIR, "LOH_Workspace", "Starfield_Mod_Update")
         if os.path.exists(backup_root):
             subdirs = [os.path.join(backup_root, d) for d in os.listdir(backup_root) if os.path.isdir(os.path.join(backup_root, d))]
             subdirs.sort(key=lambda p: os.path.getmtime(p), reverse=True)

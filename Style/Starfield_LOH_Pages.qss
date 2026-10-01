@@ -335,6 +335,32 @@ QComboBox::drop-down:hover {
     background-color: #5b7a9e;
 }
 
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #000000;
+    selection-background-color: #304C7A;
+    selection-color: #ECECEC;
+    border: 1px solid #888888;
+    padding: 2px 0px;
+    outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 24px;
+    padding: 2px 8px;
+    color: #000000;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #304C7A;
+    color: #ECECEC;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #5b7a9e;
+    color: #FFFFFF;
+}
+
 /* =========================================================
    Assessment Sterne
    ========================================================= */

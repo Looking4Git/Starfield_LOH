@@ -10,7 +10,7 @@ import sys
 
 from Structure.Paths import (
     STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT,
-    BACKUPS_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, GET_DATA_LOG_FILE, CHECK_LOG_FILE
+    BACKUPS_DIR, BACKUPS_GET_DATA_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, GET_DATA_LOG_FILE, CHECK_LOG_FILE
 )
 from Structure.Database import (
     check_component_exists,
@@ -33,7 +33,6 @@ from Structure.File_ESM_Parser import (
     MOD_POINTER_COLS
 )
 from Structure.Parser_Reporter import ParserProgressReporter
-from Structure.LOH_Backup_Manager import prepare_backup_directory
 
 
 def calculate_shifters(counts):
@@ -712,9 +711,10 @@ def run_local_check(log_signal):
     conn = None
     try:
         log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
-        backup_dir = prepare_backup_directory("LOH_Workspace/Starfield_Get_Data", max_keep=10)
+        backup_dir = BACKUPS_GET_DATA_DIR
+        os.makedirs(backup_dir, exist_ok=True)
 
-        plugins_backup_path = os.path.join(backup_dir, "Plugins_Check.txt")
+        plugins_backup_path = os.path.join(backup_dir, "Plugins.txt")
         if os.path.exists(STARFIELD_PLUGINS_PATH):
             shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
             log_msg(f"-> Erfolgreich kopiert: Plugins.txt (nach {backup_dir})")
@@ -722,17 +722,17 @@ def run_local_check(log_signal):
             log_msg(f"FEHLER: Plugins.txt nicht gefunden.")
             return False
 
-        catalog_backup_path = os.path.join(backup_dir, "ContentCatalog_Check.txt")
+        catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
         if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
             shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, catalog_backup_path)
             log_msg(f"-> Erfolgreich kopiert: ContentCatalog.txt (nach {backup_dir})")
 
         # 1. Metadaten-Mapping
-        log_msg("\n[1] Lese ContentCatalog_Check.txt und werte Binary Header (.esm) aus...")
+        log_msg("\n[1] Lese ContentCatalog.txt und werte Binary Header (.esm) aus...")
         catalog_mapping = build_catalog_mapping(catalog_backup_path, log_msg)
 
-        # 2. Plugins_Check.txt als State-Machine iterieren
-        log_msg("\n[2] Starte DB-Abgleich basierend auf Plugins_Check.txt und aktualisiere Datenbank...")
+        # 2. Plugins.txt als State-Machine iterieren
+        log_msg("\n[2] Starte DB-Abgleich basierend auf Plugins.txt und aktualisiere Datenbank...")
         
         with open(plugins_backup_path, 'r', encoding='utf-8-sig') as f:
             lines = f.readlines()
@@ -1034,7 +1034,7 @@ def run_local_check(log_signal):
             log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung oder Requirements-Zuweisung: {str(e)}")
 
         log_msg(f"\nZusammenfassung:")
-        log_msg(f"- {processed_count} aktivierte Masterfiles (.esm) in Plugins_Check.txt gelesen.")
+        log_msg(f"- {processed_count} aktivierte Masterfiles (.esm) in Plugins.txt gelesen.")
         log_msg(f"- {new_mods_count} neue Mods importiert.")
         log_msg(f"- {update_mods_count} bestehende Mods verarbeitet.")
         log_msg("\nProzess erfolgreich abgeschlossen.\n")

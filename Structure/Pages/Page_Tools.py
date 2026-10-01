@@ -75,7 +75,7 @@ class Page_Tools(QWidget):
 
         # 4. Bethesda Fetch
         self.btn_fetch = Widget_TileIconButton(
-            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Web.svg"),
+            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Cloud.svg"),
             text="Bethesda\nFetch",
             variant="blue",
         )
@@ -84,7 +84,7 @@ class Page_Tools(QWidget):
 
         # 5. Nexus Fetch
         self.btn_nexus_fetch = Widget_TileIconButton(
-            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Web.svg"),
+            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Cloud.svg"),
             text="Nexus\nFetch",
             variant="blue",
         )
@@ -93,7 +93,7 @@ class Page_Tools(QWidget):
 
         # 6. LOOT Fetch
         self.btn_loot_fetch = Widget_TileIconButton(
-            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Web.svg"),
+            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Cloud.svg"),
             text="LOOT\nFetch",
             variant="blue",
         )

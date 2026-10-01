@@ -24,8 +24,8 @@
   "settings": {
     "Auto_Save": 1,
     "Limit_Warning_Percentage": 90,
-    "Prefer_Content_BarChart": false,
     "Prefer_Conflict_Tiles": false,
+    "Prefer_Content_BarChart": false,
     "Starfield_Mod_Update_Backup_Strategy": false
   },
   "creation_engine_limits": {
@@ -35,5 +35,9 @@
     "Projection_PointerHandles_Core": 1200000,
     "Projection_PointerHandles_Mods": 23,
     "Limit_PointerHandles": 2097152
+  },
+  "window_mod_statistics": {
+    "min_width": 1000,
+    "docked_width": 1000
   }
 }

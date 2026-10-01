@@ -119,7 +119,7 @@ def activate_profile(profile_id: int, profile_name: str) -> tuple[bool, str, str
 
     # 1. Sicherungsverzeichnis vorbereiten (inkl. 10er-Rotation)
     try:
-        backup_dir = prepare_backup_directory("LOH_Workspace/Profile_Activation", max_keep=10)
+        backup_dir = prepare_backup_directory("Profile_Activation", max_keep=10)
     except Exception as e:
         err_msg = f"Konnte Sicherungsverzeichnis nicht vorbereiten: {e}"
         logging.error(err_msg)

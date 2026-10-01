@@ -79,6 +79,43 @@ class Section_Mod_Statistics_Category(QWidget):
                     padding: 3px 6px;
                     border-radius: 2px;
                 }
+                QComboBox::drop-down {
+                    subcontrol-origin: border;
+                    subcontrol-position: top right;
+                    width: 26px;
+                    background-color: #304C7A;
+                    border: none;
+                }
+                QComboBox::down-arrow {
+                    image: url(Graphics/Icon_Arrow_Down.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+                QComboBox::drop-down:hover {
+                    background-color: #5b7a9e;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #ffffff;
+                    color: #000000;
+                    selection-background-color: #304C7A;
+                    selection-color: #ECECEC;
+                    border: 1px solid #888888;
+                    padding: 2px 0px;
+                    outline: none;
+                }
+                QComboBox QAbstractItemView::item {
+                    min-height: 24px;
+                    padding: 2px 8px;
+                    color: #000000;
+                }
+                QComboBox QAbstractItemView::item:selected {
+                    background-color: #304C7A;
+                    color: #ECECEC;
+                }
+                QComboBox QAbstractItemView::item:hover {
+                    background-color: #5b7a9e;
+                    color: #FFFFFF;
+                }
             """)
             self.load_categories()
             self.cmb_category.activated.connect(self.on_category_activated)

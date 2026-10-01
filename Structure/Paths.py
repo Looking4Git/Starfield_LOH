@@ -238,8 +238,12 @@ DATA_DIR = resolve_path(get_setting("LOH_data", get_setting("data_path", "Data")
 MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
 BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
 BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
+BACKUPS_GET_DATA_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Get_Data")
+BACKUPS_IMPORT_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Import")
+BACKUPS_CHECK_DELETED_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Check_Deleted")
+BACKUPS_LOADORDER_CHECK_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Check")
 BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
-BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
+BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_DIR, "Starfield_Mod_Update")
 NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
 
 
@@ -247,16 +251,26 @@ def update_runtime_data_paths(new_data_path: str):
     """
     Aktualisiert die dynamischen Nutzdatenpfade zur Laufzeit (z. B. nach Umzug via LOH_Change_Data_Path).
     """
-    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR, NEXUS_BROWSER_PROFILE_DIR
+    global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR
+    global BACKUPS_GET_DATA_DIR, BACKUPS_IMPORT_DIR, BACKUPS_CHECK_DELETED_DIR, BACKUPS_LOADORDER_CHECK_DIR
+    global BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR, NEXUS_BROWSER_PROFILE_DIR
     DATA_DIR = resolve_path(new_data_path, "Data")
     MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
     BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
     BACKUPS_WORKSPACE_DIR = os.path.join(BACKUPS_DIR, "LOH_Workspace")
+    BACKUPS_GET_DATA_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Get_Data")
+    BACKUPS_IMPORT_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Import")
+    BACKUPS_CHECK_DELETED_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Check_Deleted")
+    BACKUPS_LOADORDER_CHECK_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Check")
     BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
-    BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_Mod_Update")
+    BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_DIR, "Starfield_Mod_Update")
     NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
     
-    for directory in [DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR]:
+    for directory in [
+        DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR,
+        BACKUPS_GET_DATA_DIR, BACKUPS_IMPORT_DIR, BACKUPS_CHECK_DELETED_DIR, BACKUPS_LOADORDER_CHECK_DIR,
+        BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR
+    ]:
         os.makedirs(directory, exist_ok=True)
 
     # Alle bereits geladenen Module in sys.modules sofort auf die neuen Pfade aktualisieren
@@ -265,6 +279,10 @@ def update_runtime_data_paths(new_data_path: str):
         "MOD_IMAGES_DIR": MOD_IMAGES_DIR,
         "BACKUPS_DIR": BACKUPS_DIR,
         "BACKUPS_WORKSPACE_DIR": BACKUPS_WORKSPACE_DIR,
+        "BACKUPS_GET_DATA_DIR": BACKUPS_GET_DATA_DIR,
+        "BACKUPS_IMPORT_DIR": BACKUPS_IMPORT_DIR,
+        "BACKUPS_CHECK_DELETED_DIR": BACKUPS_CHECK_DELETED_DIR,
+        "BACKUPS_LOADORDER_CHECK_DIR": BACKUPS_LOADORDER_CHECK_DIR,
         "BACKUPS_ACTIVATION_DIR": BACKUPS_ACTIVATION_DIR,
         "BACKUPS_MOD_UPDATE_DIR": BACKUPS_MOD_UPDATE_DIR,
         "NEXUS_BROWSER_PROFILE_DIR": NEXUS_BROWSER_PROFILE_DIR,
@@ -279,7 +297,11 @@ def update_runtime_data_paths(new_data_path: str):
 
 
 # Sicherstellen, dass die initialen Ordner existieren
-for directory in [LOGS_DIR, DATABASE_DIR, DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR, BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR]:
+for directory in [
+    LOGS_DIR, DATABASE_DIR, DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR,
+    BACKUPS_GET_DATA_DIR, BACKUPS_IMPORT_DIR, BACKUPS_CHECK_DELETED_DIR, BACKUPS_LOADORDER_CHECK_DIR,
+    BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR
+]:
     os.makedirs(directory, exist_ok=True)
 
 

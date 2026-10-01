@@ -44,18 +44,37 @@ Logs/*
 # Backups & dynamische Nutzdaten (Ordnerstruktur bleibt über .gitkeep)
 Data/Backups/*
 !Data/Backups/.gitkeep
+
+# Aktive Backups (10er-Rotation)
+!Data/Backups/Profile_Activation/
+Data/Backups/Profile_Activation/*
+!Data/Backups/Profile_Activation/.gitkeep
+
+!Data/Backups/Starfield_Mod_Update/
+Data/Backups/Starfield_Mod_Update/*
+!Data/Backups/Starfield_Mod_Update/.gitkeep
+
+# Passive Backups & Diagnose-Snapshots
 !Data/Backups/LOH_Workspace/
 Data/Backups/LOH_Workspace/*
 !Data/Backups/LOH_Workspace/.gitkeep
+
 !Data/Backups/LOH_Workspace/Starfield_Get_Data/
 Data/Backups/LOH_Workspace/Starfield_Get_Data/*
 !Data/Backups/LOH_Workspace/Starfield_Get_Data/.gitkeep
-!Data/Backups/LOH_Workspace/Profile_Activation/
-Data/Backups/LOH_Workspace/Profile_Activation/*
-!Data/Backups/LOH_Workspace/Profile_Activation/.gitkeep
-!Data/Backups/LOH_Workspace/Starfield_Mod_Update/
-Data/Backups/LOH_Workspace/Starfield_Mod_Update/*
-!Data/Backups/LOH_Workspace/Starfield_Mod_Update/.gitkeep
+
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/
+Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/*
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/.gitkeep
+
+!Data/Backups/LOH_Workspace/Starfield_Check_Deleted/
+Data/Backups/LOH_Workspace/Starfield_Check_Deleted/*
+!Data/Backups/LOH_Workspace/Starfield_Check_Deleted/.gitkeep
+
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/
+Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/*
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/.gitkeep
+
 /Backups/
 
 # Mod-Vorschaubilder (Ordnerstruktur bleibt über .gitkeep)

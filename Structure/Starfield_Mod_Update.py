@@ -197,11 +197,11 @@ def step_prepare_update(selected_mods: list[dict], log_callback=None) -> bool:
 
 def step_create_backup(selected_mods: list[dict], log_callback=None) -> str:
     """
-    Schritt 3: Erstellt das Sicherungsverzeichnis unter Data/Backups/LOH_Workspace/Starfield_Mod_Update/
+    Schritt 3: Erstellt das Sicherungsverzeichnis unter Data/Backups/Starfield_Mod_Update/
     (10er-Rotation), den Unterordner 'Mods' und sichert Plugins.txt sowie ContentCatalog.txt.
     """
     log_message("=== Starfield_Mod_Update: Schritt 3 - Sicherung gestartet ===", log_callback)
-    backup_dir = prepare_backup_directory("LOH_Workspace/Starfield_Mod_Update", max_keep=10)
+    backup_dir = prepare_backup_directory("Starfield_Mod_Update", max_keep=10)
     log_message(f"Sicherungsverzeichnis vorbereitet: {backup_dir}", log_callback)
 
     mods_backup_dir = os.path.join(backup_dir, "Mods")

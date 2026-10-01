@@ -91,7 +91,7 @@ class Page_Mods(QWidget):
         
         self.btn_open_url = ui.findChild(QPushButton, "btn_open_url")
         if self.btn_open_url:
-            make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Web.svg"), "Öffnen")
+            make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Downstream.svg"), "Öffnen")
             self.btn_open_url.clicked.connect(self.open_mod_url)
         
         self.list_components = ui.findChild(QTreeView, "list_components")

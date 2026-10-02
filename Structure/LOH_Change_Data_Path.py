@@ -185,6 +185,7 @@ def _perform_copy(src_dir: str, dst_dir: str) -> tuple[bool, str]:
             os.path.join("Backups", "LOH_Workspace", "Starfield_Get_Data"),
             os.path.join("Backups", "LOH_Workspace", "Starfield_LoadOrder_Import"),
             os.path.join("Backups", "LOH_Workspace", "Starfield_Check_Deleted"),
+            os.path.join("Backups", "LOH_Workspace", "Starfield_LoadOrder_Get_Data"),
             os.path.join("Backups", "LOH_Workspace", "Starfield_LoadOrder_Check")
         ]:
             os.makedirs(os.path.join(dst_dir, sub), exist_ok=True)

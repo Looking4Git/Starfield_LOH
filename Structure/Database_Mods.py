@@ -546,6 +546,44 @@ def get_mod_conflicts_for_ui(mod_id: int) -> dict[int, str]:
             conn.close()
 
 
+def get_mod_conflict_avoidance_for_ui(mod_id: int) -> tuple[set[int], set[int]]:
+    """
+    Ermittelt Konfliktvermeidungs-Beziehungen aus Mods_Conflicts für ein Mod:
+    - req_ids (Rot): Mods, die vor dieser Mod laden müssen (ID_Mod_Requirement, wenn mod_id == ID_Mod_Dependent)
+    - dep_ids (Grün): Mods, die nach dieser Mod laden müssen (ID_Mod_Dependent, wenn mod_id == ID_Mod_Requirement)
+    Gibt (req_ids, dep_ids) zurück.
+    """
+    query = """
+        SELECT ID_Mod_Requirement, ID_Mod_Dependent
+        FROM Mods_Conflicts
+        WHERE (ID_Mod_Requirement = :mod_id OR ID_Mod_Dependent = :mod_id)
+          AND ID_Mod_Requirement IS NOT NULL
+          AND ID_Mod_Dependent IS NOT NULL
+    """
+    conn = None
+    req_ids = set()
+    dep_ids = set()
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(query, {"mod_id": mod_id})
+        rows = cur.fetchall()
+        for r in rows:
+            req_m = r["ID_Mod_Requirement"]
+            dep_m = r["ID_Mod_Dependent"]
+            if dep_m == mod_id and req_m != mod_id:
+                req_ids.add(int(req_m))
+            elif req_m == mod_id and dep_m != mod_id:
+                dep_ids.add(int(dep_m))
+        return req_ids, dep_ids
+    except sqlite3.Error as e:
+        logging.error(f"Fehler bei get_mod_conflict_avoidance_for_ui für Mod_ID {mod_id}: {e}")
+        return set(), set()
+    finally:
+        if conn:
+            conn.close()
+
+
 def delete_mod_requirement(mod_id: int, required_mod_name: str) -> bool:
     """Entfernt die Verknüpfung einer Voraussetzung für ein Mod."""
     query = """

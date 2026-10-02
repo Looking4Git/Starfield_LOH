@@ -266,3 +266,20 @@ Bewertet ungelöste FormID-Kollisionen (Typ 2 & 3) derselben Kategorie vor der D
 * Leert `LoadOrder_Sorter_Results` und fügt die 1..N Datensätze der berechneten Ladereihenfolge atomar ein.
 * Protokolliert den erfolgreichen Abschluss in `LOH_Executions` mit `record_script_end("LoadOrder_Sorter.py")`.
 
+---
+
+## 5. Dynamische Anzeige auf `Page_LoadOrder` (Modus »Konfliktvermeidung«)
+
+Zur interaktiven visuellen Kontrolle der Sorter- und Schiedsrichter-Entscheidungen bietet die Benutzeroberfläche auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py) das Dynamik-Dropdown mit dem Modus **»Konfliktvermeidung«** (ersetzt den vormaligen Modus »Kombiniert«):
+
+* **Funktionsweise:**
+  * Wertet die Schiedsrichter- und Vorrangregeln aus der Tabelle `Mods_Conflicts` (`ID_Mod_Requirement` und `ID_Mod_Dependent`) über die Funktion `get_mod_conflict_avoidance_for_ui(mod_id)` aus.
+* **Farbcodierung in der Ladereihenfolge-Tabelle:**
+  * **Voraussetzungen zur Konfliktvermeidung:** **Rot (`#C72138`, weißer Text)**  
+    Mods, die zwingend **vor** der aktuell selektierten Mod laden müssen, um Überschreibungs- und Raumkollisionen zu vermeiden.
+  * **Abhängige Mods zur Konfliktvermeidung:** **Grün (`#1F7343`, weißer Text)**  
+    Mods, die zwingend **nach** der aktuell selektierten Mod laden müssen, damit deren spezifische Änderungen Vorrang erhalten.
+* **Wichtige Abgrenzung:**
+  * Die Detailbäume (TreeView) zeigen weiterhin unverändert die echten **Mod-Abhängigkeiten** (`Mods_Requirements`).
+  * Die manuelle Umsortierung (Tasten & Drag & Drop) schützt weiterhin strikt die echten Mod-Abhängigkeiten.
+

@@ -16,7 +16,8 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
                                  apply_all_classifier_categories, has_classifier_categories, get_script_last_execution,
                                  apply_sorter_to_profile, apply_sorter_to_all_profiles,
-                                 has_sorter_results, get_mod_conflicts_for_ui)
+                                 has_sorter_results, get_mod_conflicts_for_ui,
+                                 get_mod_conflict_avoidance_for_ui)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
@@ -608,6 +609,41 @@ class Page_LoadOrder(QWidget):
             self.current_profile_id = None
             self.load_data()
         self.tree_profile.blockSignals(False)
+        self.refresh_profile_highlights()
+
+    def refresh_profile_highlights(self):
+        """Aktualisiert die grüne Kennzeichnung des aktiven Profils in tree_profile."""
+        try:
+            from Structure.Starfield_LoadOrder_Check import get_active_profile_ids
+            active_ids = set(get_active_profile_ids())
+        except Exception as e:
+            logging.warning(f"Fehler bei get_active_profile_ids: {e}")
+            active_ids = set()
+
+        color_active_bg = QColor("#1F7343")
+        color_active_fg = QColor("#FFFFFF")
+
+        for r in range(self.profile_model.rowCount()):
+            item_id = self.profile_model.item(r, 0)
+            item_name = self.profile_model.item(r, 1)
+            if not item_id or not item_name:
+                continue
+            p_id = item_id.data(Qt.ItemDataRole.UserRole)
+            if p_id in active_ids:
+                item_id.setData(color_active_bg, Qt.ItemDataRole.BackgroundRole)
+                item_id.setData(color_active_fg, Qt.ItemDataRole.ForegroundRole)
+                item_name.setData(color_active_bg, Qt.ItemDataRole.BackgroundRole)
+                item_name.setData(color_active_fg, Qt.ItemDataRole.ForegroundRole)
+                tooltip = "Aktives Profil (stimmt mit Plugins.txt überein)"
+                item_id.setToolTip(tooltip)
+                item_name.setToolTip(tooltip)
+            else:
+                item_id.setData(None, Qt.ItemDataRole.BackgroundRole)
+                item_id.setData(None, Qt.ItemDataRole.ForegroundRole)
+                item_name.setData(None, Qt.ItemDataRole.BackgroundRole)
+                item_name.setData(None, Qt.ItemDataRole.ForegroundRole)
+                item_id.setToolTip(None)
+                item_name.setToolTip(None)
 
     def on_activate_profile(self):
         indexes = self.tree_profile.selectionModel().selectedRows()
@@ -626,6 +662,7 @@ class Page_LoadOrder(QWidget):
 
         success, msg, backup_dir = activate_profile(profile_id, profile_name)
         if success:
+            self.refresh_profile_highlights()
             self.show_message_box("Profil aktiviert", msg, QMessageBox.Icon.Information)
         else:
             self.show_message_box("Fehler bei der Aktivierung", msg, QMessageBox.Icon.Critical)
@@ -1672,8 +1709,8 @@ class Page_LoadOrder(QWidget):
                         bg_color = color_conflict_type2
                     self._apply_row_color(r, bg_color, color_fg)
 
-        elif mode == "Kombiniert":
-            conflicts = get_mod_conflicts_for_ui(mod_id_int)
+        elif mode in ("Konfliktvermeidung", "Kombiniert"):
+            req_conflicts, dep_conflicts = get_mod_conflict_avoidance_for_ui(mod_id_int)
             for r in range(self.model.rowCount()):
                 item_pos = self.model.item(r, self.COL_POS)
                 if not item_pos:
@@ -1683,13 +1720,10 @@ class Page_LoadOrder(QWidget):
                     continue
                 row_mod_id = int(row_data["Mod_ID"])
                 bg_color = None
-                # Mod-Abhängigkeiten haben Farbvorrang
-                if row_mod_id in req_ids:
-                    bg_color = color_req
-                elif row_mod_id in dep_ids:
-                    bg_color = color_dep
-                elif row_mod_id in conflicts:
-                    bg_color = color_conflict_type1  # Einheitlich Gelb (#D7A64B)
+                if row_mod_id in req_conflicts:
+                    bg_color = color_req  # Rot (#C72138) - Voraussetzung zur Konfliktvermeidung (muss vor der Mod laden)
+                elif row_mod_id in dep_conflicts:
+                    bg_color = color_dep  # Grün (#1F7343) - Abhängig zur Konfliktvermeidung (muss nach der Mod laden)
                 if bg_color:
                     self._apply_row_color(r, bg_color, color_fg)
 

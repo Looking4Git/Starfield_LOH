@@ -22,7 +22,8 @@ Data/Backups/
     ├── Starfield_Get_Data/          ├── ContentCatalog.txt, Plugins.txt, .gitkeep
     ├── Starfield_LoadOrder_Import/  ├── Plugins.txt, .gitkeep
     ├── Starfield_Check_Deleted/     ├── Plugins.txt, .gitkeep
-    └── Starfield_LoadOrder_Check/   └── .gitkeep (Plugins.txt ab Phase B)
+    ├── Starfield_LoadOrder_Get_Data/ ├── Plugins.txt, .gitkeep
+    └── Starfield_LoadOrder_Check/   └── Plugins.txt, .gitkeep
 ```
 
 ---
@@ -68,6 +69,7 @@ Alle Verzeichnispfade sind zentral in [Structure/Paths.py](file:///d:/Starfield_
 | `BACKUPS_GET_DATA_DIR` | `Data/Backups/LOH_Workspace/Starfield_Get_Data` | Passiv (Get-Data Snapshots) |
 | `BACKUPS_IMPORT_DIR` | `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import` | Passiv (Import-Snapshots) |
 | `BACKUPS_CHECK_DELETED_DIR` | `Data/Backups/LOH_Workspace/Starfield_Check_Deleted` | Passiv (Deleted-Check Snapshots) |
+| `BACKUPS_LOADORDER_GET_DATA_DIR`| `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Get_Data` | Passiv (Get-Data Snapshots) |
 | `BACKUPS_LOADORDER_CHECK_DIR`| `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check` | Passiv (Start-Prüfungskopie) |
 
 * **Automatische Erstellung:** Sowohl der Anwendungsstart ([Structure/Paths.py](file:///d:/Starfield_LOH/Structure/Paths.py)) als auch das Datenpfad-Migrationswerkzeug ([Structure/LOH_Change_Data_Path.py](file:///d:/Starfield_LOH/Structure/LOH_Change_Data_Path.py)) stellen sicher, dass alle oben genannten Verzeichnisse automatisch existieren.

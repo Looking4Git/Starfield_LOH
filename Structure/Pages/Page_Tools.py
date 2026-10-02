@@ -6,7 +6,7 @@ from Structure.Paths import GRAPHICS_DIR
 from Structure.Workers import TaskWorker
 from Structure.Starfield_Get_Data import run_local_check
 from Structure.Starfield_Check_Deleted import run_deleted_check
-from Structure.Starfield_LoadOrder_Check import run_load_order_check
+from Structure.Starfield_LoadOrder_Get_Data import run_load_order_get_data
 from Structure.Bethesda_Fetch import run_fetch
 from Structure.Mods_Conflicts_Analyzer import analyze_conflicts
 from Structure.Nexus_Fetch import run_nexus_fetch
@@ -64,13 +64,13 @@ class Page_Tools(QWidget):
         self.btn_deleted_check.clicked.connect(self.start_deleted_check)
         layout_modules.addWidget(self.btn_deleted_check)
 
-        # 3. Starfield LoadOrder Check
+        # 3. Starfield LoadOrder Get Data
         self.btn_load_order_check = Widget_TileIconButton(
             icon_path=os.path.join(GRAPHICS_DIR, "Icon_Update.svg"),
             text="Starfield\nLoadOrder",
             variant="blue",
         )
-        self.btn_load_order_check.clicked.connect(self.start_load_order_check)
+        self.btn_load_order_check.clicked.connect(self.start_load_order_get_data)
         layout_modules.addWidget(self.btn_load_order_check)
 
         # 4. Bethesda Fetch
@@ -186,14 +186,18 @@ class Page_Tools(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
-    def start_load_order_check(self):
+    def start_load_order_get_data(self):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(run_load_order_check, start_message="Thread gestartet: Load Order Check & Re-Sequence...")
+        self.worker = TaskWorker(run_load_order_get_data, start_message="Thread gestartet: Starfield LoadOrder Get Data & Re-Sequence...")
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
+
+    def start_load_order_check(self):
+        """Alias für Rückwärtskompatibilität."""
+        self.start_load_order_get_data()
 
     def start_fetch(self):
         self.set_buttons_enabled(False)

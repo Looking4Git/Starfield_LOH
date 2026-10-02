@@ -131,6 +131,18 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_HeaderView_Documentation.md).
+* **Aktive Profilmarkierung (`tree_profile`):**
+  * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` grün hinterlegt:
+    * Hintergrund: Deep Sci-Fi Grün (`#1F7343`).
+    * Schriftfarbe: Weiß (`#FFFFFF`).
+    * Tooltip: `Aktives Profil (stimmt mit Plugins.txt überein)`.
+  * Nicht übereinstimmende Profile verbleiben im neutralen Standard-Styling.
+* **Dynamische Zeilenfarben in der Ladereihenfolge (`Page_LoadOrder`):**
+  * **Modus »Abhängigkeiten«:** Voraussetzungen = Rot (`#C72138`), Abhängige Mods = Grün (`#1F7343`).
+  * **Modus »Konflikte«:** Typ 3 = Rot (`#C72138`), Typ 2 = Orange (`#E06236`), Typ 1 = Gelb (`#D7A64B`), Behoben/Empfohlen = Grün (`#1F7343`).
+  * **Modus »Konfliktvermeidung«:**
+    * Voraussetzungen zur Konfliktvermeidung (Mods, die vor der selektierten Mod laden müssen): Rot (`#C72138`, weißer Text).
+    * Abhängige Mods zur Konfliktvermeidung (Mods, die nach der selektierten Mod laden müssen): Grün (`#1F7343`, weißer Text).
 
 ---
 

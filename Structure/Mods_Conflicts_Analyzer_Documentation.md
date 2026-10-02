@@ -330,7 +330,7 @@ GROUP BY mc.ID_Mod_Requirement, mc.ID_Mod_Dependent;
    * **Empfohlen / Optional / Behoben (`Conflict_Solution_Type_ID IN (1, 2, 3)`):** **Grün (`#1F7343`)**
    * **Typ 0 (Mitläufer):** Keine farbliche Markierung (neutral).
    * Bei mehreren Konflikten zwischen zwei Mods bestimmt stets der schwerste Konflikt die Zeilenfarbe.
-4. **Modus „Kombiniert“:** Voraussetzungen (**Rot**) und Abhängigkeiten (**Grün**) haben Vorrang vor Konflikten (**Gelb**).
+4. **Modus „Konfliktvermeidung“:** Voraussetzungen zur Konfliktvermeidung (Mods, die vor der selektierten Mod laden müssen, um Konflikte zu lösen: **Rot `#C72138`**) und abhängige Mods zur Konfliktvermeidung (Mods, die nach der selektierten Mod laden müssen: **Grün `#1F7343`**). Basierend auf den Schiedsrichter-Regeln in `Mods_Conflicts` (`ID_Mod_Requirement` / `ID_Mod_Dependent`).
 3. **Automatische Konfliktvermeidung:** 
    - **Wegfindung (Schritt 7):** Verhindert, dass versehentliche Creation-Kit-Mitläufer oder reine Vanilla-Resaves die mühsam angepassten Wegfindungsnetze aktiver Bau-Mods zerstören.
    - **Geländebereinigung & Architektur (Schritt 8):** Verhindert Null-Pointer-Glitches und CTDs bei `Delete vs. Disable`-Kollisionen, indem die sicher ausblendende Mod (`Initially Disabled` / `XESP`) zwingend nach der physisch löschenden Mod (`Deleted`) geladen wird.

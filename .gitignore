@@ -71,6 +71,10 @@ Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/*
 Data/Backups/LOH_Workspace/Starfield_Check_Deleted/*
 !Data/Backups/LOH_Workspace/Starfield_Check_Deleted/.gitkeep
 
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Get_Data/
+Data/Backups/LOH_Workspace/Starfield_LoadOrder_Get_Data/*
+!Data/Backups/LOH_Workspace/Starfield_LoadOrder_Get_Data/.gitkeep
+
 !Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/
 Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/*
 !Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/.gitkeep

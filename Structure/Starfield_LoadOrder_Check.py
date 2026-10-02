@@ -1,30 +1,82 @@
 import os
-import sqlite3
+import sys
+import shutil
 import logging
-from Structure.Paths import CHECK_LOG_FILE, STARFIELD_PLUGINS_PATH
-from Structure.Database import get_db_connection
-from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 
-def get_check_logger():
-    os.makedirs(os.path.dirname(CHECK_LOG_FILE), exist_ok=True)
-    if not os.path.exists(CHECK_LOG_FILE):
-        open(CHECK_LOG_FILE, 'w', encoding='utf-8').close()
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_LOADORDER_CHECK_DIR, LOADORDER_CHECK_LOG_FILE
+from Structure.Database import get_profiles, get_load_order
+
+def get_load_order_check_logger():
+    os.makedirs(os.path.dirname(LOADORDER_CHECK_LOG_FILE), exist_ok=True)
+    if not os.path.exists(LOADORDER_CHECK_LOG_FILE):
+        open(LOADORDER_CHECK_LOG_FILE, 'w', encoding='utf-8').close()
         
     logger = logging.getLogger("Starfield_LoadOrder_Check")
     logger.setLevel(logging.INFO)
     if not logger.handlers:
-        fh = logging.FileHandler(CHECK_LOG_FILE, encoding='utf-8')
+        fh = logging.FileHandler(LOADORDER_CHECK_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
 
-def write_to_log(message):
-    logger = get_check_logger()
+def write_to_log(message: str):
+    logger = get_load_order_check_logger()
     logger.info(message)
 
-def run_load_order_check(log_signal=None):
-    def log_msg(msg):
+def parse_live_plugins(plugins_path: str = None) -> list[tuple[str, int]]:
+    """
+    Liest eine Plugins.txt ein und liefert die geordnete Liste als (filename_lower, is_active).
+    Zeilen mit führendem '#' oder leere Zeilen werden ignoriert.
+    """
+    if plugins_path is None:
+        plugins_path = STARFIELD_PLUGINS_PATH
+
+    if not os.path.exists(plugins_path):
+        return []
+
+    parsed = []
+    try:
+        with open(plugins_path, 'r', encoding='utf-8-sig') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                is_active = 1 if line.startswith('*') else 0
+                filename = line.lstrip('*').strip().lower()
+                if filename.endswith('.esm') or filename.endswith('.esp'):
+                    parsed.append((filename, is_active))
+    except Exception as e:
+        write_to_log(f"Fehler beim Einlesen von Plugins.txt ({plugins_path}): {e}")
+        return []
+
+    return parsed
+
+def get_profile_load_order_sequence(profile_id: int) -> list[tuple[str, int]]:
+    """
+    Holt die geordnete Liste (filename_lower, is_active) der installierten Mods eines Profils.
+    """
+    lo_data = get_load_order(profile_id)
+    sequence = []
+    for item in lo_data:
+        comp_file = item.get("Component_File")
+        if not comp_file:
+            continue
+        is_active = item.get("Is_Active", 1)
+        sequence.append((comp_file.strip().lower(), is_active))
+    return sequence
+
+def check_active_profiles(create_backup: bool = True, log_signal=None) -> list[int]:
+    """
+    Führt die Prüfung der aktuellen Plugins.txt gegen alle in der Datenbank registrierten Profile durch:
+    1. Sichert die aktuelle Plugins.txt nach Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/Plugins.txt.
+    2. Vergleicht die Plugin-Sequenz und den Aktivierungsstatus gegen jedes Profil.
+    3. Gibt die IDs aller übereinstimmenden Profile als Liste zurück.
+    """
+    def log_msg(msg: str):
         if log_signal:
             if hasattr(log_signal, "emit"):
                 log_signal.emit(msg)
@@ -34,132 +86,48 @@ def run_load_order_check(log_signal=None):
             print(msg)
         write_to_log(msg)
 
-    log_msg("--- LOH Load Order Check & Re-Sequence gestartet ---")
-    
-    # Alle in der Plugins.txt mit '*' aktivierten Plugins einlesen
-    active_in_plugins = set()
-    if os.path.exists(STARFIELD_PLUGINS_PATH):
+    # 1. Sicherung in LOH_Workspace erstellen
+    if create_backup and os.path.exists(STARFIELD_PLUGINS_PATH):
         try:
-            with open(STARFIELD_PLUGINS_PATH, 'r', encoding='utf-8-sig') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('*'):
-                        active_in_plugins.add(line.lstrip('*').strip().lower())
+            os.makedirs(BACKUPS_LOADORDER_CHECK_DIR, exist_ok=True)
+            backup_target = os.path.join(BACKUPS_LOADORDER_CHECK_DIR, "Plugins.txt")
+            shutil.copy2(STARFIELD_PLUGINS_PATH, backup_target)
+            write_to_log(f"Snapshot von Plugins.txt erfolgreich gesichert: {backup_target}")
         except Exception as e:
-            log_msg(f"Warnung beim Lesen von Plugins.txt für Aktivierungsstatus: {e}")
+            write_to_log(f"Warnung: Konnte Snapshot von Plugins.txt nicht erstellen: {e}")
 
-    
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 1. Alle Profile abfragen
-        cursor.execute("SELECT ID, Name FROM Profiles")
-        profiles = cursor.fetchall()
-        if not profiles:
-            log_msg("Keine Profile in der Datenbank gefunden. Erstelle Standard-Profil...")
-            cursor.execute("INSERT INTO Profiles (Name, Description) VALUES (?, ?)", 
-                           ("Standard", "Automatisch erstelltes Standard-Profil"))
-            p_id = cursor.lastrowid
-            conn.commit()
-            
-            # Importieren der Plugins.txt in das neue Standard-Profil mit der gleichen Funktion wie beim "Einlesen"
-            success, result = validate_plugins_for_import()
-            if success and result is not None:
-                import_plugins_to_profile(p_id, result)
-                log_msg("  -> Standard-Profil erfolgreich angelegt und initial befüllt.")
-            else:
-                log_msg("  WARNUNG: Konnte Plugins.txt für das Standard-Profil nicht validieren/importieren.")
-                
-            cursor.execute("SELECT ID, Name FROM Profiles")
-            profiles = cursor.fetchall()
-            
-        # 2. Alle aktuell aktiven Komponenten abfragen (die zu installierten Mods gehören: State = 1)
-        # (Is_Blueprint = 0 und .esm/.esp Endung)
-        cursor.execute("""
-            SELECT DISTINCT c.ID, c.File
-            FROM Components c
-            JOIN Mods_Components mc ON c.ID = mc.Component_ID
-            JOIN Mods m ON mc.Mod_ID = m.ID
-            WHERE m.State = 1 AND (LOWER(c.File) LIKE '%.esm' OR LOWER(c.File) LIKE '%.esp') AND c.Is_Blueprint = 0 AND c.Is_Masterfile > 0
-        """)
-        active_components = {row["ID"]: row["File"] for row in cursor.fetchall()}
-        log_msg(f"-> Gefundene aktive Mod-Komponenten in der DB: {len(active_components)}")
+    # 2. Live-Plugins einlesen
+    live_sequence = parse_live_plugins(STARFIELD_PLUGINS_PATH)
+    if not live_sequence:
+        log_msg("Keine Live-Plugins in Plugins.txt gefunden oder Datei existiert nicht.")
+        return []
 
-        for profile in profiles:
-            p_id = profile["ID"]
-            p_name = profile["Name"]
-            log_msg(f"\nÜberprüfe Profil '{p_name}' (ID {p_id})...")
-            
-            # A) Entfernen von inaktiven/gelöschten Komponenten aus der LoadOrder dieses Profils
-            # (wo ID_Component nicht in den aktiven Komponenten enthalten ist)
-            cursor.execute("SELECT ID_Component, Position FROM LoadOrder WHERE ID_Profile = ?", (p_id,))
-            current_lo = cursor.fetchall()
-            
-            removed_count = 0
-            for lo_entry in current_lo:
-                comp_id = lo_entry["ID_Component"]
-                if comp_id not in active_components:
-                    cursor.execute("DELETE FROM LoadOrder WHERE ID_Profile = ? AND ID_Component = ?", (p_id, comp_id))
-                    removed_count += 1
-            
-            if removed_count > 0:
-                log_msg(f"  - {removed_count} ungültige/inaktive Komponenten aus der LoadOrder entfernt.")
-                
-            # B) Positionen neu sequenzieren, falls Lücken entstanden sind oder Einträge gelöscht wurden
-            cursor.execute("SELECT ID_Component, Position FROM LoadOrder WHERE ID_Profile = ? ORDER BY Position", (p_id,))
-            ordered_lo = cursor.fetchall()
-            
-            changed_positions = 0
-            for index, lo_entry in enumerate(ordered_lo):
-                expected_pos = index + 1
-                if lo_entry["Position"] != expected_pos:
-                    cursor.execute("UPDATE LoadOrder SET Position = ? WHERE ID_Profile = ? AND ID_Component = ?", 
-                                   (expected_pos, p_id, lo_entry["ID_Component"]))
-                    changed_positions += 1
-            
-            if changed_positions > 0:
-                log_msg(f"  - {changed_positions} Positionen im Profil neu durchnummeriert.")
-                
-            # C) Neue aktive Komponenten, die noch nicht in der LoadOrder des Profils enthalten sind, am Ende anhängen
-            cursor.execute("SELECT ID_Component FROM LoadOrder WHERE ID_Profile = ?", (p_id,))
-            existing_lo_comp_ids = {row["ID_Component"] for row in cursor.fetchall()}
-            
-            cursor.execute("SELECT MAX(Position) FROM LoadOrder WHERE ID_Profile = ?", (p_id,))
-            max_pos_row = cursor.fetchone()
-            max_pos = max_pos_row[0] if max_pos_row and max_pos_row[0] is not None else 0
-            
-            added_count = 0
-            for comp_id, comp_file in active_components.items():
-                if comp_id not in existing_lo_comp_ids:
-                    max_pos += 1
-                    # Nur aktiv setzen, wenn es in der Plugins.txt mit '*' markiert ist
-                    is_act = 1 if comp_file.lower() in active_in_plugins else 0
-                    cursor.execute("""
-                        INSERT INTO LoadOrder (ID_Profile, Position, ID_Component, Is_Active)
-                        VALUES (?, ?, ?, ?)
-                    """, (p_id, max_pos, comp_id, is_act))
-                    added_count += 1
-                    log_msg(f"  + Neue Komponente '{comp_file}' auf Position {max_pos} angehängt (Aktiv: {is_act}).")
-            
-            if added_count > 0:
-                log_msg(f"  - {added_count} neue Komponenten erfolgreich angehängt.")
+    # 3. Profile abgleichen
+    profiles = get_profiles()
+    matching_ids = []
 
-        conn.commit()
-        log_msg("\n--- LOH Load Order Check & Re-Sequence erfolgreich beendet ---\n")
-        return True
-        
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        import traceback
-        log_msg(f"KRITISCHER FEHLER beim Load Order Check: {str(e)}")
-        log_msg(traceback.format_exc())
-        return False
-    finally:
-        if conn:
-            conn.close()
+    for p in profiles:
+        p_id = p.get("ID")
+        p_name = p.get("Name", f"Profil {p_id}")
+        profile_sequence = get_profile_load_order_sequence(p_id)
+
+        if profile_sequence == live_sequence:
+            matching_ids.append(p_id)
+            log_msg(f"-> Profil '{p_name}' (ID {p_id}) stimmt EXAKT mit Plugins.txt überein (Aktiv).")
+
+    if not matching_ids:
+        log_msg("Kein Profil stimmt 1:1 mit der aktuellen Plugins.txt überein.")
+
+    return matching_ids
+
+def run_load_order_check(log_signal=None) -> list[int]:
+    """Haupteinstiegspunkt für TaskWorker / Hintergrund-Thread."""
+    return check_active_profiles(create_backup=True, log_signal=log_signal)
+
+def get_active_profile_ids() -> list[int]:
+    """Leichtgewichtige Abfrage für UI-Aktualisierungen (z. B. Page_LoadOrder tree_profile)."""
+    return check_active_profiles(create_backup=True, log_signal=None)
 
 if __name__ == "__main__":
-    run_load_order_check()
+    matches = run_load_order_check()
+    print("Übereinstimmende Profil-IDs:", matches)

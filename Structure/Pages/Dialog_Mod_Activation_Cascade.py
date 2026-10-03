@@ -4,8 +4,8 @@ import ctypes
 import logging
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTableView, QHBoxLayout, 
                                QPushButton, QSpacerItem, QSizePolicy, QLabel, QHeaderView,
-                               QStyledItemDelegate, QStyle)
-from PySide6.QtCore import Qt, QTimer
+                               QStyledItemDelegate, QStyle, QApplication)
+from PySide6.QtCore import Qt, QTimer, QPoint
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QColor, QFont
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
@@ -60,8 +60,15 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         self.setWindowIcon(QIcon(icon_path))
         self.setModal(True)
 
-        # 1. Standardgröße 800 x 550 px (ohne Settings-Bindung)
-        self.resize(800, 550)
+        # 1. Standardgröße 800 x 840 px (bzw. angepasst an Bildschirmhöhe ohne Settings-Bindung)
+        target_height = 840
+        app = QApplication.instance()
+        if app:
+            primary_screen = app.primaryScreen()
+            if primary_screen:
+                avail_h = primary_screen.availableGeometry().height()
+                target_height = min(840, avail_h - 80)
+        self.resize(800, target_height)
 
         # 2. Styling (Starfield Sci-Fi Dark Mode)
         icon_chk = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
@@ -239,7 +246,20 @@ class Dialog_Mod_Activation_Cascade(QDialog):
 
         rows = self.cascade_data.get("cascade_rows", [])
         req_map = self.cascade_data.get("req_map", {})
+        dep_map = self.cascade_data.get("dep_map", {})
         profile_mod_active = self.cascade_data.get("profile_mod_active", {})
+
+        # Direkte und transitive Nachfolger der Ziel-Mod ermitteln
+        target_descendants = set()
+        q_dep = [int(x) for x in dep_map.get(self.target_mod_id, [])]
+        while q_dep:
+            d = q_dep.pop(0)
+            if d not in target_descendants:
+                target_descendants.add(d)
+                q_dep.extend([int(x) for x in dep_map.get(d, [])])
+
+        # Zwingend aktivierte Voraussetzungen der Ziel-Mod
+        mandatory_reqs = {int(r["Mod_ID"]) for r in rows if r.get("Relationship") in ("TARGET", "REQUIREMENT")}
 
         for r_data in rows:
             pos = r_data.get("Position", 0)
@@ -289,26 +309,27 @@ class Dialog_Mod_Activation_Cascade(QDialog):
                 item_active.setCheckState(Qt.CheckState.Checked)
                 item_active.setToolTip("Zwingende Voraussetzung der Ziel-Mod (kann hier nicht umgestellt werden)")
             else:
-                # DEPENDENT im ACTIVATE-Modus: Prüfen, ob alle Voraussetzungen erfüllt sind
-                dep_reqs = req_map.get(mod_id, [])
-                all_reqs_met = True
+                # DEPENDENT / PROPOSAL im ACTIVATE-Modus:
+                # Darf nur dann initial automatisch angehakt sein, wenn:
+                # 1. Die Mod ein echter Nachfolger der Ziel-Mod ist
+                # 2. ALLE sonstigen Voraussetzungen der Mod bereits in der LoadOrder aktiv sind
+                dep_reqs = [int(x) for x in req_map.get(mod_id, [])]
+                is_target_descendant = (mod_id in target_descendants)
+
+                all_other_reqs_active = True
                 for p_id in dep_reqs:
-                    p_id_int = int(p_id)
-                    p_is_met = (
-                        p_id_int == self.target_mod_id or
-                        profile_mod_active.get(p_id_int, False) or
-                        any(int(r["Mod_ID"]) == p_id_int and (r["Relationship"] == "TARGET" or r["Relationship"] == "REQUIREMENT") for r in rows)
-                    )
-                    if not p_is_met:
-                        all_reqs_met = False
+                    if p_id in mandatory_reqs:
+                        continue
+                    if not profile_mod_active.get(p_id, False):
+                        all_other_reqs_active = False
                         break
 
-                if all_reqs_met:
+                if is_target_descendant and all_other_reqs_active:
                     item_active.setCheckState(Qt.CheckState.Checked)
-                    item_active.setToolTip("Direkte Abhängigkeit (alle Voraussetzungen erfüllt)")
+                    item_active.setToolTip("Direkte Folge-Abhängigkeit (alle Voraussetzungen im Profil aktiv)")
                 else:
                     item_active.setCheckState(Qt.CheckState.Unchecked)
-                    item_active.setToolTip("Weitere Abhängigkeit (Vorschlag)")
+                    item_active.setToolTip("Optionale Abhängigkeit / Vorschlag (Voraussetzungen noch nicht vollständig aktiv)")
 
             # Spalte 2: Mod-Name
             item_name = QStandardItem(mod_name)
@@ -530,17 +551,64 @@ class Dialog_Mod_Activation_Cascade(QDialog):
             except Exception:
                 pass
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._apply_dark_title_bar()
-        QTimer.singleShot(0, self._apply_dark_title_bar)
+    def _position_dialog(self):
+        """
+        Positioniert den Dialog dynamisch:
+        - Falls das übergeordnete Widget eine Page_LoadOrder mit table_view und COL_ACTIVE ist:
+          Horizontal direkt rechts neben die Spalte 'Aktiv' der LoadOrder-Tabelle andocken (+4px).
+        - Vertikal mittig zum Hauptfenster.
+        - Absicherung: Dialog ragt nicht über den sichtbaren Bildschirmrand hinaus.
+        - Fallback: Zentriert über dem Parent-Fenster.
+        """
+        table_view = None
+        col_active = 2
+        parent = self.parent()
 
-        # Zentriert über dem Elternfenster positionieren
-        if self.parent() and hasattr(self.parent(), "geometry"):
+        if parent:
+            if hasattr(parent, "table_view") and hasattr(parent, "COL_ACTIVE"):
+                table_view = parent.table_view
+                col_active = parent.COL_ACTIVE
+            elif hasattr(parent, "page_lo") and hasattr(parent.page_lo, "table_view"):
+                table_view = parent.page_lo.table_view
+                col_active = getattr(parent.page_lo, "COL_ACTIVE", 2)
+
+        placed = False
+        if table_view and hasattr(table_view, "horizontalHeader"):
+            header = table_view.horizontalHeader()
+            if header and col_active < header.count() and not header.isSectionHidden(col_active):
+                col_right_x = header.sectionPosition(col_active) + header.sectionSize(col_active)
+                viewport_pt = table_view.viewport().mapToGlobal(QPoint(col_right_x, 0))
+                target_x = viewport_pt.x() + 104
+
+                main_win = parent.window() if hasattr(parent, "window") else None
+                win_geom = main_win.geometry() if main_win else parent.geometry()
+                target_y = win_geom.top() + (win_geom.height() - self.height()) // 2
+
+                screen = self.screen() or QApplication.primaryScreen()
+                if screen:
+                    avail = screen.availableGeometry()
+                    if target_x + self.width() > avail.right():
+                        target_x = max(avail.left(), avail.right() - self.width())
+                    if target_y + self.height() > avail.bottom():
+                        target_y = max(avail.top(), avail.bottom() - self.height())
+                    target_x = max(avail.left(), target_x)
+                    target_y = max(avail.top(), target_y)
+
+                self.move(target_x, target_y)
+                placed = True
+
+        if not placed and parent and hasattr(parent, "geometry"):
             try:
-                geo = self.parent().geometry()
+                win = parent.window() if hasattr(parent, "window") else None
+                geo = win.geometry() if win else parent.geometry()
                 x = geo.x() + (geo.width() - self.width()) // 2
                 y = geo.y() + (geo.height() - self.height()) // 2
                 self.move(max(0, x), max(0, y))
             except Exception:
                 pass
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._apply_dark_title_bar()
+        QTimer.singleShot(0, self._apply_dark_title_bar)
+        self._position_dialog()

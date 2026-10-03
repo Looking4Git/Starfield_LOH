@@ -132,11 +132,12 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_HeaderView_Documentation.md).
 * **Aktive Profilmarkierung (`tree_profile`):**
-  * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` grün hinterlegt:
-    * Hintergrund: Deep Sci-Fi Grün (`#1F7343`).
-    * Schriftfarbe: Weiß (`#FFFFFF`).
-    * Tooltip: `Aktives Profil (stimmt mit Plugins.txt überein)`.
-  * Nicht übereinstimmende Profile verbleiben im neutralen Standard-Styling.
+  * Spaltenstruktur: Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
+  * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` wie folgt gekennzeichnet:
+    * **Spalte 0:** Zeigt das offizielle Aktivierungs-Icon `Graphics/Icon_Activation.svg` zentriert in einer schlanken 28 px Spalte ohne Textbeschriftung. Dadurch bleibt der Aktivstatus auch bei selektierter (blauer) Zeile (`#304C7A`) immer sofort erkennbar.
+    * **Nicht selektiert:** Hintergrund Deep Sci-Fi Grün (`#1F7343`), Schriftfarbe Weiß (`#FFFFFF`).
+    * **Tooltip:** `Aktives Profil (stimmt mit Plugins.txt überein)`.
+  * Nicht übereinstimmende Profile verbleiben im neutralen Standard-Styling ohne Aktivierungs-Icon.
 * **Dynamische Zeilenfarben in der Ladereihenfolge (`Page_LoadOrder`):**
   * **Modus »Abhängigkeiten«:** Voraussetzungen = Rot (`#C72138`), Abhängige Mods = Grün (`#1F7343`).
   * **Modus »Konflikte«:** Typ 3 = Rot (`#C72138`), Typ 2 = Orange (`#E06236`), Typ 1 = Gelb (`#D7A64B`), Behoben/Empfohlen = Grün (`#1F7343`).

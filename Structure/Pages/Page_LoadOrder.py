@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QF
                                QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView, QCheckBox,
                                QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette, QPainter, QBrush
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal
+from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal, QSize
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import (get_profiles, get_load_order, update_load_order_active,
@@ -259,6 +259,8 @@ class Page_LoadOrder(QWidget):
         self.profile_model = QStandardItemModel()
         self.tree_profile.setModel(self.profile_model)
         self.tree_profile.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.tree_profile.setIconSize(QSize(16, 16))
+        self.icon_activation = QIcon(os.path.join(APP_ROOT, "Graphics", "Icon_Activation.svg"))
         self.tree_profile.selectionModel().selectionChanged.connect(self.on_profile_selected)
 
         # Anzeige-Bereich (Dynamik)
@@ -576,23 +578,38 @@ class Page_LoadOrder(QWidget):
         # Profile laden
         self.tree_profile.blockSignals(True)
         self.profile_model.clear()
-        self.profile_model.setHorizontalHeaderLabels(["ID", "Name"])
+        self.profile_model.setHorizontalHeaderLabels(["", "ID", "Name"])
+        if self.profile_model.horizontalHeaderItem(0):
+            self.profile_model.horizontalHeaderItem(0).setToolTip("Aktivierungsstatus (Aktives Profil)")
         
         profiles = get_profiles()
         for p in profiles:
+            item_active = QStandardItem()
+            item_active.setData(p["ID"], Qt.ItemDataRole.UserRole)
+            item_active.setData(p, Qt.ItemDataRole.UserRole + 2)
+            item_active.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            item_active.setEditable(False)
+
             item_id = QStandardItem(str(p["ID"]))
             item_id.setData(p["ID"], Qt.ItemDataRole.UserRole)
             item_id.setData(p, Qt.ItemDataRole.UserRole + 2) # store whole profile dict for description
             item_id.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            item_id.setEditable(False)
             
             item_name = QStandardItem(p["Name"])
+            item_name.setData(p["ID"], Qt.ItemDataRole.UserRole)
+            item_name.setData(p, Qt.ItemDataRole.UserRole + 2)
+            item_name.setEditable(False)
             
-            self.profile_model.appendRow([item_id, item_name])
+            self.profile_model.appendRow([item_active, item_id, item_name])
             
         from PySide6.QtWidgets import QHeaderView
         p_header = self.tree_profile.header()
-        p_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        p_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        p_header.setMinimumSectionSize(20)
+        p_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.tree_profile.setColumnWidth(0, 28)
+        p_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        p_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         
         has_profiles = len(profiles) > 0
         if hasattr(self, 'btn_activate_profile') and self.btn_activate_profile:
@@ -612,7 +629,7 @@ class Page_LoadOrder(QWidget):
         self.refresh_profile_highlights()
 
     def refresh_profile_highlights(self):
-        """Aktualisiert die grüne Kennzeichnung des aktiven Profils in tree_profile."""
+        """Aktualisiert die grüne Kennzeichnung und das Aktivierungs-Icon des aktiven Profils in tree_profile."""
         try:
             from Structure.Starfield_LoadOrder_Check import get_active_profile_ids
             active_ids = set(get_active_profile_ids())
@@ -624,24 +641,33 @@ class Page_LoadOrder(QWidget):
         color_active_fg = QColor("#FFFFFF")
 
         for r in range(self.profile_model.rowCount()):
-            item_id = self.profile_model.item(r, 0)
-            item_name = self.profile_model.item(r, 1)
-            if not item_id or not item_name:
+            item_active = self.profile_model.item(r, 0)
+            item_id = self.profile_model.item(r, 1)
+            item_name = self.profile_model.item(r, 2)
+            if not item_active or not item_id or not item_name:
                 continue
-            p_id = item_id.data(Qt.ItemDataRole.UserRole)
+            p_id = item_active.data(Qt.ItemDataRole.UserRole)
             if p_id in active_ids:
+                item_active.setIcon(self.icon_activation)
+                item_active.setData(color_active_bg, Qt.ItemDataRole.BackgroundRole)
+                item_active.setData(color_active_fg, Qt.ItemDataRole.ForegroundRole)
                 item_id.setData(color_active_bg, Qt.ItemDataRole.BackgroundRole)
                 item_id.setData(color_active_fg, Qt.ItemDataRole.ForegroundRole)
                 item_name.setData(color_active_bg, Qt.ItemDataRole.BackgroundRole)
                 item_name.setData(color_active_fg, Qt.ItemDataRole.ForegroundRole)
                 tooltip = "Aktives Profil (stimmt mit Plugins.txt überein)"
+                item_active.setToolTip(tooltip)
                 item_id.setToolTip(tooltip)
                 item_name.setToolTip(tooltip)
             else:
+                item_active.setIcon(QIcon())
+                item_active.setData(None, Qt.ItemDataRole.BackgroundRole)
+                item_active.setData(None, Qt.ItemDataRole.ForegroundRole)
                 item_id.setData(None, Qt.ItemDataRole.BackgroundRole)
                 item_id.setData(None, Qt.ItemDataRole.ForegroundRole)
                 item_name.setData(None, Qt.ItemDataRole.BackgroundRole)
                 item_name.setData(None, Qt.ItemDataRole.ForegroundRole)
+                item_active.setToolTip(None)
                 item_id.setToolTip(None)
                 item_name.setToolTip(None)
 

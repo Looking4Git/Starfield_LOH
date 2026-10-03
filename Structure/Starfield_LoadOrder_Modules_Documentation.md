@@ -80,14 +80,16 @@ graph TD
 ### 2.3 `Starfield_LoadOrder_Check.py` (Reine Start- und Prüfroutine)
 * **Aufruf:** Automatisch beim Start von Starfield LOH bzw. beim Aufbau der Profilliste in `Page_LoadOrder.load_lookups()`.
 * **Zweck:** Reine **Verifikations- und Erkennungsroutine** ohne verändernden Datenbank-Eingriff:
-  1. **Snapshot:** Sichert die aktuell im Spiel befindliche `Plugins.txt` nach `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/Plugins.txt`.
+  1. **Snapshot-Schutz:** Prüft vor dem Kopieren `mtime` und `size` der `Plugins.txt` gegen die Zieldatei in `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Check/Plugins.txt`. Eine physische Kopie erfolgt nur bei geändertem Stand, um Schreibzyklen der Festplatte zu schonen.
   2. **Sequenz-Parsing:** Liest die Reihenfolge und den Aktivierungsstatus aller Komponenten aus `Plugins.txt` ein.
   3. **1:1-Abgleich:** Vergleicht die Sequenz gegen jedes Profil in der Tabelle `LoadOrder` (`get_load_order(profile_id)`).
   4. **Visuelle Signalgebung:** Gibt alle übereinstimmenden Profil-IDs zurück.
-* **UI-Darstellung:**
-  * Das bzw. die übereinstimmenden Profile werden im Profil-Baum (`tree_profile`) auffällig in **Deep Sci-Fi Grün (`#1F7343`)** mit **weißem Text (`#FFFFFF`)** hinterlegt.
+* **UI-Darstellung (`tree_profile` in `Page_LoadOrder`):**
+  * Spalten: `Aktiv` (Spalte 0), `ID` (Spalte 1), `Name` (Spalte 2).
+  * Das bzw. die aktiven Profile werden in Spalte 0 mit dem offiziellen Aktivierungs-Icon `Icon_Activation.svg` markiert (bleibt auch bei blauer Selektion `#304C7A` sichtbar).
+  * Nicht selektiert leuchtet die Zeile zusätzlich in **Deep Sci-Fi Grün (`#1F7343`)** mit **weißem Text (`#FFFFFF`)**.
   * Tooltip: `Aktives Profil (stimmt mit Plugins.txt überein)`.
-  * Keine Übereinstimmung $\to$ alle Zeilen bleiben neutral im Standard-Design `#ECECEC`.
+  * Keine Übereinstimmung $\to$ alle Zeilen bleiben neutral im Standard-Design `#ECECEC` ohne Aktivierungs-Icon.
 * **Protokollierung:** `Logs/Starfield_LOH_LoadOrder_Check.log`.
 
 ---

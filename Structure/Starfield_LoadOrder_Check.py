@@ -86,13 +86,23 @@ def check_active_profiles(create_backup: bool = True, log_signal=None) -> list[i
             print(msg)
         write_to_log(msg)
 
-    # 1. Sicherung in LOH_Workspace erstellen
+    # 1. Sicherung in LOH_Workspace erstellen (nur bei abweichendem Datum / Inhalt)
     if create_backup and os.path.exists(STARFIELD_PLUGINS_PATH):
         try:
             os.makedirs(BACKUPS_LOADORDER_CHECK_DIR, exist_ok=True)
             backup_target = os.path.join(BACKUPS_LOADORDER_CHECK_DIR, "Plugins.txt")
-            shutil.copy2(STARFIELD_PLUGINS_PATH, backup_target)
-            write_to_log(f"Snapshot von Plugins.txt erfolgreich gesichert: {backup_target}")
+            needs_copy = True
+            if os.path.exists(backup_target):
+                src_stat = os.stat(STARFIELD_PLUGINS_PATH)
+                tgt_stat = os.stat(backup_target)
+                if (src_stat.st_mtime_ns == tgt_stat.st_mtime_ns or abs(src_stat.st_mtime - tgt_stat.st_mtime) < 0.001) and src_stat.st_size == tgt_stat.st_size:
+                    needs_copy = False
+
+            if needs_copy:
+                shutil.copy2(STARFIELD_PLUGINS_PATH, backup_target)
+                write_to_log(f"Snapshot von Plugins.txt erfolgreich gesichert: {backup_target}")
+            else:
+                write_to_log(f"Snapshot von Plugins.txt unverändert (mtime/size identisch), Kopie übersprungen: {backup_target}")
         except Exception as e:
             write_to_log(f"Warnung: Konnte Snapshot von Plugins.txt nicht erstellen: {e}")
 

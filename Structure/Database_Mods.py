@@ -1116,8 +1116,10 @@ def get_cascade_for_deactivation(mod_id: int, profile_id: int) -> dict:
         # Kanten laden
         cursor.execute("SELECT ID_Mod, ID_Mod_Requirement FROM Mods_Requirements")
         all_edges = cursor.fetchall()
+        req_map = defaultdict(set)
         dep_map = defaultdict(set)
         for row in all_edges:
+            req_map[row["ID_Mod"]].add(row["ID_Mod_Requirement"])
             dep_map[row["ID_Mod_Requirement"]].add(row["ID_Mod"])
 
         # Transitive abhängige Mods
@@ -1162,7 +1164,10 @@ def get_cascade_for_deactivation(mod_id: int, profile_id: int) -> dict:
             "target_mod_name": target_name,
             "cascade_rows": cascade_rows,
             "all_positions_to_deactivate": all_positions_to_deactivate,
-            "has_dependencies": len(cascade_rows) > len(target_items)
+            "has_dependencies": len(cascade_rows) > len(target_items),
+            "req_map": {k: list(v) for k, v in req_map.items()},
+            "dep_map": {k: list(v) for k, v in dep_map.items()},
+            "profile_mod_active": {k: any(it.get("Is_Active") == 1 for it in items) for k, items in profile_mods.items()}
         }
     except Exception as e:
         logging.error(f"Fehler bei get_cascade_for_deactivation für Mod {mod_id}: {e}")
@@ -1171,7 +1176,10 @@ def get_cascade_for_deactivation(mod_id: int, profile_id: int) -> dict:
             "target_mod_name": "",
             "cascade_rows": [],
             "all_positions_to_deactivate": [],
-            "has_dependencies": False
+            "has_dependencies": False,
+            "req_map": {},
+            "dep_map": {},
+            "profile_mod_active": {}
         }
     finally:
         if conn:

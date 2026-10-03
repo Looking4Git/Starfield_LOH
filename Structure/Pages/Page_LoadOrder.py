@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QF
                                QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView, QCheckBox,
                                QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette, QPainter, QBrush
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal, QSize
+from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal, QSize, QItemSelectionModel
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import (get_profiles, get_load_order, update_load_order_active,
@@ -17,10 +17,12 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  apply_all_classifier_categories, has_classifier_categories, get_script_last_execution,
                                  apply_sorter_to_profile, apply_sorter_to_all_profiles,
                                  has_sorter_results, get_mod_conflicts_for_ui,
-                                 get_mod_conflict_avoidance_for_ui)
+                                 get_mod_conflict_avoidance_for_ui,
+                                 get_cascade_for_mod, get_cascade_for_deactivation)
 from Structure.Paths import APP_ROOT
 from Structure.Pages.Dialog_Profil import ProfileDialog
 from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
+from Structure.Pages.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Cascade
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
 
@@ -542,6 +544,8 @@ class Page_LoadOrder(QWidget):
         self.lbl_pointers_val.setText(f"Dynamisch: {formatted_total} / {formatted_limit}")
 
     def on_profile_selected(self, selected, deselected):
+        if getattr(self, '_loading_lookups', False):
+            return
         indexes = self.tree_profile.selectionModel().selectedRows()
         has_sel = len(indexes) > 0
         if hasattr(self, 'btn_copy_profile') and self.btn_copy_profile:
@@ -568,12 +572,16 @@ class Page_LoadOrder(QWidget):
         
         self.load_data()
 
-    def load_lookups(self):
+    def load_lookups(self, select_profile_id=None):
         # Kategorien laden
         self.cmb_category.clear()
         for row in get_lookup_data("Categories_LOH", order_by="Position"):
             self.cmb_category.addItem(str(row["Name"]), row["ID"])
         self.cmb_category.setCurrentIndex(-1)
+        
+        # Bisherige Profil-ID sichern
+        prev_profile_id = select_profile_id if select_profile_id is not None else self.current_profile_id
+        self._loading_lookups = True
         
         # Profile laden
         self.tree_profile.blockSignals(True)
@@ -583,7 +591,11 @@ class Page_LoadOrder(QWidget):
             self.profile_model.horizontalHeaderItem(0).setToolTip("Aktivierungsstatus (Aktives Profil)")
         
         profiles = get_profiles()
-        for p in profiles:
+        target_row = 0
+        for r, p in enumerate(profiles):
+            if prev_profile_id is not None and p["ID"] == prev_profile_id:
+                target_row = r
+
             item_active = QStandardItem()
             item_active.setData(p["ID"], Qt.ItemDataRole.UserRole)
             item_active.setData(p, Qt.ItemDataRole.UserRole + 2)
@@ -620,12 +632,24 @@ class Page_LoadOrder(QWidget):
             self.btn_delete_profile.setEnabled(has_profiles)
             
         if profiles:
-            self.tree_profile.setCurrentIndex(self.profile_model.index(0, 0))
+            idx = self.profile_model.index(target_row, 0)
+            self.tree_profile.setCurrentIndex(idx)
+            self.tree_profile.selectionModel().select(
+                idx,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows
+            )
+            item = self.profile_model.item(target_row, 0)
+            if item:
+                profile_data = item.data(Qt.ItemDataRole.UserRole + 2)
+                if profile_data:
+                    self.inp_profile_desc.setPlainText(profile_data.get("Description") or "")
+                    self.current_profile_id = profile_data.get("ID")
         else:
             self.inp_profile_desc.clear()
             self.current_profile_id = None
             self.load_data()
         self.tree_profile.blockSignals(False)
+        self._loading_lookups = False
         self.refresh_profile_highlights()
 
     def refresh_profile_highlights(self):
@@ -1087,7 +1111,7 @@ class Page_LoadOrder(QWidget):
 
     def on_item_changed(self, item):
         """Reagiert auf Aktiv/Inaktiv-Änderungen an der Checkbox."""
-        if self._loading_data:
+        if self._loading_data or getattr(self, "_updating_cascade", False):
             return
             
         if item.column() == self.COL_ACTIVE:
@@ -1106,18 +1130,96 @@ class Page_LoadOrder(QWidget):
                 return
                 
             position = int(pos_item.text())
+            row_data = self.get_row_data(pos_item) or {}
+            mod_id = row_data.get("Mod_ID")
+            if not mod_id:
+                return
+            mod_id = int(mod_id)
+
             is_active = 1 if item.checkState() == Qt.CheckState.Checked else 0
+            previous_active = item.data(self.SORT_ROLE)
+            if previous_active is not None and is_active == previous_active:
+                return  # Reines Styling/Farbaktualisierung (kein Benutzer-Klick auf die Checkbox)
             
-            # DB aktualisieren
+            if is_active == 1:
+                # Aktivierungskaskade prüfen
+                cascade_data = get_cascade_for_mod(mod_id, profile_id)
+                if cascade_data.get("requires_dialog"):
+                    dlg = Dialog_Mod_Activation_Cascade(self, profile_id=profile_id, target_mod_id=mod_id, cascade_data=cascade_data, mode="ACTIVATE")
+                    if dlg.exec():
+                        activated_items = dlg.get_activated_positions()
+                        self._updating_cascade = True
+                        try:
+                            pos_to_row = {}
+                            for r in range(self.model.rowCount()):
+                                p_it = self.model.item(r, self.COL_POS)
+                                if p_it and p_it.text().isdigit():
+                                    pos_to_row[int(p_it.text())] = r
+
+                            for p_pos, p_mid in activated_items:
+                                update_load_order_active(profile_id, p_pos, 1)
+                                if p_pos in pos_to_row:
+                                    r_idx = pos_to_row[p_pos]
+                                    act_it = self.model.item(r_idx, self.COL_ACTIVE)
+                                    if act_it:
+                                        act_it.setCheckState(Qt.CheckState.Checked)
+                                        act_it.setData(1, self.SORT_ROLE)
+                        finally:
+                            self._updating_cascade = False
+
+                        self.update_limit_bars()
+                        self.refresh_profile_highlights()
+                        return
+                    else:
+                        # Abgebrochen: Checkbox ohne DB-Änderung zurücksetzen
+                        self._updating_cascade = True
+                        try:
+                            item.setCheckState(Qt.CheckState.Unchecked)
+                        finally:
+                            self._updating_cascade = False
+                        return
+            else:
+                # Deaktivierungskaskade prüfen
+                cascade_data = get_cascade_for_deactivation(mod_id, profile_id)
+                if cascade_data.get("has_dependencies"):
+                    dlg = Dialog_Mod_Activation_Cascade(self, profile_id=profile_id, target_mod_id=mod_id, cascade_data=cascade_data, mode="DEACTIVATE")
+                    if dlg.exec():
+                        deactivated_items = dlg.get_activated_positions()
+                        self._updating_cascade = True
+                        try:
+                            pos_to_row = {}
+                            for r in range(self.model.rowCount()):
+                                p_it = self.model.item(r, self.COL_POS)
+                                if p_it and p_it.text().isdigit():
+                                    pos_to_row[int(p_it.text())] = r
+
+                            for p_pos, p_mid in deactivated_items:
+                                update_load_order_active(profile_id, p_pos, 0)
+                                if p_pos in pos_to_row:
+                                    r_idx = pos_to_row[p_pos]
+                                    act_it = self.model.item(r_idx, self.COL_ACTIVE)
+                                    if act_it:
+                                        act_it.setCheckState(Qt.CheckState.Unchecked)
+                                        act_it.setData(0, self.SORT_ROLE)
+                        finally:
+                            self._updating_cascade = False
+
+                        self.update_limit_bars()
+                        self.refresh_profile_highlights()
+                        return
+                    else:
+                        # Abgebrochen: Checkbox ohne DB-Änderung zurücksetzen
+                        self._updating_cascade = True
+                        try:
+                            item.setCheckState(Qt.CheckState.Checked)
+                        finally:
+                            self._updating_cascade = False
+                        return
+
+            # Normaler Ablauf ohne Kaskade
             update_load_order_active(profile_id, position, is_active)
-            
-            # Statuswert aktualisieren für die logische Sortierung/Filterung
             item.setData(is_active, self.SORT_ROLE)
-            
-            # Limit-Prüfbalken aktualisieren
             self.update_limit_bars()
-            
-            # Profilprüfung (Grüne Hervorhebung / Aktivierungs-Icon) aktualisieren
             self.refresh_profile_highlights()
 
     def on_rows_reordered(self, *args, **kwargs):
@@ -1513,7 +1615,6 @@ class Page_LoadOrder(QWidget):
             saved_mod_id = self.current_mod_id
             
             update_load_order_positions(profile_id, positions_to_update)
-            self.data_updated.emit()
             
             self.load_data()
             self.refresh_profile_highlights()
@@ -1526,9 +1627,14 @@ class Page_LoadOrder(QWidget):
                         row_data = self.get_row_data(item_pos)
                         if row_data and str(row_data.get("Mod_ID")) == str(saved_mod_id):
                             self.table_view.selectRow(r)
+                            idx = self.model.index(r, self.COL_POS)
+                            if not self.table_view.rect().contains(self.table_view.visualRect(idx)):
+                                self.table_view.scrollTo(idx)
+                            else:
+                                v_scrollbar.setValue(scroll_pos)
                             break
                         
-            v_scrollbar.setValue(scroll_pos)
+            self.data_updated.emit()
 
     def on_pos_up_clicked(self):
         if not self.current_mod_data:

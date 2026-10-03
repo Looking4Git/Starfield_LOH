@@ -21,7 +21,6 @@ from Structure.Database import ensure_default_database_mode
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "dialog_mod_selection": {"width": 800, "height": 600, "x": 300, "y": 300},
-    "dialog_mod_activation": {"width": 800, "height": 550, "x": 300, "y": 250},
     "window_mod_statistics": {
         "min_width": 1000,
         "docked_width": 1000,
@@ -249,22 +248,34 @@ class StarfieldLOH(QMainWindow):
 
     def mark_data_changed(self):
         """Setzt die Update-Flags für alle datenabhängigen Seiten und aktualisiert die sichtbare Seite sofort."""
+        sender = self.sender()
         for key in self.page_update_flags:
             self.page_update_flags[key] = True
 
         current_widget = getattr(self, 'content_stack', None) and self.content_stack.currentWidget()
-        if current_widget == getattr(self, 'page_mods', None):
-            self.page_mods.load_data()
-            self.page_update_flags["Page_Mods"] = False
-        elif current_widget == getattr(self, 'page_lo', None):
-            self.page_lo.load_lookups()
-            self.page_lo.load_data()
-            self.page_update_flags["Page_LoadOrder"] = False
-        elif current_widget == getattr(self, 'page_update', None):
-            self.page_update.load_data()
-            self.page_update_flags["Page_Update"] = False
+        if sender is not None and sender == current_widget:
+            # Die aktuelle Seite hat das Event selbst ausgelöst und steuert ihre Aktualisierung selbst
+            if current_widget == getattr(self, 'page_mods', None):
+                self.page_update_flags["Page_Mods"] = False
+            elif current_widget == getattr(self, 'page_lo', None):
+                self.page_update_flags["Page_LoadOrder"] = False
+            elif current_widget == getattr(self, 'page_update', None):
+                self.page_update_flags["Page_Update"] = False
+        else:
+            if current_widget == getattr(self, 'page_mods', None):
+                self.page_mods.load_data()
+                self.page_update_flags["Page_Mods"] = False
+            elif current_widget == getattr(self, 'page_lo', None):
+                self.page_lo.load_lookups()
+                self.page_lo.load_data()
+                self.page_update_flags["Page_LoadOrder"] = False
+            elif current_widget == getattr(self, 'page_update', None):
+                self.page_update.load_data()
+                self.page_update_flags["Page_Update"] = False
 
-        if hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
+        if hasattr(self, 'dock_statistics') and self.dock_statistics and self.dock_statistics.isVisible():
+            self.dock_statistics.refresh_data()
+        elif hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
             self.window_mod_statistics.refresh_data()
 
     def on_page_changed(self, index):

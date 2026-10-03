@@ -132,7 +132,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 height: 14px;
                 background-color: #ffffff;
                 border: 1px solid #5b7a9e;
-                border-radius: 2px;
+                border-radius: 0px;
             }
             QCheckBox::indicator:hover {
                 border: 1px solid #D7A64B;

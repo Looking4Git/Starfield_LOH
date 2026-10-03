@@ -115,10 +115,10 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### G. Checkboxen (`QCheckBox` / `QTableView::indicator`)
 * **Universeller Projekt-Standard (Formulare, Detailansichten, Einstellungen, Tabellen & Filterleisten):**
-  * Kasten: Weiß (`#FFFFFF`), Standardgröße `14x14 px` (Tabellen/Filter) bzw. `16x16 px` (Formulare/Detail), Rahmen `1px solid #5B7A9E`, `border-radius: 2px`.
+  * Kasten: Weiß (`#FFFFFF`), Standardgröße `14x14 px` (Tabellen/Filter) bzw. `16x16 px` (Formulare/Detail), Rahmen `1px solid #5B7A9E`, `border-radius: 0px` (ohne Abrundung für saubere Kanten auf dynamisch gefärbten Zeilen).
   * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
-  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen (`Graphics/Icon_Check.svg`) und Rahmen `1px solid #5B7A9E`.
-  * Deaktiviert / Gesperrt (Disabled): Kasten `#7A7A7A` / `#6A6E73`, Rahmen `#444444` / `#555555`, mit dunklem Häkchen (`Graphics/Icon_Check.svg`).
+  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen `#1E1E1E` (`Graphics/Icon_Check.svg`) und Rahmen `1px solid #5B7A9E`.
+  * Deaktiviert / Gesperrt (Disabled): Kasten `#B8BDC4`, Rahmen `#444444`, mit dunklem Häkchen `#1E1E1E` (`Graphics/Icon_Check.svg`).
 
 ---
 
@@ -152,8 +152,9 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
     * **Voraussetzungen (Master):** Muted Rot (`#5C1C24`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Voraussetzungen; Aktives Rot (`#C72138`) bei frei editierbaren Positionen.
     * **Abhängige Mods (Patches/Erweiterungen):** Muted Grün (`#164329`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Positionen (z. B. bereits im Profil aktiv oder im Deaktivierungsmodus); Aktives Grün (`#1F7343`) bei frei editierbaren Folge-Mods.
   * **Checkbox-Verhalten (im Modus `ACTIVATE`):**
-    * **Fixierte/Gesperrte Mods:** Fest angehakt (`Checked`), gesperrt (`disabled`) und visuell über `QTableView::indicator:disabled` ausgegraut (`#7A7A7A` / `#6A6E73`) dargestellt.
-    * **Abhängige Mods:** Wenn alle Voraussetzungen erfüllt sind, automatisch initial angehakt (`Checked`) und editierbar; bei unvollständigen Voraussetzungen initial `Unchecked` (Vorschlag).
+    * **Bereits aktive Mods (Ist-Zustand):** Fest angehakt (`Checked`), gesperrt; Kasten helles Metallic-Grau (`#B8BDC4`), Rahmen `#444444`, Haken `#1E1E1E`.
+    * **Zwingend neu zu aktivierende Mods (Einstiegs-Mod & Voraussetzungen):** Fest angehakt (`Checked`), gesperrt; Kasten **Starfield-Orange (`#E06236`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E`.
+    * **Optionale Folge-Mods (Vorschläge):** Frei editierbar; Kasten **Starfield-Gold (`#D7A64B`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E` (bzw. Weiß `#FFFFFF` bei Unchecked).
     * **Interaktion:** Anhaken einer Mod aktiviert deren Voraussetzungen und erfüllt nachfolgende Abhängigkeiten; Abwählen deaktiviert abhängige Folge-Mods.
 
 ---

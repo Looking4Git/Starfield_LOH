@@ -3,13 +3,33 @@ import sys
 import ctypes
 import logging
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTableView, QHBoxLayout, 
-                               QPushButton, QSpacerItem, QSizePolicy, QLabel, QHeaderView)
+                               QPushButton, QSpacerItem, QSizePolicy, QLabel, QHeaderView,
+                               QStyledItemDelegate, QStyle)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QColor, QFont
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
 
 ROLE_LOCKED = Qt.ItemDataRole.UserRole + 2
+
+
+class CascadeCheckboxDelegate(QStyledItemDelegate):
+    """
+    Sorgt für die differenzierte visuelle Darstellung der Checkboxen:
+    - was_active == True: Bereits im Profil aktiv -> Disabled-Indikator (Grau #B8BDC4, Rahmen #444444).
+    - was_active == False und ROLE_LOCKED: Zwingend neu zu aktivieren -> Indeterminate-Indikator (Starfield-Orange #E06236, Rahmen #5b7a9e).
+    - Frei editierbar: Standard-Indikator (Starfield-Gold #D7A64B bzw. Weiß #ffffff).
+    Das Item selbst behält stets ItemIsEnabled für eine nahtlose Zeilenselektion.
+    """
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        if index.column() == 1:
+            was_active = bool(index.data(Qt.ItemDataRole.UserRole + 1))
+            is_locked = bool(index.data(ROLE_LOCKED))
+            if was_active:
+                option.state &= ~QStyle.StateFlag.State_Enabled
+            elif is_locked:
+                option.state = (option.state & ~QStyle.StateFlag.State_On) | QStyle.StateFlag.State_NoChange
 
 
 class Dialog_Mod_Activation_Cascade(QDialog):
@@ -69,11 +89,16 @@ class Dialog_Mod_Activation_Cascade(QDialog):
                 width: 14px;
                 height: 14px;
                 border: 1px solid #5b7a9e;
-                border-radius: 2px;
+                border-radius: 0px;
                 background-color: #ffffff;
             }}
             QTableView::indicator:checked {{
                 background-color: #D7A64B;
+                border: 1px solid #5b7a9e;
+                image: url("{icon_chk}");
+            }}
+            QTableView::indicator:indeterminate {{
+                background-color: #E06236;
                 border: 1px solid #5b7a9e;
                 image: url("{icon_chk}");
             }}
@@ -84,7 +109,7 @@ class Dialog_Mod_Activation_Cascade(QDialog):
             }}
             QTableView::indicator:checked:disabled {{
                 border: 1px solid #444444;
-                background-color: #6A6E73;
+                background-color: #B8BDC4;
                 image: url("{icon_chk}");
             }}
             QHeaderView::section {{
@@ -165,6 +190,8 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         # Im Deaktivierungsmodus wird die Spalte "Aktiv" (Checkboxen) ausgeblendet
         if self.mode == "DEACTIVATE":
             self.table_view.setColumnHidden(1, True)
+        else:
+            self.table_view.setItemDelegateForColumn(1, CascadeCheckboxDelegate(self.table_view))
 
         self.model.itemChanged.connect(self.on_item_changed)
         self.main_layout.addWidget(self.table_view)

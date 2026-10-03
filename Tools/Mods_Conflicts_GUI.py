@@ -263,7 +263,7 @@ class ModsConflictsInspectorWindow(QMainWindow):
                 height: 16px;
                 background-color: #2A2A2A;
                 border: 1px solid #555555;
-                border-radius: 2px;
+                border-radius: 0px;
             }
             QCheckBox::indicator:checked {
                 background-color: #304C7A;

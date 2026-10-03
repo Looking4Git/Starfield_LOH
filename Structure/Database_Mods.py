@@ -908,59 +908,53 @@ def get_cascade_for_mod(mod_id: int, profile_id: int) -> dict:
             req_map[m_child].add(m_parent)
             dep_map[m_parent].add(m_child)
 
-        # 3. Transitive Voraussetzungen (Aufwärts-Kaskade)
-        transitive_reqs = set()
-        queue = list(req_map.get(mod_id, set()))
+        # 3. Phase 1: Vollständige ungerichtete Kaskade einlesen (Expansion)
+        # Findet alle vernetzten Mods im aktuellen Profil.
+        visited = {mod_id}
+        queue = [mod_id]
         while queue:
             curr = queue.pop(0)
-            if curr not in transitive_reqs and curr != mod_id:
-                transitive_reqs.add(curr)
-                for parent in req_map.get(curr, set()):
-                    if parent not in transitive_reqs and parent != mod_id:
-                        queue.append(parent)
+            # Aufwärts: Voraussetzungen
+            for p in req_map.get(curr, set()):
+                if p in profile_mods and p not in visited:
+                    visited.add(p)
+                    # Bereits aktive Mods werden als Kontext einbezogen, aber nicht weiter nach unten expandiert
+                    if not profile_mod_active.get(p, False):
+                        queue.append(p)
+            # Abwärts: Abhängigkeiten
+            for c in dep_map.get(curr, set()):
+                if c in profile_mods and c not in visited:
+                    visited.add(c)
+                    queue.append(c)
 
-        # 4. Transitive Abhängigkeiten (Abwärts-Kaskade)
-        transitive_deps = set()
-        queue = list(dep_map.get(mod_id, set()))
-        while queue:
-            curr = queue.pop(0)
-            if curr not in transitive_deps and curr != mod_id:
-                transitive_deps.add(curr)
-                for child in dep_map.get(curr, set()):
-                    if child not in transitive_deps and child != mod_id:
-                        queue.append(child)
+        # 4. Phase 2: Bewertung & Klassifizierung der gefundenen Mods
+        # Echte zwingende Voraussetzungen der Ziel-Mod (reiner Aufwärts-Pfad von mod_id)
+        pure_target_reqs = set()
+        q_req = list(req_map.get(mod_id, set()))
+        while q_req:
+            p = q_req.pop(0)
+            if p not in pure_target_reqs and p != mod_id:
+                pure_target_reqs.add(p)
+                q_req.extend(list(req_map.get(p, set())))
 
-        # 4b. Nur INAKTIVE Voraussetzungen von abhängigen Mods einbeziehen
-        # (bereits aktive Voraussetzungen von abhängigen Mods brauchen keine gesonderte Zeile im Dialog)
-        dep_inactive_reqs = set()
-        for d in transitive_deps:
-            q_dep = list(req_map.get(d, set()))
-            while q_dep:
-                p = q_dep.pop(0)
-                if p != mod_id and p not in transitive_reqs and p not in transitive_deps and p not in dep_inactive_reqs:
-                    if p in profile_mods and not profile_mod_active.get(p, False):
-                        dep_inactive_reqs.add(p)
-                        for pp in req_map.get(p, set()):
-                            if pp != mod_id and pp not in transitive_reqs and pp not in transitive_deps and pp not in dep_inactive_reqs:
-                                q_dep.append(pp)
+        # Zwingend zu aktivierende inaktive Voraussetzungen der Ziel-Mod
+        mandatory_inactive_reqs = {mid for mid in pure_target_reqs if mid in profile_mods and not profile_mod_active.get(mid, False)}
 
-        # 5. Filtern auf im Profil vorhandene Mods
-        profile_reqs = {mid for mid in (transitive_reqs | dep_inactive_reqs) if mid in profile_mods}
-        profile_deps = {mid for mid in transitive_deps if mid in profile_mods}
-
-        # Inaktive Voraussetzungen ermitteln (insb. der Ziel-Mod)
-        inactive_reqs = {mid for mid in profile_reqs if not profile_mod_active.get(mid, False)}
-
-        # Prüfen, ob der Dialog erforderlich ist
-        requires_dialog = bool(inactive_reqs or profile_deps)
-
-        # Kaskaden-Zeilen für den Dialog zusammenstellen
+        # Kaskaden-Zeilen zusammenstellen
         cascade_rows = []
-        all_cascade_mods = {mod_id} | profile_reqs | profile_deps
-        for mid in all_cascade_mods:
+        for mid in visited:
             if mid not in profile_mods:
                 continue
-            rel = "TARGET" if mid == mod_id else ("REQUIREMENT" if mid in profile_reqs else "DEPENDENT")
+            act = profile_mod_active.get(mid, False)
+            if act:
+                rel = "ALREADY_ACTIVE"
+            elif mid == mod_id:
+                rel = "TARGET"
+            elif mid in pure_target_reqs:
+                rel = "REQUIREMENT"
+            else:
+                rel = "DEPENDENT"
+
             for item in profile_mods[mid]:
                 row_copy = dict(item)
                 row_copy["Relationship"] = rel
@@ -968,15 +962,18 @@ def get_cascade_for_mod(mod_id: int, profile_id: int) -> dict:
 
         cascade_rows.sort(key=lambda r: r["Position"])
 
+        has_dependents = any(r["Relationship"] == "DEPENDENT" for r in cascade_rows)
+        requires_dialog = bool(mandatory_inactive_reqs or has_dependents)
+
         return {
             "target_mod_id": mod_id,
             "target_mod_name": profile_mod_names.get(mod_id, ""),
             "requires_dialog": requires_dialog,
-            "has_inactive_requirements": bool(inactive_reqs),
-            "has_dependencies_in_profile": bool(profile_deps),
-            "inactive_requirements": list(inactive_reqs),
-            "profile_requirements": list(profile_reqs),
-            "profile_dependencies": list(profile_deps),
+            "has_inactive_requirements": bool(mandatory_inactive_reqs),
+            "has_dependencies_in_profile": has_dependents,
+            "inactive_requirements": list(mandatory_inactive_reqs),
+            "profile_requirements": list(pure_target_reqs & set(profile_mods.keys())),
+            "profile_dependencies": [mid for mid in visited if mid != mod_id and mid not in pure_target_reqs],
             "cascade_rows": cascade_rows,
             "profile_mod_active": {k: bool(v) for k, v in profile_mod_active.items()},
             "req_map": {k: list(v) for k, v in req_map.items()},

@@ -1116,6 +1116,9 @@ class Page_LoadOrder(QWidget):
             
             # Limit-Prüfbalken aktualisieren
             self.update_limit_bars()
+            
+            # Profilprüfung (Grüne Hervorhebung / Aktivierungs-Icon) aktualisieren
+            self.refresh_profile_highlights()
 
     def on_rows_reordered(self, *args, **kwargs):
         """Wird aufgerufen, wenn Zeilen per Drag'n'Drop verschoben wurden."""
@@ -1221,6 +1224,7 @@ class Page_LoadOrder(QWidget):
         # Scrollposition wiederherstellen
         v_scrollbar.setValue(scroll_pos)
         
+        self.refresh_profile_highlights()
         self.data_updated.emit()
 
     def discard_detail_data(self):
@@ -1512,6 +1516,7 @@ class Page_LoadOrder(QWidget):
             self.data_updated.emit()
             
             self.load_data()
+            self.refresh_profile_highlights()
             
             # Re-select the moved mod
             if saved_mod_id:

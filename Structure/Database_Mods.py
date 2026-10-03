@@ -40,6 +40,8 @@ __all__ = [
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
     "has_classifier_categories",
+    "get_cascade_for_mod",
+    "get_active_dependents_for_deactivation",
 ]
 
 
@@ -848,4 +850,331 @@ def has_classifier_categories() -> bool:
     finally:
         if conn:
             conn.close()
+
+
+def get_cascade_for_mod(mod_id: int, profile_id: int) -> dict:
+    """
+    Ermittelt die vollständige transitive Kaskade (Voraussetzungen aufwärts und Abhängigkeiten abwärts)
+    für eine Mod im Kontext eines Profils.
+    Gibt detaillierte Kaskadendaten zurück, inklusive der Information, ob ein Bestätigungsdialog nötig ist.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 1. Alle LoadOrder-Einträge des Profils laden
+        cursor.execute("""
+            SELECT 
+                lo.Position,
+                lo.Is_Active,
+                mc.Mod_ID,
+                c.ID AS Component_ID,
+                c.File AS Component_File,
+                COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannte Mod') AS Mod_Name
+            FROM LoadOrder lo
+            JOIN Components c ON lo.ID_Component = c.ID
+            LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE lo.ID_Profile = :profile_id AND m.State = 1
+            ORDER BY lo.Position
+        """, {"profile_id": profile_id})
+        profile_items = [dict(row) for row in cursor.fetchall()]
+
+        profile_mods = {}         # mod_id -> list of items
+        profile_mod_active = {}   # mod_id -> bool
+        profile_mod_names = {}    # mod_id -> str
+
+        for item in profile_items:
+            mid = item.get("Mod_ID")
+            if mid is None:
+                continue
+            if mid not in profile_mods:
+                profile_mods[mid] = []
+                profile_mod_active[mid] = True
+                profile_mod_names[mid] = item.get("Mod_Name", "")
+            profile_mods[mid].append(item)
+            if item.get("Is_Active") != 1:
+                profile_mod_active[mid] = False
+
+        # 2. Alle Kanten aus Mods_Requirements laden
+        cursor.execute("SELECT ID_Mod, ID_Mod_Requirement FROM Mods_Requirements")
+        all_edges = cursor.fetchall()
+        req_map = defaultdict(set)  # mod -> set of requirements
+        dep_map = defaultdict(set)  # mod -> set of dependents
+        for row in all_edges:
+            m_child = row["ID_Mod"]
+            m_parent = row["ID_Mod_Requirement"]
+            req_map[m_child].add(m_parent)
+            dep_map[m_parent].add(m_child)
+
+        # 3. Transitive Voraussetzungen (Aufwärts-Kaskade)
+        transitive_reqs = set()
+        queue = list(req_map.get(mod_id, set()))
+        while queue:
+            curr = queue.pop(0)
+            if curr not in transitive_reqs and curr != mod_id:
+                transitive_reqs.add(curr)
+                for parent in req_map.get(curr, set()):
+                    if parent not in transitive_reqs and parent != mod_id:
+                        queue.append(parent)
+
+        # 4. Transitive Abhängigkeiten (Abwärts-Kaskade)
+        transitive_deps = set()
+        queue = list(dep_map.get(mod_id, set()))
+        while queue:
+            curr = queue.pop(0)
+            if curr not in transitive_deps and curr != mod_id:
+                transitive_deps.add(curr)
+                for child in dep_map.get(curr, set()):
+                    if child not in transitive_deps and child != mod_id:
+                        queue.append(child)
+
+        # 4b. Nur INAKTIVE Voraussetzungen von abhängigen Mods einbeziehen
+        # (bereits aktive Voraussetzungen von abhängigen Mods brauchen keine gesonderte Zeile im Dialog)
+        dep_inactive_reqs = set()
+        for d in transitive_deps:
+            q_dep = list(req_map.get(d, set()))
+            while q_dep:
+                p = q_dep.pop(0)
+                if p != mod_id and p not in transitive_reqs and p not in transitive_deps and p not in dep_inactive_reqs:
+                    if p in profile_mods and not profile_mod_active.get(p, False):
+                        dep_inactive_reqs.add(p)
+                        for pp in req_map.get(p, set()):
+                            if pp != mod_id and pp not in transitive_reqs and pp not in transitive_deps and pp not in dep_inactive_reqs:
+                                q_dep.append(pp)
+
+        # 5. Filtern auf im Profil vorhandene Mods
+        profile_reqs = {mid for mid in (transitive_reqs | dep_inactive_reqs) if mid in profile_mods}
+        profile_deps = {mid for mid in transitive_deps if mid in profile_mods}
+
+        # Inaktive Voraussetzungen ermitteln (insb. der Ziel-Mod)
+        inactive_reqs = {mid for mid in profile_reqs if not profile_mod_active.get(mid, False)}
+
+        # Prüfen, ob der Dialog erforderlich ist
+        requires_dialog = bool(inactive_reqs or profile_deps)
+
+        # Kaskaden-Zeilen für den Dialog zusammenstellen
+        cascade_rows = []
+        all_cascade_mods = {mod_id} | profile_reqs | profile_deps
+        for mid in all_cascade_mods:
+            if mid not in profile_mods:
+                continue
+            rel = "TARGET" if mid == mod_id else ("REQUIREMENT" if mid in profile_reqs else "DEPENDENT")
+            for item in profile_mods[mid]:
+                row_copy = dict(item)
+                row_copy["Relationship"] = rel
+                cascade_rows.append(row_copy)
+
+        cascade_rows.sort(key=lambda r: r["Position"])
+
+        return {
+            "target_mod_id": mod_id,
+            "target_mod_name": profile_mod_names.get(mod_id, ""),
+            "requires_dialog": requires_dialog,
+            "has_inactive_requirements": bool(inactive_reqs),
+            "has_dependencies_in_profile": bool(profile_deps),
+            "inactive_requirements": list(inactive_reqs),
+            "profile_requirements": list(profile_reqs),
+            "profile_dependencies": list(profile_deps),
+            "cascade_rows": cascade_rows,
+            "profile_mod_active": {k: bool(v) for k, v in profile_mod_active.items()},
+            "req_map": {k: list(v) for k, v in req_map.items()},
+            "dep_map": {k: list(v) for k, v in dep_map.items()}
+        }
+    except Exception as e:
+        logging.error(f"Fehler bei get_cascade_for_mod für Mod {mod_id}: {e}")
+        return {
+            "target_mod_id": mod_id,
+            "target_mod_name": "",
+            "requires_dialog": False,
+            "has_inactive_requirements": False,
+            "has_dependencies_in_profile": False,
+            "inactive_requirements": [],
+            "profile_requirements": [],
+            "profile_dependencies": [],
+            "cascade_rows": [],
+            "req_map": {},
+            "dep_map": {}
+        }
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_active_dependents_for_deactivation(mod_id: int, profile_id: int) -> list[dict]:
+    """
+    Ermittelt rekursiv alle Mods im aktuellen Profil, die von mod_id direkt oder transitiv abhängen
+    und derzeit mindestens eine aktive Komponente im Profil besitzen.
+    Gibt eine Liste von Dicts zurück: [{'Mod_ID': int, 'Name': str, 'Positions': list[int]}, ...]
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Alle Einträge des Profils holen
+        cursor.execute("""
+            SELECT 
+                lo.Position,
+                lo.Is_Active,
+                mc.Mod_ID,
+                COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannte Mod') AS Mod_Name
+            FROM LoadOrder lo
+            JOIN Components c ON lo.ID_Component = c.ID
+            LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE lo.ID_Profile = :profile_id AND m.State = 1
+            ORDER BY lo.Position
+        """, {"profile_id": profile_id})
+        profile_items = [dict(row) for row in cursor.fetchall()]
+
+        profile_mods = {}
+        for item in profile_items:
+            mid = item.get("Mod_ID")
+            if mid is None:
+                continue
+            if mid not in profile_mods:
+                profile_mods[mid] = []
+            profile_mods[mid].append(item)
+
+        # Kanten laden
+        cursor.execute("SELECT ID_Mod, ID_Mod_Requirement FROM Mods_Requirements")
+        all_edges = cursor.fetchall()
+        dep_map = defaultdict(set)
+        for row in all_edges:
+            dep_map[row["ID_Mod_Requirement"]].add(row["ID_Mod"])
+
+        # Transitive Abhängigkeiten abwärts
+        transitive_deps = set()
+        queue = list(dep_map.get(mod_id, set()))
+        while queue:
+            curr = queue.pop(0)
+            if curr not in transitive_deps and curr != mod_id:
+                transitive_deps.add(curr)
+                for child in dep_map.get(curr, set()):
+                    if child not in transitive_deps and child != mod_id:
+                        queue.append(child)
+
+        # Filtern: Nur Mods im Profil, die aktiv sind
+        active_dependents = []
+        for mid in transitive_deps:
+            if mid in profile_mods:
+                items = profile_mods[mid]
+                active_items = [it for it in items if it.get("Is_Active") == 1]
+                if active_items:
+                    active_dependents.append({
+                        "Mod_ID": mid,
+                        "Name": items[0].get("Mod_Name", ""),
+                        "Positions": [it["Position"] for it in active_items]
+                    })
+
+        return active_dependents
+    except Exception as e:
+        logging.error(f"Fehler bei get_active_dependents_for_deactivation für Mod {mod_id}: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_cascade_for_deactivation(mod_id: int, profile_id: int) -> dict:
+    """
+    Ermittelt die Kaskaden-Zeilen für die Deaktivierung einer Mod:
+    - Ziel-Mod (alle Komponenten im Profil) mit Relationship='TARGET'
+    - Alle im Profil aktiven abhängigen Folge-Mods mit Relationship='DEPENDENT'
+    Gibt ein cascade_data-Dict zurück, passend für Dialog_Mod_Activation_Cascade im Modus 'DEACTIVATE'.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT 
+                lo.Position,
+                lo.Is_Active,
+                mc.Mod_ID,
+                c.ID AS Component_ID,
+                c.File AS Component_File,
+                COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannte Mod') AS Mod_Name
+            FROM LoadOrder lo
+            JOIN Components c ON lo.ID_Component = c.ID
+            LEFT JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE lo.ID_Profile = :profile_id AND m.State = 1
+            ORDER BY lo.Position
+        """, {"profile_id": profile_id})
+        profile_items = [dict(row) for row in cursor.fetchall()]
+
+        profile_mods = defaultdict(list)
+        for item in profile_items:
+            mid = item.get("Mod_ID")
+            if mid is not None:
+                profile_mods[mid].append(item)
+
+        # Kanten laden
+        cursor.execute("SELECT ID_Mod, ID_Mod_Requirement FROM Mods_Requirements")
+        all_edges = cursor.fetchall()
+        dep_map = defaultdict(set)
+        for row in all_edges:
+            dep_map[row["ID_Mod_Requirement"]].add(row["ID_Mod"])
+
+        # Transitive abhängige Mods
+        transitive_deps = set()
+        queue = list(dep_map.get(mod_id, set()))
+        while queue:
+            curr = queue.pop(0)
+            if curr not in transitive_deps and curr != mod_id:
+                transitive_deps.add(curr)
+                for child in dep_map.get(curr, set()):
+                    if child not in transitive_deps and child != mod_id:
+                        queue.append(child)
+
+        # Aktive abhängige Mods filtern
+        cascade_rows = []
+        all_positions_to_deactivate = []
+
+        # 1. Ziel-Mod Komponenten
+        target_items = profile_mods.get(mod_id, [])
+        target_name = target_items[0].get("Mod_Name", "") if target_items else f"Mod #{mod_id}"
+        for it in target_items:
+            row_copy = dict(it)
+            row_copy["Relationship"] = "TARGET"
+            cascade_rows.append(row_copy)
+            all_positions_to_deactivate.append(it["Position"])
+
+        # 2. Aktive abhängige Komponenten
+        for mid in transitive_deps:
+            if mid in profile_mods:
+                items = profile_mods[mid]
+                for it in items:
+                    if it.get("Is_Active") == 1:
+                        row_copy = dict(it)
+                        row_copy["Relationship"] = "DEPENDENT"
+                        cascade_rows.append(row_copy)
+                        all_positions_to_deactivate.append(it["Position"])
+
+        cascade_rows.sort(key=lambda r: r["Position"])
+
+        return {
+            "target_mod_id": mod_id,
+            "target_mod_name": target_name,
+            "cascade_rows": cascade_rows,
+            "all_positions_to_deactivate": all_positions_to_deactivate,
+            "has_dependencies": len(cascade_rows) > len(target_items)
+        }
+    except Exception as e:
+        logging.error(f"Fehler bei get_cascade_for_deactivation für Mod {mod_id}: {e}")
+        return {
+            "target_mod_id": mod_id,
+            "target_mod_name": "",
+            "cascade_rows": [],
+            "all_positions_to_deactivate": [],
+            "has_dependencies": False
+        }
+    finally:
+        if conn:
+            conn.close()
+
 

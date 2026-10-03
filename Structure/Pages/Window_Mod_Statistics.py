@@ -180,6 +180,13 @@ class Window_Mod_Statistics(QDockWidget):
         else:
             self.clear()
 
+    def refresh_data(self):
+        """Invalidiert Cache und aktualisiert alle Untersektionen nach externen Modul-Läufen."""
+        if hasattr(self, 'sec_content') and hasattr(self.sec_content, '_load_category_maxes'):
+            self.sec_content._load_category_maxes()
+        if self.current_mod_id is not None:
+            self.update_mod(self.current_mod_id)
+
     def clear(self):
         self.current_mod_id = None
         self.sec_comparison.clear_main_mod()

@@ -21,6 +21,7 @@ from Structure.Database import ensure_default_database_mode
 DEFAULT_SETTINGS = {
     "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
     "dialog_mod_selection": {"width": 800, "height": 600, "x": 300, "y": 300},
+    "dialog_mod_activation": {"width": 800, "height": 550, "x": 300, "y": 250},
     "window_mod_statistics": {
         "min_width": 1000,
         "docked_width": 1000,
@@ -247,9 +248,24 @@ class StarfieldLOH(QMainWindow):
         self.mark_data_changed()
 
     def mark_data_changed(self):
-        """Setzt die Update-Flags für alle datenabhängigen Seiten."""
+        """Setzt die Update-Flags für alle datenabhängigen Seiten und aktualisiert die sichtbare Seite sofort."""
         for key in self.page_update_flags:
             self.page_update_flags[key] = True
+
+        current_widget = getattr(self, 'content_stack', None) and self.content_stack.currentWidget()
+        if current_widget == getattr(self, 'page_mods', None):
+            self.page_mods.load_data()
+            self.page_update_flags["Page_Mods"] = False
+        elif current_widget == getattr(self, 'page_lo', None):
+            self.page_lo.load_lookups()
+            self.page_lo.load_data()
+            self.page_update_flags["Page_LoadOrder"] = False
+        elif current_widget == getattr(self, 'page_update', None):
+            self.page_update.load_data()
+            self.page_update_flags["Page_Update"] = False
+
+        if hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
+            self.window_mod_statistics.refresh_data()
 
     def on_page_changed(self, index):
         """Wird aufgerufen, wenn sich die Seite im QStackedWidget ändert."""
@@ -303,6 +319,7 @@ class StarfieldLOH(QMainWindow):
 
             
         elif current_widget == getattr(self, 'page_lo', None) and self.page_update_flags.get("Page_LoadOrder"):
+            self.page_lo.load_lookups()
             self.page_lo.load_data()
             self.page_update_flags["Page_LoadOrder"] = False
 

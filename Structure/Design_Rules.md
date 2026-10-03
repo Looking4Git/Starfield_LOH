@@ -113,15 +113,12 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
-### G. Checkboxen (`QCheckBox`)
-* **Formular- und Detailbereich:**
-  * Kasten: Weiß (`#FFFFFF`), Größe `16x16 px`, Rahmen `1px solid #888888`, `border-radius: 2px`.
+### G. Checkboxen (`QCheckBox` / `QTableView::indicator`)
+* **Universeller Projekt-Standard (Formulare, Detailansichten, Einstellungen, Tabellen & Filterleisten):**
+  * Kasten: Weiß (`#FFFFFF`), Standardgröße `14x14 px` (Tabellen/Filter) bzw. `16x16 px` (Formulare/Detail), Rahmen `1px solid #5B7A9E`, `border-radius: 2px`.
   * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
-  * Aktiviert (Checked): Hintergrund Starfield-Blau (`#304C7A`) mit weißem Häkchen (`Graphics/Icon_Check_White.svg`).
-* **Tabellen- und Filterleisten (z. B. Typ-0-Filter):**
-  * Kasten: Weiß (`#FFFFFF`), Größe `14x14 px`, Rahmen `1px solid #5B7A9E`, `border-radius: 2px`.
-  * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
-  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen (`Graphics/Icon_Check.svg`).
+  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen (`Graphics/Icon_Check.svg`) und Rahmen `1px solid #5B7A9E`.
+  * Deaktiviert / Gesperrt (Disabled): Kasten `#7A7A7A` / `#6A6E73`, Rahmen `#444444` / `#555555`, mit dunklem Häkchen (`Graphics/Icon_Check.svg`).
 
 ---
 
@@ -144,6 +141,20 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Modus »Konfliktvermeidung«:**
     * Voraussetzungen zur Konfliktvermeidung (Mods, die vor der selektierten Mod laden müssen): Rot (`#C72138`, weißer Text).
     * Abhängige Mods zur Konfliktvermeidung (Mods, die nach der selektierten Mod laden müssen): Grün (`#1F7343`, weißer Text).
+* **Universalisiertes Kaskadenfenster (`Dialog_Mod_Activation_Cascade`):**
+  * **Modi:**
+    * `mode="ACTIVATE"`: Aktivierungskaskade mit sichtbarer Checkbox-Spalte (editierbar für Folge-Mods, gesperrt für Ziel/bereits aktive Mods), dynamischer Kaskadierungs-Synchronisation und Vorschlägen.
+    * `mode="DEACTIVATE"`: Deaktivierungskaskade mit ausgeblendeter Checkbox-Spalte; zeigt alle zwingend mitzudeaktivierenden Folge-Mods als transparente Bestätigungsübersicht.
+  * **Hintergrund & Typografie:** Sci-Fi Dunkel `#0D0D0D`, Titellabel Gold `#D7A64B`, Infotext in Standard-Label-Schriftgröße `13px` (`line-height: 1.4;`) mit unaufdringlichen Bullets (`•`) und gleichmäßigem Zeilenabstand ohne Farblegende.
+  * **Schaltflächen:** Reine Text-Buttons ohne Icons (einheitlich zu den Standard-Dialogen): »Abbrechen« und »Aktivieren« bzw. »Deaktivieren« (`#304C7A`, Hover `#5B7A9E`, `padding: 6px 20px; font-weight: bold;`).
+  * **Muted-Farbkonzept für Tabellenzeilen:**
+    * **Ziel-Mod:** Muted Sci-Fi Blau (`#24354D`, weißer Text `#FFFFFF`) – gedämpfter Ton, der sich eindeutig von der leuchtend blauen Tabellenselektion (`#304C7A`) abhebt und Doppelmarkierungen ausschließt.
+    * **Voraussetzungen (Master):** Muted Rot (`#5C1C24`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Voraussetzungen; Aktives Rot (`#C72138`) bei frei editierbaren Positionen.
+    * **Abhängige Mods (Patches/Erweiterungen):** Muted Grün (`#164329`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Positionen (z. B. bereits im Profil aktiv oder im Deaktivierungsmodus); Aktives Grün (`#1F7343`) bei frei editierbaren Folge-Mods.
+  * **Checkbox-Verhalten (im Modus `ACTIVATE`):**
+    * **Fixierte/Gesperrte Mods:** Fest angehakt (`Checked`), gesperrt (`disabled`) und visuell über `QTableView::indicator:disabled` ausgegraut (`#7A7A7A` / `#6A6E73`) dargestellt.
+    * **Abhängige Mods:** Wenn alle Voraussetzungen erfüllt sind, automatisch initial angehakt (`Checked`) und editierbar; bei unvollständigen Voraussetzungen initial `Unchecked` (Vorschlag).
+    * **Interaktion:** Anhaken einer Mod aktiviert deren Voraussetzungen und erfüllt nachfolgende Abhängigkeiten; Abwählen deaktiviert abhängige Folge-Mods.
 
 ---
 

@@ -97,6 +97,9 @@ from Structure.Database_Mods import (
     apply_all_classifier_categories,
     has_classifier_categories,
     get_mods_for_update_view,
+    get_cascade_for_mod,
+    get_active_dependents_for_deactivation,
+    get_cascade_for_deactivation,
 )
 
 __all__ = [
@@ -177,4 +180,7 @@ __all__ = [
     "apply_all_classifier_categories",
     "has_classifier_categories",
     "get_mods_for_update_view",
+    "get_cascade_for_mod",
+    "get_active_dependents_for_deactivation",
+    "get_cascade_for_deactivation",
 ]

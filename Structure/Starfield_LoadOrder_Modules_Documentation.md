@@ -102,3 +102,42 @@ graph TD
 * **Sicherungskategorie:** Aktiv (10er-Rotation mit Zeitstempeln).
 * **Sicherungsort:** `Data/Backups/Profile_Activation/<JJJJ.MM.TT_HH.MM.SS>/` (`Plugins_Original.txt` vor dem Eingriff, `Plugins_New.txt` nach dem Eingriff).
 * **Signalfluss:** Nach erfolgreicher Bereitstellung aktualisiert `Page_LoadOrder.refresh_profile_highlights()` sofort die grüne Zeilenmarkierung für das neu aktivierte Profil.
+
+---
+
+## 3. Kaskadierende Mod-Aktivierung & Deaktivierung (Phase C)
+
+### 3.1 Kaskadierende Deaktivierung via `Dialog_Mod_Activation_Cascade.py`
+* **Auslöser:** Abwahl einer Mod (`Is_Active = 0`) in der Tabelle der Ladereihenfolge auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py).
+* **Prüfung:** `get_active_dependents_for_deactivation(mod_id, profile_id)` ermittelt rekursiv alle weiteren im aktuellen Profil aktiven Mods, die direkt oder indirekt von der abgewählten Mod abhängen.
+* **Universalisiertes Dialogfenster (`mode="DEACTIVATE"`):**
+  * Existieren aktive Abhängigkeiten, öffnet sich [Dialog_Mod_Activation_Cascade.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Mod_Activation_Cascade.py) im Deaktivierungs-Modus:
+    * Die Checkbox-Spalte (Spalte 1) wird ausgeblendet.
+    * Die Ziel-Mod erscheint in Muted Blau (`#24354D`), alle mitzudeaktivierenden Folge-Mods in Muted Grün (`#164329`).
+    * Reine Text-Schaltflächen »Abbrechen« und »Deaktivieren« (ohne Icons).
+  * Bei Klick auf »Deaktivieren« werden die Ziel-Mod sowie alle abhängigen Mods kaskadierend in der Datenbank (`LoadOrder.Is_Active = 0`) und UI deaktiviert.
+  * Bei Klick auf »Abbrechen« bleibt der vorherige Aktivierungszustand unverändert erhalten (Checkbox wird ohne DB-Zugriff auf Checked zurückgestellt).
+
+### 3.2 Kaskadierende Aktivierung via `Dialog_Mod_Activation_Cascade.py`
+* **Auslöser:** Aktivierung einer inaktiven Mod (`Is_Active = 1`) in der Ladereihenfolge.
+* **Prüfung:** `get_cascade_for_mod(mod_id, profile_id)` prüft Voraussetzungen und Abhängigkeiten.
+  * Sind weder inaktive Voraussetzungen noch abhängige Mods im Profil vorhanden, erfolgt die Aktivierung direkt ohne Dialog.
+  * Sind Voraussetzungen oder abhängige Mods vorhanden, öffnet sich der modale Dialog `Dialog_Mod_Activation_Cascade` im Modus `ACTIVATE`.
+* **Architektur des Dialogs:**
+  * **Design & Theme:** Starfield Sci-Fi Dark Mode (`#0D0D0D`, `#161616`), Windows 11 Dark Titlebar (`DWMWA_USE_IMMERSIVE_DARK_MODE`), Fenstergeometrie persistent in `Starfield_LOH_Settings.json`.
+  * **Infotext:** Standard-Label-Schriftgröße 13px mit unaufdringlichen Bullets (`•`) und gleichmäßigem Zeilenabstand ohne Farblegende.
+  * **Spalten:** `Pos.`, `Aktiv` (Checkbox), `Mod-Name`, `Masterfile`, `Beziehung`.
+  * **Muted-Farbkonzept:**
+    * Auslösende Ziel-Mod: Muted Blau (`#24354D`).
+    * Zwingende/Gesperrte Voraussetzungen: Muted Rot (`#5C1C24`).
+    * Bereits aktive / fixierte Folge-Mods: Muted Grün (`#164329`).
+    * Frei editierbare Voraussetzungen bzw. Abhängigkeiten: Aktives Rot (`#C72138`) bzw. Aktives Grün (`#1F7343`).
+  * **Checkbox-Schutz:** Fixierte Mods sind gesperrt (`disabled`) und visuell über `QTableView::indicator:disabled` ausgegraut (`#7A7A7A` / `#6A6E73`) dargestellt.
+  * **Interaktive Kaskaden-Synchronisation:**
+    * Aktivieren einer Mod aktiviert automatisch rekursiv alle Voraussetzungen und schaltet nun erfüllte Abhängigkeiten frei.
+    * Deaktivieren einer Mod deaktiviert automatisch alle abhängigen Mods.
+* **Aktionen:**
+  * »Aktivieren«: Schreibt alle ausgewählten Komponenten mit `Is_Active = 1` in `LoadOrder` und aktualisiert die Tabelle und Limit-Balken auf `Page_LoadOrder`.
+  * »Abbrechen«: Verwirft alle Änderungen vollständig und stellt die Checkbox auf ihren inaktiven Stand zurück.
+
+

@@ -11,6 +11,12 @@
     "x": 200,
     "y": 100
   },
+  "dialog_mod_activation": {
+    "width": 800,
+    "height": 550,
+    "x": 300,
+    "y": 250
+  },
   "ui": {
     "sidebar_collapsed": false
   },

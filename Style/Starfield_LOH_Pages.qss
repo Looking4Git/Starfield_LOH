@@ -249,7 +249,7 @@ QCheckBox#chk_sorter_show_columns::indicator {
     width: 16px;
     height: 16px;
     background-color: #ffffff;
-    border: 1px solid #888888;
+    border: 1px solid #5b7a9e;
     border-radius: 2px;
 }
 
@@ -260,8 +260,9 @@ QCheckBox#chk_sorter_show_columns::indicator:hover {
 
 #detail_view QCheckBox::indicator:checked,
 QCheckBox#chk_sorter_show_columns::indicator:checked {
-    background-color: #304C7A;
-    image: url(Graphics/Icon_Check_White.svg);
+    background-color: #D7A64B;
+    image: url(Graphics/Icon_Check.svg);
+    border: 1px solid #5b7a9e;
 }
 
 #lbl_components_label, #lbl_creation_categories_label, #lbl_requirements_label, #lbl_dependencies_label {

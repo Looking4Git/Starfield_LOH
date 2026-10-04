@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, QThread
 
 from Structure.Paths import (
     get_setting, set_setting, STARFIELD_GAME_DATA_PATH, DATA_DIR, APP_ROOT,
@@ -31,6 +31,83 @@ def _set_dark_title_bar(widget):
             pass
 
 
+class NexusKeyValidatorWorker(QThread):
+    """
+    Asynchroner Hintergrund-Worker zur Validierung des Nexus API-Keys mit bis zu 3 Versuchen bei Timeouts.
+    Blockiert niemals den Qt-Haupt-Thread oder den Programmstart.
+    """
+    status_signal = Signal(str, str)   # (Text, CSS-Style)
+    finished_result = Signal(dict)     # Ergebnis-Dictionary
+
+    def __init__(self, api_key: str, parent=None):
+        super().__init__(parent)
+        self.api_key = api_key
+        self.max_attempts = 3
+        self.timeout_sec = 5
+
+    def run(self):
+        clean_key = (self.api_key or "").strip()
+        if not clean_key:
+            return
+
+        from Structure.Nexus_Fetch import validate_nexus_api_key
+
+        last_error_msg = ""
+        for attempt in range(1, self.max_attempts + 1):
+            if self.isInterruptionRequested():
+                return
+
+            if attempt > 1:
+                self.status_signal.emit(
+                    f"⏳ Nexus API-Key wird geprüft ... (Versuch {attempt} von {self.max_attempts} nach Timeout)",
+                    "color: #E0E0E0; font-size: 14px;"
+                )
+                # Kurze Pause (500 ms) vor dem Neuversuch, unterbrechbar
+                for _ in range(5):
+                    if self.isInterruptionRequested():
+                        return
+                    self.msleep(100)
+
+            try:
+                res = validate_nexus_api_key(clean_key, timeout=self.timeout_sec)
+            except Exception as e:
+                res = {"valid": False, "message": f"Verbindungsfehler: {e}"}
+
+            if self.isInterruptionRequested():
+                return
+
+            if res.get("valid"):
+                user_name = res.get("user_name", "Unbekannt")
+                daily_rem = res.get("daily_remaining", 0)
+                daily_lim = res.get("daily_limit", 0)
+                self.status_signal.emit(
+                    f"✓ API-Key aktiv: {user_name} (Noch {daily_rem:,} / {daily_lim:,} Aufrufe heute frei).",
+                    "color: #1F7343; font-size: 14px; font-weight: bold;"
+                )
+                self.finished_result.emit(res)
+                return
+
+            msg = res.get("message", "API-Key ungültig")
+            last_error_msg = msg
+
+            # Sofortiger Abbruch ohne Retries bei Authentifizierungs- oder Kontingentfehlern
+            if any(term in msg.lower() for term in ["ungültig", "abgelaufen", "rate-limit", "401", "403"]):
+                self.status_signal.emit(
+                    f"⚠ {msg}.",
+                    "color: #C72138; font-size: 14px; font-weight: bold;"
+                )
+                self.finished_result.emit(res)
+                return
+
+        # Nach Ablauf aller Versuche
+        if not self.isInterruptionRequested():
+            self.status_signal.emit(
+                f"⚠ Validierung nach {self.max_attempts} Versuchen fehlgeschlagen ({last_error_msg}).",
+                "color: #D7A64B; font-size: 14px; font-weight: bold;"
+            )
+            self.finished_result.emit({"valid": False, "message": last_error_msg})
+
+
 class Page_Settings_General(QWidget):
     """
     Unterseite für Allgemeine Einstellungen (u. a. Dateipfade und Programm-Reset).
@@ -40,6 +117,7 @@ class Page_Settings_General(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Page_Settings_General")
+        self._validator_thread: NexusKeyValidatorWorker | None = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -359,7 +437,9 @@ class Page_Settings_General(QWidget):
             self.update_nexus_status_display("")
 
     def update_nexus_status_display(self, api_key: str):
-        """Aktualisiert die Statusanzeige für den Nexus API-Key mit offiziellen Starfield-Farben."""
+        """Aktualisiert die Statusanzeige für den Nexus API-Key asynchron mit offiziellen Starfield-Farben."""
+        self._stop_validator_thread()
+
         from Structure.Paths import is_dpapi_hardware_mismatch
         if is_dpapi_hardware_mismatch():
             self.lbl_nexus_status.setText("⚠ Hardwarewechsel erkannt: Bitte hinterlegen Sie Ihren Nexus API-Key auf diesem Rechner neu.")
@@ -372,22 +452,30 @@ class Page_Settings_General(QWidget):
             self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
             return
 
-        try:
-            from Structure.Nexus_Fetch import validate_nexus_api_key
-            res = validate_nexus_api_key(clean_key)
-            if res.get("valid"):
-                user_name = res.get("user_name", "Unbekannt")
-                daily_rem = res.get("daily_remaining", 0)
-                daily_lim = res.get("daily_limit", 0)
-                self.lbl_nexus_status.setText(f"✓ API-Key aktiv: {user_name} (Noch {daily_rem:,} / {daily_lim:,} Aufrufe heute frei).")
-                self.lbl_nexus_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
-            else:
-                msg = res.get("message", "API-Key ungültig")
-                self.lbl_nexus_status.setText(f"⚠ {msg}.")
-                self.lbl_nexus_status.setStyleSheet("color: #C72138; font-size: 14px; font-weight: bold;")
-        except Exception as e:
-            self.lbl_nexus_status.setText(f"⚠ Validierung fehlgeschlagen: {e}")
-            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+        self.lbl_nexus_status.setText("⏳ Nexus API-Key wird geprüft...")
+        self.lbl_nexus_status.setStyleSheet("color: #E0E0E0; font-size: 14px;")
+
+        self._validator_thread = NexusKeyValidatorWorker(clean_key, self)
+        self._validator_thread.status_signal.connect(self._on_nexus_status_updated)
+        self._validator_thread.start()
+
+    def _on_nexus_status_updated(self, text: str, style: str):
+        """Aktualisiert das Status-Label thread-sicher über Qt-Signale."""
+        self.lbl_nexus_status.setText(text)
+        self.lbl_nexus_status.setStyleSheet(style)
+
+    def _stop_validator_thread(self):
+        """Beendet einen eventuell laufenden Validierungs-Worker geordnet."""
+        if self._validator_thread and self._validator_thread.isRunning():
+            self._validator_thread.requestInterruption()
+            self._validator_thread.quit()
+            self._validator_thread.wait(500)
+            self._validator_thread = None
+
+    def closeEvent(self, event):
+        """Stellt sicher, dass Hintergrund-Threads beim Schließen beendet werden."""
+        self._stop_validator_thread()
+        super().closeEvent(event)
 
     def toggle_api_key_visibility(self):
         """Schaltet zwischen verdecktem und Klartext-Echo-Modus um."""

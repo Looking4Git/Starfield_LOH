@@ -123,7 +123,7 @@ class NexusAPIClient:
         except Exception:
             pass
 
-    def validate(self) -> dict:
+    def validate(self, timeout: int = 8) -> dict:
         """
         Validiert den hinterlegten API-Key bei Nexus Mods.
         Gibt ein Status-Dictionary zurück.
@@ -144,7 +144,7 @@ class NexusAPIClient:
         )
         ctx = _get_ssl_context()
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=8) as res:
+            with urllib.request.urlopen(req, context=ctx, timeout=timeout) as res:
                 self._update_rate_limits(res.headers)
                 data = json.loads(res.read().decode('utf-8'))
                 self.is_valid = True
@@ -254,10 +254,10 @@ class NexusAPIClient:
             return None
 
 
-def validate_nexus_api_key(api_key: str = None) -> dict:
+def validate_nexus_api_key(api_key: str = None, timeout: int = 8) -> dict:
     """Convenience-Funktion zur Validierung eines Nexus API-Keys."""
     client = NexusAPIClient(api_key=api_key)
-    return client.validate()
+    return client.validate(timeout=timeout)
 
 
 # ---------------------------------------------------------------------------

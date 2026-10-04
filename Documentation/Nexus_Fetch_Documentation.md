@@ -98,13 +98,18 @@ Das Modul `Nexus_Fetch.py` ist in klar entkoppelte Funktionseinheiten unterteilt
 
 ## 5. UI-Statusanzeige in den Einstellungen (`Page_Settings_General.py`)
 
-In den Programmeinstellungen ([Structure/Pages/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)) befindet sich direkt unter der API-Key-Eingabe das Statuslabel `lbl_nexus_status`:
+In den Programmeinstellungen ([Structure/Pages/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)) befindet sich direkt unter der API-Key-Eingabe das Statuslabel `lbl_nexus_status`.
 
-* **Grün (`#1F7343`):** `✓ API-Key aktiv: {user_name} (Noch {daily_remaining} / {daily_limit} Aufrufe heute frei).`
-* **Gelb (`#D7A64B`):** `ℹ Kein API-Key hinterlegt (Datenabruf erfolgt rein über Playwright-Webabgleich).`
-* **Rot (`#C72138`):** `⚠ API-Key ungültig oder abgelaufen.` bzw. `⚠ API-Rate-Limit erreicht.`
+Die Validierung erfolgt vollständig **asynchron über einen separaten Hintergrund-Worker** (`NexusKeyValidatorWorker` als `QThread`), sodass der Anwendungsstart und die UI zu keinem Zeitpunkt durch externe Web-Latenzen blockiert werden:
 
-Die Validierung erfolgt asynchron beim Aufruf der Seite sowie beim Verlassen des Eingabefeldes (`editingFinished`).
+* **Sofortige Entkopplung:** Beim Programmstart oder bei Key-Änderungen zeigt das Label unmittelbar `⏳ Nexus API-Key wird geprüft...` an; die UI bleibt voll reaktiv.
+* **3-stufige Retry-Logik bei Timeouts:** Kommt es zu einem Netzwerk- oder Socket-Timeout (5s Limit pro Versuch), wiederholt der Worker die Anfrage automatisch bis zu dreimal:
+  * Versuch 2: `⏳ Nexus API-Key wird geprüft ... (Versuch 2 von 3 nach Timeout)`
+  * Versuch 3: `⏳ Nexus API-Key wird geprüft ... (Versuch 3 von 3 nach Timeout)`
+* **Statusanzeigen:**
+  * **Grün (`#1F7343`):** `✓ API-Key aktiv: {user_name} (Noch {daily_remaining} / {daily_limit} Aufrufe heute frei).`
+  * **Gelb (`#D7A64B`):** `ℹ Kein API-Key hinterlegt (Datenabruf erfolgt rein über Playwright-Webabgleich).` oder `⚠ Validierung nach 3 Versuchen fehlgeschlagen (...).`
+  * **Rot (`#C72138`):** `⚠ API-Key ungültig oder abgelaufen.` bzw. `⚠ API-Rate-Limit erreicht.` (Erfolgt bei Auth-Fehlern sofort ohne unnötige Retries).
 
 ---
 

@@ -184,6 +184,10 @@ class Page_Update(QWidget):
                 variant="blue"
             )
             self.btn_start_update.clicked.connect(self.on_start_update_clicked)
+            from Structure.Environment_Controller import is_primary_system
+            if not is_primary_system():
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
 
         self.btn_resolve_update_status = ui.findChild(QPushButton, "btn_resolve_update_status")
         if self.btn_resolve_update_status:
@@ -359,6 +363,15 @@ class Page_Update(QWidget):
                 self.btn_resolve_update_status.setEnabled(False)
             if hasattr(self, "btn_start_update") and self.btn_start_update:
                 self.btn_start_update.setEnabled(True)
+
+        # 4. Fremdsystem-Schutz: 'Update starten' auf fremder Hardware sperren
+        from Structure.Environment_Controller import is_primary_system
+        if not is_primary_system():
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+        elif hasattr(self, "btn_start_update") and self.btn_start_update and self.btn_start_update.isEnabled():
+            self.btn_start_update.setToolTip("")
 
     def load_data(self):
         """Lädt alle Mods basierend auf dem gewählten Anzeigemodus ('updates', 'reinstall', 'restore')."""

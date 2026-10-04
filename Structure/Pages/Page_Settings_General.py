@@ -85,6 +85,16 @@ class Page_Settings_General(QWidget):
         self.btn_browse.clicked.connect(self.browse_directory)
         path_row_layout.addWidget(self.btn_browse)
 
+        self.btn_reauthorize_system = QPushButton()
+        self.btn_reauthorize_system.setObjectName("btn_reauthorize_system")
+        self.btn_reauthorize_system.setFixedSize(36, 32)
+        self.btn_reauthorize_system.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reauthorize_system.setIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_Update.svg")))
+        self.btn_reauthorize_system.setIconSize(QSize(22, 22))
+        self.btn_reauthorize_system.setToolTip("Spieleverzeichnis für das aktuelle System neu registrieren (Reautorisierung)...")
+        self.btn_reauthorize_system.clicked.connect(self.on_reauthorize_system)
+        path_row_layout.addWidget(self.btn_reauthorize_system)
+
         form_layout.addRow(lbl_path, path_row_layout)
 
         # Statusanzeige (unter dem Eingabefeld ausgerichtet)
@@ -337,6 +347,8 @@ class Page_Settings_General(QWidget):
         """Speichert den Nexus API-Key bei Abschluss der Texteingabe und prüft den Status."""
         val = self.inp_nexus_api_key.text().strip()
         set_setting("nexus", "api_key", val)
+        import Structure.Paths as P
+        P.DPAPI_HARDWARE_MISMATCH = False
         self.update_nexus_status_display(val)
 
     def on_nexus_api_key_text_changed(self, text: str):
@@ -348,6 +360,12 @@ class Page_Settings_General(QWidget):
 
     def update_nexus_status_display(self, api_key: str):
         """Aktualisiert die Statusanzeige für den Nexus API-Key mit offiziellen Starfield-Farben."""
+        from Structure.Paths import is_dpapi_hardware_mismatch
+        if is_dpapi_hardware_mismatch():
+            self.lbl_nexus_status.setText("⚠ Hardwarewechsel erkannt: Bitte hinterlegen Sie Ihren Nexus API-Key auf diesem Rechner neu.")
+            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
         clean_key = (api_key or "").strip()
         if not clean_key:
             self.lbl_nexus_status.setText("ℹ Kein API-Key hinterlegt (Datenabruf erfolgt rein über Playwright-Webabgleich).")
@@ -384,6 +402,12 @@ class Page_Settings_General(QWidget):
 
     def update_status_display(self, path: str):
         """Aktualisiert die Statusanzeige mit offiziellem Starfield-Grün (#1F7343) oder Gelb (#D7A64B)."""
+        from Structure.Environment_Controller import is_primary_system
+        if not is_primary_system():
+            self.lbl_status.setText("⚠ Fremdsystem: Spieleverzeichnis für einen anderen Rechner registriert.")
+            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
         if not path or not path.strip():
             self.lbl_status.setText("⚠ Kein Pfad angegeben.")
             self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
@@ -396,6 +420,47 @@ class Page_Settings_General(QWidget):
         else:
             self.lbl_status.setText("⚠ Verzeichnis existiert derzeit nicht auf diesem Datenträger.")
             self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+
+    def on_reauthorize_system(self):
+        """Öffnet den Bestätigungsdialog zur Reautorisierung des aktuellen Rechners als Primärsystem."""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Rechner-Autorisierung")
+        msg.setIcon(QMessageBox.Icon.Warning)
+        _set_dark_title_bar(msg)
+
+        dialog_text = (
+            "Das eingetragene Spieleverzeichnis ist für einen anderen Rechner registriert.\n\n"
+            "Wollen Sie das Spieleverzeichnis für das aktuelle System neu einlesen und registrieren lassen?\n\n"
+            "Stellen Sie hierfür bitte sicher, dass Ihre Starfield Installation inklusive der installierten "
+            "Mods Ihrer bisherigen Einrichtung entspricht und führen Sie eine Aktualisierung der in den "
+            "Starfield LOH eingelesenen Daten durch. Wird dieser Vorgang mit einer fremden Spieleinstallation "
+            "ausgeführt, kann es zu Fehlern in der Datenbank oder den Spieledateien kommen!"
+        )
+        msg.setText(dialog_text)
+        btn_yes = msg.addButton("Ja, neu registrieren", QMessageBox.ButtonRole.YesRole)
+        btn_cancel = msg.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
+        msg.setDefaultButton(btn_cancel)
+        msg.exec()
+
+        if msg.clickedButton() == btn_yes:
+            from Structure.Environment_Controller import reauthorize_current_system
+            reauthorize_current_system()
+
+            current_path = self.inp_starfield_data.text().strip()
+            self.update_status_display(current_path)
+
+            info = QMessageBox(self)
+            info.setWindowTitle("Registrierung erfolgreich")
+            info.setIcon(QMessageBox.Icon.Information)
+            _set_dark_title_bar(info)
+            info.setText(
+                "Das aktuelle System wurde erfolgreich als autorisiertes Primärsystem registriert.\n\n"
+                "Alle Funktionen sind nun freigegeben. Bitte führen Sie als nächsten Schritt unter "
+                "'Tools' die Funktion 'Starfield Get Data' aus."
+            )
+            info.exec()
+
+            self.data_updated.emit()
 
     def on_text_changed(self, text: str):
         """Reagiert live auf Texteingaben für die Statusanzeige."""

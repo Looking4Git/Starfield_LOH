@@ -102,7 +102,7 @@ class Widget_TileIconButton(QWidget):
 
         if not enabled:
             bg_color = self._color_disabled
-            text_color = "#666666"
+            text_color = "#888888"
             underline = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
         elif self._is_pressed:

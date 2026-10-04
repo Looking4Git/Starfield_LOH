@@ -726,6 +726,15 @@ class Page_LoadOrder(QWidget):
         """Aktualisiert den Zustand des 'Aktivieren'-Buttons (deaktiviert/muted, wenn Profil bereits aktiv)."""
         if not hasattr(self, 'btn_activate_profile') or not self.btn_activate_profile:
             return
+
+        from Structure.Environment_Controller import is_primary_system
+        if not is_primary_system():
+            self.btn_activate_profile.setEnabled(False)
+            self.btn_activate_profile.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+            return
+        else:
+            self.btn_activate_profile.setToolTip("")
+
         selection_model = self.tree_profile.selectionModel()
         indexes = selection_model.selectedRows() if selection_model else []
         if not indexes:

@@ -39,5 +39,10 @@
   "window_mod_statistics": {
     "min_width": 1000,
     "docked_width": 1000
+  },
+  "system": {
+    "system_machine_guid": "",
+    "system_computer_name": "",
+    "system_user_name": ""
   }
 }

@@ -19,21 +19,16 @@ from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
 from Structure.Database import ensure_default_database_mode
 
 DEFAULT_SETTINGS = {
-    "window": {"width": 1280, "height": 720, "x": 100, "y": 100},
-    "dialog_mod_selection": {"width": 800, "height": 600, "x": 300, "y": 300},
-    "window_mod_statistics": {
-        "min_width": 1000,
-        "docked_width": 1000,
-        "floating": {"width": 640, "height": 760, "x": 300, "y": 200}
-    },
+    "window": {"width": 1600, "height": 900, "x": 100, "y": 100},
+    "dialog_mod_selection": {"width": 840, "height": 900, "x": 200, "y": 100},
     "ui": {"sidebar_collapsed": False},
-    "paths": {"starfield_data": r"E:\Steam\steamapps\common\Starfield\Data"},
+    "paths": {"starfield_data": "", "LOH_data": "Data"},
     "nexus": {"api_key": ""},
     "settings": {
-        "Auto_Save": 0,
+        "Auto_Save": 1,
         "Limit_Warning_Percentage": 90,
-        "Prefer_Content_BarChart": False,
         "Prefer_Conflict_Tiles": False,
+        "Prefer_Content_BarChart": False,
         "Starfield_Mod_Update_Backup_Strategy": False
     },
     "creation_engine_limits": {
@@ -43,6 +38,15 @@ DEFAULT_SETTINGS = {
         "Projection_PointerHandles_Core": 1200000,
         "Projection_PointerHandles_Mods": 23,
         "Limit_PointerHandles": 2097152
+    },
+    "window_mod_statistics": {
+        "min_width": 1000,
+        "docked_width": 1000
+    },
+    "system": {
+        "system_machine_guid": "",
+        "system_computer_name": "",
+        "system_user_name": ""
     }
 }
 

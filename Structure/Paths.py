@@ -92,6 +92,8 @@ def to_storable_path(target_path: str) -> str:
 
 
 # --- Windows DPAPI Sicherheits-Layer für sensible Einstellungen (API-Keys) ---
+DPAPI_HARDWARE_MISMATCH = False
+
 try:
     import ctypes
     import ctypes.wintypes
@@ -123,6 +125,7 @@ try:
 
     def decrypt_dpapi(cipher_text: str) -> str:
         """Entschlüsselt einen mit Windows DPAPI geschützten String."""
+        global DPAPI_HARDWARE_MISMATCH
         if not cipher_text or not isinstance(cipher_text, str):
             return ""
         if not cipher_text.startswith("dpapi:"):
@@ -136,14 +139,24 @@ try:
                 decrypted_bytes = ctypes.string_at(blob_out.pbData, blob_out.cbData)
                 ctypes.windll.kernel32.LocalFree(blob_out.pbData)
                 return decrypted_bytes.decode('utf-8')
+            else:
+                DPAPI_HARDWARE_MISMATCH = True
+                return ""
         except Exception as e:
-            print(f"Fehler bei DPAPI-Entschlüsselung: {e}")
-        return cipher_text
+            DPAPI_HARDWARE_MISMATCH = True
+            print(f"Fehler bei DPAPI-Entschlüsselung (Hardwarewechsel vermutet): {e}")
+            return ""
 except Exception:
     def encrypt_dpapi(plain_text: str) -> str:
         return plain_text
     def decrypt_dpapi(cipher_text: str) -> str:
         return cipher_text
+
+
+def is_dpapi_hardware_mismatch() -> bool:
+    """Gibt zurück, ob bei der DPAPI-Entschlüsselung ein Hardwarewechsel festgestellt wurde."""
+    global DPAPI_HARDWARE_MISMATCH
+    return DPAPI_HARDWARE_MISMATCH
 
 
 def get_setting(key, default=None):
@@ -155,7 +168,7 @@ def get_setting(key, default=None):
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-                for sec in ["window", "ui", "paths", "nexus", "settings", "creation_engine_limits"]:
+                for sec in ["window", "ui", "paths", "nexus", "settings", "creation_engine_limits", "system"]:
                     if sec in cfg and isinstance(cfg[sec], dict) and key in cfg[sec]:
                         val = cfg[sec][key]
                         if (sec == "nexus" and key == "api_key") or key == "api_key":

@@ -168,6 +168,29 @@ class Page_Tools(QWidget):
         self.log_output = self.log_console  # Alias für Rückwärtskompatibilität
         self.layout.addWidget(self.log_console, stretch=1)
 
+        self.apply_environment_security()
+
+    def apply_environment_security(self):
+        """Wendet die Sperrmatrix für Fremdsysteme an."""
+        from Structure.Environment_Controller import is_primary_system
+        is_primary = is_primary_system()
+
+        foreign_blocked = [
+            self.btn_local_check,
+            self.btn_deleted_check,
+            self.btn_load_order_check,
+            self.btn_conflict_check,
+            self.btn_reset_filedate,
+        ]
+
+        for btn in foreign_blocked:
+            if not is_primary:
+                btn.setEnabled(False)
+                btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+            else:
+                btn.setEnabled(True)
+                btn.setToolTip("")
+
     def start_local_check(self):
         self.set_buttons_enabled(False)
         self.log_console.clear()
@@ -328,6 +351,17 @@ class Page_Tools(QWidget):
         self.worker.start()
 
     def set_buttons_enabled(self, enabled):
+        from Structure.Environment_Controller import is_primary_system
+        is_primary = is_primary_system()
+
+        foreign_blocked = {
+            self.btn_local_check,
+            self.btn_deleted_check,
+            self.btn_load_order_check,
+            self.btn_conflict_check,
+            self.btn_reset_filedate,
+        }
+
         all_buttons = [
             self.btn_local_check,
             self.btn_deleted_check,
@@ -341,7 +375,16 @@ class Page_Tools(QWidget):
             self.btn_reset_filedate,
         ]
         for btn in all_buttons:
-            btn.setEnabled(enabled)
+            if not enabled:
+                btn.setEnabled(False)
+            else:
+                if not is_primary and btn in foreign_blocked:
+                    btn.setEnabled(False)
+                    btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+                else:
+                    btn.setEnabled(True)
+                    if btn in foreign_blocked:
+                        btn.setToolTip("")
 
     def append_log(self, text):
         """Delegiert an die Konsole (für Rückwärtskompatibilität)."""

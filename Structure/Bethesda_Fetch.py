@@ -158,7 +158,16 @@ def run_fetch(log_signal=None):
         
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, args=[
-                "--headless=new", "--disable-gpu", "--no-sandbox", "--proxy-server='direct://'", "--proxy-bypass-list=*"
+                "--headless=new",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--proxy-server='direct://'",
+                "--proxy-bypass-list=*",
+                "--disable-background-networking",
+                "--disable-sync",
+                "--no-first-run",
+                "--metrics-recording-only",
+                "--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider"
             ])
             context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")

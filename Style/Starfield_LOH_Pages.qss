@@ -566,8 +566,12 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
     font-weight: bold;
 }
 
-/* Kompakter Icon-Only Button für Durchsuchen */
-#Page_Settings QPushButton#btn_browse {
+/* Kompakte Icon-Only Buttons für Einstellungen */
+#Page_Settings QPushButton#btn_browse,
+#Page_Settings QPushButton#btn_browse_data,
+#Page_Settings QPushButton#btn_reset_data_path,
+#Page_Settings QPushButton#btn_reauthorize_system,
+#Page_Settings QPushButton#btn_toggle_api_key {
     padding: 0px;
     text-align: center;
 }

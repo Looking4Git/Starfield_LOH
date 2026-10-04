@@ -288,7 +288,12 @@ class PlaywrightSession:
                 args=[
                     "--headless=new",
                     "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox"
+                    "--no-sandbox",
+                    "--disable-background-networking",
+                    "--disable-sync",
+                    "--no-first-run",
+                    "--metrics-recording-only",
+                    "--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider"
                 ],
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                 viewport={"width": 1920, "height": 1080},
@@ -311,6 +316,34 @@ class PlaywrightSession:
             """)
         return self.context
 
+    def handle_onetrust_consent(self, page):
+        """
+        Lehnt alle optionalen/Tracking-Cookies bei Nexus Mods ab, sodass ausschließlich
+        technisch notwendige Cookies (Kategorie C0001) im persistenten Browserprofil aktiv bleiben.
+        """
+        try:
+            # 1. Klick auf den Reject-All Button, falls im DOM sichtbar
+            reject_btn = page.locator("#onetrust-reject-all-handler")
+            if reject_btn.is_visible(timeout=1500):
+                self.log("  -> OneTrust Cookie-Banner erkannt: Lehne alle optionalen Cookies ab (nur technisch notwendige zulassen)...")
+                reject_btn.click()
+                page.wait_for_timeout(500)
+                return
+
+            # 2. Native OneTrust JavaScript API als sichere Ergänzung/Fallback
+            opt_out_success = page.evaluate("""() => {
+                if (window.OneTrust && typeof window.OneTrust.RejectAll === 'function') {
+                    window.OneTrust.RejectAll();
+                    return true;
+                }
+                return false;
+            }""")
+            if opt_out_success:
+                self.log("  -> OneTrust.RejectAll() erfolgreich ausgeführt (nur technisch notwendige Cookies aktiv).")
+                page.wait_for_timeout(500)
+        except Exception:
+            pass
+
     def ensure_search_page(self):
         """Lädt die Starfield-Suchseite einmalig im persistenten Kontext."""
         ctx = self.ensure_context()
@@ -325,6 +358,10 @@ class PlaywrightSession:
                         break
                     self.log(f"  -> Warte auf Initialisierung der Suchseite (Titel: '{t}')...")
                     self.search_page.wait_for_timeout(1000)
+
+                # Cookie-Handshake (Nur technisch notwendige Cookies)
+                self.handle_onetrust_consent(self.search_page)
+
                 self.search_page.wait_for_selector("#title-search-parameters", timeout=15000)
                 self.log("Suchseite erfolgreich geladen und initialisiert.")
                 self.search_page_loaded = True
@@ -619,7 +656,11 @@ def fetch_details_via_playwright(pw_session: PlaywrightSession, nexus_mod_id: in
                 break
             log(f"    -> Warte auf Cloudflare-Freigabe (Titel: '{current_title}')...")
             detail_page.wait_for_timeout(1000)
-            
+
+        # Cookie-Handshake (Nur technisch notwendige Cookies)
+        if browser_manager:
+            browser_manager.handle_onetrust_consent(detail_page)
+
         html_content = detail_page.content()
         
         # A. Online Name

@@ -90,16 +90,19 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 ---
 
 ### E. Schaltflächen (`QPushButton`)
-* **Standard-Aktionsbutton:**
-  * Hintergrund: Starfield-Blau (`#304C7A`), Hover: Helles Blau (`#5B7A9E`).
-  * Schrift & Icons: Weiß/Hellgrau `#ECECEC` (`13px`).
+* **Allgemeines Farbsystem für Schaltflächen:**
+  | Rolle | Normal | Hover | Pressed | Disabled / Muted | Verwendung |
+  | :--- | :--- | :--- | :--- | :--- | :--- |
+  | **Blau (Standard / Primär)** | `#304C7A` | `#5B7A9E` | `#1F3354` | `#222D3D` (Text `#888888`) | Standard-Aktionen, Menüs, Kopieren, Einlesen |
+  | **Rot (Kritisch / Gefahr / Prüfen)** | `#C72138` | `#E03048` | `#A0182B` | `#422226` (Text `#888888`) | Löschen, Update prüfen, Abbrechen |
+  | **Grün (Aktivierung / Bestätigung)** | `#1F7343` | `#2EA44F` | `#165A33` | `#1E5232` (Text `#888888`) | Profil aktivieren, Bestätigen |
+* **Typografie & Geometrie:**
+  * Schrift & Icons: Weiß/Hellgrau `#ECECEC` (`13px`), `bold` bei Aktionsbuttons für markante Lesbarkeit und hohen Kontrast auch im deaktivierten Zustand.
   * Textausrichtung: Linksbündig (`text-align: left`), damit Text und Icons untereinander exakt auf einer Fluchtlinie liegen.
   * Rahmen & Rundung: `border: none; border-radius: 2px;`.
-  * Abmessungen: Mindesthöhe `32px`, Mindestbreite `120px` bis `130px`, Padding `4px 8px`, Icongröße `24x24 px`.
+  * Abmessungen: Mindesthöhe `32px`, Mindestbreite `120px` bis `130px`, Padding `4px 8px`, Icongröße `18x18 px` bis `22x22 px`.
 * **Pfeil- und Symbolbuttons (z. B. `btn_pos_up`, `btn_pos_down`):**
   * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
-* **Gefahrenbuttons (`btn_danger`, z. B. Löschen):**
-  * Hintergrund: Starfield-Rot (`#C72138`), Hover `#E03048`, Pressed `#A0182B`.
 * **Spezifische Icon-Standards:**
   * **Webseiten-Aufruf (z. B. `btn_open_url` auf `Page_Mods` und `Page_Update`):** Nutzt verbindlich `Graphics/Icon_Downstream.svg`.
   * **Fetch- und Synchronisations-Aktionen (z. B. `btn_fetch`, `btn_nexus_fetch`, `btn_loot_fetch` auf `Page_Tools`):** Nutzen verbindlich `Graphics/Icon_Cloud.svg`.
@@ -128,8 +131,9 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Control_HeaderView_Documentation.md).
-* **Aktive Profilmarkierung (`tree_profile`):**
-  * Spaltenstruktur: Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
+* **Aktive Profilmarkierung & Zeilenhöhe (`tree_profile`):**
+  * **Zeilenhöhe:** Feste Zeilenhöhe von `26px` (`#tree_profile::item { height: 26px; }`), um eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons zu gewährleisten.
+  * **Spaltenstruktur:** Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
   * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` wie folgt gekennzeichnet:
     * **Spalte 0:** Zeigt das offizielle Aktivierungs-Icon `Graphics/Icon_Activation.svg` zentriert in einer schlanken 28 px Spalte ohne Textbeschriftung. Dadurch bleibt der Aktivstatus auch bei selektierter (blauer) Zeile (`#304C7A`) immer sofort erkennbar.
     * **Nicht selektiert:** Hintergrund Deep Sci-Fi Grün (`#1F7343`), Schriftfarbe Weiß (`#FFFFFF`).

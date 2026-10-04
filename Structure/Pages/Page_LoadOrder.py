@@ -287,16 +287,41 @@ class Page_LoadOrder(QWidget):
         self.btn_delete_profile = ui.findChild(QPushButton, "btn_delete_profile")
         
         if self.btn_activate_profile:
-            make_button_premium(self.btn_activate_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Activation.svg"), "Aktivieren")
+            make_button_premium(
+                self.btn_activate_profile,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Activation.svg"),
+                "Aktivieren",
+                variant="green",
+                bold=True,
+                icon_size=18
+            )
             self.btn_activate_profile.clicked.connect(self.on_activate_profile)
         if self.btn_import_profile:
-            make_button_premium(self.btn_import_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"), "Einlesen")
+            make_button_premium(
+                self.btn_import_profile,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"),
+                "Einlesen",
+                bold=True,
+                icon_size=18
+            )
             self.btn_import_profile.clicked.connect(self.on_import_profile)
         if self.btn_copy_profile:
-            make_button_premium(self.btn_copy_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Add.svg"), "Kopieren")
+            make_button_premium(
+                self.btn_copy_profile,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Add.svg"),
+                "Kopieren",
+                bold=True,
+                icon_size=18
+            )
             self.btn_copy_profile.clicked.connect(self.on_copy_profile)
         if self.btn_delete_profile:
-            make_button_premium(self.btn_delete_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Löschen")
+            make_button_premium(
+                self.btn_delete_profile,
+                os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"),
+                "Löschen",
+                bold=True,
+                icon_size=18
+            )
             self.btn_delete_profile.clicked.connect(self.on_delete_profile)
         
         # Details-Felder referenzieren
@@ -560,6 +585,7 @@ class Page_LoadOrder(QWidget):
             self.inp_profile_desc.clear()
             self.current_profile_id = None
             self.load_data()
+            self.update_activate_button_state()
             return
             
         row = indexes[0].row()
@@ -571,6 +597,7 @@ class Page_LoadOrder(QWidget):
                 self.current_profile_id = profile_data.get("ID")
         
         self.load_data()
+        self.update_activate_button_state()
 
     def load_lookups(self, select_profile_id=None):
         # Kategorien laden
@@ -624,8 +651,6 @@ class Page_LoadOrder(QWidget):
         p_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         
         has_profiles = len(profiles) > 0
-        if hasattr(self, 'btn_activate_profile') and self.btn_activate_profile:
-            self.btn_activate_profile.setEnabled(has_profiles)
         if hasattr(self, 'btn_copy_profile') and self.btn_copy_profile:
             self.btn_copy_profile.setEnabled(has_profiles)
         if hasattr(self, 'btn_delete_profile') and self.btn_delete_profile:
@@ -694,6 +719,36 @@ class Page_LoadOrder(QWidget):
                 item_active.setToolTip(None)
                 item_id.setToolTip(None)
                 item_name.setToolTip(None)
+
+        self.update_activate_button_state(active_ids)
+
+    def update_activate_button_state(self, active_ids=None):
+        """Aktualisiert den Zustand des 'Aktivieren'-Buttons (deaktiviert/muted, wenn Profil bereits aktiv)."""
+        if not hasattr(self, 'btn_activate_profile') or not self.btn_activate_profile:
+            return
+        selection_model = self.tree_profile.selectionModel()
+        indexes = selection_model.selectedRows() if selection_model else []
+        if not indexes:
+            self.btn_activate_profile.setEnabled(False)
+            return
+
+        row = indexes[0].row()
+        item = self.profile_model.item(row, 0)
+        if not item:
+            self.btn_activate_profile.setEnabled(False)
+            return
+
+        profile_id = item.data(Qt.ItemDataRole.UserRole)
+        if active_ids is None:
+            try:
+                from Structure.Starfield_LoadOrder_Check import get_active_profile_ids
+                active_ids = set(get_active_profile_ids())
+            except Exception as e:
+                logging.warning(f"Fehler bei get_active_profile_ids in update_activate_button_state: {e}")
+                active_ids = set()
+
+        is_already_active = (profile_id in active_ids)
+        self.btn_activate_profile.setEnabled(not is_already_active)
 
     def on_activate_profile(self):
         indexes = self.tree_profile.selectionModel().selectedRows()

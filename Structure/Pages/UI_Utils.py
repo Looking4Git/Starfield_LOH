@@ -36,6 +36,7 @@ def make_button_premium(
     icon_size: tuple[int, int] | int = 22,
     centered: bool = False,
     variant: str = "blue",
+    bold: bool = True,
 ):
     if not button:
         return
@@ -91,18 +92,33 @@ def make_button_premium(
     def update_style():
         if not button:
             return
-        is_red = (variant.lower() == "red")
+        v = variant.lower()
+        if v == "red":
+            bg_normal = "#C72138"
+            bg_hover = "#E03048"
+            bg_pressed = "#A0182B"
+            bg_disabled = "#422226"
+        elif v == "green":
+            bg_normal = "#1F7343"
+            bg_hover = "#2EA44F"
+            bg_pressed = "#165A33"
+            bg_disabled = "#1E5232"
+        else:
+            bg_normal = "#304C7A"
+            bg_hover = "#5B7A9E"
+            bg_pressed = "#1F3354"
+            bg_disabled = "#222D3D"
+
         enabled = button.isEnabled()
 
         if not enabled:
-            bg_color = "#422226" if is_red else "#222D3D"
-            text_color = "#666666"
+            text_color = "#888888"
             if not dimmed_pixmap.isNull():
                 icon_label.setPixmap(dimmed_pixmap)
             button.setCursor(Qt.CursorShape.ArrowCursor)
             button.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {bg_color};
+                    background-color: {bg_disabled};
                     border: none;
                     border-radius: 2px;
                     padding: 4px 8px;
@@ -110,9 +126,6 @@ def make_button_premium(
                 }}
             """)
         else:
-            bg_normal = "#C72138" if is_red else "#304C7A"
-            bg_hover = "#E03048" if is_red else "#5B7A9E"
-            bg_pressed = "#A0182B" if is_red else "#1F3354"
             text_color = "#ECECEC"
             if not normal_pixmap.isNull():
                 icon_label.setPixmap(normal_pixmap)
@@ -133,8 +146,9 @@ def make_button_premium(
                 }}
             """)
 
+        weight = "bold" if bold else "normal"
         text_label.setStyleSheet(
-            f"color: {text_color}; font-weight: bold; background: transparent; border: none; padding: 0px;"
+            f"color: {text_color}; font-size: 13px; font-weight: {weight}; background: transparent; border: none; padding: 0px;"
         )
 
     # Event filter for EnabledChange

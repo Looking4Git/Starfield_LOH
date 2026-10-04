@@ -386,6 +386,15 @@ QPushButton:hover {
     background-color: #5b7a9e;
 }
 
+QPushButton:pressed {
+    background-color: #1F3354;
+}
+
+QPushButton:disabled {
+    background-color: #222D3D;
+    color: #888888;
+}
+
 /* Spezifische Styles für Pfeiltasten zur perfekten Zentrierung und korrekten Höhe */
 QPushButton#btn_pos_up, QPushButton#btn_pos_down {
     padding: 0px;
@@ -581,5 +590,40 @@ QPushButton#btn_danger:hover {
 QPushButton#btn_danger:pressed {
     background-color: #A0182B;
 }
+
+QPushButton#btn_danger:disabled, QPushButton[variant="red"]:disabled {
+    background-color: #422226;
+    color: #888888;
+}
+
+/* Grüner Aktionsbutton (Starfield-Grün, z. B. Profil aktivieren) */
+QPushButton#btn_success, QPushButton#btn_activate_profile, QPushButton[variant="green"] {
+    background-color: #1F7343;
+    color: #ECECEC;
+    border: none;
+    border-radius: 2px;
+    padding: 4px 8px;
+    text-align: left;
+}
+
+QPushButton#btn_success:hover, QPushButton#btn_activate_profile:hover, QPushButton[variant="green"]:hover {
+    background-color: #2EA44F;
+}
+
+QPushButton#btn_success:pressed, QPushButton#btn_activate_profile:pressed, QPushButton[variant="green"]:pressed {
+    background-color: #165A33;
+}
+
+QPushButton#btn_success:disabled, QPushButton#btn_activate_profile:disabled, QPushButton[variant="green"]:disabled {
+    background-color: #1E5232;
+    color: #888888;
+}
+
+/* Profilauswahl in Page_LoadOrder mit ergonomischer Zeilenhöhe */
+#tree_profile::item {
+    height: 26px;
+    padding: 0px;
+}
+
 
 

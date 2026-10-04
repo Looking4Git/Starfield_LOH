@@ -318,7 +318,7 @@ class Page_Update(QWidget):
             return
 
         date_val = last_exec.get("Date") or ""
-        reason = last_exec.get("State_name") or last_exec.get("Reason") or ""
+        reason = last_exec.get("State_name") or ""
         state_id = last_exec.get("State")
         time_end = last_exec.get("Time_End")
 

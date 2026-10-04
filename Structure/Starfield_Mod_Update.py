@@ -34,12 +34,11 @@ from Structure.Paths import (
     MOD_UPDATE_LOG_FILE,
 )
 from Structure.Database import (
-    get_db_connection,
+    db_cursor,
     record_script_start,
     record_script_end,
     record_script_abort,
     get_script_last_execution,
-    update_script_execution_reason,
     update_script_execution_state,
     get_incomplete_mods_updates,
     get_all_mods_updates,
@@ -49,7 +48,7 @@ from Structure.Database import (
     apply_completed_mod_updates,
     clear_mods_updates,
     is_version_newer_sql,
-    parse_version_tuple,
+    get_mod_by_id,
 )
 from Structure.LOH_Backup_Manager import prepare_backup_directory
 from Structure.Paths import get_setting
@@ -112,8 +111,9 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
         return True
 
     time_end = last_exec.get("Time_End")
+    state_id = last_exec.get("State")
     reason = last_exec.get("Reason") or ""
-    is_success = bool(time_end and (reason == "Update erfolgreich" or reason.lower() == "successful"))
+    is_success = bool(time_end and (state_id in (4, 10, 13) or reason in ("Update erfolgreich", "Rollback erfolgreich", "Update / Rollback erfolgreich", "successful")))
 
     if is_success:
         return True
@@ -228,23 +228,18 @@ def step_create_backup(selected_mods: list[dict], log_callback=None) -> str:
 
 def _get_mod_components(mod_id: int) -> list[dict]:
     """Holt alle verknüpften Komponenten einer Mod aus der Datenbank."""
-    conn = None
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT c.ID, c.File, c.Is_Masterfile, c.Is_Blueprint
-            FROM Components c
-            JOIN Mods_Components mc ON c.ID = mc.Component_ID
-            WHERE mc.Mod_ID = ?
-        """, (mod_id,))
-        return [dict(row) for row in cur.fetchall()]
+        with db_cursor(auto_commit=False) as cur:
+            cur.execute("""
+                SELECT c.ID, c.File, c.Is_Masterfile, c.Is_Blueprint
+                FROM Components c
+                JOIN Mods_Components mc ON c.ID = mc.Component_ID
+                WHERE mc.Mod_ID = ?
+            """, (mod_id,))
+            return [dict(row) for row in cur.fetchall()]
     except Exception as e:
         logging.error(f"Fehler beim Laden der Komponenten für Mod {mod_id}: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 
 def step_uninstall_mods(selected_mods: list[dict], backup_dir: str, log_callback=None) -> bool:
@@ -538,7 +533,8 @@ class ModUpdateScanner(QObject):
 
 def auto_rollback(backup_dir: str, log_callback=None) -> bool:
     """
-    Führt ein automatisches Rollback der deinstallierten Mods durch:
+    Globaler Notfall-Rollback bei fehlgeschlagener Deinstallation (Schritt 4) oder vorzeitigem Abbruch:
+    (Grenzt sich ab vom granularen Einzelmod-Rollback `_rollback_single_mod` in Schritt 8).
     - Prüft, ob alle Mods in der Tabelle Mods_Updates maximal den Status 3 haben.
     - Wenn ja:
         1. LOH_Executions State -> 6 ('Rollback gestartet')
@@ -1055,7 +1051,6 @@ def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None
     """
     log_message("=== Starfield_Mod_Update: Schritt 8 - Update Status klären gestartet ===", log_callback)
 
-    from Structure.Database import get_all_mods_updates, get_mod_by_id
     updates = get_all_mods_updates()
     if not updates:
         log_message("Keine offenen Mods in Mods_Updates gefunden.", log_callback)
@@ -1194,14 +1189,10 @@ def abort_mod_update(reason: str = "Update manuell abgebrochen", log_callback=No
     record_script_abort("Starfield_Mod_Update.py", state=5, reason=reason)
 
 
-def complete_mod_update(reason: str = "Update erfolgreich", log_callback=None):
-    """Protokolliert den erfolgreichen Abschluss aller Mod-Updates in Log und LOH_Executions (State 4)."""
-    log_message(f"=== Starfield_Mod_Update: Alle Mod-Updates abgeschlossen ({reason}) ===", log_callback)
-    record_script_end("Starfield_Mod_Update.py", state=4, reason=reason)
-
-
 # =============================================================================
 # Semantische Schritt-Tabelle (analog zu Category_LOH_Classifier / LoadOrder_Sorter)
+# Rein dokumentarisch – nicht programmatisch referenziert; dient als Übersicht
+# der semantischen Pipeline-Schritte.
 # =============================================================================
 UPDATE_STEPS = [
     (1, "Prüfen des vorherigen Updates", step_check_previous_update),

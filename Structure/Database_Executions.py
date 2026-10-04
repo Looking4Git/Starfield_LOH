@@ -163,11 +163,6 @@ def update_script_execution_state(script_name: str, state: int | None, reason: s
         return False
 
 
-def update_script_execution_reason(script_name: str, reason: str | int) -> bool:
-    """Rückwärtskompatible Hilfsfunktion: Aktualisiert den State über ID oder String."""
-    state_id = _resolve_state_id(reason)
-    return update_script_execution_state(script_name, state_id)
-
 
 def get_script_last_execution(script_name: str) -> dict | None:
     """

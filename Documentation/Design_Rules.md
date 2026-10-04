@@ -297,3 +297,15 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
 2. **Zustandssynchronisation:**
    * Der Aktivierungsstatus (`setEnabled`) wird initial bei Fenstererzeugung, nach jedem Datenladen (`load_data`) sowie unmittelbar nach Abschluss einer Übernahmehandlung synchron über Prüffunktionen (`has_classifier_categories()`, `has_sorter_results()`) nachgeführt.
 
+---
+
+## 10. Immersive Windows Dark Title Bar (DWM-Vorgaben)
+
+1. **DWM-Attribut-Standards (`DwmSetWindowAttribute`):**
+   * Zur Aktivierung der nativen dunklen Titelleiste unter Windows wird die Desktop Window Manager (DWM) API verwendet:
+     * Primärattribut: `DWMWA_USE_IMMERSIVE_DARK_MODE = 20` (Windows 11 sowie Windows 10 ab Build 18985 / 19041+).
+     * Fallback-Attribut: `DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19` (frühere Windows 10 Builds).
+2. **Verbindliche Re-Aktivierung in `showEvent`:**
+   * **Problem:** Wird `_set_dark_title_bar(widget)` ausschließlich im Konstruktor `__init__` aufgerufen, ist das native Windows-Fenster-Handle (`HWND`) zum Zeitpunkt des Aufrufs häufig noch nicht final vom Fenstermanager gemappt. Zudem setzt das Windows DWM die Non-Client-Attribute bei bestimmten Fenstereignissen (Minimieren/Wiederherstellen, Aktivierungswechsel oder verzögertes Rendering bei `QDialog.show()` / `exec()`) auf den Systemstandard (hell) zurück.
+   * **Architektur-Regel:** Jedes Dialog- oder Toolfenster **muss zwingend die Methode `showEvent(self, event)` überschreiben** und darin `_set_dark_title_bar(self)` aufrufen. Dies garantiert, dass die Titelleiste bei jedem Anzeigen, Wiederherstellen und Aktivieren des Fensters dauerhaft im Dark Mode verbleibt.
+

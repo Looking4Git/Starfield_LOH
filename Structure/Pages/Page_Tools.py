@@ -23,6 +23,7 @@ class Page_Tools(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.window_log_files = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -145,14 +146,25 @@ class Page_Tools(QWidget):
         layout_tools.setSpacing(8)
         layout_tools.setContentsMargins(0, 4, 0, 6)
 
-        # Reset Filedate
+        # Full Get Data erzwingen (ehemals Reset Filedate)
         self.btn_reset_filedate = Widget_TileIconButton(
             icon_path=os.path.join(GRAPHICS_DIR, "Icon_Gear.svg"),
-            text="Reset\nFiledate",
+            text="Full Get Data\nerzwingen",
             variant="red",
         )
+        self.btn_reset_filedate.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
         self.btn_reset_filedate.clicked.connect(self.start_reset_filedate)
         layout_tools.addWidget(self.btn_reset_filedate)
+
+        # Log Files
+        self.btn_log_files = Widget_TileIconButton(
+            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Folder.svg"),
+            text="Log\nFiles",
+            variant="blue",
+        )
+        self.btn_log_files.setToolTip("Öffnet das Starfield LOH Log Files Fenster.")
+        self.btn_log_files.clicked.connect(self.open_log_files_window)
+        layout_tools.addWidget(self.btn_log_files)
 
         layout_tools.addStretch()
         self.layout.addLayout(layout_tools)
@@ -189,7 +201,10 @@ class Page_Tools(QWidget):
                 btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
             else:
                 btn.setEnabled(True)
-                btn.setToolTip("")
+                if btn == self.btn_reset_filedate:
+                    btn.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
+                else:
+                    btn.setToolTip("")
 
     def start_local_check(self):
         self.set_buttons_enabled(False)
@@ -373,6 +388,7 @@ class Page_Tools(QWidget):
             self.btn_conflict_check,
             self.btn_load_order_sorter,
             self.btn_reset_filedate,
+            self.btn_log_files,
         ]
         for btn in all_buttons:
             if not enabled:
@@ -383,8 +399,20 @@ class Page_Tools(QWidget):
                     btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
                 else:
                     btn.setEnabled(True)
-                    if btn in foreign_blocked:
+                    if btn == self.btn_reset_filedate:
+                        btn.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
+                    elif btn in foreign_blocked:
                         btn.setToolTip("")
+
+    def open_log_files_window(self):
+        """Öffnet das Fenster zur Ansicht und Verwaltung der Starfield LOH Log-Dateien."""
+        from Structure.Pages.Window_Starfield_Log_Files import Window_Starfield_Log_Files
+        if self.window_log_files is None:
+            self.window_log_files = Window_Starfield_Log_Files(self)
+        self.window_log_files.refresh_log_files()
+        self.window_log_files.show()
+        self.window_log_files.raise_()
+        self.window_log_files.activateWindow()
 
     def append_log(self, text):
         """Delegiert an die Konsole (für Rückwärtskompatibilität)."""

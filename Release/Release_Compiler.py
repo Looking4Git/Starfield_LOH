@@ -267,16 +267,64 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         os.makedirs(os.path.dirname(tpl_dst_full), exist_ok=True)
         shutil.copy2(tpl_src_full, tpl_dst_full)
 
-    # E. Release Notes generieren
-    rel_notes_path = os.path.join(app_target_dir, "RELEASE_NOTES.md")
-    with open(rel_notes_path, "w", encoding="utf-8") as f:
-        f.write(f"# Starfield Load Order Helper (LOH) - Version {ver_full}\n\n")
-        if release_notes_text.strip():
-            f.write(release_notes_text.strip() + "\n\n")
-        else:
-            f.write("Offizielles Release-Paket für Starfield Load Order Helper.\n\n")
-        f.write("---\n")
-        f.write("Entwickelt von Looking4 mit Unterstützung von Antigravity AI.\n")
+    # E. Release Notes (.md & .html) bündeln oder als Fallback generieren
+    rel_notes_md_path = os.path.join(app_target_dir, "RELEASE_NOTES.md")
+    rel_notes_html_path = os.path.join(app_target_dir, "RELEASE_NOTES.html")
+    prep_rel_notes = os.path.join(RELEASE_BUILD_DIR, "RELEASE_NOTES.md")
+    prep_rel_html = os.path.join(RELEASE_BUILD_DIR, "RELEASE_NOTES.html")
+    root_rel_notes = os.path.join(APP_ROOT, "RELEASE_NOTES.md")
+
+    from Release.Release_Notes_Builder import generate_release_notes, create_html_preview_page
+
+    md_content = None
+    if os.path.exists(prep_rel_notes):
+        log(f"Kopiere vorhandene RELEASE_NOTES.md aus Vorbereitung ({RELEASE_BUILD_DIR})...")
+        shutil.copy2(prep_rel_notes, rel_notes_md_path)
+        try:
+            with open(prep_rel_notes, "r", encoding="utf-8") as f:
+                md_content = f.read()
+        except Exception:
+            pass
+    elif os.path.exists(root_rel_notes):
+        log("Kopiere vorhandene RELEASE_NOTES.md...")
+        shutil.copy2(root_rel_notes, rel_notes_md_path)
+        try:
+            with open(root_rel_notes, "r", encoding="utf-8") as f:
+                md_content = f.read()
+        except Exception:
+            pass
+    else:
+        log("Erstelle RELEASE_NOTES.md automatisch als Fallback...")
+        is_prerelease = rel_cfg.get("is_prerelease", True)
+        zip_name = f"Starfield_LOH_{ver_full}.zip"
+        md_content = generate_release_notes(
+            version_info=version_info,
+            raw_notes=release_notes_text,
+            zip_filename=zip_name,
+            is_beta=is_prerelease,
+            for_github=False
+        )
+        with open(rel_notes_md_path, "w", encoding="utf-8") as f:
+            f.write(md_content)
+
+    if os.path.exists(prep_rel_html):
+        log(f"Kopiere vorhandene RELEASE_NOTES.html aus Vorbereitung ({RELEASE_BUILD_DIR})...")
+        shutil.copy2(prep_rel_html, rel_notes_html_path)
+    else:
+        log("Erstelle RELEASE_NOTES.html automatisch als Fallback...")
+        if not md_content:
+            is_prerelease = rel_cfg.get("is_prerelease", True)
+            zip_name = f"Starfield_LOH_{ver_full}.zip"
+            md_content = generate_release_notes(
+                version_info=version_info,
+                raw_notes=release_notes_text,
+                zip_filename=zip_name,
+                is_beta=is_prerelease,
+                for_github=False
+            )
+        html_export = create_html_preview_page(md_content, for_export=True)
+        with open(rel_notes_html_path, "w", encoding="utf-8") as f:
+            f.write(html_export)
 
     # F. Playwright Chromium-Headless-Shell für portable Distribution bündeln
     log("3b/5: Bündle Playwright Chromium-Headless-Shell...")

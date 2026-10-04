@@ -988,7 +988,7 @@
     </layout>
    </item>
 
-   <!-- Release Beschreibung -->
+   <!-- Release Beschreibung mit Formatierungsleiste -->
    <item>
     <layout class="QHBoxLayout" name="row_rel_notes">
      <property name="spacing">
@@ -1020,23 +1020,168 @@
       </widget>
      </item>
      <item>
-      <widget class="QPlainTextEdit" name="inp_rel_notes">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>115</height>
-        </size>
+      <layout class="QVBoxLayout" name="notes_container_layout">
+       <property name="spacing">
+        <number>4</number>
        </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>115</height>
-        </size>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
-       </property>
-      </widget>
+       <!-- Toolbar für Markdown-Formatierung & Aktionen -->
+       <item>
+        <layout class="QHBoxLayout" name="notes_toolbar_layout">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="btn_md_h2">
+           <property name="minimumSize">
+            <size>
+             <width>28</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Abschnittsüberschrift (Ebene 2 mit Trennlinie)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>H2</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_h3">
+           <property name="minimumSize">
+            <size>
+             <width>28</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Teilüberschrift (Ebene 3)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>H3</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_hr">
+           <property name="minimumSize">
+            <size>
+             <width>28</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Horizontale Trennlinie (---)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>HR</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_bold">
+           <property name="minimumSize">
+            <size>
+             <width>28</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Fett formatieren (**Text**)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>B</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_list">
+           <property name="minimumSize">
+            <size>
+             <width>44</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Aufzählungsliste (- Punkt)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>• List</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacer_toolbar">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <!-- Textfeld Eingabe -->
+       <item>
+        <widget class="QPlainTextEdit" name="inp_rel_notes">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>115</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -1084,6 +1229,63 @@
      </item>
      <item>
       <spacer name="spacer_rel_save">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Release Notes Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_notes_action">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_generate_notes">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Release Notes</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_rel_notes_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_notes_action">
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>
@@ -1425,19 +1627,6 @@
     </layout>
    </item>
 
-   <item>
-    <spacer name="spacer_bottom">
-     <property name="orientation">
-      <enum>Qt::Orientation::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>10</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
 
   </layout>
  </widget>

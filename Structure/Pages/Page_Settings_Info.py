@@ -1,11 +1,12 @@
 import os
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit, QFrame,
+    QPushButton
 )
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtCore import Qt, QSize, QUrl
+from PySide6.QtGui import QPixmap, QIcon, QDesktopServices
 
-from Structure.Paths import GRAPHICS_DIR
+from Structure.Paths import GRAPHICS_DIR, APP_ROOT
 from Structure.Version import load_version_info, format_version_string
 
 
@@ -55,6 +56,36 @@ class Page_Settings_Info(QWidget):
 
         lbl_version, self.inp_version = make_field("Programmversion:", ver_text)
         form_layout.addRow(lbl_version, self.inp_version)
+
+        # Schaltfläche: Release Notes (linksbündig unter Programmversion)
+        self.btn_release_notes = QPushButton("Release Notes")
+        self.btn_release_notes.setObjectName("btn_release_notes")
+        self.btn_release_notes.setCursor(Qt.CursorShape.PointingHandCursor)
+        icon_path = os.path.join(GRAPHICS_DIR, "Icon_Downstream.svg")
+        if os.path.exists(icon_path):
+            self.btn_release_notes.setIcon(QIcon(icon_path))
+            self.btn_release_notes.setIconSize(QSize(20, 20))
+        self.btn_release_notes.setFixedSize(160, 32)
+        self.btn_release_notes.setStyleSheet("""
+            QPushButton#btn_release_notes {
+                background-color: #304C7A;
+                color: #ECECEC;
+                font-size: 13px;
+                font-weight: bold;
+                border: none;
+                border-radius: 2px;
+                padding: 4px 12px;
+                text-align: left;
+            }
+            QPushButton#btn_release_notes:hover {
+                background-color: #5B7A9E;
+            }
+            QPushButton#btn_release_notes:pressed {
+                background-color: #1E3355;
+            }
+        """)
+        self.btn_release_notes.clicked.connect(self.on_open_release_notes)
+        form_layout.addRow("", self.btn_release_notes)
 
         self.lbl_cert_status = QLabel()
         self.lbl_cert_status.setObjectName("lbl_cert_status")
@@ -227,3 +258,8 @@ class Page_Settings_Info(QWidget):
             self.lbl_cert_status.setText(f"⚠ Signaturprüfung fehlgeschlagen: {e}")
             self.lbl_cert_status.setStyleSheet("color: #C72138; font-size: 14px; font-weight: bold;")
             self.lbl_cert_status.setVisible(True)
+
+    def on_open_release_notes(self):
+        """Öffnet die Release Notes der aktuellen Programmversion direkt im Standard-Webbrowser."""
+        html_file = os.path.join(APP_ROOT, "RELEASE_NOTES.html")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(html_file))

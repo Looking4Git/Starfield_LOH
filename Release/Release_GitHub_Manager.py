@@ -237,12 +237,24 @@ def publish_github_release(
         "User-Agent": "Starfield_LOH_Release_Manager"
     }
 
-    # 1. Release erstellen
+    # 1. Release erstellen (Body mit Vorlage und Online-Logo aufbereiten)
     log("1/2: Erstelle GitHub Release-Eintrag...")
+    from Release.Release_Notes_Builder import generate_release_notes
+    if "Haftungsausschluss" not in notes:
+        body_text = generate_release_notes(
+            version_info=version_info,
+            raw_notes=notes,
+            zip_filename=os.path.basename(zip_path),
+            is_beta=is_prerelease,
+            for_github=True
+        )
+    else:
+        body_text = notes.replace("Graphics/Icon_Mods.svg", "https://raw.githubusercontent.com/Looking4Git/Starfield_LOH/main/Graphics/Icon_Mods.svg")
+
     payload_create = {
         "tag_name": tag_name,
         "name": title.strip(),
-        "body": notes.strip(),
+        "body": body_text,
         "draft": False,
         "prerelease": is_prerelease
     }

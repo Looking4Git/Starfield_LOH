@@ -19,11 +19,11 @@ if PROJECT_ROOT not in sys.path:
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFileDialog, QMessageBox, QLineEdit
 )
-from PySide6.QtCore import Qt, QFile
-from PySide6.QtGui import QIcon, QIntValidator
+from PySide6.QtCore import Qt, QFile, QUrl
+from PySide6.QtGui import QIcon, QIntValidator, QDesktopServices
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Paths import GRAPHICS_DIR, APP_ROOT, RELEASE_DIR
+from Structure.Paths import GRAPHICS_DIR, APP_ROOT, RELEASE_DIR, RELEASE_BUILD_DIR
 from Structure.Version import (
     load_version_info, save_version_info, get_git_info, format_version_string
 )
@@ -32,6 +32,7 @@ from Release.Release_Compiler import compile_release_package
 from Release.Release_GitHub_Manager import (
     load_release_config, save_release_config, publish_github_release
 )
+from Release.Release_Notes_Builder import generate_release_notes, create_html_preview_page
 
 
 def _format_date(date_str: str) -> str:
@@ -155,6 +156,20 @@ class BuildReleaseWindow(QWidget):
         self.ui.btn_choose_file.clicked.connect(self.on_choose_file)
         self.ui.btn_save_release.clicked.connect(self.on_save_release)
         self.ui.btn_release_push.clicked.connect(self.on_release_push)
+
+        # Markdown Formatierungsleiste
+        self.ui.btn_md_h2.clicked.connect(self.on_format_h2)
+        self.ui.btn_md_h3.clicked.connect(self.on_format_h3)
+        self.ui.btn_md_hr.clicked.connect(self.on_format_hr)
+        self.ui.btn_md_bold.clicked.connect(self.on_format_bold)
+        self.ui.btn_md_list.clicked.connect(self.on_format_list)
+
+        # Release Notes Aktionen
+        self.ui.btn_generate_notes.clicked.connect(self.on_generate_release_notes)
+
+        # Stretch-Faktoren: Beschreibungsfeld wächst dynamisch mit der Fensterhöhe
+        self.ui.main_layout.setStretchFactor(self.ui.row_rel_notes, 1)
+        self.ui.notes_container_layout.setStretchFactor(self.ui.inp_rel_notes, 1)
 
     def on_suggest_title(self):
         """Generiert automatisch einen Namensvorschlag für das Release."""
@@ -463,6 +478,107 @@ class BuildReleaseWindow(QWidget):
 
         self.ui.lbl_rel_save_status.setText("✓ release.json erfolgreich gespeichert.")
         self.ui.lbl_rel_save_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
+
+    # =============================================================
+    # Markdown Formatierung & Release Notes Vorlage
+    # =============================================================
+    def _apply_markdown_formatting(self, prefix: str, suffix: str = "", is_list: bool = False):
+        """Wendet Markdown-Formatierungszeichen auf Markierung oder Cursor-Position an."""
+        cursor = self.ui.inp_rel_notes.textCursor()
+        pos_start = cursor.selectionStart() if cursor.hasSelection() else cursor.position()
+        text_before = self.ui.inp_rel_notes.toPlainText()[:pos_start]
+
+        # Führenden Zeilenumbruch trimmen, wenn wir bereits am Zeilenanfang oder Dateianfang stehen
+        if prefix.startswith("\n") and (not text_before or text_before.endswith("\n")):
+            prefix = prefix[1:]
+
+        if is_list:
+            if cursor.hasSelection():
+                selected = cursor.selectedText()
+                # In Qt QTextCursor entspricht der Zeilenumbruch im selektierten Text U+2029
+                lines = selected.replace('\u2029', '\n').split('\n')
+                formatted = '\n'.join(f"- {l}" if l.strip() and not l.strip().startswith("- ") else l for l in lines)
+                cursor.insertText(formatted)
+            else:
+                prefix_list = "- " if (not text_before or text_before.endswith("\n")) else "\n- "
+                cursor.insertText(prefix_list)
+        elif cursor.hasSelection():
+            selected = cursor.selectedText()
+            cursor.insertText(f"{prefix}{selected}{suffix}")
+        else:
+            pos = cursor.position()
+            cursor.insertText(f"{prefix}{suffix}")
+            cursor.setPosition(pos + len(prefix))
+            self.ui.inp_rel_notes.setTextCursor(cursor)
+        self.ui.inp_rel_notes.setFocus()
+
+    def on_format_h2(self):
+        self._apply_markdown_formatting("\n## ", "\n---\n")
+
+    def on_format_h3(self):
+        self._apply_markdown_formatting("\n### ", "\n")
+
+    def on_format_hr(self):
+        self._apply_markdown_formatting("\n---\n", "")
+
+    def on_format_bold(self):
+        self._apply_markdown_formatting("**", "**")
+
+    def on_format_list(self):
+        self._apply_markdown_formatting("", is_list=True)
+
+    def _get_current_release_context(self) -> tuple[dict, str, str, bool]:
+        """Ermittelt den aktuellen Stand für Version, Notizen, Dateinamen und Beta-Zustand."""
+        v_info = load_version_info()
+        try:
+            major = int(self.ui.new_major.text().strip() or v_info.get("version_major", 0))
+            minor = int(self.ui.new_minor.text().strip() or v_info.get("version_minor", 1))
+            patch = int(self.ui.new_patch.text().strip() or v_info.get("version_patch", 0))
+            build = int(self.ui.new_build.text().strip() or v_info.get("version_build", 0))
+            v_info["version_major"] = major
+            v_info["version_minor"] = minor
+            v_info["version_patch"] = patch
+            v_info["version_build"] = build
+        except Exception:
+            pass
+
+        notes = self.ui.inp_rel_notes.toPlainText()
+        zip_path = self.ui.inp_rel_file.text().strip()
+        is_beta = self.ui.chk_beta.isChecked()
+        return v_info, notes, zip_path, is_beta
+
+    def on_generate_release_notes(self):
+        """Erzeugt RELEASE_NOTES.md und .html im Vorbereitungsordner und öffnet die HTML-Datei im Webbrowser."""
+        v_info, notes, zip_path, is_beta = self._get_current_release_context()
+        md_text = generate_release_notes(
+            version_info=v_info,
+            raw_notes=notes,
+            zip_filename=zip_path,
+            is_beta=is_beta,
+            for_github=False
+        )
+        os.makedirs(RELEASE_BUILD_DIR, exist_ok=True)
+        md_target_path = os.path.join(RELEASE_BUILD_DIR, "RELEASE_NOTES.md")
+        html_target_path = os.path.join(RELEASE_BUILD_DIR, "RELEASE_NOTES.html")
+        try:
+            # 1. Markdown-Datei im Vorbereitungsordner schreiben
+            with open(md_target_path, "w", encoding="utf-8") as f:
+                f.write(md_text)
+
+            # 2. Eigenständige HTML-Datei im Vorbereitungsordner schreiben
+            html_content = create_html_preview_page(md_text)
+            with open(html_target_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            # 3. Direkt die erstellte HTML-Datei im Standard-Webbrowser öffnen
+            QDesktopServices.openUrl(QUrl.fromLocalFile(html_target_path))
+
+            self.ui.lbl_rel_notes_status.setText("✓ RELEASE_NOTES.md & .html erstellt & geöffnet.")
+            self.ui.lbl_rel_notes_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
+        except Exception as e:
+            self.ui.lbl_rel_notes_status.setText(f"Fehler: {e}")
+            self.ui.lbl_rel_notes_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
+            QMessageBox.critical(self, "Fehler", f"Konnte Release Notes nicht schreiben:\n\n{e}")
 
     def on_compile(self):
         """Startet den Kompilierungs- und Paketierungsprozess."""

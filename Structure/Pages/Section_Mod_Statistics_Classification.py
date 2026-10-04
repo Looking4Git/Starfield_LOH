@@ -1,14 +1,18 @@
 import os
 import sqlite3
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableView, QHeaderView
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QTableView, QHeaderView, QStackedWidget, QCheckBox
+)
 from PySide6.QtCore import Qt, QFile, QSortFilterProxyModel
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Paths import APP_ROOT
+from Structure.Paths import APP_ROOT, get_setting
 from Structure.Database import get_db_connection
 from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
 from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
+from Structure.LOH_Control_TileView import LOH_Control_TileView
+from Structure.Pages.Widget_ClassificationCard import Widget_ClassificationCard
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -44,12 +48,13 @@ class Section_Mod_Statistics_Classification(QWidget):
     """
     Abschnitt 'Kategorie Klassifikation':
     Zeigt die Entscheidungsschritte der Klassifikations-Engine für die erste
-    Hauptkomponente der gewählten Mod tabellarisch nach LOH-Standards an.
-    Startsortierung nach Schritt, sortierbar über Spaltenkopf 'Schritt' oder 'Verlierer' (nach Position).
+    Hauptkomponente der gewählten Mod tabellarisch oder in einer interaktiven
+    Kachelansicht nach LOH-Standards an.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_mod_id = None
+        self._last_table_height = 324
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Classification.ui")
@@ -91,11 +96,62 @@ class Section_Mod_Statistics_Classification(QWidget):
             default_height=324,
             parent=self
         )
+        self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
         self.setFixedHeight(324)
 
-        # QTableView referenzieren und Modell einrichten
+        # UI-Elemente referenzieren
+        self.chk_tile_view = self.ui.findChild(QCheckBox, "chk_tile_view")
+        self.stacked_views = self.ui.findChild(QStackedWidget, "stacked_views")
+        self.layout_tiles_page = self.ui.findChild(QVBoxLayout, "layout_tiles_page")
         self.table_view = self.ui.findChild(QTableView, "table_classification")
+
+        # Checkbox Styling gemäß Starfield LOH Standard
+        chk_style = """
+            QCheckBox {
+                color: #ECECEC;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 11px;
+                font-weight: bold;
+                spacing: 6px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                background-color: #ffffff;
+                border: 1px solid #5b7a9e;
+                border-radius: 0px;
+            }
+            QCheckBox::indicator:hover {
+                border: 1px solid #D7A64B;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #D7A64B;
+                image: url(Graphics/Icon_Check.svg);
+                border: 1px solid #5b7a9e;
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: #ffffff;
+                image: none;
+            }
+        """
+        if self.chk_tile_view:
+            self.chk_tile_view.setStyleSheet(chk_style)
+            self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
+
+        # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 300px)
+        self.tile_view = LOH_Control_TileView(
+            card_class=Widget_ClassificationCard,
+            tile_width=300,
+            tile_spacing=8,
+            buffer_count=8,
+            parent=self
+        )
+        self.tile_view.setFixedHeight(295)
+        if self.layout_tiles_page:
+            self.layout_tiles_page.addWidget(self.tile_view)
+
+        # QTableView Modell einrichten
         self.model = QStandardItemModel(self)
         self.model.setHorizontalHeaderLabels(["Schritt", "Name", "Verlierer", "Gewinner", "Beurteilung"])
 
@@ -104,7 +160,7 @@ class Section_Mod_Statistics_Classification(QWidget):
 
         if self.table_view:
             self.table_view.setModel(self.proxy_model)
-            self.table_view.setMinimumHeight(308)
+            self.table_view.setMinimumHeight(280)
             self.table_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -124,6 +180,34 @@ class Section_Mod_Statistics_Classification(QWidget):
             header.set_column_rule(3, min_width=95, default_width=95, stretch_factor=0)
             header.set_column_rule(4, min_width=500, default_width=500, stretch_factor=1, cap_to_content=False)
             header.apply_initial_widths()
+
+        # Einstellungs-Präferenz prüfen ("Kachelanzeige in Abschnitt Kategorie Klassifikation bevorzugen")
+        prefer_tiles = get_setting("Prefer_Classification_Tiles", False)
+        if prefer_tiles and self.chk_tile_view:
+            self.chk_tile_view.setChecked(True)
+
+    def _on_table_height_changed(self, new_h: int):
+        """Merkt sich die vom Benutzer gezogene Sektionshöhe für die Tabellenansicht."""
+        self._last_table_height = new_h
+
+    def on_toggle_view_mode(self, state):
+        """Schaltet zwischen Tabelle (Index 0) und Kachelansicht (Index 1) um."""
+        if self.stacked_views:
+            is_tile = self.chk_tile_view.isChecked() if self.chk_tile_view else False
+            self.stacked_views.setCurrentIndex(1 if is_tile else 0)
+            if is_tile:
+                # Kachelansicht: Zieher ausblenden und Sektion fest auf Standardhöhe fixieren (kein Freiraum)
+                if hasattr(self, "resize_grip"):
+                    self.resize_grip.setVisible(False)
+                self.setFixedHeight(346)
+                if hasattr(self, "tile_view"):
+                    self.tile_view._sync_content_height()
+                    self.tile_view._update_visible_window(force=True)
+            else:
+                # Tabellenansicht: Zieher einblenden und gemerkte Höhe wiederherstellen
+                if hasattr(self, "resize_grip"):
+                    self.resize_grip.setVisible(True)
+                self.setFixedHeight(getattr(self, "_last_table_height", 324))
 
     def set_mod(self, mod_id: int):
         """Lädt die Klassifikationsdaten der ersten Hauptkomponente für die Mod."""
@@ -161,6 +245,7 @@ class Section_Mod_Statistics_Classification(QWidget):
             if conn:
                 conn.close()
 
+        tile_data_list = []
         for r in rows:
             step_val = r["Step_ID"]
             step_str = str(step_val) if step_val is not None else ""
@@ -169,6 +254,15 @@ class Section_Mod_Statistics_Classification(QWidget):
             winner_str = r["CategoryLOH_Winner"] or ""
             reason_str = r["Reason"] or ""
             pos_loser = r["CategoryLOH_Position_Looser"]
+
+            tile_data_list.append({
+                "Step_ID": step_val,
+                "Step_Description": name_str,
+                "CategoryLOH_Looser": loser_str,
+                "CategoryLOH_Winner": winner_str,
+                "Reason": reason_str,
+                "CategoryLOH_Position_Looser": pos_loser,
+            })
 
             item_step = QStandardItem(step_str)
             item_step.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -192,6 +286,10 @@ class Section_Mod_Statistics_Classification(QWidget):
                 item.setEditable(False)
 
             self.model.appendRow([item_step, item_name, item_loser, item_winner, item_reason])
+
+        # Kacheln füttern
+        if hasattr(self, "tile_view"):
+            self.tile_view.set_items(tile_data_list)
 
         if self.table_view:
             self.table_view.setSortingEnabled(True)
@@ -217,7 +315,10 @@ class Section_Mod_Statistics_Classification(QWidget):
             header._distribute_stretch()
 
     def clear(self):
-        """Leert die Tabelle."""
+        """Leert die Tabelle und die Kacheln."""
         self.current_mod_id = None
         if self.model:
             self.model.removeRows(0, self.model.rowCount())
+        if hasattr(self, "tile_view"):
+            self.tile_view.set_items([])
+

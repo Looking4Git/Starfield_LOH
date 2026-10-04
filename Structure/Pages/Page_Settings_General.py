@@ -348,6 +348,14 @@ class Page_Settings_General(QWidget):
         layout.addWidget(self.chk_prefer_content_bar)
         layout.addSpacing(6)
 
+        self.chk_prefer_classification_tiles = QCheckBox("Kachelanzeige in Abschnitt Kategorie Klassifikation bevorzugen (Fenster: Mod-Analyse Statistiken)")
+        self.chk_prefer_classification_tiles.setObjectName("chk_prefer_classification_tiles")
+        prefer_class_val = get_setting("Prefer_Classification_Tiles", False)
+        self.chk_prefer_classification_tiles.setChecked(bool(prefer_class_val))
+        self.chk_prefer_classification_tiles.stateChanged.connect(self.on_prefer_classification_tiles_changed)
+        layout.addWidget(self.chk_prefer_classification_tiles)
+        layout.addSpacing(6)
+
         self.chk_prefer_tiles = QCheckBox("Kachelanzeige in Abschnitt Konflikte bevorzugen (Fenster: Mod-Analyse Statistiken)")
         self.chk_prefer_tiles.setObjectName("chk_prefer_tiles")
         prefer_val = get_setting("Prefer_Conflict_Tiles", False)
@@ -412,6 +420,12 @@ class Page_Settings_General(QWidget):
         """Speichert die Präferenz für Balkendiagramme im Inhalte-Abschnitt in den Settings."""
         val = (state == Qt.CheckState.Checked.value or state == 2)
         set_setting("settings", "Prefer_Content_BarChart", val)
+        self.data_updated.emit()
+
+    def on_prefer_classification_tiles_changed(self, state):
+        """Speichert die Kachel-Präferenz für die Klassifikation in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Prefer_Classification_Tiles", val)
         self.data_updated.emit()
 
     def on_prefer_tiles_changed(self, state):
@@ -758,6 +772,7 @@ class Page_Settings_General(QWidget):
                     "Auto_Save": 0,
                     "Limit_Warning_Percentage": 90,
                     "Prefer_Content_BarChart": False,
+                    "Prefer_Classification_Tiles": False,
                     "Prefer_Conflict_Tiles": False,
                     "Starfield_Mod_Update_Backup_Strategy": False
                 }

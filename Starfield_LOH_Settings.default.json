@@ -24,8 +24,9 @@
   "settings": {
     "Auto_Save": 1,
     "Limit_Warning_Percentage": 90,
-    "Prefer_Conflict_Tiles": false,
     "Prefer_Content_BarChart": false,
+    "Prefer_Classification_Tiles": false,
+    "Prefer_Conflict_Tiles": false,
     "Starfield_Mod_Update_Backup_Strategy": false
   },
   "creation_engine_limits": {

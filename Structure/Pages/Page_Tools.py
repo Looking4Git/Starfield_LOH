@@ -37,9 +37,9 @@ class Page_Tools(QWidget):
         self.layout.addWidget(title)
 
         # -------------------------------------------------------------
-        # Abschnitt 1: LOH Module
+        # Abschnitt 1: Starfield LOH Module
         # -------------------------------------------------------------
-        lbl_modules = QLabel("LOH Module")
+        lbl_modules = QLabel("Starfield LOH Module")
         lbl_modules.setObjectName("lbl_modules_section")
         self.layout.addWidget(lbl_modules)
 

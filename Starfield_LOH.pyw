@@ -27,8 +27,9 @@ DEFAULT_SETTINGS = {
     "settings": {
         "Auto_Save": 1,
         "Limit_Warning_Percentage": 90,
-        "Prefer_Conflict_Tiles": False,
         "Prefer_Content_BarChart": False,
+        "Prefer_Classification_Tiles": False,
+        "Prefer_Conflict_Tiles": False,
         "Starfield_Mod_Update_Backup_Strategy": False
     },
     "creation_engine_limits": {

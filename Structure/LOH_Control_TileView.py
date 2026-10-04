@@ -113,7 +113,8 @@ class LOH_Control_TileView(QWidget):
     def __init__(
         self,
         card_class,
-        tile_width: int = 280,
+        tile_width: int = 290,
+        card_height: int = 260,
         tile_spacing: int = 8,
         buffer_count: int = 8,
         parent: QWidget | None = None
@@ -121,6 +122,7 @@ class LOH_Control_TileView(QWidget):
         super().__init__(parent)
         self.card_class = card_class
         self.tile_width = tile_width
+        self.card_height = card_height
         self.tile_spacing = tile_spacing
         self.tile_pitch = tile_width + tile_spacing
         self.buffer_count = buffer_count
@@ -158,12 +160,12 @@ class LOH_Control_TileView(QWidget):
         self.content_widget = QWidget()
         self.content_widget.setObjectName("loh_tile_content")
         self.content_widget.setStyleSheet("background: transparent;")
-        self.content_widget.setMinimumHeight(272)
+        self.content_widget.setMinimumHeight(self.card_height + 8)
 
         self.content_layout = QHBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(4, 4, 4, 4)
         self.content_layout.setSpacing(self.tile_spacing)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
         # Linker Platzhalter für Virtualisierung
         self.left_spacer = QWidget()
@@ -186,9 +188,9 @@ class LOH_Control_TileView(QWidget):
         return super().eventFilter(watched, event)
 
     def _sync_content_height(self):
-        """Synchronisiert die Höhe des Content-Containers mit der Viewport-Höhe (mindestens 272px)."""
+        """Synchronisiert die Höhe des Content-Containers mit der Viewport-Höhe (mindestens card_height + 8)."""
         vp_h = self.scroll_area.viewport().height()
-        target_h = max(272, vp_h)
+        target_h = max(self.card_height + 8, vp_h)
         if self.content_widget.height() != target_h:
             self.content_widget.setFixedHeight(target_h)
 

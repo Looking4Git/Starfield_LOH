@@ -139,15 +139,16 @@ class Section_Mod_Statistics_Classification(QWidget):
             self.chk_tile_view.setStyleSheet(chk_style)
             self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
 
-        # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 300px)
+        # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 290px, Höhe 200px)
         self.tile_view = LOH_Control_TileView(
             card_class=Widget_ClassificationCard,
-            tile_width=300,
+            tile_width=290,
+            card_height=200,
             tile_spacing=8,
             buffer_count=8,
             parent=self
         )
-        self.tile_view.setFixedHeight(295)
+        self.tile_view.setFixedHeight(228)
         if self.layout_tiles_page:
             self.layout_tiles_page.addWidget(self.tile_view)
 
@@ -199,7 +200,7 @@ class Section_Mod_Statistics_Classification(QWidget):
                 # Kachelansicht: Zieher ausblenden und Sektion fest auf Standardhöhe fixieren (kein Freiraum)
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(False)
-                self.setFixedHeight(346)
+                self.setFixedHeight(260)
                 if hasattr(self, "tile_view"):
                     self.tile_view._sync_content_height()
                     self.tile_view._update_visible_window(force=True)
@@ -229,7 +230,7 @@ class Section_Mod_Statistics_Classification(QWidget):
                   FROM View_LoadOrder_Classifier_Results 
                   WHERE Mod_ID = ?
               )
-            ORDER BY CAST(Step_ID AS REAL) ASC, CategoryLOH_Position_Looser ASC
+            ORDER BY CategoryLOH_Position_Looser ASC, CAST(Step_ID AS REAL) ASC
         """
 
         conn = None
@@ -293,8 +294,8 @@ class Section_Mod_Statistics_Classification(QWidget):
 
         if self.table_view:
             self.table_view.setSortingEnabled(True)
-            self.proxy_model.sort(0, Qt.SortOrder.AscendingOrder)
-            self.table_view.horizontalHeader().setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+            self.proxy_model.sort(2, Qt.SortOrder.AscendingOrder)
+            self.table_view.horizontalHeader().setSortIndicator(2, Qt.SortOrder.AscendingOrder)
 
         self.update_column_widths()
 

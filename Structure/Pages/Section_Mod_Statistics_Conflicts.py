@@ -159,7 +159,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         # Universelle LOH_Control_TileView in Page 1 einbetten
         self.tile_view = LOH_Control_TileView(
             card_class=Widget_ConflictCard,
-            tile_width=280,
+            tile_width=290,
             tile_spacing=8,
             buffer_count=8,
             parent=self

@@ -25,8 +25,8 @@ TYPE_COLORS = {
 class Widget_ConflictCard(QFrame):
     """
     Konflikt-Kachel für Mod-Konflikte:
-    - Normalmodus (is_zoomed=False): Feste Größe 280 x 260 px für flüssiges Scrolling im Ribbon
-    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (560 x 400 px) mit vollem Lesebereich
+    - Normalmodus (is_zoomed=False): Feste Größe 290 x 260 px für flüssiges Scrolling im Ribbon
+    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (580 x 400 px) mit vollem Lesebereich
     - Labels in Starfield-Gelb (#D7A64B), rechtsbündig ausgerichtet, kompakter Block
     - 6 fixe Zeilen (leere Werte als "") für absolut einheitliche Trennlinien-Höhe
     - Starfield-blaue Trennlinie (#304C7A)
@@ -38,14 +38,14 @@ class Widget_ConflictCard(QFrame):
     def __init__(
         self, 
         data: dict, 
-        base_width: int = 280, 
+        base_width: int = 290, 
         is_zoomed: bool = False, 
         parent: QWidget | None = None
     ):
         super().__init__(parent)
         self.data = data or {}
         self.is_zoomed = is_zoomed
-        self.base_width = 560 if is_zoomed else base_width
+        self.base_width = 580 if is_zoomed else base_width
         self.card_height = 400 if is_zoomed else 260
         self._is_hovered = False
         self._is_selected = False

@@ -25,10 +25,10 @@ def get_step_badge_style(step_id: float) -> dict:
 class Widget_ClassificationCard(QFrame):
     """
     Klassifikations-Kachel für die Schritte der Klassifikations-Engine:
-    - Normalmodus (is_zoomed=False): Feste Größe 300 x 260 px für flüssiges Scrolling im Ribbon
-    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (600 x 420 px) mit vollem Lesebereich
+    - Normalmodus (is_zoomed=False): Feste Größe 290 x 200 px für flüssiges Scrolling im Ribbon
+    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (580 x 350 px) mit vollem Lesebereich
     - Farbcodierter Header-Badge (Schritte 1-2 Rot, 3-6 Orange, 7+ Gelb)
-    - Verlierer (Rot #E06236) und Gewinner (Grün #4CAF50)
+    - Verlierer (Starfield-Gelb #D7A64B) und Gewinner (Grün #4CAF50)
     - Starfield-blaue Trennlinie (#304C7A)
     - Beurteilung mit automatischem Wortumbruch
     """
@@ -38,15 +38,15 @@ class Widget_ClassificationCard(QFrame):
     def __init__(
         self, 
         data: dict, 
-        base_width: int = 300, 
+        base_width: int = 290, 
         is_zoomed: bool = False, 
         parent: QWidget | None = None
     ):
         super().__init__(parent)
         self.data = data or {}
         self.is_zoomed = is_zoomed
-        self.base_width = 600 if is_zoomed else base_width
-        self.card_height = 420 if is_zoomed else 260
+        self.base_width = 580 if is_zoomed else base_width
+        self.card_height = 350 if is_zoomed else 200
         self._is_hovered = False
         self._is_selected = False
 
@@ -106,7 +106,7 @@ class Widget_ClassificationCard(QFrame):
 
         f_size_pt = 10 if self.is_zoomed else 9
         self.font_label = QFont("Segoe UI", f_size_pt)
-        self.font_label.setWeight(QFont.Weight.Bold)
+        self.font_label.setWeight(QFont.Weight.Normal)
 
         self.font_val = QFont("Segoe UI", f_size_pt)
         self.font_val.setWeight(QFont.Weight.Normal)
@@ -115,7 +115,7 @@ class Widget_ClassificationCard(QFrame):
         winner_val = self.data.get("CategoryLOH_Winner") or "-"
 
         fields = [
-            ("Verlierer:", loser_val, "#E06236"),  # Rot
+            ("Verlierer:", loser_val, "#D7A64B"),  # Starfield-Gelb/Gold
             ("Gewinner:", winner_val, "#4CAF50"),  # Grün
         ]
 

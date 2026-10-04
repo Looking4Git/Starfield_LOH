@@ -104,3 +104,12 @@ Im persistenten Browserprofil von `Nexus_Fetch.py` führt die Methode `handle_on
 3. **Ergebnis:**
    * Ausschließlich Kategorie `C0001` (Strictly Necessary Cookies) bleibt aktiv, da sie technisch für Cloudflare und den Webseitenbetrieb zwingend erforderlich ist.
    * Alle Tracking-, Marketing-, Performance- und Funktions-Cookies (`C0002` bis `C0005`) werden vollständig abgelehnt und bleiben im Profil dauerhaft gesperrt.
+
+### C. Bedarfsgesteuerte Cloudflare Turnstile Freigabe (Headful Switch)
+* **Hintergrund:** Nexus Mods schützt Webseiten durch Cloudflare Turnstile Bot-Protection (HTTP 403 / *„Just a moment...“*), die im Headless-Betrieb nicht automatisiert gelöst werden kann.
+* **Automatischer Wechsel (Headful Switch):**
+  1. Standardmäßig operiert der Browser geräuschlos im Hintergrund (`headless=True`).
+  2. Wird eine aktive Cloudflare-Sicherheitsabfrage erkannt (`is_cloudflare_challenge`), wechselt `PlaywrightSession` dynamisch in ein sichtbares Fenster (`headless=False`).
+  3. Der Anwender erhält im Logfenster eine transparente Rückmeldung und kann die Freigabe per Klick bestätigen.
+  4. Sobald die Freigabe erteilt ist, speichert Chromium das resultierende `cf_clearance`-Cookie im persistenten Profil (`Data/Nexus_Browser_Profile/`), sodass nachfolgende Aufrufe wieder ohne Interaktion passieren.
+

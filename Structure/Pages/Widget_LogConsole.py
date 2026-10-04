@@ -58,6 +58,11 @@ class Widget_LogConsole(QPlainTextEdit):
             self._update_progress_block(payload, is_final=True)
             return
 
+        if text.startswith("[INLINE]\n"):
+            payload = text[len("[INLINE]\n"):]
+            self._update_inline_line(payload)
+            return
+
         # Normaler Text
         self.appendPlainText(text)
 
@@ -87,6 +92,18 @@ class Widget_LogConsole(QPlainTextEdit):
         if is_final:
             self._block_anchor_pos = None
 
+        self._scroll_to_bottom()
+
+    def _update_inline_line(self, content: str):
+        """Ersetzt die letzte Zeile des Dokuments atomar durch den übergebenen Inhalt."""
+        doc = self.document()
+        if doc.isEmpty():
+            self.appendPlainText(content)
+        else:
+            cursor = QTextCursor(doc)
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
+            cursor.insertText(content)
         self._scroll_to_bottom()
 
     def _scroll_to_bottom(self):

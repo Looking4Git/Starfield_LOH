@@ -9,7 +9,9 @@ import ssl
 import json
 import time
 import random
+import math
 import logging
+import threading
 import urllib.request
 import urllib.parse
 from datetime import datetime
@@ -87,6 +89,51 @@ def download_image(image_url: str) -> bytes | None:
 
 
 # ---------------------------------------------------------------------------
+# HTTP-Worker mit Live-Countdown
+# ---------------------------------------------------------------------------
+
+def execute_http_request_with_countdown(req, ctx, timeout: int = 5, log_func=None, base_msg: str = ""):
+    """
+    Führt einen urllib.request.urlopen-Aufruf in einem Worker-Thread aus und
+    aktualisiert im Hauptthread sekundengenau den Live-Countdown für die GUI.
+    Gibt (response_bytes, headers_dict, http_code, exception) zurück.
+    """
+    result = {
+        "data": None,
+        "headers": {},
+        "code": None,
+        "error": None
+    }
+
+    def worker():
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=timeout) as res:
+                result["data"] = res.read()
+                result["headers"] = dict(res.headers)
+                result["code"] = getattr(res, "status", 200)
+        except urllib.error.HTTPError as e:
+            result["code"] = e.code
+            result["error"] = e
+        except Exception as e:
+            result["error"] = e
+
+    t_start = time.time()
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+
+    last_second = None
+    while t.is_alive():
+        elapsed = time.time() - t_start
+        remaining = max(0, int(math.ceil(timeout - elapsed)))
+        if remaining != last_second and log_func and base_msg:
+            last_second = remaining
+            log_func(f"[INLINE]\n{base_msg} (noch {remaining}s)...")
+        t.join(timeout=0.2)
+
+    return result["data"], result["headers"], result["code"], result["error"]
+
+
+# ---------------------------------------------------------------------------
 # Nexus REST-API Client (v1)
 # ---------------------------------------------------------------------------
 
@@ -123,9 +170,9 @@ class NexusAPIClient:
         except Exception:
             pass
 
-    def validate(self, timeout: int = 8) -> dict:
+    def validate(self, timeout: int = 5, max_attempts: int = 3, log_func=None) -> dict:
         """
-        Validiert den hinterlegten API-Key bei Nexus Mods.
+        Validiert den hinterlegten API-Key bei Nexus Mods mit Wiederholungsversuchen und Countdown.
         Gibt ein Status-Dictionary zurück.
         """
         if not self.api_key:
@@ -143,14 +190,26 @@ class NexusAPIClient:
             }
         )
         ctx = _get_ssl_context()
-        try:
-            with urllib.request.urlopen(req, context=ctx, timeout=timeout) as res:
-                self._update_rate_limits(res.headers)
-                data = json.loads(res.read().decode('utf-8'))
+        for attempt in range(1, max_attempts + 1):
+            base_msg = f"  -> [API] Validiere Nexus REST-API Verbindung (Versuch {attempt}/{max_attempts}, Timeout {timeout}s)"
+            if log_func:
+                log_func(f"{base_msg}...")
+            t0 = time.time()
+            data_bytes, headers, code, err = execute_http_request_with_countdown(req, ctx, timeout=timeout, log_func=log_func, base_msg=base_msg)
+            dur = time.time() - t0
+
+            if err is None and data_bytes:
+                self._update_rate_limits(headers)
+                try:
+                    data = json.loads(data_bytes.decode('utf-8'))
+                except Exception:
+                    data = {}
                 self.is_valid = True
                 self.user_name = data.get("name", "Unbekannt")
                 self.user_id = data.get("user_id")
                 self.is_premium = bool(data.get("is_premium", False))
+                if log_func:
+                    log_func(f"[INLINE]\n{base_msg} - Erfolgreich in {dur:.1f}s.")
                 return {
                     "valid": True,
                     "user_name": self.user_name,
@@ -162,35 +221,49 @@ class NexusAPIClient:
                     "daily_limit": self.daily_limit,
                     "message": "Gültig"
                 }
-        except urllib.error.HTTPError as e:
+
             self.is_valid = False
-            if e.code in (401, 403):
-                self.last_error = "API-Key ungültig oder abgelaufen"
-            elif e.code == 429:
-                self.last_error = "API-Rate-Limit erreicht"
+            if isinstance(err, urllib.error.HTTPError):
+                if code in (401, 403):
+                    self.last_error = "API-Key ungültig oder abgelaufen"
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - {self.last_error} (HTTP {code}).")
+                    return {"valid": False, "message": self.last_error}
+                elif code == 429:
+                    self.last_error = "API-Rate-Limit erreicht"
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - {self.last_error} (HTTP 429).")
+                    return {"valid": False, "message": self.last_error}
+                else:
+                    self.last_error = f"HTTP-Fehler {code}"
             else:
-                self.last_error = f"HTTP-Fehler {e.code}"
-            return {"valid": False, "message": self.last_error}
-        except Exception as e:
-            self.is_valid = False
-            self.last_error = f"Verbindungsfehler: {e}"
-            return {"valid": False, "message": self.last_error}
+                err_text = str(err) or type(err).__name__ if err else "Zeitüberschreitung"
+                self.last_error = f"Verbindungsfehler: {err_text}"
+
+            if attempt < max_attempts:
+                if log_func:
+                    log_func(f"[INLINE]\n{base_msg} - Keine Antwort nach {dur:.1f}s ({self.last_error}).")
+                    log_func(f"  -> [API] Starte Wiederholung {attempt+1}/{max_attempts}...")
+                time.sleep(1.0)
+            else:
+                if log_func:
+                    log_func(f"[INLINE]\n{base_msg} - Fehlgeschlagen nach {dur:.1f}s ({self.last_error}).")
+                return {"valid": False, "message": self.last_error}
 
     def has_quota(self) -> bool:
         """Prüft, ob noch Abfrage-Kontingent vorhanden ist."""
         if not self.is_valid:
             return False
-        # Wenn limits noch nicht gesetzt sind (0), erlauben wir den ersten Request
         if self.daily_limit > 0 and self.daily_remaining <= 0:
             return False
         if self.hourly_limit > 0 and self.hourly_remaining <= 0:
             return False
         return True
 
-    def get_mod_details(self, mod_id: int) -> dict | None:
+    def get_mod_details(self, mod_id: int, timeout: int = 5, max_attempts: int = 3, log_func=None) -> dict | None:
         """
-        Ruft die Metadaten eines Starfield-Mods direkt per REST-API ab.
-        Gibt bei Erfolg ein einheitliches Detail-Dictionary zurück.
+        Ruft die Metadaten eines Starfield-Mods direkt per REST-API ab (mit bis zu 3 Versuchen und Countdown).
+        Gibt bei Erfolg ein einheitliches Detail-Dictionary zurück und protokolliert live.
         """
         if not self.has_quota():
             return None
@@ -205,19 +278,28 @@ class NexusAPIClient:
             }
         )
         ctx = _get_ssl_context()
-        try:
-            with urllib.request.urlopen(req, context=ctx, timeout=8) as res:
-                self._update_rate_limits(res.headers)
-                data = json.loads(res.read().decode('utf-8'))
-                
+        for attempt in range(1, max_attempts + 1):
+            base_msg = f"  -> [API] Rufe Mod {mod_id} ab (Versuch {attempt}/{max_attempts}, Timeout {timeout}s)"
+            if log_func:
+                log_func(f"{base_msg}...")
+            t0 = time.time()
+            data_bytes, headers, code, err = execute_http_request_with_countdown(req, ctx, timeout=timeout, log_func=log_func, base_msg=base_msg)
+            dur = time.time() - t0
+
+            if err is None and data_bytes:
+                self._update_rate_limits(headers)
+                try:
+                    data = json.loads(data_bytes.decode('utf-8'))
+                except Exception:
+                    data = {}
+
                 name = data.get("name")
                 if not name:
                     return None
 
                 author = data.get("author") or data.get("uploaded_by") or "Unbekannt"
                 version = data.get("version") or "n.a."
-                
-                # Datum aus updated_timestamp berechnen
+
                 updated_ts = data.get("updated_timestamp")
                 if updated_ts:
                     try:
@@ -227,14 +309,16 @@ class NexusAPIClient:
                 else:
                     date_str = datetime.now().strftime("%d.%m.%Y")
 
-                # Beschreibung extrahieren (summary bevorzugt, auf 200 Zeichen gekürzt)
                 description = data.get("summary") or data.get("description") or ""
-                # Ggf. HTML-Tags entfernen
                 description = re.sub(r'<[^>]+>', ' ', description)
                 description = re.sub(r'\s+', ' ', description).strip()[:200]
 
                 picture_url = data.get("picture_url") or ""
                 mod_page_url = f"https://www.nexusmods.com/starfield/mods/{mod_id}"
+
+                remaining_info = f"{self.daily_remaining} frei" if self.daily_limit else "aktiv"
+                if log_func:
+                    log_func(f"[INLINE]\n{base_msg} - Erfolgreich in {dur:.1f}s (Tageskontingent: {remaining_info}).")
 
                 return {
                     "online_name": name.strip(),
@@ -245,16 +329,43 @@ class NexusAPIClient:
                     "picture_url": picture_url,
                     "mod_page_url": mod_page_url
                 }
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                self.daily_remaining = 0
-                self.last_error = "Rate-Limit erreicht (HTTP 429)"
-            return None
-        except Exception:
-            return None
+
+            if isinstance(err, urllib.error.HTTPError):
+                if code == 429:
+                    self.daily_remaining = 0
+                    self.last_error = "Rate-Limit erreicht (HTTP 429)"
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - Rate-Limit erreicht (HTTP 429).")
+                    return None
+                elif code in (401, 403, 404):
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - HTTP-Status {code} für Mod {mod_id}. Kein weiterer Versuch.")
+                    return None
+                if attempt < max_attempts:
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - HTTP-Fehler {code} nach {dur:.1f}s.")
+                        log_func(f"  -> [API] Starte Wiederholung {attempt+1}/{max_attempts}...")
+                    time.sleep(1.0)
+                else:
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - HTTP-Fehler {code} nach {dur:.1f}s. Keine weiteren Versuche.")
+                    return None
+            else:
+                err_text = str(err) or type(err).__name__ if err else "Zeitüberschreitung"
+                if attempt < max_attempts:
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - Keine Antwort nach {dur:.1f}s ({err_text}).")
+                        log_func(f"  -> [API] Starte Wiederholung {attempt+1}/{max_attempts}...")
+                    time.sleep(1.0)
+                else:
+                    if log_func:
+                        log_func(f"[INLINE]\n{base_msg} - Keine Antwort nach {dur:.1f}s ({err_text}). Keine weiteren Versuche.")
+                    return None
+
+        return None
 
 
-def validate_nexus_api_key(api_key: str = None, timeout: int = 8) -> dict:
+def validate_nexus_api_key(api_key: str = None, timeout: int = 5) -> dict:
     """Convenience-Funktion zur Validierung eines Nexus API-Keys."""
     client = NexusAPIClient(api_key=api_key)
     return client.validate(timeout=timeout)
@@ -271,37 +382,46 @@ class PlaywrightSession:
         self.log = log_func
         self._pw = None
         self.context = None
+        self.headless = True
         self.search_page = None
         self.search_page_loaded = False
 
-    def ensure_context(self):
-        """Initialisiert den persistenten Browser-Kontext, falls noch nicht aktiv."""
+    def ensure_context(self, headless: bool = True):
+        """Initialisiert den persistenten Browser-Kontext, falls noch nicht aktiv oder Modus geändert."""
+        if self.context is not None and self.headless != headless:
+            self.close()
+
         if self.context is None:
             from playwright.sync_api import sync_playwright
+            self.headless = headless
             self._pw = sync_playwright().start()
             os.makedirs(NEXUS_BROWSER_PROFILE_DIR, exist_ok=True)
-            self.log(f"Initialisiere Chromium-Browser mit persistentem Profil ({NEXUS_BROWSER_PROFILE_DIR})...")
+            mode_desc = "im Hintergrund (headless)" if headless else "sichtbar (Fenstermodus für Freigabe)"
+            self.log(f"Initialisiere Chromium-Browser {mode_desc} ({NEXUS_BROWSER_PROFILE_DIR})...")
             
+            args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-background-networking",
+                "--disable-sync",
+                "--no-first-run",
+                "--metrics-recording-only",
+                "--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider"
+            ]
+            if headless:
+                args.insert(0, "--headless=new")
+
             self.context = self._pw.chromium.launch_persistent_context(
                 user_data_dir=NEXUS_BROWSER_PROFILE_DIR,
-                headless=True,
-                args=[
-                    "--headless=new",
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                    "--disable-background-networking",
-                    "--disable-sync",
-                    "--no-first-run",
-                    "--metrics-recording-only",
-                    "--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider"
-                ],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+                headless=headless,
+                args=args,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
                 viewport={"width": 1920, "height": 1080},
                 locale="de-DE",
                 timezone_id="Europe/Berlin",
                 extra_http_headers={
                     "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-                    "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+                    "sec-ch-ua": '"Chromium";v="145", "Not;A=Brand";v="24", "Google Chrome";v="145"',
                     "sec-ch-ua-mobile": "?0",
                     "sec-ch-ua-platform": '"Windows"',
                 }
@@ -316,33 +436,65 @@ class PlaywrightSession:
             """)
         return self.context
 
-    def handle_onetrust_consent(self, page):
-        """
-        Lehnt alle optionalen/Tracking-Cookies bei Nexus Mods ab, sodass ausschließlich
-        technisch notwendige Cookies (Kategorie C0001) im persistenten Browserprofil aktiv bleiben.
-        """
+    def is_cloudflare_challenge(self, page) -> bool:
+        """Prüft, ob die angezeigte Seite durch eine Cloudflare-Sicherheitsabfrage blockiert wird."""
         try:
-            # 1. Klick auf den Reject-All Button, falls im DOM sichtbar
-            reject_btn = page.locator("#onetrust-reject-all-handler")
-            if reject_btn.is_visible(timeout=1500):
-                self.log("  -> OneTrust Cookie-Banner erkannt: Lehne alle optionalen Cookies ab (nur technisch notwendige zulassen)...")
-                reject_btn.click()
-                page.wait_for_timeout(500)
-                return
-
-            # 2. Native OneTrust JavaScript API als sichere Ergänzung/Fallback
-            opt_out_success = page.evaluate("""() => {
-                if (window.OneTrust && typeof window.OneTrust.RejectAll === 'function') {
-                    window.OneTrust.RejectAll();
-                    return true;
-                }
-                return false;
-            }""")
-            if opt_out_success:
-                self.log("  -> OneTrust.RejectAll() erfolgreich ausgeführt (nur technisch notwendige Cookies aktiv).")
-                page.wait_for_timeout(500)
+            t = (page.title() or "").lower()
+            if any(x in t for x in ["just a moment", "challenge", "attention required", "cloudflare", "einen moment bitte"]):
+                return True
+            if page.locator("#challenge-running, #challenge-form, iframe[src*='cloudflare']").count() > 0:
+                return True
+            html = page.content()[:3000].lower()
+            if "cf_chl_opt" in html or "challenge-running" in html or "challenges.cloudflare.com" in html:
+                return True
         except Exception:
             pass
+        return False
+
+    def resolve_challenge_if_needed(self, page, target_url: str, max_wait_sec: int = 60):
+        """
+        Prüft auf Cloudflare-Challenge. Falls aktiv:
+        Schaltet bedarfsgesteuert auf ein sichtbares Browserfenster (Headful Switch),
+        damit die Sicherheitsabfrage gelöst werden kann.
+        Gibt (neue_oder_aktuelle_page, erfolg) zurück.
+        """
+        if not self.is_cloudflare_challenge(page):
+            return page, True
+
+        self.log("  -> [Browser] Cloudflare-Sicherheitsüberprüfung erkannt.")
+        if self.headless:
+            self.log(f"  -> [Browser] Öffne Browserfenster zur einmaligen Bestätigung (Timeout: {max_wait_sec}s)...")
+            ctx = self.ensure_context(headless=False)
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            try:
+                page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+            except Exception as e:
+                self.log(f"  -> [Browser] Hinweis beim Laden der Freigabeseite: {e}")
+
+        t_start = time.time()
+        last_logged = 0
+        solved = False
+
+        while (time.time() - t_start) < max_wait_sec:
+            page.wait_for_timeout(1000)
+            if not self.is_cloudflare_challenge(page):
+                solved = True
+                break
+
+            elapsed = int(time.time() - t_start)
+            if elapsed > 0 and elapsed % 10 == 0 and elapsed != last_logged:
+                last_logged = elapsed
+                remaining = max_wait_sec - elapsed
+                self.log(f"  -> [Browser] Warte auf Freigabe... (noch {remaining}s)")
+
+        if solved:
+            dur = time.time() - t_start
+            self.log(f"  -> [Browser] Freigabe erfolgreich in {dur:.1f}s erhalten und im Profil hinterlegt.")
+            page.wait_for_timeout(1500)
+            return page, True
+        else:
+            self.log(f"  -> [Browser] Zeitüberschreitung ({max_wait_sec}s) bei Cloudflare-Bestätigung.")
+            return page, False
 
     def ensure_search_page(self):
         """Lädt die Starfield-Suchseite einmalig im persistenten Kontext."""
@@ -351,16 +503,22 @@ class PlaywrightSession:
             self.search_page = ctx.pages[0] if ctx.pages else ctx.new_page()
             self.log("Lade Starfield-Suchseite auf Nexus Mods...")
             try:
-                self.search_page.goto("https://www.nexusmods.com/games/starfield/mods", wait_until="domcontentloaded", timeout=30000)
+                search_url = "https://www.nexusmods.com/games/starfield/mods"
+                self.search_page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+                
+                # Prüfe auf Cloudflare Turnstile
+                if self.is_cloudflare_challenge(self.search_page):
+                    self.search_page, solved = self.resolve_challenge_if_needed(self.search_page, search_url)
+                    if not solved:
+                        self.search_page_loaded = False
+                        return self.search_page
+
                 for _ in range(12):
                     t = self.search_page.title()
-                    if "nexus" in t.lower() and not ("just a moment" in t.lower() or "challenge" in t.lower()):
+                    if "nexus" in t.lower() and not ("just a moment" in t.lower() or "challenge" in t.lower() or "cloudflare" in t.lower()):
                         break
                     self.log(f"  -> Warte auf Initialisierung der Suchseite (Titel: '{t}')...")
                     self.search_page.wait_for_timeout(1000)
-
-                # Cookie-Handshake (Nur technisch notwendige Cookies)
-                self.handle_onetrust_consent(self.search_page)
 
                 self.search_page.wait_for_selector("#title-search-parameters", timeout=15000)
                 self.log("Suchseite erfolgreich geladen und initialisiert.")
@@ -649,17 +807,19 @@ def fetch_details_via_playwright(pw_session: PlaywrightSession, nexus_mod_id: in
     try:
         detail_page.goto(mod_page_url, wait_until="domcontentloaded", timeout=25000)
         
-        # Warte, falls Cloudflare-Challenge aktiv ist
-        for _ in range(12):
+        # Prüfe auf Cloudflare-Challenge
+        if pw_session.is_cloudflare_challenge(detail_page):
+            detail_page, solved = pw_session.resolve_challenge_if_needed(detail_page, mod_page_url)
+            if not solved:
+                log(f"  -> [ÜBERSPRUNGEN] Cloudflare Challenge für Mod {nexus_mod_id} ungelöst. Keine Überschreibung.")
+                return None
+
+        # Warte kurz, falls die Seite noch aufbaut
+        for _ in range(5):
             current_title = detail_page.title()
             if "nexus" in current_title.lower() and not ("moment" in current_title.lower() or "challenge" in current_title.lower() or "cloudflare" in current_title.lower()):
                 break
-            log(f"    -> Warte auf Cloudflare-Freigabe (Titel: '{current_title}')...")
             detail_page.wait_for_timeout(1000)
-
-        # Cookie-Handshake (Nur technisch notwendige Cookies)
-        if browser_manager:
-            browser_manager.handle_onetrust_consent(detail_page)
 
         html_content = detail_page.content()
         
@@ -822,13 +982,11 @@ def fetch_mod_details(nexus_mod_id: int, api_client: NexusAPIClient, pw_session:
     """
     # 1. Primärversuch: REST-API
     if api_client and api_client.is_valid and api_client.has_quota():
-        details = api_client.get_mod_details(nexus_mod_id)
+        details = api_client.get_mod_details(nexus_mod_id, log_func=log)
         if details:
-            remaining_info = f"{api_client.daily_remaining} frei" if api_client.daily_limit else "aktiv"
-            log(f"  -> [API] Details erfolgreich abgerufen (Tageskontingent: {remaining_info}).")
             return details, "REST-API"
         else:
-            log(f"  -> [API] Abruf für Mod {nexus_mod_id} fehlgeschlagen. Starte Fallback auf Playwright...")
+            log(f"  -> [API] Abruf für Mod {nexus_mod_id} nach allen Versuchen fehlgeschlagen. Starte Fallback auf Playwright...")
 
     # 2. Fallback: Playwright
     details = fetch_details_via_playwright(pw_session, nexus_mod_id, local_author, log)
@@ -911,16 +1069,19 @@ def run_nexus_fetch(log_signal=None) -> bool:
     - Nahtloser In-Loop Fallback auf Playwright bei API-Problemen.
     """
     def log(msg: str):
+        is_inline = msg.startswith("[INLINE]\n")
         if log_signal and hasattr(log_signal, "emit"):
             log_signal.emit(msg)
         elif callable(log_signal):
             log_signal(msg)
         else:
+            display_text = msg[len("[INLINE]\n"):] if is_inline else msg
             try:
-                print(msg)
+                print(display_text)
             except UnicodeEncodeError:
-                print(msg.encode('ascii', 'replace').decode('ascii'))
-        write_to_log(msg)
+                print(display_text.encode('ascii', 'replace').decode('ascii'))
+        if not is_inline:
+            write_to_log(msg)
 
     start_dt = datetime.now()
     record_script_start("Nexus_Fetch.py", start_dt)
@@ -928,7 +1089,8 @@ def run_nexus_fetch(log_signal=None) -> bool:
 
     # 1. Nexus REST-API Client initialisieren
     api_client = NexusAPIClient()
-    api_status = api_client.validate()
+    api_status = api_client.validate(timeout=5, max_attempts=3, log_func=log)
+
     if api_status.get("valid"):
         log(f"✓ Nexus REST-API aktiv: Benutzer '{api_status.get('user_name')}' "
             f"({api_client.daily_remaining}/{api_client.daily_limit} Anfragen heute frei)")

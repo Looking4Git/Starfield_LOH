@@ -43,7 +43,7 @@ class NexusKeyValidatorWorker(QThread):
         super().__init__(parent)
         self.api_key = api_key
         self.max_attempts = 3
-        self.timeout_sec = 5
+        self.timeout_sec = 8
 
     def run(self):
         clean_key = (self.api_key or "").strip()

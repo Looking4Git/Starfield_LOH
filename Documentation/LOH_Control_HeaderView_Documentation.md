@@ -134,4 +134,4 @@ if isinstance(hdr, LOH_Control_HeaderView):
 
 ## 6. Konformität mit Design-Rules
 
-Die `LOH_Control_HeaderView` erfüllt alle Kriterien aus [Structure/Design_Rules.md](file:///d:/Starfield_LOH/Structure/Design_Rules.md) (Abschnitt 2.H): Einheitliches Erscheinungsbild, kein Textverlust, keine unschönen weißen Leerräume und volle Respektierung von Dark-Mode und Fensterzuständen.
+Die `LOH_Control_HeaderView` erfüllt alle Kriterien aus [Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md) (Abschnitt 2.H): Einheitliches Erscheinungsbild, kein Textverlust, keine unschönen weißen Leerräume und volle Respektierung von Dark-Mode und Fensterzuständen.

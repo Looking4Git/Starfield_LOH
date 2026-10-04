@@ -2,7 +2,7 @@
 
 > **Status:** Verbindlich implementiert (Phase B)  
 > **Projekt:** Starfield Load Order Helper (LOH)  
-> **Referenz:** [ai-manifest.md](file:///d:/Starfield_LOH/ai-manifest.md), [LOH_Backup_Architecture_Documentation.md](file:///d:/Starfield_LOH/Structure/LOH_Backup_Architecture_Documentation.md)
+> **Referenz:** [ai-manifest.md](file:///d:/Starfield_LOH/ai-manifest.md), [LOH_Backup_Architecture_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Backup_Architecture_Documentation.md)
 
 ---
 

@@ -110,7 +110,7 @@ class MyContentSection(QWidget):
 
 ## 5. Konformität mit Design-Rules
 
-`LOH_Control_SectionResizeGrip` erfüllt die Vorgaben aus [Structure/Design_Rules.md](file:///d:/Starfield_LOH/Structure/Design_Rules.md) (Abschnitt 2.J):
+`LOH_Control_SectionResizeGrip` erfüllt die Vorgaben aus [Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md) (Abschnitt 2.J):
 * Diskrete Sci-Fi-Ziehmarkierung ohne aufdringliche Rahmen
 * Hover-Farbe Starfield-Gold (`#D7A64B`), Ruhezustand Starfield-Blau (`#304C7A`)
 * Cursor `Qt.CursorShape.SizeVerCursor` für intuitive Bedienbarkeit.

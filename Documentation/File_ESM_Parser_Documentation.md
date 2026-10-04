@@ -182,4 +182,4 @@ Das Modul `Structure/Parser_Reporter.py` entkoppelt die Statusausgabe vollständ
 Für gezielte Einzelabfragen von Records, Subrecords und hierarchischen Verknüpfungen (ohne linearen Komplettscan) existiert die separate Funktionsbibliothek [Structure/File_ESM_Parser_Dynamic.py](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Dynamic.py).
 
 Details, Funktionssignaturen und Anwendungsbeispiele sind dokumentiert in:
-* [Structure/File_ESM_Parser_Dynamic_Documentation.md](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Dynamic_Documentation.md)
+* [File_ESM_Parser_Dynamic_Documentation.md](file:///d:/Starfield_LOH/Documentation/File_ESM_Parser_Dynamic_Documentation.md)

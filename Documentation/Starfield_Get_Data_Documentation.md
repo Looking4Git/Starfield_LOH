@@ -52,7 +52,7 @@ Die eigentliche binäre Analyse der `.esm`- und `.esp`-Dateien sowie das Auslese
 
 * **Auslagerung der Parser-Dokumentation:**  
   Die detaillierte Dokumentation des Single-Pass-Prinzips, aller modularen Unterfunktionen, der **Entscheidungsmatrix zur Erkennung von Dummy-Zellen** sowie des Reporting-Subsystems (`Parser_Reporter.py`) befindet sich in:  
-  -> [Structure/File_ESM_Parser_Documentation.md](file:///d:/Starfield_LOH/Structure/File_ESM_Parser_Documentation.md)
+  -> [File_ESM_Parser_Documentation.md](file:///d:/Starfield_LOH/Documentation/File_ESM_Parser_Documentation.md)
 
 * **Ergebnisübernahme in die Datenbank:**
   - **Systemkomponenten (`scan_and_update_system_components`):** Schreibt in `Components_System`, `Components_System_FormIDs`, `Components_System_LCTN` und `Components_System_CELL_LCTN` (inklusive aller Außen-Kacheln mit geerbter Worldspace-Location).

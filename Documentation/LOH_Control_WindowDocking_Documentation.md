@@ -93,7 +93,7 @@ def closeEvent(self, event):
 
 ## 5. Konformität mit Design-Rules
 
-`LOH_Control_WindowDocking` setzt alle Vorgaben aus [Structure/Design_Rules.md](file:///d:/Starfield_LOH/Structure/Design_Rules.md) (Abschnitt 5) um:
+`LOH_Control_WindowDocking` setzt alle Vorgaben aus [Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md) (Abschnitt 5) um:
 * Basisbreiten-Führung bei manuellem Resize
 * Flackerfreies, atomares Schließen
 * Persistente Speicherung via `get_clean_window_width()`.

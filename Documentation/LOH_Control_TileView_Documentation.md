@@ -114,7 +114,7 @@ self.tile_view.set_items(conflict_data)
 
 ## 6. Konformität mit Design-Rules
 
-`LOH_Control_TileView` erfüllt alle Kriterien aus [Structure/Design_Rules.md](file:///d:/Starfield_LOH/Structure/Design_Rules.md) (Abschnitt 2.I):
+`LOH_Control_TileView` erfüllt alle Kriterien aus [Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md) (Abschnitt 2.I):
 * Standard-Kachelbreite: 280 px
 * Abstand: 8 px
 * Schrittweite: 288 px

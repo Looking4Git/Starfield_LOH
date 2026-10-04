@@ -159,7 +159,7 @@ Um hochperformante $O(1)$-Lookups in der Benutzeroberfläche (`Mods_Conflicts_GU
 Die qualitative Bewertung und Einstufung von Kollisionen (`Typ 0` bis `Typ 3`) sowie die detaillierte Zuordnung aller Creation Engine 2 (CE2) Signaturen erfolgt strukturiert im Konflikt-Analyzer (`Structure/Mods_Conflicts_Analyzer.py`).
 
 Die vollständige Spezifikation der Klassifizierungsstufen, Kriterien und Signatur-Bäume ist dokumentiert in:
-👉 [Mods_Conflicts_Analyzer_Documentation.md](../Structure/Mods_Conflicts_Analyzer_Documentation.md)
+👉 [Mods_Conflicts_Analyzer_Documentation.md](file:///d:/Starfield_LOH/Documentation/Mods_Conflicts_Analyzer_Documentation.md)
 
 
 

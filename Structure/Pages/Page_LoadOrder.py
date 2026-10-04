@@ -1070,6 +1070,7 @@ class Page_LoadOrder(QWidget):
             self.btn_add_requirement.setEnabled(False)
         if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
             self.btn_remove_requirement.setEnabled(False)
+            self.btn_remove_requirement.setToolTip("")
 
     def on_row_selected(self, selected, deselected):
         from Structure.Paths import get_setting
@@ -1130,6 +1131,7 @@ class Page_LoadOrder(QWidget):
             requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
             for req in requirements:
                 item_req = QStandardItem(req["Name_Online"])
+                item_req.setData(int(req.get("Header_Detection", 0) or 0), Qt.ItemDataRole.UserRole)
                 req_model.appendRow([item_req])
                 
             self.tree_requirements.setModel(req_model)
@@ -1164,6 +1166,7 @@ class Page_LoadOrder(QWidget):
             self.btn_add_requirement.setEnabled(True)
         if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
             self.btn_remove_requirement.setEnabled(False)
+            self.btn_remove_requirement.setToolTip("")
             
     def set_combo_by_data(self, combo: QComboBox, data_value):
         if data_value is None:
@@ -1718,8 +1721,19 @@ class Page_LoadOrder(QWidget):
 
     def on_requirements_selection_changed(self, selected, deselected):
         if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
-            has_selection = len(self.tree_requirements.selectionModel().selectedRows()) > 0
-            self.btn_remove_requirement.setEnabled(has_selection)
+            selected_rows = self.tree_requirements.selectionModel().selectedRows()
+            if not selected_rows:
+                self.btn_remove_requirement.setEnabled(False)
+                self.btn_remove_requirement.setToolTip("")
+                return
+
+            header_detection = selected_rows[0].data(Qt.ItemDataRole.UserRole)
+            if header_detection and int(header_detection) == 1:
+                self.btn_remove_requirement.setEnabled(False)
+                self.btn_remove_requirement.setToolTip("Automatisch über Plugin-Header erkannt (Master) – kann nicht manuell entfernt werden.")
+            else:
+                self.btn_remove_requirement.setEnabled(True)
+                self.btn_remove_requirement.setToolTip("Ausgewählte Voraussetzung entfernen")
 
     def on_remove_requirement_clicked(self):
         if not self.current_mod_id:
@@ -1729,10 +1743,20 @@ class Page_LoadOrder(QWidget):
         if not indexes:
             return
             
-        # Get the selected requirement mod name
+        # Get the selected requirement mod name and header detection flag
         selected_index = indexes[0]
+        header_detection = selected_index.data(Qt.ItemDataRole.UserRole)
         req_name = selected_index.data(Qt.ItemDataRole.DisplayRole)
         if not req_name:
+            return
+
+        # Controller-Guard: Verhindern, dass Header-erkannte Voraussetzungen entfernt werden
+        if header_detection and int(header_detection) == 1:
+            self.show_message_box(
+                "Voraussetzung geschützt",
+                f"Die Voraussetzung '{req_name}' ist fest im Header des Plugins (Master-Abhängigkeit) hinterlegt und kann nicht manuell entfernt werden.",
+                QMessageBox.Icon.Information
+            )
             return
             
         reply = self.show_message_box(
@@ -1751,6 +1775,7 @@ class Page_LoadOrder(QWidget):
                 requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
                 for req in requirements:
                     item_req = QStandardItem(req["Name_Online"])
+                    item_req.setData(int(req.get("Header_Detection", 0) or 0), Qt.ItemDataRole.UserRole)
                     req_model.appendRow([item_req])
                     
                 self.tree_requirements.setModel(req_model)
@@ -1758,6 +1783,7 @@ class Page_LoadOrder(QWidget):
                 
                 if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
                     self.btn_remove_requirement.setEnabled(False)
+                    self.btn_remove_requirement.setToolTip("")
                     
                 # Markierungen in Tabelle aktualisieren
                 self.clear_table_highlights()
@@ -1788,6 +1814,7 @@ class Page_LoadOrder(QWidget):
                     requirements = get_mod_requirements_for_ui(int(self.current_mod_id))
                     for req in requirements:
                         item_req = QStandardItem(req["Name_Online"])
+                        item_req.setData(int(req.get("Header_Detection", 0) or 0), Qt.ItemDataRole.UserRole)
                         req_model.appendRow([item_req])
                         
                     self.tree_requirements.setModel(req_model)
@@ -1795,6 +1822,7 @@ class Page_LoadOrder(QWidget):
                     
                     if hasattr(self, 'btn_remove_requirement') and self.btn_remove_requirement:
                         self.btn_remove_requirement.setEnabled(False)
+                        self.btn_remove_requirement.setToolTip("")
                         
                     # Markierungen in Tabelle aktualisieren
                     self.clear_table_highlights()

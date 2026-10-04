@@ -436,7 +436,8 @@ def get_creation_categories_for_ui(mod_id: int) -> list[dict]:
 def get_mod_requirements_for_ui(mod_id: int) -> list[dict]:
     """Holt die IDs und Online-Namen (mit Fallback auf Content-Catalog-Namen) aller vorausgesetzten Mods für ein Mod."""
     query = """
-        SELECT m.ID, COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannter Mod') AS Name_Online 
+        SELECT m.ID, COALESCE(m.Name_Online, m.Name_ContentCatalog, 'Unbekannter Mod') AS Name_Online,
+               COALESCE(mr.Header_Detection, 0) AS Header_Detection
         FROM Mods_Requirements mr
         JOIN Mods m ON mr.ID_Mod_Requirement = m.ID
         WHERE mr.ID_Mod = :mod_id
@@ -594,6 +595,7 @@ def delete_mod_requirement(mod_id: int, required_mod_name: str) -> bool:
           AND ID_Mod_Requirement = (
               SELECT ID FROM Mods WHERE Name_Online = :req_name LIMIT 1
           )
+          AND (Header_Detection IS NULL OR Header_Detection = 0)
     """
     conn = None
     try:

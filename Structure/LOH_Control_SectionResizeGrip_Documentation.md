@@ -33,7 +33,7 @@ graph TD
     A -->|Doppelklick| G[target_widget.setFixedHeight: default_height]
 ```
 
-* **Kein Layout-Konflikt:** Die Komponente manipuliert direkt die `setFixedHeight`-Eigenschaft des Ziel-Widgets (`target_widget`). Das übergeordnete Layout (z. B. in `CollapsibleSection` oder `QScrollArea`) passt sich dank Standard-Qt-Größenregeln automatisch flackerfrei an.
+* **Kein Layout-Konflikt:** Die Komponente manipuliert direkt die `setFixedHeight`-Eigenschaft des Ziel-Widgets (`target_widget`). Das übergeordnete Layout (z. B. in `LOH_Control_CollapsibleSection` oder `QScrollArea`) passt sich dank Standard-Qt-Größenregeln automatisch flackerfrei an.
 
 ---
 

@@ -8,7 +8,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-from Structure.Pages.CollapsibleSection import CollapsibleSection
+from Structure.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
 from Structure.Pages.Section_Mod_Statistics_Comparison import Section_Mod_Statistics_Comparison
 from Structure.Pages.Section_Mod_Statistics_Category import Section_Mod_Statistics_Category
 from Structure.Pages.Section_Mod_Statistics_Classification import Section_Mod_Statistics_Classification
@@ -64,11 +64,11 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_comparison.comp_mod_changed.connect(self.sec_content.set_comp_mod)
         self.sec_comparison.comp_mod_changed.connect(self.sec_conflicts.set_comp_mod)
 
-        self.cs_comparison = CollapsibleSection("Vergleich", self.sec_comparison, parent=self, is_expanded=True)
-        self.cs_category = CollapsibleSection("Kategorie", self.sec_category, parent=self, is_expanded=True)
-        self.cs_classification = CollapsibleSection("Kategorie Klassifikation", self.sec_classification, parent=self, is_expanded=False)
-        self.cs_content = CollapsibleSection("Inhalte", self.sec_content, parent=self, is_expanded=False)
-        self.cs_conflicts = CollapsibleSection("Konflikte", self.sec_conflicts, parent=self, is_expanded=False)
+        self.cs_comparison = LOH_Control_CollapsibleSection("Vergleich", self.sec_comparison, parent=self, is_expanded=True)
+        self.cs_category = LOH_Control_CollapsibleSection("Kategorie", self.sec_category, parent=self, is_expanded=True)
+        self.cs_classification = LOH_Control_CollapsibleSection("Kategorie Klassifikation", self.sec_classification, parent=self, is_expanded=False)
+        self.cs_content = LOH_Control_CollapsibleSection("Inhalte", self.sec_content, parent=self, is_expanded=False)
+        self.cs_conflicts = LOH_Control_CollapsibleSection("Konflikte", self.sec_conflicts, parent=self, is_expanded=False)
 
         # Vor dem Spacer einfügen
         insert_idx = self.sections_layout.count() - 1 if self.bottom_spacer else 0

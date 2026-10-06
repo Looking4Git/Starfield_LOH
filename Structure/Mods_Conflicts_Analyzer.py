@@ -864,9 +864,14 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
         ref_cache[k] = cnt
         return cnt
 
-    demoted_type_0 = []
-    qualified_type_2 = []
-    qualified_type_3 = []
+    # Teilschritt-Sammlungen gemäß den 6 Kriterien des Entscheidungsbaums
+    branch_7_1 = []        # 7.1 Identität (Typ 0)
+    branch_7_2 = []        # 7.2 Pack-In Resave (Typ 0)
+    branch_7_3 = []        # 7.3 Pack-In Layout (Typ 2)
+    branch_7_4 = []        # 7.4 Weltzelle Beidseitiger Clash (Typ 3)
+    branch_7_5_typ0 = []   # 7.5 Weltzelle Asymmetrisch BGS (Typ 0)
+    branch_7_5_typ3 = []   # 7.5 Weltzelle Asymmetrisch Community (Typ 3)
+    branch_7_6 = []        # 7.6 Weltzelle Reine Optimierung (Typ 2)
 
     for comp_id_a, comp_id_b, form_id, sig, file_a, file_b, mod_id_a, mod_id_b, name_a, name_b in navm_rows:
         entry_a = navm_cache.get(comp_id_a, {}).get(form_id)
@@ -878,10 +883,10 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
         cell_fid = cell_a or cell_b
         wrld_fid = wrld_a or wrld_b
 
-        # 1. Identitätsprüfung
+        # 1. Identitätsprüfung (Teilschritt 7.1)
         if data_a and data_b and data_a == data_b:
             reason = "Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel."
-            demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, None))
+            branch_7_1.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, None))
             continue
 
         is_packin, cell_edid = get_cell_info(cell_fid)
@@ -895,32 +900,32 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
             loc_desc.append(f"Zelle 0x{cell_fid:08X}")
         loc_str = f" in {' / '.join(loc_desc)}" if loc_desc else ""
 
-        # 2. Pack-In Vorlagen
+        # 2. Pack-In Vorlagen (Teilschritte 7.2 und 7.3)
         if is_packin:
             cnt_a = count_cell_refs(comp_id_a, cell_fid)
             cnt_b = count_cell_refs(comp_id_b, cell_fid)
             if cnt_a == 0 and cnt_b == 0:
                 reason = f"Pack-In Wegfindungs-Resave{loc_str}: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn). Keine festen Weltplatzierungen; Auswirkung beschränkt sich auf das platzierte Einzelbauteil."
-                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+                branch_7_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
             else:
                 reason = f"Pack-In Layout-Konflikt{loc_str}: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf. Die spätere Mod bestimmt das NavMesh des Bauteils."
-                qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+                branch_7_3.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
             continue
 
-        # 3. Reale Weltzelle
+        # 3. Reale Weltzelle (Teilschritte 7.4, 7.5, 7.6)
         cnt_a = count_cell_refs(comp_id_a, cell_fid)
         cnt_b = count_cell_refs(comp_id_b, cell_fid)
 
         if cnt_a > 0 and cnt_b > 0:
-            # Beidseitiger Neubau-Clash
+            # Beidseitiger Neubau-Clash (Teilschritt 7.4)
             reason = (
                 f"Kritischer Wegfindungs- und Platzierungskonflikt{loc_str}: "
                 f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
                 f"Gegenseitige Zerstörung des Wegnetzes."
             )
-            qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+            branch_7_4.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
         elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):
-            # Asymmetrisch: Eine Mod baut, die andere resaved
+            # Asymmetrisch: Eine Mod baut, die andere resaved (Teilschritt 7.5)
             if cnt_a > 0:
                 id_req, id_dep = mod_id_b, mod_id_a
                 name_bld, name_res = name_a, name_b
@@ -939,7 +944,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
                     f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
                 )
-                demoted_type_0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
+                branch_7_5_typ0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
             else:
                 reason = (
                     f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
@@ -948,21 +953,40 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
                     f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
                 )
-                qualified_type_3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
+                branch_7_5_typ3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
         else:
-            # Reine NavMesh-Optimierung (keine neuen Referenzen)
+            # Reine NavMesh-Optimierung (keine neuen Referenzen) (Teilschritt 7.6)
             reason = (
                 f"Konkurrierende Wegfindungsoptimierung{loc_str}: "
                 f"Beide Mods überarbeiten das NavMesh ohne bauliche Veränderungen. "
                 f"Die spätere Mod überschreibt die Wegfindungskorrekturen der früheren Mod."
             )
-            qualified_type_2.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+            branch_7_6.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
 
-    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
-    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    cnt_3 = _update_conflicts_batch(cur, step_id, step_desc, 3, qualified_type_3)
-    print(f"      - Schritt 7: {cnt_0} NAVM als identische Mitläufer (Typ 0), {cnt_2} als Optimierungen/Pack-Ins (Typ 2) und {cnt_3} als reale Wegfindungs-Konflikte (Typ 3) qualifiziert.")
-    return cnt_0 + cnt_2 + cnt_3
+    # Teilschritt-Batchaktualisierungen mit dynamischer Step_ID
+    cnt_7_1 = _update_conflicts_batch(cur, f"{step_id}.1", "Wegfindung: Identität", 0, branch_7_1)
+    cnt_7_2 = _update_conflicts_batch(cur, f"{step_id}.2", "Wegfindung: Pack-In Resave", 0, branch_7_2)
+    cnt_7_3 = _update_conflicts_batch(cur, f"{step_id}.3", "Wegfindung: Pack-In Layout", 2, branch_7_3)
+    cnt_7_4 = _update_conflicts_batch(cur, f"{step_id}.4", "Wegfindung: Weltzelle Clash", 3, branch_7_4)
+    cnt_7_5a = _update_conflicts_batch(cur, f"{step_id}.5", "Wegfindung: Weltzelle Asymmetrisch", 0, branch_7_5_typ0)
+    cnt_7_5b = _update_conflicts_batch(cur, f"{step_id}.5", "Wegfindung: Weltzelle Asymmetrisch", 3, branch_7_5_typ3)
+    cnt_7_6 = _update_conflicts_batch(cur, f"{step_id}.6", "Wegfindung: Weltzelle Optimierung", 2, branch_7_6)
+
+    total_navm = cnt_7_1 + cnt_7_2 + cnt_7_3 + cnt_7_4 + cnt_7_5a + cnt_7_5b + cnt_7_6
+    print(f"      - Schritt {step_id} ({total_navm} NAVM über Teilschritte {step_id}.1–{step_id}.6 qualifiziert):")
+    if cnt_7_1:
+        print(f"        * {step_id}.1 Identität: {cnt_7_1} (Typ 0)")
+    if cnt_7_2:
+        print(f"        * {step_id}.2 Pack-In Resave: {cnt_7_2} (Typ 0)")
+    if cnt_7_3:
+        print(f"        * {step_id}.3 Pack-In Layout: {cnt_7_3} (Typ 2)")
+    if cnt_7_4:
+        print(f"        * {step_id}.4 Weltzelle Clash: {cnt_7_4} (Typ 3)")
+    if cnt_7_5a or cnt_7_5b:
+        print(f"        * {step_id}.5 Weltzelle Asymmetrisch: {cnt_7_5a + cnt_7_5b} (Typ 0: {cnt_7_5a}, Typ 3: {cnt_7_5b})")
+    if cnt_7_6:
+        print(f"        * {step_id}.6 Weltzelle Optimierung: {cnt_7_6} (Typ 2)")
+    return total_navm
 
 
 def _check_refr_navmesh_splines(file_a, file_b, form_id, base_fid, base_edid, cache):
@@ -1248,8 +1272,12 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     """)
     refr_rows = cur.fetchall()
 
-    demoted_type_0 = []
-    qualified_type_2 = []
+    # Teilschritt-Sammlungen für Sub-Handler 8.1 und 8.2
+    branch_8_1_0 = []   # 8.1 NavMeshSplines (Typ 0)
+    branch_8_1_2 = []   # 8.1 NavMeshSplines (Typ 2)
+    branch_8_2_0 = []   # 8.2 Allgemeine REFR Resaves (Typ 0)
+    branch_8_2_2 = []   # 8.2 Allgemeine REFR Kollisionen (Typ 2)
+
     sub_cache = {}
     arbiter_refr_count = 0
 
@@ -1261,9 +1289,9 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
         if handled:
             rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, None, None, cell_fid, cell_edid)
             if c_type == 0:
-                demoted_type_0.append(rec_tuple)
+                branch_8_1_0.append(rec_tuple)
             elif c_type == 2:
-                qualified_type_2.append(rec_tuple)
+                branch_8_1_2.append(rec_tuple)
             continue
 
         # Sub-Handler 8.2: Identische Resaves & Reale Platzierungskonflikte
@@ -1285,15 +1313,22 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
 
             rec_tuple = (comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, sol_type, cell_fid, cell_edid)
             if c_type == 0:
-                demoted_type_0.append(rec_tuple)
+                branch_8_2_0.append(rec_tuple)
             elif c_type == 2:
-                qualified_type_2.append(rec_tuple)
+                branch_8_2_2.append(rec_tuple)
             continue
 
-    cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
-    cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    print(f"      - Schritt 8: {cnt_0} REFR als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen (Typ 2) qualifiziert (davon {arbiter_refr_count} mit Ladereihenfolge-Zuteilung).")
-    return cnt_0 + cnt_2
+    # Teilschritt-Batchaktualisierungen mit dynamischer Step_ID
+    cnt_8_1_0 = _update_conflicts_batch(cur, f"{step_id}.1", "Platzierung: NavMeshSpline", 0, branch_8_1_0)
+    cnt_8_1_2 = _update_conflicts_batch(cur, f"{step_id}.1", "Platzierung: NavMeshSpline", 2, branch_8_1_2)
+    cnt_8_2_0 = _update_conflicts_batch(cur, f"{step_id}.2", "Platzierung: Allgemeine REFR-Prüfung", 0, branch_8_2_0)
+    cnt_8_2_2 = _update_conflicts_batch(cur, f"{step_id}.2", "Platzierung: Allgemeine REFR-Prüfung", 2, branch_8_2_2)
+
+    total_8 = cnt_8_1_0 + cnt_8_1_2 + cnt_8_2_0 + cnt_8_2_2
+    print(f"      - Schritt {step_id} ({total_8} REFR über Teilschritte {step_id}.1–{step_id}.2 qualifiziert):")
+    print(f"        * {step_id}.1 NavMeshSplines: {cnt_8_1_0 + cnt_8_1_2} (Typ 0: {cnt_8_1_0}, Typ 2: {cnt_8_1_2})")
+    print(f"        * {step_id}.2 Allgemeine REFR: {cnt_8_2_0 + cnt_8_2_2} (Typ 0: {cnt_8_2_0}, Typ 2: {cnt_8_2_2}, davon {arbiter_refr_count} mit Ladereihenfolge-Zuteilung)")
+    return total_8
 
 
 def enrich_conflicts_missing_edids(cur, reporter=None):
@@ -1389,19 +1424,6 @@ def enrich_conflicts_missing_edids(cur, reporter=None):
     if total_enriched > 0:
         print(f"   -> EDID-Anreicherung: {len(resolved_base)} Basis-Objekte und {len(resolved_refs)} Referenzen mit Klarnamen ergänzt.")
     return total_enriched
-
-
-# Pipeline-Definition mit semantischem Funktionsaufruf und Kurzbeschreibung
-CONFLICT_PIPELINE_STEPS = [
-    (1, "Signatur-Basiseinstufung", _step_baseline_typification),
-    (2, "Direkte Mod-Voraussetzungen", _step_direct_requirements),
-    (3, "Schiedsrichter-Patches", _step_triangular_patches),
-    (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
-    (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
-    (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
-    (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
-    (8, "Platzierungs- & Referenz-Analyse", _step_refr_placements),
-]
 
 
 def analyze_conflicts(db_path=None, reporter=None):
@@ -1553,7 +1575,7 @@ def analyze_conflicts(db_path=None, reporter=None):
             Cell_EDID            TEXT,
             Base_FormID          INTEGER,
             Base_EDID            TEXT,
-            Step_ID              INTEGER NOT NULL DEFAULT 0,
+            Step_ID              TEXT NOT NULL DEFAULT '0',
             Step_Description     TEXT,
             Conflict_Type        INTEGER NOT NULL DEFAULT 2,
             Reason               TEXT,
@@ -1581,7 +1603,7 @@ def analyze_conflicts(db_path=None, reporter=None):
             Sig, FormID, EDID,
             Cell_FormID, Cell_EDID,
             Base_FormID, Base_EDID,
-            0 AS Step_ID,
+            '0' AS Step_ID,
             'Initial' AS Step_Description,
             2 AS Conflict_Type,
             'Unbewerteter Override' AS Reason
@@ -1591,7 +1613,18 @@ def analyze_conflicts(db_path=None, reporter=None):
         # 3b. Fehlende EDID- und Base_EDID-Klarnamen dynamisch anreichern
         enrich_conflicts_missing_edids(cur, reporter)
 
-        # 4. Pipeline-Schritte sequenziell ausführen
+        # 4. Pipeline-Schritte sequenziell ausführen (gemäß Regel 7 ai-manifest.md direkt verankert)
+        CONFLICT_PIPELINE_STEPS = [
+            (1, "Signatur-Basiseinstufung", _step_baseline_typification),
+            (2, "Direkte Mod-Voraussetzungen", _step_direct_requirements),
+            (3, "Schiedsrichter-Patches", _step_triangular_patches),
+            (4, "Worldspace-Subrecord-Analyse", _step_wrld_containers),
+            (5, "Zellen-Subrecord- & Platzierungs-Analyse", _step_cell_containers),
+            (6, "Location-Subrecord- & Rollen-Analyse", _step_lctn_resaves),
+            (7, "Wegfindungs- & NavMesh-Container-Analyse", _step_navm_containers),
+            (8, "Platzierungs- & Referenz-Analyse", _step_refr_placements),
+        ]
+
         for step_id, step_desc, step_func in CONFLICT_PIPELINE_STEPS:
             step_start = time.time()
             msg_step = f"   -> Schritt {step_id}: {step_desc}..."

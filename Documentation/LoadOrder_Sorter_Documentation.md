@@ -107,126 +107,94 @@ Treten bei den Prüfungen Auffälligkeiten auf, öffnet sich der modale Sicherhe
 
 ### 5. Sortier-Pipeline (`run_load_order_sorter`)
 
-Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_sorter(log_signal)`. Die einzelnen Sortierschritte werden modular über die Liste `SORTER_PIPELINE_STEPS` registriert und schrittweise abgearbeitet.
+Die tatsächliche Neuanordnung der Ladereihenfolge erfolgt in `run_load_order_sorter(log_signal)`. Die einzelnen Sortierschritte werden modular über die Liste `SORTER_PIPELINE_STEPS` direkt im Rumpf von `run_load_order_sorter` registriert und schrittweise abgearbeitet (gemäß `ai-manifest.md` Regel 7).
 
 #### Architektur-Grundsatz: Entkoppelte Speicherung in `LoadOrder_Sorter_Results`
 * **Dedizierte Ergebnistabelle:** Die Sortier-Pipeline rechnet und persistiert das Ergebnis entkoppelt in die dedizierte Tabelle `LoadOrder_Sorter_Results`. Die operative Tabelle `LoadOrder` bleibt von experimentellen Zwischenergebnissen unberührt; alte Einträge für `ID_Profile = 0` werden bereinigt. Die Übernahme der errechneten Sortierung in operative Profile erfolgt über einen separaten, anwendergeführten Prozess.
 * **Vollständigkeit & Aktivierung:** Alle installierten Komponenten (1..N) sind in den Sortierergebnissen lückenlos durchnummeriert.
-* **Transparenz durch Begründungen (`Reason`) & Pipelinestufen (`Step_ID`, `Step_Description`):** Jede Komponente erhält eine nachvollziehbare Begründung für ihre relative Platzierung. Die Begründungen fokussieren rein auf die relative Positionierungslogik (ohne Kategorie-Namen). `Step_ID` wird als Text geführt und spiegelt die hierarchische Pipelinestufe wider (z. B. `3.1`, `3.2`, `3.6.1`).
+* **Transparenz durch Begründungen (`Reason`) & Pipelinestufen (`Step_ID`, `Step_Description`):** Jede Komponente erhält eine nachvollziehbare Begründung für ihre relative Platzierung. Die Begründungen fokussieren rein auf die relative Positionierungslogik (ohne Kategorie-Namen). `Step_ID` wird als Text geführt und spiegelt die hierarchische Pipelinestufe dynamisch wider (z. B. `1.1`, `1.2`, `3.1`, `4.1`–`4.5`).
 
 ---
 
-### 6. Die 4 Sortierstufen der Pipeline
+### 6. Die modulare Block-First-Architektur der Pipeline
 
 ```
-[Schritt 1: Vorsortieren nach Kategorien]
-      │ (Grobe Zuordnung aller installierten Komponenten nach Hauptkategorie Pos 1..32)
+[Schritt 1: Multi-Mod-Blockbildung]
+      │ (Kapselung jeder Mod in unteilbaren ModBlock; Binnen-Sortierung nach Name & MAST;
+      │  Protokollierung echter Multi-Mod-Blöcke)
       ▼
-[Schritt 2: Globale Abhängigkeitsauflösung]
-      │ (Aktive Umsortierung abhängiger Komponenten/Patches hinter ihre Voraussetzungen)
+[Schritt 2: Vorsortieren nach Kategorien]
+      │ (Vorverteilung der Mod-Blöcke auf die 32 LLO-Hauptkategorien)
       ▼
-[Schritt 3: Kategorie-Feinsortierung & Binnen-Nachbesserung]
-      │ (Semantische Steuertabelle CATEGORY_FINE_SORT_STEPS je Kategorie 01–32)
-      │ ├── 3.1: Band Vorläufer (nur Binnengruppen-Partner mit Sub_Pos < Main_Pos)
-      │ ├── 3.2: Band Kern (Mono-Mods, fremde Binnengruppen & binnengruppenfreie Kategorien)
-      │ ├── 3.3: Band Nachfolger (nur Binnengruppen-Partner mit Sub_Pos > Main_Pos)
-      │ ├── 3.4: Mod-Kohäsion (zusammenhängender Komponentenblock mehrteiliger Mods)
-      │ ├── 3.5: Mod-Abhängigkeit im DAG (Voraussetzungen & Masterfiles)
-      │ ├── 3.6: Konflikt-Milderung & Konflikt-Abhängigkeit (CONFLICT_RESOLUTION_STEPS)
-      │ │          ├── 3.6.1: Konflikt Milderung (Lokal vs Global)
-      │ │          ├── 3.6.2: Konflikt Milderung (gezielter Mod)
-      │ │          └── 3.6.3: Konflikt Abhängigkeit (Delete vs. Disable / NavMesh-Reparatur)
-      │ └── 3.7: Finale topologische Schutzprüfung (Absicherung gegen Rest-Inversionen)
+[Schritt 3: Globale Block-Abhängigkeitsauflösung]
+      │ (Verschiebung ganzer Mod-Blöcke nach Maximum-Prinzip hinter höchste Voraussetzung)
       ▼
-[Schritt 4: Persistierung in LoadOrder_Sorter_Results]
+[Schritt 4: Kategorie-Feinsortierung & Binnen-Nachbesserung]
+      │ (Ausführbare Unterpipeline CATEGORY_FINE_SORT_STEPS je Kategorie 01–32)
+      │ ├── 4.1: Band Vorläufer (_substep_band_precursors)
+      │ ├── 4.2: Band Kern (_substep_band_core)
+      │ ├── 4.3: Band Nachfolger (_substep_band_successors)
+      │ ├── 4.4: Binnen-Abhängigkeiten & Konflikte DAG (_substep_resolve_internal_dependencies)
+      │ └── 4.5: Finale globale Schutzprüfung (_substep_heal_global_final_dependencies)
+      ▼
+[Schritt 5: Persistierung in LoadOrder_Sorter_Results]
       │ (Atomares Schreiben der lückenlosen Positionen 1..N mit Begründung in LoadOrder_Sorter_Results,
       │  Erstellung von View_LoadOrder_Sorter_Results & Bereinigung von Profil 0 aus LoadOrder)
 ```
 
-#### Schritt 1: Vorsortieren nach Kategorien (`_step_presort_by_categories`)
-* Ordnet alle installierten Komponenten anhand ihrer Hauptkategorie (`coalesce(Category_LOH, Category_LOH_Classifier)`) in die LLO-Kategorien-Reihenfolge (Positionen 1 bis 32).
-* Offizielle BGS-Creations (`Author == 'BethesdaGameStudios'` oder `Category_LOH == 1`) fallen regulär in Kategorie 1 und bilden damit natürlich die Spitze der Ladereihenfolge (Positionen 1 bis $N_{bgs}$).
-* Lädt für jede Komponente die berechneten Matrix-Werte der kategoriespezifischen Eingriffstiefe (`dim_calc_inner_*`) und die Summe der Gesamt-Overrides (`calc_Total_Override_Val`).
+#### Schritt 1: Multi-Mod-Blockbildung (`_step_build_mod_blocks`)
+* **ModBlock-Kapselung:** Jede Mod wird unmittelbar beim Einlesen in ein kohärentes `ModBlock`-Objekt gekapselt.
+* **Binnen-Sortierung & Kohäsions-Garantie:**
+  1. *Primär:* Alphanumerische natürliche Namenssortierung (`_natural_sort_key`, z. B. `sfta01` vor `sfta02` bis `sfta06`).
+  2. *Sekundär:* Validierung gegen interne Header-`MAST`-Abhängigkeiten. Nur falls eine Namenssortierung eine interne Header-Abhängigkeit verletzen würde, wird topologisch nachjustiert.
+  3. *Transparenz:* Lead-Plugin erhält `Step_ID = "1.1"` (`Basis-Sortierung`), Folge-Plugins erhalten `Step_ID = "1.2"` (`Mod-Kohäsion`).
+* **Protokollierung:** Gibt echte Multi-Mod-Blöcke ($\ge 2$ Komponenten) zeilenweise mit allen enthaltenen Dateinamen im Log aus.
 
-#### Schritt 2: Globale Abhängigkeitsauflösung (`_step_validate_global_dependencies`)
-* Überwindet starre Kategoriengrenzen zugunsten harter Creation Engine 2 Voraussetzungen: Wenn eine abhängige Mod (z. B. ein Patch) einer früheren Kategorie angehört als ihre benötigte Voraussetzung (Basis-Mod / Masterfile), wird die abhängige Komponente im Arbeitskontext des Sorters aktiv in den Kategoriebereich der höchsten Voraussetzung verschoben.
-* **Wichtige Differenzierung (Stammdaten vs. Ladereihenfolge):**
-  - **Stammdaten bleiben unverändert:** Die fachliche Zuordnung der Mod in der Tabelle `Mods` (`Category_LOH`) wird dabei **nicht** modifiziert und bleibt für Filterungen und Übersichten zu 100 % erhalten.
-  - **Ladereihenfolge wird geheilt:** In der errechneten Ladereihenfolge erhält die technische Abhängigkeit absoluten Vorrang, sodass Patches garantiert hinter ihren Masterfiles einsortiert werden.
+#### Schritt 2: Vorsortieren nach Kategorien (`_step_presort_by_categories`)
+* **Kategorie-Zuordnung:** Ordnet die fertigen `ModBlock`-Objekte anhand der Hauptkategorie der Mod in die LLO-Kategorien (Position 1 bis 32) ein.
+* Offizielle BGS-Creations (`Author == 'BethesdaGameStudios'` oder `Category_LOH == 1`) fallen regulär in Kategorie 1.
+
+#### Schritt 3: Globale Block-Abhängigkeitsauflösung (`_step_validate_global_dependencies`)
+* Überwindet Kategoriengrenzen zugunsten harter Creation Engine 2 Voraussetzungen: Wenn eine abhängige Mod einer früheren Kategorie angehört als ihre benötigte Voraussetzung (Basis-Mod / Masterfile), wird der **gesamte Mod-Block** geschlossen verschoben.
+* **Maximum-Prinzip & Richtungsstriktheit:**
+  - Abhängigkeiten verschieben einen Block **immer nur nach unten (spätere Positionen)**, niemals nach oben.
+  - Besitzen Komponenten einer Multimod unterschiedliche externe Voraussetzungen, ermittelt der Algorithmus das Maximum aller geforderten Kategorien ($\max(\text{Position aller externen Voraussetzungen})$) und verschiebt den gesamten Block hinter die höchste Voraussetzung.
+  - Binnen-Masterfiles derselben Mod (`parent_mid == dep_mid`) werden ignoriert, da sie bereits blockintern erfüllt sind.
 * **Transparente Kennzeichnung:**
-  - Jede so verschobene Komponente erhält die Kennung `Step_ID = "2.1"`, `Step_Description = 'Globale Abhängigkeit'` und die Begründung: *„in Kategoriebereich [<Pos>] <Kategorie> verschoben. (Globale Abhängigkeit: Voraussetzung '<Eltern-Mod>')“*.
-* **Teilschritt 3.7: Finale topologische Schutzprüfung (`_step_heal_global_final_dependencies`):**
-  - Als abschließender Schutzwall vor der Persistierung (Schritt 4) prüft der Sorter die gesamte sequenzierte Liste nochmals topologisch gegen alle Masterfiles (`MAST`) und Mod-Requirements (`Mods_Requirements`). Sollten Rest-Inversionen vorliegen, werden abhängige Komponenten unmittelbar hinter ihre Eltern-Komponenten gezogen (`Step_ID = "3.7"`).
+  - Lead-Plugin erhält `Step_ID = "3.1"`, `Step_Description = 'Globale Abhängigkeit'` und die Begründung: *„in Kategoriebereich [<Pos>] <Kategorie> verschoben. (Globale Abhängigkeit: Voraussetzung '<Eltern-Mod>')“*. Folge-Plugins behalten ihre Mod-Kohäsions-Begründung.
 
-#### Schritt 3: Kategorie-Feinsortierung (`_step_fine_sort_categories`)
-Iteriert über eine semantische Steuertabelle über alle 32 aktiven Kategorien (inkl. Kategorie 1 BGS) und führt für jede Kategorie `fine_sort_category(cat_id)` aus.
+#### Schritt 4: Kategorie-Feinsortierung (`_step_fine_sort_categories`)
+Iteriert über alle 32 Kategorien und führt für jede Kategorie die modulare Unterpipeline `CATEGORY_FINE_SORT_STEPS` auf `ModBlock`-Ebene aus. Gemäß `ai-manifest.md` Regel 7 ist diese Tabelle direkt im Rumpf von `_step_fine_sort_categories` definiert und zählt relativ (`1, 2, 3, 4`). Die konkrete `Step_ID` für Logs und Persistierung wird zur Laufzeit dynamisch über `f"{parent_step}.{sub_id}"` zusammengesetzt (`4.1` bis `4.5`).
 
 ##### A. Die 11 LLO-Gruppen der Strukturtabelle (`LLO_GROUPS`)
-Jede der 32 Kategorien ist lückenlos einer Gruppe zugeordnet. Einzelkategorien besitzen eine 1-Kategorie-Gruppe, um Sonderlocken zu vermeiden:
-* **GRP_01_BGS:** Pos 01 (`BGS` – Offizieller Bethesda-Content, 1 Inhaltskategorie)
-* **GRP_02_BUGFIX:** Pos 02 (`Bugfix` – Grundlegende Fixes, 1 Inhaltskategorie)
-* **GRP_03_OVERHAUL:** Pos 03 (`Overhaul` – Globale Spielsystem-Overhauls, 1 Inhaltskategorie)
-* **GRP_04_QUEST:** Pos 04 (`Quest` – Quests & Kampagnen, 1 Inhaltskategorie)
-* **GRP_05_WELT:** Pos 05–12 (`Umgebung`, `Städte`, `Gebäude`, `Spielerheime`, `Außenposten`, `Einrichtung`, `POIs`, `Pflanzen`)
-* **GRP_06_AKTEURE:** Pos 13–16 (`Gameplay`, `NPCs`, `Begleiter`, `Kreaturen`)
-* **GRP_07_SENSORIK:** Pos 17–20 (`Texturen`, `Licht`, `Effekte`, `Sound`)
-* **GRP_08_UI:** Pos 21–23 (`Interface`, `Sortierung`, `Tweaks`)
-* **GRP_09_AUSRUESTUNG:** Pos 24–27 (`Charakter`, `Kleidung`, `Waffen`, `Crafting`)
-* **GRP_10_TRANSPORT:** Pos 28–29 (`Schiffe`, `Fahrzeuge`)
-* **GRP_11_SPEZIAL:** Pos 30–32 (`Items`, `Skins`, `Remove`)
+Jede der 32 Kategorien ist lückenlos einer Gruppe zugeordnet. Einzelkategorien besitzen eine 1-Kategorie-Gruppe, Mehr-Kategorien-Gruppen fassen funktionale Engine-Nachbarschaften zusammen.
 
-##### B. Binnengruppen-Gravitation & 3-Bänder-Architektur
-Eine Verschiebung an den oberen oder unteren Rand einer Kategorie darf **ausschließlich** durch thematisch verwandte Subkategorien innerhalb derselben Binnengruppe ausgeübt werden (`are_in_same_llo_group(cat_pos, sub_pos) == True`). Völlig entfernte Kategorien besitzen keinerlei Rand-Gravitation und verbleiben im Kern.
-
-1. **Teilschritt 3.1: Band Vorläufer (`_build_band_precursors`):**
-   * Filtert Komponenten, deren Subkategorie in derselben Binnengruppe vor der Hauptkategorie liegt ($\text{Sub\_Pos} < \text{Main\_Pos}$).
-   * Sortierung primär geclustert nach `Sub_Pos` aufsteigend, sekundär nach zweistufiger Fundament-Hierarchie.
-   * *Begründung:* `Step_ID = "3.1"`, `Step_Description = 'Band Vorläufer'`. Text: *"Subkategorie '<Subkategorie>' als Vorläufer von '<Gruppe>' an den oberen Rand verschoben (<N> Overrides)"*.
-2. **Teilschritt 3.2: Band Kern (`_build_band_core`):**
-   * Fasst alle Komponenten zusammen, die keine Binnengruppen-Randverschiebung erfahren:
-     - Reine Mono-Mods (`Sub IS NULL` oder `Sub == Main_Pos`).
-     - Komponenten mit Subkategorie aus einer fremden Binnengruppe.
-     - Alle Komponenten von Kategorien ohne Mehrkategorien-Binnengruppe (Kategorie 1 BGS, 2 Bugfix, 3 Overhaul, 4 Quest).
+##### B. Die Schritte der Kategorie-Unterpipeline (`CATEGORY_FINE_SORT_STEPS`)
+1. **Teilschritt 1 (`4.1`): Band Vorläufer (`_substep_band_precursors`):**
+   * Filtert Blöcke, deren Subkategorie in derselben Binnengruppe vor der Hauptkategorie liegt ($\text{Sub\_Pos} < \text{Main\_Pos}$).
+   * Sortierung primär nach `Sub_Pos` aufsteigend, sekundär nach zweistufiger Fundament-Hierarchie (`dim_calc_inner_*`, dann `calc_Total_Override_Val`).
+   * *Begründung:* `Step_ID = "4.1"`, `Step_Description = 'Band Vorläufer'`.
+2. **Teilschritt 2 (`4.2`): Band Kern (`_substep_band_core`):**
+   * Fasst alle Blöcke zusammen, die keine Binnengruppen-Randverschiebung erfahren (Mono-Mods, fremde Binnengruppen, binnengruppenfreie Kategorien).
    * Sortierung primär nach Subkategorie-Cluster (`Sub_Pos`), sekundär nach zweistufiger Fundament-Hierarchie.
-   * *Begründung:* `Step_ID = "3.2"`, `Step_Description = 'Band Kern'`. Text: *"Subkategorie '<Subkategorie>' (<N> Overrides)"* (bzw. *"(<N> Overrides)"* bei Mono-Mods ohne Subkategorie).
-3. **Teilschritt 3.3: Band Nachfolger (`_build_band_successors`):**
-   * Filtert Komponenten, deren Subkategorie in derselben Binnengruppe nach der Hauptkategorie liegt ($\text{Sub\_Pos} > \text{Main\_Pos}$).
-   * Sortierung primär geclustert nach `Sub_Pos` aufsteigend, sekundär nach zweistufiger Fundament-Hierarchie.
-   * *Begründung:* `Step_ID = "3.3"`, `Step_Description = 'Band Nachfolger'`. Text: *"Subkategorie '<Subkategorie>' als Nachfolger von '<Gruppe>' an den unteren Rand verschoben (<N> Overrides)"*.
+   * *Begründung:* `Step_ID = "4.2"`, `Step_Description = 'Band Kern'`.
+3. **Teilschritt 3 (`4.3`): Band Nachfolger (`_substep_band_successors`):**
+   * Filtert Blöcke, deren Subkategorie in derselben Binnengruppe nach der Hauptkategorie liegt ($\text{Sub\_Pos} > \text{Main\_Pos}$).
+   * Sortierung primär nach `Sub_Pos` aufsteigend, sekundär nach zweistufiger Fundament-Hierarchie.
+   * *Begründung:* `Step_ID = "4.3"`, `Step_Description = 'Band Nachfolger'`.
+4. **Teilschritt 4 (`4.4`): Binnen-Abhängigkeiten & Konflikt-Milderung DAG (`_substep_resolve_internal_dependencies`):**
+   * Speist Binnen-Mod-Requirements, mod-übergreifende Header-Masterfiles (mit `parent_mid != dep_mid`), harte Konfliktregeln (`Mods_Conflicts`) und Schiedsrichter-Kanten aus der Konfliktbewertung (`_evaluate_intra_category_conflicts`) in einen gerichteten azyklischen Graphen (DAG) auf `ModBlock`-Ebene ein.
+   * Heilt die Reihenfolge stabil über eine Prioritäts-Warteschlange (`heapq`), sodass übergeordnete Blöcke stets vor abhängigen Blöcken laden.
+   * *Inversionsprüfung:* Die Begründung wird nur dann überschrieben (`Step_ID = "4.4"`, `Step_Description = 'Mod Abhängigkeit'`), wenn der Block tatsächlich nach hinten verschoben wurde.
 
-##### C. Zweistufige Fundament-Hierarchie & Mod-Kohäsion (`3.4`)
-Innerhalb jedes Bandes bzw. Subkategorie-Clusters werden Komponenten über `_sort_components_with_mod_cohesion` angeordnet:
-* **Mod-Kohäsion:** Alle Komponenten derselben Mod (`Mod_ID`) bleiben garantiert als geschlossener Block beisammen.
-* **Zweistufige Override-Hierarchie:**
-  - **Stufe A (Lokation / Kategoriespezifisch):** Sortierung nach `dim_calc_inner_<Kategorie>` absteigend. Größere weltbauliche Eingriffe bilden das Fundament.
-  - **Stufe B (Allgemein / Gesamteingriffe):** Sortierung nach `calc_Total_Override_Val` absteigend.
-  - **Deterministischer Fallback:** Mod-Name / Dateiname aufsteigend.
-* **Folge-Plugins:** Erhalten `Step_ID = "3.4"`, `Step_Description = 'Mod-Kohäsion'`, Text: *"Mod-Kohäsion: Komponente X von Y (Folge-Plugin nach '<Leit-Datei>')"*.
-
-##### D. Konflikt-Milderung & Konflikt-Abhängigkeit (`3.6`)
-Bewertet ungelöste FormID-Kollisionen (Typ 2 & 3) derselben Kategorie vor der DAG-Auflösung.
-*WICHTIG:* Kategorie 1 (BGS Creations) ist fest kuratiert und von heuristischen Schiedsrichter-Eingriffen vollständig ausgenommen.
-* **3.6.1 (Konflikt Milderung - Lokal vs Global / Raumzellen-Streuung):**
-  - Universumsweites Verbundnetz ($\ge 30$ überschriebene Zellen in `calc_CELL_Override_real`) vs. lokaler Spezialist ($\le 15$ Zellen) mit Faktor $\ge 3.0$.
-  - Der lokale Spezialist gewinnt vor dem globalen Verbundnetz $\rightarrow$ Kante `(Verbundnetz -> Spezialist)`.
-  - Begründung: `Step_ID = "3.6.1"`, `Step_Description = "Konflikt Milderung (Lokal vs Global)"`, Text: *"hinter '<Vorgänger>' verschoben. (Konflikt Milderung: lokal begrenzter Mod überschreibt globalen Mod)"*
-* **3.6.2 (Konflikt Milderung - gezielter Mod / Mod-Größe):**
-  - Gezielter Mini-Tweak ($\le 100$ Records) vs. großes Sammelwerk ($\ge 5\times$ so groß).
-  - Der Mini-Tweak gewinnt vor dem Sammelwerk $\rightarrow$ Kante `(Sammelwerk -> Mini-Tweak)`.
-  - Begründung: `Step_ID = "3.6.2"`, `Step_Description = "Konflikt Milderung (gezielter Mod)"`, Text: *"hinter '<Vorgänger>' verschoben. (Konflikt Milderung: Gezielter Mod überschreibt Sammelwerk)"*
-* **3.6.3 (Konflikt Abhängigkeit - Harte Regeln):**
-  - Regeln aus `Mods_Conflicts` mit `ID_Mod_Requirement IS NOT NULL`.
-  - Begründung: `Step_ID = "3.6.3"`, `Step_Description = "Konflikt Abhängigkeit (<Typ>)"`, Text: *"hinter '<Vorgänger>' verschoben. (Konflikt Abhängigkeit: <Regelbegründung>)"*
-
-##### E. DAG-Auflösung & Inversionsprüfung (`3.5` / `3.6`)
-* Speist Mod-Requirements (`Mods_Requirements`), mod-übergreifende Header-Masterfiles (`MAST`), Konflikt-Abhängigkeiten und Kanten der Konflikt-Milderung in einen DAG ein.
-* Heilt die Reihenfolge über eine Prioritäts-Warteschlange (`heapq`), sodass der Parent stets vor dem Child lädt.
-* **Inversionsprüfung:** Ein Schritt (`3.5` Mod Abhängigkeit oder `3.6.*` Konflikt Milderung / Konflikt Abhängigkeit) und dessen Begründung werden **nur dann** vergeben, wenn die Komponente durch die Kante tatsächlich hinter den Vorgänger nach hinten verschoben wurde (`cid_to_initial_idx[cid] < cid_to_initial_idx[p]`). Stand die Komponente bereits regulär hinter dem Vorgänger, bleibt ihre ursprüngliche Band- und Fundament-Begründung unverfälscht erhalten.
-  - Bei Mod-Abhängigkeit: `Step_ID = "3.5"`, `Step_Description = "Mod Abhängigkeit"`, Text: *"hinter '<Vorgänger>' verschoben. (Mod Abhängigkeit: <Begründung>)"*
+##### C. Teilschritt 5 (`4.5`): Finale globale Schutzprüfung (`_substep_heal_global_final_dependencies`)
+* Abschließende topologische Schutzprüfung über die gesamte sequenzierte Liste aller Mod-Blöcke.
+* Stellt sicher, dass kein Mod-Block vor einer Masterfile- oder Mod-Voraussetzung platziert ist. Rest-Inversionen werden geschlossen als Block hinter die Voraussetzung gezogen (`Step_ID = "4.5"`, `Step_Description = 'Finale Abhängigkeitsprüfung'`).
+* Binnen-Masterfiles derselben Mod werden ignoriert.
 
 ---
 
-#### Schritt 4: Persistierung in `LoadOrder_Sorter_Results` (`_step_persist_sorter_results`)
+#### Schritt 5: Persistierung in `LoadOrder_Sorter_Results` (`_step_persist_sorter_results`)
 * Bereinigt veraltete Datensätze von `ID_Profile = 0` aus der operativen Tabelle `LoadOrder`.
 * Erstellt bei Bedarf die Ergebnistabelle `LoadOrder_Sorter_Results`:
   ```sql

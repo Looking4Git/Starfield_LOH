@@ -93,7 +93,7 @@ Die Tabelle `Conflict_Solution_Types` definiert die Verbindlichkeit bzw. Belastb
 
 ## 4. Pipeline-Architektur (`CONFLICT_PIPELINE_STEPS`)
 
-Analog zum `Category_LOH_Classifier` wird die Analyse über eine zentrale, tabellengesteuerte Pipeline gesteuert:
+Analog zum `Category_LOH_Classifier` und dem `LoadOrder_Sorter` wird die Analyse über eine modulare, tabellengesteuerte Pipeline gesteuert, die gemäß `ai-manifest.md` Regel 7 direkt im Funktionskörper von `analyze_conflicts` definiert ist:
 
 ```python
 CONFLICT_PIPELINE_STEPS = [
@@ -180,34 +180,28 @@ Dadurch ist die Konsistenz der Spalten `Step_ID`, `Step_Description`, `Conflict_
      * **Abweichende Primärattribute:** Einstufung auf `Conflict_Type = 2` mit präziser Symptombegründung (*"Standortdaten weichen ab (<Subrecords>): <Symptome> möglich."*).
 
 7. **Schritt 7: `_step_navm_containers` (Wegfindungs- & NavMesh-Container-Analyse)**
-   * Untersucht alle aktiven Wegfindungs-Kollisionen (`NAVM`) der Creation Engine 2 auf Container-, Geometrie- und Platzierungsebene in einem speichereffizienten Durchlauf.
-   * **Entscheidungsbaum:**
-     1. **Identitätsprüfung (`data_a == data_b`):** 100% binär identische NavMeshes werden als unschädliche Creation-Kit-Mitläufer erkannt $\rightarrow$ `Step_ID = 7`, `Conflict_Type = 0`, `Reason = 'Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel.'`.
-     2. **Pack-In-Vorlagen (`CELL_PackIn == 1` oder Vorlagenzelle):**
-        * Ohne feste Weltplatzierungen (`REFR == 0` bei beiden) $\rightarrow$ `Conflict_Type = 0`, `Reason = 'Pack-In Wegfindungs-Resave: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn)...'`.
-        * Mit Platzierungen $\rightarrow$ `Conflict_Type = 2`, `Reason = 'Pack-In Layout-Konflikt: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf...'`.
-     3. **Reale Weltzellen (Exterior Worldspaces & persistente Interiors):**
-        * Ermittelt die Elternzelle und den Worldspace via `NVNM`-Header und `GRUP`-Hierarchie (`GRUP Typ 9/6`) und reichert `Cell_FormID` und `Cell_EDID` an.
-        * Prüft die Anzahl platzierter Referenzen (`REFR`, `ACHR`) beider Mods in der Zelle:
-          * **Beidseitiger Neubau (`count_a > 0` UND `count_b > 0`):** Beide Mods verändern die Geometrie und erfordern konkurrierende NavMeshes (z. B. Mod 27 vs. Mod 40 in Neon City). Verbleibt als unlösbarer `Conflict_Type = 3` (nur durch Kompatibilitätspatch lösbar).
-          * **Asymmetrische Überschreibung (Genau eine Mod baut in der Zelle):**
-            * **Wenn die Resave-Mod eine offizielle BGS-Mod ist (`Author = 'BethesdaGameStudios'`):**  
-              Da die Creation Engine 2 alle offiziellen Bethesda-Creations zwingend an die obersten Plätze der Ladereihenfolge (vor Community-Mods) setzt, lädt die Bau-Mod im laufenden Spiel garantiert immer danach. Ein fehlerhafter Zustand ist technisch ausgeschlossen $\rightarrow$ Einstufung als `Conflict_Type = 0` (*"Asynchrone Wegfindungs-Überschreibung systembedingt unkritisch... Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, lädt '<Bau-Mod>' garantiert danach."*). Die Kante `ID_Mod_Requirement` und `ID_Mod_Dependent` bleibt für die Graph-Konsistenz erhalten.
-            * **Wenn beide Mods reguläre Community-Mods sind:**  
-              Hier besteht akute Gefahr bei manueller Falschsortierung $\rightarrow$ Verbleibt als `Conflict_Type = 3`, generiert jedoch eine **konkrete Ladereihenfolge-Regel**:
-              * `ID_Mod_Requirement = [Resave-Mod]` (muss zuerst laden)
-              * `ID_Mod_Dependent = [Bau-Mod]` (muss danach laden)
-              * Begründung mit konkreter Ladereihenfolge-Empfehlung und Nennung beider Mod-Namen.
-          * **Reine NavMesh-Optimierung (`count_a == 0` und `count_b == 0`):** Beide Mods optimieren das Vanilla-Netz ohne Neubauten $\rightarrow$ `Conflict_Type = 2`.
+   * Untersucht alle aktiven Wegfindungs-Kollisionen (`NAVM`) der Creation Engine 2 auf Container-, Geometrie- und Platzierungsebene in einem performanten Single-Pass-Entscheidungsbaum.
+   * **Die 6 Teilschritte des Entscheidungsbaums (`Step_ID 7.1`–`7.6`):**
+     1. **Teilschritt 7.1: Identitätsprüfung (`data_a == data_b`):** 100% binär identische NavMeshes werden als unschädliche Creation-Kit-Mitläufer erkannt $\rightarrow$ `Step_ID = "7.1"`, `Step_Description = 'Wegfindung: Identität'`, `Conflict_Type = 0`, `Reason = 'Identisches Wegfindungsnetz (NAVM): 100% binäre Deckungsgleichheit; keine Auswirkung im Spiel.'`.
+     2. **Teilschritt 7.2: Pack-In Vorlagen (Resaves):** Ohne feste Weltplatzierungen (`REFR == 0` bei beiden) $\rightarrow$ `Step_ID = "7.2"`, `Step_Description = 'Wegfindung: Pack-In Resave'`, `Conflict_Type = 0`, `Reason = 'Pack-In Wegfindungs-Resave: Das NavMesh gehört zu einer modularen Außenposten-Vorlage (PackIn)...'`.
+     3. **Teilschritt 7.3: Pack-In Vorlagen (Layout-Abweichung):** Mit Platzierungen $\rightarrow$ `Step_ID = "7.3"`, `Step_Description = 'Wegfindung: Pack-In Layout'`, `Conflict_Type = 2`, `Reason = 'Pack-In Layout-Konflikt: Modulare Vorlage (PackIn) weist konkurrierende Wegfindungsnetze auf...'`.
+     4. **Teilschritt 7.4: Reale Weltzelle (Beidseitiger Bau-Clash):**
+        * Beide Mods verändern die Geometrie und platzieren Neubauten (`count_a > 0` UND `count_b > 0`): Unlösbarer Geometrie-Clash $\rightarrow$ `Step_ID = "7.4"`, `Step_Description = 'Wegfindung: Weltzelle Clash'`, `Conflict_Type = 3`.
+     5. **Teilschritt 7.5: Reale Weltzelle (Asymmetrische Überschreibung):**
+        * Genau eine Mod baut neu, die andere resaved $\rightarrow$ `Step_ID = "7.5"`, `Step_Description = 'Wegfindung: Weltzelle Asymmetrisch'`:
+          * **Wenn Resave-Mod von Bethesda Game Studios ist (`Author = 'BethesdaGameStudios'`):** Da offizielle BGS-Inhalte zwingend am Anfang der Ladereihenfolge stehen, lädt die Bau-Mod garantiert danach $\rightarrow$ `Conflict_Type = 0`. Kanten für Graphen bleiben erhalten.
+          * **Wenn beide reguläre Community-Mods sind:** Akute Gefahr $\rightarrow$ `Conflict_Type = 3`, generiert automatisiert konkrete Ladereihenfolge-Regel (`ID_Mod_Requirement` = Resave-Mod, `ID_Mod_Dependent` = Bau-Mod).
+     6. **Teilschritt 7.6: Reale Weltzelle (Reine NavMesh-Optimierung):**
+        * Beide Mods überarbeiten das NavMesh ohne neue Referenzen $\rightarrow$ `Step_ID = "7.6"`, `Step_Description = 'Wegfindung: Weltzelle Optimierung'`, `Conflict_Type = 2`.
 
 8. **Schritt 8: `_step_refr_placements` (Platzierungs- & Referenz-Analyse)**
-   * Untersucht alle aktiven `REFR`-Kollisionen der Creation Engine 2 nach dem modularen **Sub-Handler-Regelketten-Prinzip**.
-   * **Sub-Handler 8.1: `_check_refr_navmesh_splines` (NavMeshSpline-Leitlinien / Base-FormID 505 / `0x1F9`):**
+   * Untersucht alle aktiven `REFR`-Kollisionen der Creation Engine 2 nach dem modularen **Sub-Handler-System** mit Teilschritt-IDs `8.1` und `8.2`:
+   * **Sub-Handler 8.1: NavMeshSpline-Leitlinien (Base-FormID 505 / `0x1F9`):**
      * Prüft, ob der Datensatz auf das Basis-Objekt `0x000001F9` (`NavMeshSpline`) verweist.
      * Vergleicht via `get_subrecords` die 3D-Koordinaten (`DATA`: Position $X, Y, Z$ und Rotation $X, Y, Z$) sowie die Pfad- und Knotenparameter (`XNSE`: `NavMeshSplineExtraData`, `XBSD`: Extents).
-     * **Identischer Mitläufer (Typ 0):** Wenn `DATA` und `XNSE` zu 100% deckungsgleich sind, handelt es sich um eine unschädliche Creation-Kit-Mitnahme (z. B. durch duplizierte Zellen oder Level-Vorlagen) ohne jede bauliche oder geometrische Auswirkung $\rightarrow$ `Step_ID = 8`, `Conflict_Type = 0`, `Reason = 'Identische Navigations-Leitlinie (NavMeshSpline): 3D-Koordinaten und Kurveneigenschaften (XNSE) sind 100% deckungsgleich; unkritische Location-Zuordnung.'`. (Neutralisiert 187 Kollisionen in der Datenbank!).
+     * **Identischer Mitläufer (Typ 0):** Wenn `DATA` und `XNSE` zu 100% deckungsgleich sind $\rightarrow$ `Step_ID = "8.1"`, `Step_Description = 'Platzierung: NavMeshSpline'`, `Conflict_Type = 0`, `Reason = 'Identische Navigations-Leitlinie (NavMeshSpline): 3D-Koordinaten und Kurveneigenschaften (XNSE) sind 100% deckungsgleich; unkritische Location-Zuordnung.'`. (Neutralisiert 187 Kollisionen in der Datenbank!).
      * **Abweichende Spline-Führung (Typ 2):** Weichen Koordinaten oder Pfadknoten ab $\rightarrow$ Einstufung auf `Conflict_Type = 2`.
-   * **Sub-Handler 8.2: `_check_refr_identical_resaves` (Allgemeine REFR-Resaves & Subrecord-Konfliktqualifizierung):**
+   * **Sub-Handler 8.2: Allgemeine REFR-Resaves & Reale Platzierungskonflikte (`Step_ID = "8.2"`, `Step_Description = 'Platzierung: Allgemeine REFR-Prüfung'`):**
      * **Stufe 1 (Fast-Path via `compare_records`):** Ist der gesamte Record zu 100% bit-identisch, erfolgt sofortige Abstufung auf `Conflict_Type = 0` (*"Identischer Mitläufer: 100% binäre Deckungsgleichheit aller Platzierungs- und Verknüpfungsdaten; keine Auswirkung im Spiel."*). (Neutralisiert u. a. die Paradiso-Hotelaufzugstüren zwischen Mod 47 und Mod 44).
      * **Stufe 2 (Semantische Geometrie- & Funktionsprüfung):** Sind `DATA` (3D-Koordinaten & Rotation), `NAME` (Basis-Objekt), Header-Flags (`Deleted`, `Initially Disabled`), `XESP` (Enable-Parent), `XTEL` (Teleport-Ziel) und `XSCL` (Skalierung) identisch und weichen lediglich unkritische CK-Metadaten wie `XLRL` (Location-Pointer) oder `XLYR` (Editor-Layer) ab $\rightarrow$ Abstufung auf `Conflict_Type = 0` (*"Identisches Platzierungs-Resave: 3D-Koordinaten und Basisobjekt sind deckungsgleich; Abweichung beschränkt sich auf unkritische Editor-Metadaten (z. B. XLRL/XLYR)."*).
      * **Stufe 3 (Reale Kollisionen mit dynamischer Synthese `_build_refr_diff_reason`):** Verbleibt als `Conflict_Type = 2`, generiert jedoch eine hochpräzise Fehlerursache, Konsequenz und ggf. Schiedsrichter-Zuteilung:

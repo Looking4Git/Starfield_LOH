@@ -15,6 +15,7 @@ from Structure.Pages.Page_Tools import Page_Tools
 from Structure.Pages.Page_Settings import Page_Settings
 from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
 from Structure.LOH_Control_WindowDocking import LOH_Control_WindowDocking
+from Structure.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
 from Structure.Database import ensure_default_database_mode
 
@@ -510,6 +511,7 @@ if __name__ == "__main__":
     logging.info("Starfield Load Order Helper gestartet.")
     ensure_default_database_mode()
     app = QApplication(sys.argv)
+    setup_dropdown_wheel_guard(app)
     app.setStyle("Fusion")
 
     # Dunkle Basisfarbe setzen (#0D0D0D), um Aufflackern der hellen Systempalette zu verhindern

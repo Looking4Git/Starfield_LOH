@@ -1334,95 +1334,136 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
 def enrich_conflicts_missing_edids(cur, reporter=None):
     """
     Eigenständige Funktion zur dynamischen EDID-Anreicherung:
-    Liest fehlende Klartext-EditorIDs (EDID und Base_EDID) für alle in Mods_Conflicts
-    vertretenen Datensätze direkt über den dynamischen Parser nach (Single-Pass).
+    Liest fehlende Klartext-EditorIDs (Base_EDID, Cell_EDID, EDID) für alle in Mods_Conflicts
+    vertretenen Datensätze gebündelt in einem Single-Pass nach.
     Vermeidet 'None' / '-' in der Konfliktmatrix und der GUI.
     """
     from Structure.File_ESM_Parser_Dynamic import get_edids_for_formids
 
-    # 1. Fehlende Base_EDIDs ermitteln
+    # 1. Alle offenen FormIDs vorab ermitteln
+    # A. Fehlende Base_EDIDs (nur REFR mit Base_FormID)
     cur.execute("""
         SELECT DISTINCT Base_FormID 
         FROM Mods_Conflicts 
-        WHERE (Base_EDID IS NULL OR Base_EDID = '') 
-          AND Base_FormID IS NOT NULL AND Base_FormID > 0;
+        WHERE Base_FormID IS NOT NULL AND Base_FormID > 0
+          AND (Base_EDID IS NULL OR Base_EDID = '');
     """)
-    missing_base_fids = [r[0] for r in cur.fetchall()]
+    missing_base_fids = {int(r[0]) for r in cur.fetchall()}
 
-    resolved_base = {}
-    if missing_base_fids:
-        # Zuerst aus Starfield.esm (deckt 99% aller Base-Objekte ab)
-        resolved_base = get_edids_for_formids('Starfield.esm', missing_base_fids)
+    # B. Fehlende Cell_EDIDs (für Raumzellen)
+    cur.execute("""
+        SELECT DISTINCT Cell_FormID 
+        FROM Mods_Conflicts 
+        WHERE Cell_FormID IS NOT NULL AND Cell_FormID > 0
+          AND (Cell_EDID IS NULL OR Cell_EDID = '');
+    """)
+    missing_cell_fids = {int(r[0]) for r in cur.fetchall()}
 
-        # Falls noch Base_FormIDs offen sind: Suche in aktiven Mod-Dateien
-        unresolved = set(missing_base_fids) - set(resolved_base.keys())
-        if unresolved:
-            cur.execute("""
-                SELECT DISTINCT c.File 
-                FROM Components c
-                JOIN Mods_Components mc ON c.ID = mc.Component_ID
-                JOIN Mods m ON mc.Mod_ID = m.ID
-                WHERE c.File LIKE '%.esm' AND m.State = 'Aktiv';
-            """)
-            for (esm_file,) in cur.fetchall():
-                try:
-                    mod_edids = get_edids_for_formids(esm_file, unresolved)
-                    resolved_base.update(mod_edids)
-                    unresolved -= set(mod_edids.keys())
-                    if not unresolved:
-                        break
-                except Exception:
-                    continue
-
-        if resolved_base:
-            cur.executemany("""
-                UPDATE Mods_Conflicts 
-                SET Base_EDID = ? 
-                WHERE Base_FormID = ? AND (Base_EDID IS NULL OR Base_EDID = '');
-            """, [(name, fid) for fid, name in resolved_base.items()])
-
-    # 2. Fehlende EDIDs (Referenz-Ebene) ermitteln (nur relevante Signaturen mit Text-EDIDs)
+    # C. Fehlende EDIDs auf Objektebene (nur relevante Signaturen mit Text-EDIDs)
     cur.execute("""
         SELECT DISTINCT FormID 
         FROM Mods_Conflicts 
-        WHERE (EDID IS NULL OR EDID = '') 
-          AND FormID IS NOT NULL AND FormID > 0
+        WHERE FormID IS NOT NULL AND FormID > 0
+          AND (EDID IS NULL OR EDID = '') 
           AND Sig NOT IN ('NAVM', 'CELL', 'REFR');
     """)
-    missing_ref_rows = cur.fetchall()
-    resolved_refs = {}
-    if missing_ref_rows:
-        missing_ref_fids = [r[0] for r in missing_ref_rows]
-        resolved_refs = get_edids_for_formids('Starfield.esm', missing_ref_fids)
-        unresolved_refs = set(missing_ref_fids) - set(resolved_refs.keys())
-        if unresolved_refs:
-            cur.execute("""
-                SELECT DISTINCT c.File 
-                FROM Components c
-                JOIN Mods_Components mc ON c.ID = mc.Component_ID
-                JOIN Mods m ON mc.Mod_ID = m.ID
-                WHERE c.File LIKE '%.esm' AND m.State = 'Aktiv';
-            """)
-            for (esm_file,) in cur.fetchall():
-                try:
-                    mod_edids = get_edids_for_formids(esm_file, unresolved_refs)
-                    resolved_refs.update(mod_edids)
-                    unresolved_refs -= set(mod_edids.keys())
-                    if not unresolved_refs:
+    missing_ref_fids = {int(r[0]) for r in cur.fetchall()}
+
+    all_needed_fids = missing_base_fids | missing_cell_fids | missing_ref_fids
+    if not all_needed_fids:
+        return 0
+
+    resolved_all = {}
+    unresolved = set(all_needed_fids)
+
+    # 2. Kaskadierte Batch-Auflösung
+    # Stufe 1: Exakt ein einziger Single-Pass durch Starfield.esm (deckt das Gros ab)
+    try:
+        main_edids = get_edids_for_formids('Starfield.esm', unresolved)
+        resolved_all.update(main_edids)
+        unresolved -= set(main_edids.keys())
+    except Exception as e:
+        logger.warning(f"Fehler bei EDID-Auflösung aus Starfield.esm: {e}")
+
+    # Stufe 2: Weitere Systemkomponenten (DLCs & offizielle Creations aus Components_System)
+    if unresolved:
+        cur.execute("""
+            SELECT DISTINCT File 
+            FROM Components_System 
+            WHERE File IS NOT NULL AND LOWER(File) != 'starfield.esm' AND LOWER(File) LIKE '%.esm';
+        """)
+        system_files = [r[0] for r in cur.fetchall()]
+        for sys_file in system_files:
+            try:
+                sys_edids = get_edids_for_formids(sys_file, unresolved)
+                if sys_edids:
+                    resolved_all.update(sys_edids)
+                    unresolved -= set(sys_edids.keys())
+                    if not unresolved:
                         break
-                except Exception:
-                    continue
+            except Exception:
+                continue
 
-        if resolved_refs:
-            cur.executemany("""
-                UPDATE Mods_Conflicts 
-                SET EDID = ? 
-                WHERE FormID = ? AND (EDID IS NULL OR EDID = '');
-            """, [(name, fid) for fid, name in resolved_refs.items()])
+    # Stufe 3: Aktive Mod-Dateien (mit behobenem Filter m.State = 1)
+    if unresolved:
+        cur.execute("""
+            SELECT DISTINCT c.File 
+            FROM Components c
+            JOIN Mods_Components mc ON c.ID = mc.Component_ID
+            JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE c.File LIKE '%.esm' AND m.State = 1;
+        """)
+        mod_files = [r[0] for r in cur.fetchall()]
+        for mod_file in mod_files:
+            try:
+                mod_edids = get_edids_for_formids(mod_file, unresolved)
+                if mod_edids:
+                    resolved_all.update(mod_edids)
+                    unresolved -= set(mod_edids.keys())
+                    if not unresolved:
+                        break
+            except Exception:
+                continue
 
-    total_enriched = len(resolved_base) + len(resolved_refs)
-    if total_enriched > 0:
-        print(f"   -> EDID-Anreicherung: {len(resolved_base)} Basis-Objekte und {len(resolved_refs)} Referenzen mit Klarnamen ergänzt.")
+    # 3. Gezielte Batch-Updates in Mods_Conflicts
+    cnt_base = 0
+    cnt_cell = 0
+    cnt_ref = 0
+
+    base_updates = [(name, fid) for fid, name in resolved_all.items() if fid in missing_base_fids]
+    if base_updates:
+        cur.executemany("""
+            UPDATE Mods_Conflicts 
+            SET Base_EDID = ? 
+            WHERE Base_FormID = ? AND (Base_EDID IS NULL OR Base_EDID = '');
+        """, base_updates)
+        cnt_base = len(base_updates)
+
+    cell_updates = [(name, fid) for fid, name in resolved_all.items() if fid in missing_cell_fids]
+    if cell_updates:
+        cur.executemany("""
+            UPDATE Mods_Conflicts 
+            SET Cell_EDID = ? 
+            WHERE Cell_FormID = ? AND (Cell_EDID IS NULL OR Cell_EDID = '');
+        """, cell_updates)
+        cnt_cell = len(cell_updates)
+
+    ref_updates = [(name, fid) for fid, name in resolved_all.items() if fid in missing_ref_fids]
+    if ref_updates:
+        cur.executemany("""
+            UPDATE Mods_Conflicts 
+            SET EDID = ? 
+            WHERE FormID = ? AND (EDID IS NULL OR EDID = '');
+        """, ref_updates)
+        cnt_ref = len(ref_updates)
+
+    total_enriched = cnt_base + cnt_cell + cnt_ref
+    msg = f"   -> EDID-Anreicherung: {cnt_base} Basis-Objekte, {cnt_cell} Raumzellen und {cnt_ref} Referenzen mit Klarnamen ergänzt."
+    if reporter and hasattr(reporter, 'print'):
+        reporter.print(msg)
+    else:
+        print(msg)
+
     return total_enriched
 
 

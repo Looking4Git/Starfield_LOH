@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="64"
+   height="64"
+   viewBox="0 0 16.933333 16.933333"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   sodipodi:docname="Icon_Progress_Grey.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:zoom="9.3717735"
+     inkscape:cx="29.343432"
+     inkscape:cy="32.277775"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="0"
+       originy="0"
+       spacingx="0.26458333"
+       spacingy="0.26458333"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="1"
+       enabled="true"
+       visible="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Ebene 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       d="m 14.003727,14.023676 c -9e-6,0.581923 -0.471748,1.053663 -1.05367,1.053663 H 9.9992396 4.8373101 1.8864851 c -0.5819215,0 -1.05366931,-0.47174 -1.05367698,-1.053663 v -2.950839 c 7.67e-6,-0.250342 0.17618208,-0.466117 0.42147058,-0.516184 2.2478501,-0.458831 2.2478501,-3.6707154 0,-4.1295461 C 1.0089917,6.3770249 0.83280812,6.1612657 0.83280812,5.9109148 V 2.9600986 c 0,-0.5819295 0.47174788,-1.0536776 1.05367698,-1.0536776 h 3.4244393 4.2146932 3.4244394 c 0.581922,0 1.05367,0.4717481 1.05367,1.0536776 v 3.4244305 c 2.806836,0.00312 2.806836,4.2117389 0,4.2146939 z"
+       style="fill:#444444;fill-opacity:1;stroke:none;stroke-width:0.0696963"
+       id="path79-8-5-1"
+       sodipodi:nodetypes="csccsscsssssccssccc" />
+  </g>
+</svg>

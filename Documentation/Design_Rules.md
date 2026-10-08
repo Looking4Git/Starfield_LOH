@@ -211,16 +211,62 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
-## 3. Layout-Disziplin & Formular-Aufbau
+## 3. Layout-Disziplin, Navigationsstruktur & Formular-Aufbau
 
-1. **Master-Detail-Architektur:**
-   * Links: Master-Tabelle (`QTableView` / `QTreeView`) im Hauptbereich.
-   * Rechts: Formular- oder Detailbereich in einer festen oder angedockten `QScrollArea`.
-2. **Formular-Layouts (`QFormLayout`):**
-   * Standardmäßig `fieldGrowthPolicy: ExpandingFieldsGrow`, `horizontalSpacing: 5`, `verticalSpacing: 5`.
-   * Rechtes Margin standardmäßig `6px`.
-3. **Vertikaler Abschluss (Spacer-Pflicht):**
-   * Am unteren Ende jedes Detailbereichs und jeder Formular-Sektion **muss zwingend ein `QSpacerItem` (vertikal expandierend)** platziert werden, damit alle Formularzeilen kompakt oben zusammengehalten werden und nicht vertikal auseinandergezogen werden.
+### 3.1 Menüstruktur & Navigation (Sidebar)
+Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht und einer erweiterten Ansicht mit Icons und Text umgeschaltet werden:
+* **`/Mods`:** Hauptmaske zur Verwaltung der installierten Mods (Master-Detail).
+* **`/Ladereihenfolge`:** Hauptmaske zur Verwaltung der Profile und Sortierung der Ladereihenfolge (`Plugins.txt`).
+* **`/Updates`:** Hauptmaske zur Anzeige, Vorbereitung und Durchführung von Mod-Aktualisierungen.
+* **`/Tools`:** Diagnose-, Synchronisations- und Wartungszentrale mit Kachel-Dashboard.
+* **`/Einstellungen`:** Programmeinstellungen (Dateipfade, Starfield-Optionen, Info, API-Tokens).
+
+---
+
+### 3.2 Dreiteilige Fenstergliederung (Master-Detail-Pattern)
+Alle datenführenden Hauptmasken folgen dem universellen dreiteiligen Layout:
+
+```text
+Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View)
+---------------------------------------------------------------------------------
+|                 |                                |                            |
+| QFrame          | QTableView / QTreeView         | QLineEdit / QLabel / Form  |
+| (Sidebar links) | (Nur Lesen / Auswahl & Sort)   | (Detaildaten zum Editieren)|
+|                 |                                |                            |
+---------------------------------------------------------------------------------
+```
+
+---
+
+### 3.3 Interaktions- & Speicherstrategie (Manuell vs. Auto-Save)
+* **Master $\rightarrow$ Detail Interaktion:**  
+  Ein Klick auf einen Datensatz in der Master-View (Tabelle/Baum) selektiert die Zeile und befüllt sofort die Detail-View mit den zugehörigen Daten.
+* **Differenzierte Speicher-Strategie:**
+  * **Manuelle Speicherung (Standard, `Auto_Save = 0`):**  
+    Geänderte Detaildaten werden erst nach explizitem Klick auf die primäre Schaltfläche **»Speichern«** (`btn_save_detail`, `#304C7A`) in die Datenbank persistiert. Über die Schaltfläche **»Verwerfen«** (`btn_discard_detail`, `#C72138`) können nicht gespeicherte Änderungen jederzeit auf den Datenbank-Ausgangszustand zurückgesetzt werden.
+  * **Automatische Speicherung (`Auto_Save = 1`):**  
+    In den Programmeinstellungen ([Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)) kann die Option *„Automatische Speicherung beim Wechsel des Mods oder der Anzeige“* aktiviert werden. Ist diese aktiv, werden Modifikationen bei jedem Zeilenwechsel in der Tabelle sowie beim Verlassen der Seite automatisch und transaktionssicher gespeichert.
+
+---
+
+### 3.4 Fluchtlinien, Kanten-Ausrichtung & Formular-Disziplin
+* **Horizontale Kantenbündigkeit:**  
+  Alle Elemente müssen an klaren Fluchtlinien ausgerichtet sein. Der obere Rand des ersten Eingabefeldes/Labels der Detail-View muss exakt mit dem oberen Rand der Master-Tabelle übereinstimmen.
+* **Linksbündige Ausrichtung:**  
+  Untereinander stehende Eingabefelder und Steuerelemente sind strikt linksbündig an einer gemeinsamen vertikalen Fluchtlinie orientiert.
+* **Formular-Layouts (`QFormLayout`):**  
+  * Standardmäßig `fieldGrowthPolicy: ExpandingFieldsGrow`, `horizontalSpacing: 5`, `verticalSpacing: 5`.
+  * Rechtes Margin standardmäßig `6px`.
+  * Feste Zeilendefinitionen für strukturierte Umplatzierbarkeit.
+* **Vertikaler Abschluss (Spacer-Pflicht):**  
+  Am unteren Ende jedes Detailbereichs und jeder Formular-Sektion **muss zwingend ein expandierender `QSpacerItem`** platziert werden, damit alle Formularzeilen kompakt oben zusammengehalten und nicht unkontrolliert über die Fensterhöhe gestreckt werden.
+
+---
+
+### 3.5 Stylesheet-Hierarchie (QSS)
+* **`Starfield_LOH_Main.qss`:** Definiert die Shell, Fensterrahmen, Titelleisten und die Sidebar-Navigation.
+* **`Starfield_LOH_Pages.qss`:** Zentrales Stylesheet für alle Pages, Tabellen (`QTableView`), Detailbereiche, Kacheln und Scrollbars.
+* **Strikte Trennung:** Layout, Margins und Geometrien verbleiben in `.ui`-Dateien; Farben, Hover, Rahmen und Typografie werden exklusiv in `.qss` gepflegt.
 
 ---
 

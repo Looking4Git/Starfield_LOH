@@ -10,7 +10,7 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import get_mods_with_updates, get_mods_for_update_view, get_mod_image, get_script_last_execution
 from Structure.Paths import APP_ROOT
-from Structure.Pages.UI_Utils import make_button_premium
+from Structure.GUI.UI_Utils import make_button_premium
 from Structure.Starfield_Mod_Update import (
     step_check_previous_update,
     step_prepare_update,
@@ -20,7 +20,7 @@ from Structure.Starfield_Mod_Update import (
     ModUpdateScanner,
     resolve_update_status,
 )
-from Structure.Pages.Window_Mod_Update_Overlay import Window_Mod_Update_Overlay
+from Structure.GUI.Window_Mod_Update_Overlay import Window_Mod_Update_Overlay
 
 
 class CheckboxHeaderView(QHeaderView):
@@ -119,7 +119,7 @@ class Page_Update(QWidget):
             self.load_data()
 
     def setup_ui(self):
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Page_Update.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Page_Update.ui")
 
         loader = QUiLoader()
         ui_file = QFile(ui_file_path)

@@ -7,8 +7,8 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtCore import Qt, QSize, Signal
 
 from Structure.Paths import GRAPHICS_DIR
-from Structure.Pages.Page_Settings_General import Page_Settings_General
-from Structure.Pages.Page_Settings_Info import Page_Settings_Info
+from Structure.GUI.Page_Settings_General import Page_Settings_General
+from Structure.GUI.Page_Settings_Info import Page_Settings_Info
 
 
 class Page_Settings(QWidget):

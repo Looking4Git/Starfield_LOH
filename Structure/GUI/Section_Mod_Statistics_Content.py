@@ -10,9 +10,9 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, DB_FILE, get_setting
 from Structure.Database import create_view_category_dimension_max
-from Structure.Pages.Widget_ContentRadarChart import Widget_ContentRadarChart
-from Structure.Pages.Widget_ContentBarChart import Widget_ContentBarChart
-from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
+from Structure.GUI.Widget_ContentRadarChart import Widget_ContentRadarChart
+from Structure.GUI.Widget_ContentBarChart import Widget_ContentBarChart
+from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 
 class Section_Mod_Statistics_Content(QWidget):
     """
@@ -37,7 +37,7 @@ class Section_Mod_Statistics_Content(QWidget):
 
         # 1. UI laden
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Content.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Content.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)

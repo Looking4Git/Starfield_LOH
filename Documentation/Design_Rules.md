@@ -245,7 +245,7 @@ Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View
   * **Manuelle Speicherung (Standard, `Auto_Save = 0`):**  
     Geänderte Detaildaten werden erst nach explizitem Klick auf die primäre Schaltfläche **»Speichern«** (`btn_save_detail`, `#304C7A`) in die Datenbank persistiert. Über die Schaltfläche **»Verwerfen«** (`btn_discard_detail`, `#C72138`) können nicht gespeicherte Änderungen jederzeit auf den Datenbank-Ausgangszustand zurückgesetzt werden.
   * **Automatische Speicherung (`Auto_Save = 1`):**  
-    In den Programmeinstellungen ([Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)) kann die Option *„Automatische Speicherung beim Wechsel des Mods oder der Anzeige“* aktiviert werden. Ist diese aktiv, werden Modifikationen bei jedem Zeilenwechsel in der Tabelle sowie beim Verlassen der Seite automatisch und transaktionssicher gespeichert.
+    In den Programmeinstellungen ([Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Settings_General.py)) kann die Option *„Automatische Speicherung beim Wechsel des Mods oder der Anzeige“* aktiviert werden. Ist diese aktiv, werden Modifikationen bei jedem Zeilenwechsel in der Tabelle sowie beim Verlassen der Seite automatisch und transaktionssicher gespeichert.
 
 ---
 

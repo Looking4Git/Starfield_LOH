@@ -8,12 +8,12 @@ from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-from Structure.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
-from Structure.Pages.Section_Mod_Statistics_Comparison import Section_Mod_Statistics_Comparison
-from Structure.Pages.Section_Mod_Statistics_Category import Section_Mod_Statistics_Category
-from Structure.Pages.Section_Mod_Statistics_Classification import Section_Mod_Statistics_Classification
-from Structure.Pages.Section_Mod_Statistics_Content import Section_Mod_Statistics_Content
-from Structure.Pages.Section_Mod_Statistics_Conflicts import Section_Mod_Statistics_Conflicts
+from Structure.Controls.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
+from Structure.GUI.Section_Mod_Statistics_Comparison import Section_Mod_Statistics_Comparison
+from Structure.GUI.Section_Mod_Statistics_Category import Section_Mod_Statistics_Category
+from Structure.GUI.Section_Mod_Statistics_Classification import Section_Mod_Statistics_Classification
+from Structure.GUI.Section_Mod_Statistics_Content import Section_Mod_Statistics_Content
+from Structure.GUI.Section_Mod_Statistics_Conflicts import Section_Mod_Statistics_Conflicts
 
 class Window_Mod_Statistics(QDockWidget):
     """
@@ -41,7 +41,7 @@ class Window_Mod_Statistics(QDockWidget):
 
         # 1. UI dynamisch laden
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Window_Mod_Statistics.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Window_Mod_Statistics.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.content_widget = loader.load(ui_file, self)

@@ -28,7 +28,7 @@ class Section_Mod_Statistics_Category(QWidget):
         
         # 1. UI dynamisch laden
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Category.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Category.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)

@@ -1156,7 +1156,7 @@ def start_sorter_pre_checks(parent=None) -> bool:
     - Wird im Dialog abgebrochen, bleibt Time_End auf NULL (gestartet, aber nicht beendet).
     """
     record_script_start("LoadOrder_Sorter.py")
-    from Structure.Pages.Dialog_Sorter_Checks import check_and_confirm_sorter_start
+    from Structure.GUI.Dialog_Sorter_Checks import check_and_confirm_sorter_start
     confirmed = check_and_confirm_sorter_start(parent)
     return confirmed
 

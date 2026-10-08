@@ -18,7 +18,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Structure.Paths import DATABASE_FILE, DATABASE_DIR
-from Structure.LOH_Database_Reset import reset_database_tables
+from Structure.Database.LOH_Database_Reset import reset_database_tables
 
 TEMPLATE_DB_PATH = os.path.join(DATABASE_DIR, "Starfield_LOH_Template.db")
 TEMP_DB_PATH = os.path.join(DATABASE_DIR, "Starfield_LOH_Temp_Template.db")

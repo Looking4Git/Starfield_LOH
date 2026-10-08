@@ -9,7 +9,7 @@ Verantwortlich für:
 import sqlite3
 import logging
 
-from Structure.Database_Core import (
+from Structure.Database.Database_Core import (
     get_db_connection, db_connection, db_cursor
 )
 

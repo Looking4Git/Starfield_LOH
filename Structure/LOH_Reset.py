@@ -6,7 +6,7 @@ anschließend den lokalen Mod-Bilderordner (MOD_IMAGES_DIR).
 
 import os
 from Structure.Paths import MOD_IMAGES_DIR
-from Structure.LOH_Database_Reset import reset_database_tables
+from Structure.Database.LOH_Database_Reset import reset_database_tables
 
 
 def reset_project_data(log_signal=None) -> bool:

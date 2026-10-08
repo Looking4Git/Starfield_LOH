@@ -8,7 +8,7 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
 from Structure.Database import get_mod_image, get_masterfiles_by_mod_id, get_db_connection
-from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
+from Structure.GUI.Dialog_Mod_Selection import ModSelectionDialog
 
 class Section_Mod_Statistics_Comparison(QWidget):
     """
@@ -25,7 +25,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
         
         # 1. UI dynamisch laden
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Comparison.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Comparison.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)

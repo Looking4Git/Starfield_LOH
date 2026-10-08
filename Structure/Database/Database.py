@@ -12,7 +12,7 @@ Re-exportiert alle Funktionen, Klassen und Konstanten aus den spezialisierten Mo
 Gewährleistet 100%ige Abwärtskompatibilität für alle bestehenden Aufrufer im Projekt.
 """
 
-from Structure.Database_Core import (
+from Structure.Database.Database_Core import (
     TEMPLATE_DB_FILE,
     parse_version_tuple,
     is_version_newer_sql,
@@ -29,7 +29,7 @@ from Structure.Database_Core import (
     init_loh_executions_table,
 )
 
-from Structure.Database_Executions import (
+from Structure.Database.Database_Executions import (
     get_execution_state_text,
     record_script_start,
     record_script_end,
@@ -47,13 +47,13 @@ from Structure.Database_Executions import (
     get_all_mods_updates,
 )
 
-from Structure.Database_Views import (
+from Structure.Database.Database_Views import (
     create_view_mods_conflicts_matrix,
     get_mod_conflicts_matrix,
     create_view_category_dimension_max,
 )
 
-from Structure.Database_Profiles import (
+from Structure.Database.Database_Profiles import (
     get_profiles,
     get_load_order,
     update_load_order_active,
@@ -68,7 +68,7 @@ from Structure.Database_Profiles import (
     check_sorter_prerequisites,
 )
 
-from Structure.Database_Mods import (
+from Structure.Database.Database_Mods import (
     get_mods_by_state,
     get_mods_with_updates,
     get_mod_image,

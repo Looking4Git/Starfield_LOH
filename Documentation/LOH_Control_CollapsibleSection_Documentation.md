@@ -7,7 +7,7 @@ Diese Dokumentation beschreibt die universelle Sci-Fi-Klappsektions-Steuerung [S
 ## 1. Zweck & Motivation
 
 ### 1.1 Technische Problemstellung
-In komplexen Werkzeug- und Analysefenstern (wie dem Statistik-Fenster [Window_Mod_Statistics.py](file:///d:/Starfield_LOH/Structure/Pages/Window_Mod_Statistics.py)) existieren zahlreiche inhaltliche Teilbereiche (z. B. Mod-Vergleich, Kategorisierung, Klassifikation, Inhalte und Konflikte).
+In komplexen Werkzeug- und Analysefenstern (wie dem Statistik-Fenster [Window_Mod_Statistics.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Mod_Statistics.py)) existieren zahlreiche inhaltliche Teilbereiche (z. B. Mod-Vergleich, Kategorisierung, Klassifikation, Inhalte und Konflikte).
 * **Übersichtlichkeit wahren:** Werden alle Abschnitte permanent voll eingeblendet, verliert der Anwender den Überblick und muss lange vertikal scrollen.
 * **Fokussiertes Arbeiten:** Der Anwender muss nicht benötigte Abschnitte mit einem Klick einklappen und bei Bedarf wieder öffnen können.
 * **Konsistentes Design:** Alle auf- und zuklappbaren Bereiche müssen der Starfield-Sci-Fi-Formensprache (dunkler Hintergrund `#1e1e1e`, Starfield-Blau `#304C7A`, Akzent-Gold `#D7A64B` und konsistente Pfeil-Icons) folgen.
@@ -74,7 +74,7 @@ LOH_Control_CollapsibleSection(
 
 ```python
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
-from Structure.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
+from Structure.Controls.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
 
 # Inhalts-Widget vorbereiten
 content = QWidget()

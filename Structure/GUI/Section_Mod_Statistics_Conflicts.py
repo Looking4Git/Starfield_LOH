@@ -9,10 +9,10 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, DB_FILE, get_setting
-from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
-from Structure.LOH_Control_TileView import LOH_Control_TileView
-from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
-from Structure.Pages.Widget_ConflictCard import Widget_ConflictCard
+from Structure.Controls.LOH_Control_HeaderView import LOH_Control_HeaderView
+from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
+from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
+from Structure.GUI.Widget_ConflictCard import Widget_ConflictCard
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -84,7 +84,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         self._last_table_height = 346
 
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Conflicts.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Conflicts.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)

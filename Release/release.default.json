@@ -15,8 +15,8 @@
         "target": "Style"
       },
       {
-        "source": "Structure/Pages",
-        "target": "Structure/Pages",
+        "source": "Structure/GUI",
+        "target": "Structure/GUI",
         "pattern": "*.ui"
       }
     ],

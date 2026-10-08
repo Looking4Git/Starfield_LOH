@@ -71,7 +71,7 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
     - [X] FormID-Overrides-Erfassung, CE2-Konfliktstufung (0 bis 3)
     - [X] Gebündelte Single-Pass EDID-Anreicherung
   - [X] **LoadOrder-Sortierer ([Structure/LoadOrder_Sorter.py](file:///d:/Starfield_LOH/Structure/LoadOrder_Sorter.py)):**
-    - [X] Vorab-Sicherheitsprüfungen & modaler Dialog [Structure/Pages/Dialog_Sorter_Checks.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Sorter_Checks.py)
+    - [X] Vorab-Sicherheitsprüfungen & modaler Dialog [Structure/GUI/Dialog_Sorter_Checks.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Sorter_Checks.py)
     - [X] Schritt 1: BGS-Basisblock (offizielle Creations sfta01..sfta06)
     - [X] Schritt 2: Wunsch-Ranking & Gravitationsberechnung (Hauptkategorie, Masterfile-Offset, Subkategorie-Clustering)
     - [X] Schritt 3: Topologische DAG-Sortierung & Konfliktauflösung (Zyklenprävention, Schiedsrichterregeln)
@@ -88,8 +88,8 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
   - [X] Eingabemaske mit Category_LOH, Detailfeldern und Notizen
   - [X] Requirements- & Abhängigkeitsmanagement:
     - [X] Farbliche Kennzeichnung (Starfield Rot `#C72138` für Voraussetzungen, Sci-Fi Grün `#1F7343` für Abhängigkeiten)
-    - [X] Modaler Auswahldialog [Structure/Pages/Dialog_Mod_Selection.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Mod_Selection.py)
-    - [X] Modaler Kaskadendialog für Aktivierung/Deaktivierung [Structure/Pages/Dialog_Mod_Activation_Cascade.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Mod_Activation_Cascade.py)
+    - [X] Modaler Auswahldialog [Structure/GUI/Dialog_Mod_Selection.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Mod_Selection.py)
+    - [X] Modaler Kaskadendialog für Aktivierung/Deaktivierung [Structure/GUI/Dialog_Mod_Activation_Cascade.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Mod_Activation_Cascade.py)
     - [X] Schreibschutz für Header-erkannte ESM-Voraussetzungen
   - [X] Engine-Limit-Balkenanzeige (`LimitBar` für Full, Medium und Small Masters)
 
@@ -102,24 +102,24 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
 - [X] **Phase 8: Programm-Einstellungen (Page_Settings)**
   - [X] Menüpunkt "Einstellungen" mit Sidebar-Integration
   - [X] Master-Detail-Navigation via `QTreeView`
-  - [X] Konfigurierbare Starfield-Installations- und Datenpfade mit Validierung ([Structure/Pages/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py))
-  - [X] Programminformationen (Git-Commit, Branch, PySide6-Version, Betriebssystem in [Structure/Pages/Page_Settings_Info.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_Info.py))
+  - [X] Konfigurierbare Starfield-Installations- und Datenpfade mit Validierung ([Structure/GUI/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Settings_General.py))
+  - [X] Programminformationen (Git-Commit, Branch, PySide6-Version, Betriebssystem in [Structure/GUI/Page_Settings_Info.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Settings_Info.py))
   - [X] Asynchrone Nexus API-Key-Validierung mit Countdown und Retry im Hintergrund
 
 - [X] **Phase 9: Mod-Update-System (Page_Update & Starfield_Mod_Update)**
   - [X] Vollständige 8-stufige Update-Pipeline ([Structure/Starfield_Mod_Update.py](file:///d:/Starfield_LOH/Structure/Starfield_Mod_Update.py))
   - [X] Transaktionssichere Mod-Deinstallation und Backup-Vorbereitung
-  - [X] Kompaktes Begleit-HUD / Desktop-Overlay ([Structure/Pages/Window_Mod_Update_Overlay.py](file:///d:/Starfield_LOH/Structure/Pages/Window_Mod_Update_Overlay.py))
+  - [X] Kompaktes Begleit-HUD / Desktop-Overlay ([Structure/GUI/Window_Mod_Update_Overlay.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Mod_Update_Overlay.py))
   - [X] 500ms Non-Blocking Hintergrund-Scanner für `ContentCatalog.txt` und `Plugins.txt`
   - [X] Modus »Update Status klären« mit 4-dimensionaler Zustandsmatrix und selektivem Einzel-Rollback
   - [X] Checkbox-Kopfzeile (`CheckboxHeaderView`) für bequeme Sammelauswahl in der Update-Tabelle
   - [X] Dokumentation in [Documentation/Starfield_Mod_Update_Documentation.md](file:///d:/Starfield_LOH/Documentation/Starfield_Mod_Update_Documentation.md)
 
 - [X] **Phase 10: Diagnose-Zentrale & Dashboard (Page_Tools)**
-  - [X] Kachel-Dashboard ([Structure/Pages/Page_Tools.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Tools.py)) mit Kachel-Buttons (`Widget_TileIconButton.py`)
-  - [X] Live-Protokollkonsole ([Structure/Pages/Widget_LogConsole.py](file:///d:/Starfield_LOH/Structure/Pages/Widget_LogConsole.py)) mit ANSI- und In-Place-Block-Updates
+  - [X] Kachel-Dashboard ([Structure/GUI/Page_Tools.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Tools.py)) mit Kachel-Buttons (`Widget_TileIconButton.py`)
+  - [X] Live-Protokollkonsole ([Structure/GUI/Widget_LogConsole.py](file:///d:/Starfield_LOH/Structure/GUI/Widget_LogConsole.py)) mit ANSI- und In-Place-Block-Updates
   - [X] Diagnose-Kachel »Full Get Data erzwingen« ([Tools/Reset_Filedate_Last_Check.py](file:///d:/Starfield_LOH/Tools/Reset_Filedate_Last_Check.py))
-  - [X] Integriertes Log-Viewer-Fenster ([Structure/Pages/Window_Starfield_Log_Files.py](file:///d:/Starfield_LOH/Structure/Pages/Window_Starfield_Log_Files.py))
+  - [X] Integriertes Log-Viewer-Fenster ([Structure/GUI/Window_Starfield_Log_Files.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Starfield_Log_Files.py))
   - [X] Fremdsystem-Sperrmatrix ([Structure/Environment_Controller.py](file:///d:/Starfield_LOH/Structure/Environment_Controller.py))
 
 - [X] **Phase 11: Abdockbares Mod-Statistik- & Analysefenster (Window_Mod_Statistics)**
@@ -127,11 +127,11 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
   - [X] Geometriestabilisierung des Hauptfensters beim Ein-/Abdocken und flackerfreies Schließen
   - [X] Wiederverwendbare UI-Komponenten (`LOH_Control_CollapsibleSection`, `LOH_Control_TileView`, `LOH_Control_SectionResizeGrip`)
   - [X] Fachspezifische Analyse-Sektionen:
-    - [X] Inhalts- und Pointer-Metriken ([Structure/Pages/Section_Mod_Statistics_Content.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Content.py) mit Balken- und Radar-Charts)
-    - [X] Klassifizierungs-Ergebnisse & Kachelansicht ([Structure/Pages/Section_Mod_Statistics_Classification.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Classification.py) mit `Widget_ClassificationCard.py`)
-    - [X] Konflikt-Inspektor ([Structure/Pages/Section_Mod_Statistics_Conflicts.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Conflicts.py) mit `Widget_ConflictCard.py`)
-    - [X] Mod-Vergleichsansicht ([Structure/Pages/Section_Mod_Statistics_Comparison.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Comparison.py))
-    - [X] Kategorie-Übersicht ([Structure/Pages/Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Category.py))
+    - [X] Inhalts- und Pointer-Metriken ([Structure/GUI/Section_Mod_Statistics_Content.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Content.py) mit Balken- und Radar-Charts)
+    - [X] Klassifizierungs-Ergebnisse & Kachelansicht ([Structure/GUI/Section_Mod_Statistics_Classification.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Classification.py) mit `Widget_ClassificationCard.py`)
+    - [X] Konflikt-Inspektor ([Structure/GUI/Section_Mod_Statistics_Conflicts.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Conflicts.py) mit `Widget_ConflictCard.py`)
+    - [X] Mod-Vergleichsansicht ([Structure/GUI/Section_Mod_Statistics_Comparison.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Comparison.py))
+    - [X] Kategorie-Übersicht ([Structure/GUI/Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Category.py))
 
 - [X] **Phase 12: Release-Management & Packaging-Tool (Build_Release)**
   - [X] Zentrales 4-Stufen-GUI-Werkzeug [Release/Build_Release.py](file:///d:/Starfield_LOH/Release/Build_Release.py):

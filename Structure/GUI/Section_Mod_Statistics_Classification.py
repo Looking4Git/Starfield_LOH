@@ -9,10 +9,10 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, get_setting
 from Structure.Database import get_db_connection
-from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
-from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
-from Structure.LOH_Control_TileView import LOH_Control_TileView
-from Structure.Pages.Widget_ClassificationCard import Widget_ClassificationCard
+from Structure.Controls.LOH_Control_HeaderView import LOH_Control_HeaderView
+from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
+from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
+from Structure.GUI.Widget_ClassificationCard import Widget_ClassificationCard
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -57,7 +57,7 @@ class Section_Mod_Statistics_Classification(QWidget):
         self._last_table_height = 324
 
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Section_Mod_Statistics_Classification.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Classification.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)

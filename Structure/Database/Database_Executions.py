@@ -10,7 +10,7 @@ import sqlite3
 import logging
 from datetime import datetime
 
-from Structure.Database_Core import (
+from Structure.Database.Database_Core import (
     get_db_connection, db_connection, db_cursor,
     init_loh_executions_table, ensure_mods_updates_schema
 )

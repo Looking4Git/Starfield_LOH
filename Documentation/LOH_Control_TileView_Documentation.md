@@ -88,7 +88,7 @@ LOH_Control_TileView(
 ## 5. Anwendungsbeispiel
 
 ```python
-from Structure.LOH_Control_TileView import LOH_Control_TileView
+from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
 from Structure.Pages.Widget_ConflictCard import Widget_ConflictCard
 
 # 1. Kachelansicht erzeugen und in Layout einbetten

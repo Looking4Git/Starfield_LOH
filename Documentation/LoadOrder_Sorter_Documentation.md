@@ -238,7 +238,7 @@ Jede der 32 Kategorien ist lückenlos einer Gruppe zugeordnet. Einzelkategorien 
 
 ## 5. Dynamische Anzeige auf `Page_LoadOrder` (Modus »Konfliktvermeidung«)
 
-Zur interaktiven visuellen Kontrolle der Sorter- und Schiedsrichter-Entscheidungen bietet die Benutzeroberfläche auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py) das Dynamik-Dropdown mit dem Modus **»Konfliktvermeidung«** (ersetzt den vormaligen Modus »Kombiniert«):
+Zur interaktiven visuellen Kontrolle der Sorter- und Schiedsrichter-Entscheidungen bietet die Benutzeroberfläche auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/GUI/Page_LoadOrder.py) das Dynamik-Dropdown mit dem Modus **»Konfliktvermeidung«** (ersetzt den vormaligen Modus »Kombiniert«):
 
 * **Funktionsweise:**
   * Wertet die Schiedsrichter- und Vorrangregeln aus der Tabelle `Mods_Conflicts` (`ID_Mod_Requirement` und `ID_Mod_Dependent`) über die Funktion `get_mod_conflict_avoidance_for_ui(mod_id)` aus.

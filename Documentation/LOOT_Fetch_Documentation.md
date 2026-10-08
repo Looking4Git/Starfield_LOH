@@ -11,7 +11,7 @@ Ziel des Moduls ist es:
 1. Den aktuellen Stand der LOOT-Masterlist für Starfield entweder aus einer bestehenden lokalen Installation (Standalone LOOT oder Vortex) oder automatisiert online von GitHub zu laden.
 2. Alle in der LOH-Datenbank als aktiv markierten Mods (`State = 1`) anhand ihrer Masterfile-Komponenten (`c.Is_Masterfile > 0`) gegen die LOOT-Einträge abzugleichen.
 3. Die aus den LOOT-Sektionen und -Gruppen abgeleiteten LOH-Kategorien in der dedizierten Relation **`Mods_Category_LOOT`** zu hinterlegen.
-4. Diese Daten im Analyse- und Statistikfenster ([Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Category.py)) als schreibgeschützten Referenzwert bereitzustellen, ohne die vom Benutzer manuell zugewiesene aktive Mod-Kategorie (`Mods.Category_LOH`) unaufgefordert zu überschreiben.
+4. Diese Daten im Analyse- und Statistikfenster ([Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Category.py)) als schreibgeschützten Referenzwert bereitzustellen, ohne die vom Benutzer manuell zugewiesene aktive Mod-Kategorie (`Mods.Category_LOH`) unaufgefordert zu überschreiben.
 
 ---
 
@@ -116,10 +116,10 @@ CREATE TABLE IF NOT EXISTS Mods_Category_LOOT (
 
 ## 6. Einbindung in Benutzeroberfläche & Workflows
 
-1. **Tools-Seite ([Page_Tools.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Tools.py)):**
+1. **Tools-Seite ([Page_Tools.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Tools.py)):**
    - Schaltfläche: `LOOT Masterlist abrufen & Kategorien abgleichen (Online LOOT Fetch)`
    - Ausführung: Asynchroner Hintergrund-Thread via `TaskWorker(run_loot_fetch)` mit Protokollierung in `Widget_LogConsole`.
-2. **Mod-Analyse & Statistik ([Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/Pages/Section_Mod_Statistics_Category.py)):**
+2. **Mod-Analyse & Statistik ([Section_Mod_Statistics_Category.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Category.py)):**
    - Das Feld `LOOT:` zeigt den Namen der gemappten LOOT-Kategorie an (z. B. `Bugfix`, `BGS`, `Texturen`).
    - Existiert für die gewählte Mod kein Eintrag in der LOOT-Masterlist, bleibt das Feld vollständig leer (`""`).
 3. **Kategorie-Zuweisung:**

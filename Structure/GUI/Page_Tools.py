@@ -13,8 +13,8 @@ from Structure.Nexus_Fetch import run_nexus_fetch
 from Structure.LOOT_Fetch import run_loot_fetch
 from Structure.Category_LOH_Classifier import run_classifier
 from Structure.LoadOrder_Sorter import run_load_order_sorter, start_sorter_pre_checks
-from Structure.Pages.Widget_LogConsole import Widget_LogConsole
-from Structure.Pages.Widget_TileIconButton import Widget_TileIconButton
+from Structure.GUI.Widget_LogConsole import Widget_LogConsole
+from Structure.GUI.Widget_TileIconButton import Widget_TileIconButton
 from Tools.Reset_Filedate_Last_Check import reset_filedate_last_check
 
 
@@ -406,7 +406,7 @@ class Page_Tools(QWidget):
 
     def open_log_files_window(self):
         """Öffnet das Fenster zur Ansicht und Verwaltung der Starfield LOH Log-Dateien."""
-        from Structure.Pages.Window_Starfield_Log_Files import Window_Starfield_Log_Files
+        from Structure.GUI.Window_Starfield_Log_Files import Window_Starfield_Log_Files
         if self.window_log_files is None:
             self.window_log_files = Window_Starfield_Log_Files(self)
         self.window_log_files.refresh_log_files()

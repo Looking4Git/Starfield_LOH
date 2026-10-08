@@ -90,7 +90,7 @@ Löscht gecachte Textbreiten. **Muss aufgerufen werden, wenn neue Daten in das T
 
 ### 4.1 Typisches Setup (z. B. Konflikttabelle)
 ```python
-from Structure.LOH_Control_HeaderView import LOH_Control_HeaderView
+from Structure.Controls.LOH_Control_HeaderView import LOH_Control_HeaderView
 
 # 1. Tabelle konfigurieren
 table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)

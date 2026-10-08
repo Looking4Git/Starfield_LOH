@@ -69,7 +69,7 @@ LOH_Control_WindowDocking(main_window: QMainWindow, dock_widget: QDockWidget)
 
 ```python
 from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
-from Structure.LOH_Control_WindowDocking import LOH_Control_WindowDocking
+from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 
 # 1. Dock-Fenster initialisieren und anheften
 self.dock_statistics = Window_Mod_Statistics(self)

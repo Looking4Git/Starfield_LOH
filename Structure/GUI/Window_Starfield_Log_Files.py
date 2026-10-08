@@ -55,7 +55,7 @@ class Window_Starfield_Log_Files(QDialog):
 
         # 1. UI dynamisch aus .ui-Datei laden
         loader = QUiLoader()
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Window_Starfield_Log_Files.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Window_Starfield_Log_Files.ui")
         ui_file = QFile(ui_file_path)
         ui_file.open(QFile.ReadOnly)
         self.content_widget = loader.load(ui_file, self)

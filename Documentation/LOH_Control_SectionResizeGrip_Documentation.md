@@ -7,7 +7,7 @@ Diese Dokumentation beschreibt die universelle Sci-Fi-Ziehgriff-Steuerung [Struc
 ## 1. Zweck & Motivation
 
 ### 1.1 Technische Problemstellung
-In datenintensiven Detail- und Analysemasken (wie dem Statistik-Fenster [Window_Mod_Statistics.py](file:///d:/Starfield_LOH/Structure/Pages/Window_Mod_Statistics.py)) variiert der Platzbedarf einzelner Inhaltsbereiche stark:
+In datenintensiven Detail- und Analysemasken (wie dem Statistik-Fenster [Window_Mod_Statistics.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Mod_Statistics.py)) variiert der Platzbedarf einzelner Inhaltsbereiche stark:
 * **Feste Höhen sind unflexibel:** Eine fixe Höhe von 400 px ist für komplexe Spinnennetz-Diagramme mit 32 Achsen zu gedrängt, während ein Balkendiagramm mit 32 Zeilen darin vertikal scrollen muss.
 * **Manuelle Anpassbarkeit gefordert:** Der Anwender benötigt die Möglichkeit, die Höhe von Sektionen bedarfsgerecht per Maus stufenlos zu vergrößern oder zu verkleinern, ohne die übergeordnete ScrollArea-Architektur zu stören.
 
@@ -77,7 +77,7 @@ LOH_Control_SectionResizeGrip(
 ## 4. Anwendungsbeispiel
 
 ```python
-from Structure.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
+from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 
 class MyContentSection(QWidget):
     def __init__(self, parent=None):

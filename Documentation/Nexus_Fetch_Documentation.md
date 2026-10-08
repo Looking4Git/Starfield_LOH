@@ -98,7 +98,7 @@ Das Modul `Nexus_Fetch.py` ist in klar entkoppelte Funktionseinheiten unterteilt
 
 ## 5. UI-Statusanzeige in den Einstellungen (`Page_Settings_General.py`)
 
-In den Programmeinstellungen ([Structure/Pages/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)) befindet sich direkt unter der API-Key-Eingabe das Statuslabel `lbl_nexus_status`.
+In den Programmeinstellungen ([Structure/GUI/Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Settings_General.py)) befindet sich direkt unter der API-Key-Eingabe das Statuslabel `lbl_nexus_status`.
 
 Die Validierung erfolgt vollständig **asynchron über einen separaten Hintergrund-Worker** (`NexusKeyValidatorWorker` als `QThread`), sodass der Anwendungsstart und die UI zu keinem Zeitpunkt durch externe Web-Latenzen blockiert werden:
 

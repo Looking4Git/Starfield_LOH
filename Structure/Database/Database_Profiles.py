@@ -6,7 +6,7 @@ Verwaltung von Benutzerprofilen, LoadOrder-Zuständen und Sorter-Ergebnissen.
 import logging
 import sqlite3
 from datetime import datetime, date
-from Structure.Database_Core import (
+from Structure.Database.Database_Core import (
     get_db_connection,
     db_connection,
     db_cursor,

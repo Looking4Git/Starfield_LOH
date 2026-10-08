@@ -8,14 +8,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QLabel, QSizePolicy)
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer
 from PySide6.QtGui import QIcon, QPixmap, QColor, QPalette
-from Structure.Pages.Page_Mods import Page_Mods
-from Structure.Pages.Page_LoadOrder import Page_LoadOrder
-from Structure.Pages.Page_Update import Page_Update
-from Structure.Pages.Page_Tools import Page_Tools
-from Structure.Pages.Page_Settings import Page_Settings
-from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
-from Structure.LOH_Control_WindowDocking import LOH_Control_WindowDocking
-from Structure.LOH_Control_Dropdown import setup_dropdown_wheel_guard
+from Structure.GUI.Page_Mods import Page_Mods
+from Structure.GUI.Page_LoadOrder import Page_LoadOrder
+from Structure.GUI.Page_Update import Page_Update
+from Structure.GUI.Page_Tools import Page_Tools
+from Structure.GUI.Page_Settings import Page_Settings
+from Structure.GUI.Window_Mod_Statistics import Window_Mod_Statistics
+from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
+from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
 from Structure.Database import ensure_default_database_mode
 

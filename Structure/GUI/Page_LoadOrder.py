@@ -20,9 +20,9 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  get_mod_conflict_avoidance_for_ui,
                                  get_cascade_for_mod, get_cascade_for_deactivation)
 from Structure.Paths import APP_ROOT
-from Structure.Pages.Dialog_Profil import ProfileDialog
-from Structure.Pages.Dialog_Mod_Selection import ModSelectionDialog
-from Structure.Pages.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Cascade
+from Structure.GUI.Dialog_Profil import ProfileDialog
+from Structure.GUI.Dialog_Mod_Selection import ModSelectionDialog
+from Structure.GUI.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Cascade
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
 
@@ -227,7 +227,7 @@ class Page_LoadOrder(QWidget):
             return True
 
     def setup_ui(self):
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Page_LoadOrder.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Page_LoadOrder.ui")
         
         loader = QUiLoader()
         loader.registerCustomWidget(LimitBar)
@@ -278,7 +278,7 @@ class Page_LoadOrder(QWidget):
         self.lbl_details = ui.findChild(QLabel, "lbl_details")
         self.detail_separator = ui.findChild(QFrame, "detail_separator")
         
-        from Structure.Pages.UI_Utils import make_button_premium
+        from Structure.GUI.UI_Utils import make_button_premium
         
         # Profil-Buttons referenzieren und verknüpfen
         self.btn_activate_profile = ui.findChild(QPushButton, "btn_activate_profile")

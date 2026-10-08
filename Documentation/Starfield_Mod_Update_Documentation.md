@@ -9,7 +9,7 @@ Das Modul **Starfield Mod Update** ([Structure/Starfield_Mod_Update.py](file:///
 
 Da Starfield das Herunterladen und Aktualisieren von Mods ausschließlich über den spielinternen Creation Store abwickelt, entkoppelt das LOH-Update-System die Vorbereitung und Nachbereitung vom tatsächlichen Download:
 1. **Transaktionssichere Deinstallation:** Vor Start des Spiels werden die zu behandelnden Mods aus `Plugins.txt` und `ContentCatalog.txt` ausgetragen und deren physische Mod-Dateien aus `Data/` in ein isoliertes Backup-Verzeichnis verschoben.
-2. **Begleitendes Desktop-Overlay:** Ein kompaktes, rahmenloses HUD ([Structure/Pages/Window_Mod_Update_Overlay.py](file:///d:/Starfield_LOH/Structure/Pages/Window_Mod_Update_Overlay.py)) bleibt während des Spielbetriebs im Vordergrund und visualisiert den Live-Fortschritt jeder Mod.
+2. **Begleitendes Desktop-Overlay:** Ein kompaktes, rahmenloses HUD ([Structure/GUI/Window_Mod_Update_Overlay.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Mod_Update_Overlay.py)) bleibt während des Spielbetriebs im Vordergrund und visualisiert den Live-Fortschritt jeder Mod.
 3. **500ms Non-Blocking Live-Scanner:** Ein performanter Hintergrund-Scanner überwacht in Echtzeit (`0,5s`) die Dateiänderungen von Starfield, um den Abschluss von Downloads und Aktivierungen ohne Performanceeinbußen für das Spiel zu erkennen.
 4. **Kein verfrühter Auto-Rollback:** Bei vorzeitigem Schließen des Overlays oder Validierungsfehlern verharrt das System sicher in einer Warteposition (Zustand 5 bzw. 11), bis der Anwender gezielt über die Schaltfläche **»Update Status klären«** entscheidet.
 5. **Mod-spezifische Klärung & 4-dimensionale Zustandsmatrix:** Anhand von Dateisystem-Snapshots (`ContentCatalog_Neu.txt`, `Plugins_Neu.txt`), des Backup-Bestands und der Spieledateien in `Data/` wird der Zustand jeder Mod einzeln reconciliiert. Erfolgreiche Mods werden übernommen, inaktive Plugins nachaktiviert und unvollständige Mods isoliert zurückgerollt.
@@ -213,7 +213,7 @@ Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebenein
 ## 7. Konfiguration, Diagnose & Backups
 
 * **Backup-Strategie (`Starfield_Mod_Update_Backup_Strategy`):**
-  * Einstellbar über die Einstellungsseite *Allgemein* ([Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Settings_General.py)).
+  * Einstellbar über die Einstellungsseite *Allgemein* ([Page_Settings_General.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Settings_General.py)).
   * Bei deaktivierter Option (`false`) wird das Unterverzeichnis `Mods/` im Backup nach erfolgreichem Update gelöscht, um Speicherplatz zu sparen.
   * Bei aktivierter Option (`true`) bleiben die alten Mod-Dateien als Langzeitarchiv im Backupordner erhalten.
 * **Protokoll-Streaming:** Alle Prozessmeldungen, Warnungen und Reconciliationsschritte emittieren das Qt-Signal `log_message_emitted(str)` und werden in der Protokollkonsole auf dem Tab *Tools* live gestreamt.

@@ -27,7 +27,7 @@ class Page_Mods(QWidget):
             self.load_data()
 
     def setup_ui(self):
-        ui_file_path = os.path.join(APP_ROOT, "Structure", "Pages", "Page_Mods.ui")
+        ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Page_Mods.ui")
         
         loader = QUiLoader()
         ui_file = QFile(ui_file_path)
@@ -78,7 +78,7 @@ class Page_Mods(QWidget):
         self.inp_date_avail = ui.findChild(QLineEdit, "inp_date_avail")
         self.inp_ver_avail = ui.findChild(QLineEdit, "inp_ver_avail")
         
-        from Structure.Pages.UI_Utils import make_button_premium
+        from Structure.GUI.UI_Utils import make_button_premium
         
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
         make_button_premium(self.btn_save, os.path.join(APP_ROOT, "Graphics", "Icon_Save.svg"), "Speichern")

@@ -57,15 +57,15 @@ graph TD
 ## 2. Modul-Spezifikationen im Detail
 
 ### 2.1 `Starfield_LoadOrder_Import.py` (Fokussierter Profil-Import)
-* **Aufruf:** Ausschließlich interaktiv über die Schaltfläche **»Einlesen«** auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py).
-* **Zweck:** Liest eine bestehende `Plugins.txt` ein, validiert fehlende Komponenten gegen die Mod-Datenbank und legt ein **neues, separates Profil** (mit vom Benutzer frei wählbarem Profilnamen und optionaler Beschreibung via [Dialog_Profil.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Profil.py)) in der Datenbank an.
+* **Aufruf:** Ausschließlich interaktiv über die Schaltfläche **»Einlesen«** auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/GUI/Page_LoadOrder.py).
+* **Zweck:** Liest eine bestehende `Plugins.txt` ein, validiert fehlende Komponenten gegen die Mod-Datenbank und legt ein **neues, separates Profil** (mit vom Benutzer frei wählbarem Profilnamen und optionaler Beschreibung via [Dialog_Profil.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Profil.py)) in der Datenbank an.
 * **Sicherungskategorie:** Passiv (Snapshot).
 * **Sicherungsort:** `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/Plugins.txt`.
 
 ---
 
 ### 2.2 `Starfield_LoadOrder_Get_Data.py` (Globale Profil-Synchronisation)
-* **Aufruf:** Über die Modul-Kachel **»Starfield LoadOrder«** auf [Page_Tools.py](file:///d:/Starfield_LOH/Structure/Pages/Page_Tools.py).
+* **Aufruf:** Über die Modul-Kachel **»Starfield LoadOrder«** auf [Page_Tools.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Tools.py).
 * **Zweck:** Führt eine globale Wartung und Bereinigung **aller bestehenden Profile** in der Datenbank durch:
   1. **Bereinigung:** Entfernt Komponenten aus der Tabelle `LoadOrder`, deren zugehörige Mods gelöscht oder deaktiviert wurden (`State != 1`).
   2. **Re-Sequenzierung:** Schließt Positionslücken und nummeriert alle Komponenten eines Profils lückenlos von `1` bis `N` durch.
@@ -95,7 +95,7 @@ graph TD
 ---
 
 ### 2.4 `Starfield_Profile_Activation.py` (Aktive Profil-Bereitstellung)
-* **Aufruf:** Über die Schaltfläche **»Profil aktivieren«** auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py).
+* **Aufruf:** Über die Schaltfläche **»Profil aktivieren«** auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/GUI/Page_LoadOrder.py).
 * **Zweck:** Schreibt die Ladereihenfolge des selektierten Profils physisch in die `Plugins.txt` des Starfield-Spieleverzeichnisses:
   * Aktive Komponenten (`Is_Active = 1`): mit führendem Asterisk (`*Mod.esm`).
   * Inaktive Komponenten (`Is_Active = 0`): ohne Asterisk (`Mod.esm`).
@@ -108,10 +108,10 @@ graph TD
 ## 3. Kaskadierende Mod-Aktivierung & Deaktivierung (Phase C)
 
 ### 3.1 Kaskadierende Deaktivierung via `Dialog_Mod_Activation_Cascade.py`
-* **Auslöser:** Abwahl einer Mod (`Is_Active = 0`) in der Tabelle der Ladereihenfolge auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/Pages/Page_LoadOrder.py).
+* **Auslöser:** Abwahl einer Mod (`Is_Active = 0`) in der Tabelle der Ladereihenfolge auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/GUI/Page_LoadOrder.py).
 * **Prüfung:** `get_active_dependents_for_deactivation(mod_id, profile_id)` ermittelt rekursiv alle weiteren im aktuellen Profil aktiven Mods, die direkt oder indirekt von der abgewählten Mod abhängen.
 * **Universalisiertes Dialogfenster (`mode="DEACTIVATE"`):**
-  * Existieren aktive Abhängigkeiten, öffnet sich [Dialog_Mod_Activation_Cascade.py](file:///d:/Starfield_LOH/Structure/Pages/Dialog_Mod_Activation_Cascade.py) im Deaktivierungs-Modus:
+  * Existieren aktive Abhängigkeiten, öffnet sich [Dialog_Mod_Activation_Cascade.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Mod_Activation_Cascade.py) im Deaktivierungs-Modus:
     * Die Checkbox-Spalte (Spalte 1) wird ausgeblendet.
     * Die Ziel-Mod erscheint in Muted Blau (`#24354D`), alle mitzudeaktivierenden Folge-Mods in Muted Grün (`#164329`).
     * Reine Text-Schaltflächen »Abbrechen« und »Deaktivieren« (ohne Icons).

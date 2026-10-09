@@ -27,6 +27,7 @@ def setup_logging():
         
     logger = logging.getLogger("Bethesda_Fetch")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     
     # Sicherstellen, dass keine doppelten Handler angelegt werden
     if not logger.handlers:
@@ -141,6 +142,9 @@ def run_fetch(log_signal=None):
         else:
             logger.info(message)
             
+    log_file = os.path.join(LOGS_DIR, "Bethesda_Fetch.log")
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Bethesda Fetch' gestartet. Detailliertes Protokoll: {log_file}")
     log_msg("Starte Abruf der Creation Updates und Metadaten über Playwright...")
     
     success_count = 0
@@ -362,12 +366,14 @@ def run_fetch(log_signal=None):
         log_msg(summary)
         
         record_script_end("Bethesda_Fetch.py", datetime.now())
+        main_log.info(f"Prozess 'Bethesda Fetch' erfolgreich abgeschlossen ({success_count} erfolgreich, {error_count} Fehler).")
         return True
         
     except Exception as e:
         log_msg(f"\n❌ KRITISCHER FEHLER:\n{traceback.format_exc()}", level=logging.ERROR)
         if conn:
             conn.rollback()
+        main_log.error(f"Prozess 'Bethesda Fetch' mit Fehlern beendet: {str(e)}")
         return False
     finally:
         if conn:

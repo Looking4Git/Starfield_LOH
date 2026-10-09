@@ -279,6 +279,11 @@ class StarfieldLOH(QMainWindow):
                 self.page_update.load_data()
                 self.page_update_flags["Page_Update"] = False
 
+        if hasattr(self, 'page_tools') and self.page_tools:
+            self.page_tools.apply_environment_security()
+        if hasattr(self, 'page_lo') and self.page_lo:
+            self.page_lo.update_activate_button_state()
+
         if hasattr(self, 'dock_statistics') and self.dock_statistics and self.dock_statistics.isVisible():
             self.dock_statistics.refresh_data()
         elif hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
@@ -509,6 +514,16 @@ def setup_main_logging():
 if __name__ == "__main__":
     setup_main_logging()
     logging.info("Starfield Load Order Helper gestartet.")
+    from Structure.Environment_Controller import get_game_environment_status, is_primary_system
+    is_primary = is_primary_system()
+    env_ready, env_reason = get_game_environment_status()
+    if env_ready:
+        logging.info("Systemprüfung: Autorisierung und Spielumgebung erfolgreich verifiziert (Primärsystem: Ja, Spielumgebung: Bereit).")
+    else:
+        logging.warning(
+            f"Systemprüfung: Spielumgebung nicht bereit (Primärsystem: {'Ja' if is_primary else 'Nein'}, "
+            f"Grund: {env_reason}). Spielebezogene Funktionen bleiben gesperrt."
+        )
     ensure_default_database_mode()
     app = QApplication(sys.argv)
     setup_dropdown_wheel_guard(app)

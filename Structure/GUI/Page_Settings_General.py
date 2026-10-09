@@ -516,12 +516,24 @@ class Page_Settings_General(QWidget):
             return
 
         clean_path = path.strip()
-        if os.path.isdir(clean_path):
-            self.lbl_status.setText("✓ Verzeichnis existiert und ist erreichbar.")
-            self.lbl_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
-        else:
+        if not os.path.isdir(clean_path):
             self.lbl_status.setText("⚠ Verzeichnis existiert derzeit nicht auf diesem Datenträger.")
             self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
+        from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH
+        if not os.path.isfile(STARFIELD_PLUGINS_PATH):
+            self.lbl_status.setText("⚠ Verzeichnis erreichbar, aber Plugins.txt fehlt.")
+            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
+        if not os.path.isfile(STARFIELD_CONTENT_CATALOG_PATH):
+            self.lbl_status.setText("⚠ Verzeichnis erreichbar, aber ContentCatalog.txt fehlt.")
+            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            return
+
+        self.lbl_status.setText("✓ Verzeichnis und Spieldateien vorhanden und erreichbar.")
+        self.lbl_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
 
     def on_reauthorize_system(self):
         """Öffnet den Bestätigungsdialog zur Reautorisierung des aktuellen Rechners als Primärsystem."""
@@ -545,21 +557,35 @@ class Page_Settings_General(QWidget):
         msg.exec()
 
         if msg.clickedButton() == btn_yes:
-            from Structure.Environment_Controller import reauthorize_current_system
+            from Structure.Environment_Controller import reauthorize_current_system, get_game_environment_status
             reauthorize_current_system()
 
             current_path = self.inp_starfield_data.text().strip()
             self.update_status_display(current_path)
 
+            env_ready, reason = get_game_environment_status()
+            main_log = logging.getLogger("Starfield_LOH")
+            if env_ready:
+                main_log.info("System reautorisiert: Primärsystem=Ja, Spielumgebung=Bereit. Alle Funktionen freigegeben.")
+            else:
+                main_log.warning(f"System reautorisiert: Primärsystem=Ja, Spielumgebung=Nicht bereit ({reason}). Spielfunktionen bleiben gesperrt.")
+
             info = QMessageBox(self)
             info.setWindowTitle("Registrierung erfolgreich")
             info.setIcon(QMessageBox.Icon.Information)
             _set_dark_title_bar(info)
-            info.setText(
-                "Das aktuelle System wurde erfolgreich als autorisiertes Primärsystem registriert.\n\n"
-                "Alle Funktionen sind nun freigegeben. Bitte führen Sie als nächsten Schritt unter "
-                "'Tools' die Funktion 'Starfield Get Data' aus."
-            )
+            if env_ready:
+                info.setText(
+                    "Das aktuelle System wurde erfolgreich als autorisiertes Primärsystem registriert.\n\n"
+                    "Alle Funktionen sind nun freigegeben. Bitte führen Sie als nächsten Schritt unter "
+                    "'Tools' die Funktion 'Starfield Get Data' aus."
+                )
+            else:
+                info.setText(
+                    "Das aktuelle System wurde erfolgreich als autorisiertes Primärsystem registriert.\n\n"
+                    f"Hinweis: Die Spielumgebung ist jedoch noch nicht vollständig einsatzbereit ({reason}).\n\n"
+                    "Spielebezogene Funktionen bleiben gesperrt, bis ein gültiges Spieleverzeichnis mit allen erforderlichen Dateien vorliegt."
+                )
             info.exec()
 
             self.data_updated.emit()
@@ -572,7 +598,16 @@ class Page_Settings_General(QWidget):
         """Speichert den Pfad bei Abschluss der Texteingabe."""
         new_path = self.inp_starfield_data.text().strip()
         set_setting("paths", "starfield_data", new_path)
+        from Structure.Environment_Controller import invalidate_environment_cache, get_game_environment_status
+        invalidate_environment_cache()
         self.update_status_display(new_path)
+        env_ready, reason = get_game_environment_status()
+        main_log = logging.getLogger("Starfield_LOH")
+        if env_ready:
+            main_log.info(f"Spieleverzeichnis geändert auf '{new_path}': Spielumgebung=Bereit.")
+        else:
+            main_log.warning(f"Spieleverzeichnis geändert auf '{new_path}': Spielumgebung=Nicht bereit ({reason}).")
+        self.data_updated.emit()
 
     def browse_directory(self):
         """Öffnet den nativen Verzeichnisdialog zur Pfadauswahl."""
@@ -590,7 +625,16 @@ class Page_Settings_General(QWidget):
             normalized_dir = os.path.normpath(selected_dir)
             self.inp_starfield_data.setText(normalized_dir)
             set_setting("paths", "starfield_data", normalized_dir)
+            from Structure.Environment_Controller import invalidate_environment_cache, get_game_environment_status
+            invalidate_environment_cache()
             self.update_status_display(normalized_dir)
+            env_ready, reason = get_game_environment_status()
+            main_log = logging.getLogger("Starfield_LOH")
+            if env_ready:
+                main_log.info(f"Spieleverzeichnis geändert auf '{normalized_dir}': Spielumgebung=Bereit.")
+            else:
+                main_log.warning(f"Spieleverzeichnis geändert auf '{normalized_dir}': Spielumgebung=Nicht bereit ({reason}).")
+            self.data_updated.emit()
 
     def update_data_status_display(self, path: str):
         """Aktualisiert die Statusanzeige für das Datenverzeichnis."""
@@ -706,6 +750,13 @@ class Page_Settings_General(QWidget):
                 storable = to_storable_path(resolved)
                 self.inp_data_path.setText(storable)
                 self.update_data_status_display(storable)
+                from Structure.Environment_Controller import get_game_environment_status
+                env_ready, reason = get_game_environment_status()
+                main_log = logging.getLogger("Starfield_LOH")
+                if env_ready:
+                    main_log.info(f"Datenverzeichnis geändert auf '{storable}': Spielumgebung=Bereit.")
+                else:
+                    main_log.warning(f"Datenverzeichnis geändert auf '{storable}': Spielumgebung=Nicht bereit ({reason}).")
                 info = QMessageBox(self)
                 info.setWindowTitle("Umzug erfolgreich")
                 info.setText(msg)
@@ -716,6 +767,7 @@ class Page_Settings_General(QWidget):
                     btn_ok.setText("OK")
                 _set_dark_title_bar(info)
                 info.exec()
+                self.data_updated.emit()
             else:
                 crit = QMessageBox(self)
                 crit.setWindowTitle("Fehler beim Umzug")
@@ -809,4 +861,9 @@ class Page_Settings_General(QWidget):
             info_box.exec()
 
             # Signal emittieren
+            from Structure.Environment_Controller import invalidate_environment_cache, get_game_environment_status
+            invalidate_environment_cache()
+            env_ready, reason = get_game_environment_status()
+            main_log = logging.getLogger("Starfield_LOH")
+            main_log.info(f"System zurückgesetzt: Spielumgebung={'Bereit' if env_ready else f'Nicht bereit ({reason})'}.")
             self.data_updated.emit()

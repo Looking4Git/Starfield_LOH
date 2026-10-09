@@ -24,23 +24,36 @@ In `Starfield_LOH_Settings.json` werden diese Werte im Bereich `"system"` hinter
 }
 ```
 
-### B. Erkennungsmodi
+### B. Erkennungsmodi & Einsatzbereitschaft
 * **Primärsystem (`is_primary_system() == True`):**
   * Liegt vor, wenn die aktuelle `MachineGuid` und der Computername mit den hinterlegten Einstellungen übereinstimmen.
-  * Vollzugriff auf alle Dateisystem-, Spiel-, Mod- und Datenbankfunktionen.
-* **Fremdsystem (`is_primary_system() == False`):**
-  * Wird aktiviert, sobald die portable Installation auf einem anderen PC oder unter einem anderen Benutzerkonto gestartet wird.
+  * Schützt vor unbefugter Ausführung auf Fremdrechnern.
+* **Einsatzbereite Spielumgebung (`is_game_environment_ready() == True`):**
+  * Bündelt die vollständige System- und Dateibereitschaft für alle operativen Spielfunktionen.
+  * Voraussetzung für die Freigabe lokaler Funktionstasten:
+    1. System ist autorisiert (`is_primary_system() == True`).
+    2. Starfield-Data-Verzeichnis existiert (`STARFIELD_GAME_DATA_PATH`).
+    3. `Plugins.txt` existiert (`STARFIELD_PLUGINS_PATH`).
+    4. `ContentCatalog.txt` existiert (`STARFIELD_CONTENT_CATALOG_PATH`).
+    5. LOH-Datenverzeichnis existiert (`DATA_DIR`).
+  * **Ereignisgesteuerte Trigger-Punkte:** Die Prüfung erfolgt ausschließlich an 4 definierten Ereignissen:
+    1. Beim Programmstart.
+    2. Nach Reautorisierung des Systems (`Page_Settings_General.on_reauthorize_system`).
+    3. Nach Änderung des Spieleverzeichnisses (`Page_Settings_General.on_path_edited` / `browse_directory`).
+    4. Nach Änderung des LOH-Datenverzeichnisses (`Page_Settings_General` / `LOH_Change_Data_Path`).
+* **Fremdsystem / Nicht einsatzbereit (`is_game_environment_ready() == False`):**
+  * Wird aktiviert bei abweichendem Rechner ODER wenn Starfield bzw. die Spieldateien auf dem Rechner fehlen.
   * Schaltet die Sicherheits-Sperrmatrix aktiv.
 * **Initiale Autorisierung (`ensure_initial_authorization()`):**
   * Sind die Felder in den Settings leer (frische Installation), registriert sich der erste ausführende Rechner automatisch als Primärsystem.
 
 ---
 
-## 3. Fremdsystem-Sperrmatrix
+## 3. Umgebungs-Sperrmatrix
 
-Auf Fremdsystemen greift eine strikte Funktionstrennung:
+Auf Fremdsystemen oder bei nicht vollständig vorhandenen Spieldateien greift eine strikte Funktionstrennung:
 
-| Bereich / Seite | Funktion / Element | Status Fremdsystem | Begründung |
+| Bereich / Seite | Funktion / Element | Status Fremdsystem / Fehlende Spieldateien | Begründung |
 | :--- | :--- | :--- | :--- |
 | **Page_Tools** | `Starfield Get Data` (`btn_local_check`) | ❌ Gesperrt | Greift auf lokale Spieldateien zu |
 | **Page_Tools** | `Starfield Check Deleted` (`btn_deleted_check`) | ❌ Gesperrt | Greift auf lokale Spieldateien zu |
@@ -52,12 +65,12 @@ Auf Fremdsystemen greift eine strikte Funktionstrennung:
 | **Page_Tools** | `LOOT Fetch` (`btn_loot_fetch`) | ✅ Aktiv | Reines Online-Metadaten-Scraping |
 | **Page_Tools** | `Kategorisierer` (`btn_classifier`) | ✅ Aktiv | Reine SQLite-Datenbankoperation |
 | **Page_Tools** | `LoadOrder Sortierer` (`btn_load_order_sorter`) | ✅ Aktiv | Reine SQLite-Datenbankoperation |
-| **Page_LoadOrder** | `Profil aktivieren` (`btn_activate_profile`) | ❌ Gesperrt | Überschreibt fremde `Plugins.txt` |
+| **Page_LoadOrder** | `Profil aktivieren` (`btn_activate_profile`) | ❌ Gesperrt | Schreibt fremde `Plugins.txt` |
+| **Page_LoadOrder** | `Profil einlesen` (`btn_import_profile`) | ❌ Gesperrt | Liest fremde / nicht vorhandene `Plugins.txt` ein |
 | **Page_Update** | `Update starten` (`btn_start_update`) | ❌ Gesperrt | Entpackt / modifiziert lokale Spieldateien |
 | **Page_Update** | `Update prüfen` (`btn_resolve_update_status`) | ✅ Aktiv | Reiner Web- und Versionsabgleich |
 
-Gesperrte Kacheln und Buttons werden visuell deaktiviert (gedimmtes Styling gemäß Design Rules) und erhalten verbindlich den Tooltip:  
-`"Auf diesem System gesperrt (Fremdsystem-Schutz)"`.
+Gesperrte Kacheln und Buttons werden visuell deaktiviert (gedimmtes Styling gemäß Design Rules) und erhalten einen dynamischen Tooltip mit dem exakten Sperrgrund (z. B. `"Auf diesem System gesperrt (Fremdsystem-Schutz)"`, `"Starfield-Spieleverzeichnis nicht gefunden"` oder `"Plugins.txt nicht gefunden"`).
 
 ---
 

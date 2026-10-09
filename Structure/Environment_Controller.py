@@ -14,8 +14,9 @@ from typing import Optional, Dict
 
 from Structure.Paths import get_setting, set_setting
 
-# Cache für den Host-Status (vermeidet wiederholte Registry-Abfragen bei UI-Updates)
+# Cache für den Host- und Umgebungsstatus
 _IS_PRIMARY_SYSTEM: Optional[bool] = None
+_IS_GAME_ENVIRONMENT_READY: Optional[bool] = None
 
 
 def get_current_machine_guid() -> str:
@@ -67,9 +68,58 @@ def get_registered_host_signature() -> Dict[str, str]:
 
 
 def invalidate_environment_cache():
-    """Setzt den internen Cache zurück (z. B. nach Reautorisierung)."""
-    global _IS_PRIMARY_SYSTEM
+    """Setzt den internen Cache zurück (z. B. nach Reautorisierung oder Pfadänderung)."""
+    global _IS_PRIMARY_SYSTEM, _IS_GAME_ENVIRONMENT_READY
     _IS_PRIMARY_SYSTEM = None
+    _IS_GAME_ENVIRONMENT_READY = None
+
+
+def get_game_environment_status(force_refresh: bool = False) -> tuple[bool, str]:
+    """
+    Ermittelt den detaillierten Bereitschaftsstatus der Spielumgebung inklusive Grund:
+    1. Host-Signatur autorisiert (is_primary_system)
+    2. Starfield-Data-Verzeichnis existiert (STARFIELD_GAME_DATA_PATH)
+    3. Plugins.txt existiert (STARFIELD_PLUGINS_PATH)
+    4. ContentCatalog.txt existiert (STARFIELD_CONTENT_CATALOG_PATH)
+    5. LOH-Datenverzeichnis existiert (DATA_DIR)
+    """
+    if not is_primary_system(force_refresh=force_refresh):
+        return False, "Auf diesem System gesperrt (Fremdsystem-Schutz)"
+
+    from Structure.Paths import (
+        STARFIELD_GAME_DATA_PATH,
+        STARFIELD_PLUGINS_PATH,
+        STARFIELD_CONTENT_CATALOG_PATH,
+        DATA_DIR,
+    )
+
+    if not STARFIELD_GAME_DATA_PATH or not os.path.isdir(STARFIELD_GAME_DATA_PATH):
+        return False, "Starfield-Spieleverzeichnis nicht gefunden"
+
+    if not STARFIELD_PLUGINS_PATH or not os.path.isfile(STARFIELD_PLUGINS_PATH):
+        return False, "Plugins.txt nicht gefunden"
+
+    if not STARFIELD_CONTENT_CATALOG_PATH or not os.path.isfile(STARFIELD_CONTENT_CATALOG_PATH):
+        return False, "ContentCatalog.txt nicht gefunden"
+
+    if not DATA_DIR or not os.path.isdir(DATA_DIR):
+        return False, "LOH-Datenverzeichnis nicht gefunden"
+
+    return True, ""
+
+
+def is_game_environment_ready(force_refresh: bool = False) -> bool:
+    """
+    Prüft, ob die Spiel- und Arbeitsumgebung voll einsatzbereit ist.
+    Gibt True zurück, wenn Rechner autorisiert und alle Pfade/Dateien vorhanden sind.
+    """
+    global _IS_GAME_ENVIRONMENT_READY
+    if _IS_GAME_ENVIRONMENT_READY is not None and not force_refresh:
+        return _IS_GAME_ENVIRONMENT_READY
+
+    ready, _ = get_game_environment_status(force_refresh=force_refresh)
+    _IS_GAME_ENVIRONMENT_READY = ready
+    return _IS_GAME_ENVIRONMENT_READY
 
 
 def is_primary_system(force_refresh: bool = False) -> bool:

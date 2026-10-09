@@ -44,6 +44,7 @@ def get_nexus_logger():
         
     logger = logging.getLogger("Nexus_Fetch")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(NEXUS_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -1132,6 +1133,8 @@ def run_nexus_fetch(log_signal=None) -> bool:
 
     start_dt = datetime.now()
     record_script_start("Nexus_Fetch.py", start_dt)
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Nexus Fetch' gestartet. Detailliertes Protokoll: {NEXUS_LOG_FILE}")
     log("--- Nexus Mods Datenabgleich gestartet (Hybrid: REST-API mit Playwright-Fallback) ---")
 
     # 1. Nexus REST-API Client initialisieren
@@ -1202,9 +1205,11 @@ def run_nexus_fetch(log_signal=None) -> bool:
 
         log(f"\n--- Nexus-Datenabgleich beendet. {success_count} von {processed_count} Mods erfolgreich aktualisiert. ---")
         record_script_end("Nexus_Fetch.py", datetime.now())
+        main_log.info(f"Prozess 'Nexus Fetch' erfolgreich abgeschlossen ({success_count} von {processed_count} Mods aktualisiert).")
         return True
     except Exception as e:
         log(f"KRITISCHER FEHLER im Nexus-Fetcher: {e}")
+        main_log.error(f"Prozess 'Nexus Fetch' mit Fehlern beendet: {e}")
         return False
     finally:
         pw_session.close()

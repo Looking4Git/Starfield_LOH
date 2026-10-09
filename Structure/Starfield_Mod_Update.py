@@ -74,6 +74,7 @@ def get_update_logger() -> logging.Logger:
 
     logger = logging.getLogger("Starfield_Mod_Update")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(MOD_UPDATE_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')

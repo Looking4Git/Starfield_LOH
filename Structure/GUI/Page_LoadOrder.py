@@ -723,14 +723,24 @@ class Page_LoadOrder(QWidget):
         self.update_activate_button_state(active_ids)
 
     def update_activate_button_state(self, active_ids=None):
-        """Aktualisiert den Zustand des 'Aktivieren'-Buttons (deaktiviert/muted, wenn Profil bereits aktiv)."""
+        """Aktualisiert den Zustand der Buttons 'Aktivieren' und 'Einlesen'."""
+        from Structure.Environment_Controller import is_game_environment_ready, get_game_environment_status
+        env_ready, reason = get_game_environment_status()
+
+        if hasattr(self, 'btn_import_profile') and self.btn_import_profile:
+            if not env_ready:
+                self.btn_import_profile.setEnabled(False)
+                self.btn_import_profile.setToolTip(reason if reason else "Auf diesem System gesperrt")
+            else:
+                self.btn_import_profile.setEnabled(True)
+                self.btn_import_profile.setToolTip("")
+
         if not hasattr(self, 'btn_activate_profile') or not self.btn_activate_profile:
             return
 
-        from Structure.Environment_Controller import is_primary_system
-        if not is_primary_system():
+        if not env_ready:
             self.btn_activate_profile.setEnabled(False)
-            self.btn_activate_profile.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+            self.btn_activate_profile.setToolTip(reason if reason else "Auf diesem System gesperrt")
             return
         else:
             self.btn_activate_profile.setToolTip("")
@@ -782,6 +792,16 @@ class Page_LoadOrder(QWidget):
             self.show_message_box("Fehler bei der Aktivierung", msg, QMessageBox.Icon.Critical)
 
     def on_import_profile(self):
+        from Structure.Environment_Controller import is_game_environment_ready, get_game_environment_status
+        if not is_game_environment_ready():
+            _, reason = get_game_environment_status()
+            self.show_message_box(
+                "Import gesperrt",
+                f"Der Import ist auf diesem System nicht möglich.\n\nGrund: {reason}",
+                QMessageBox.Icon.Warning
+            )
+            return
+
         # 1. Vorab-Validierung durchführen, BEVOR wir irgendetwas anzeigen oder anlegen!
         success, result = validate_plugins_for_import()
         if not success:

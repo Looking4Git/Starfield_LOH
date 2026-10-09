@@ -314,6 +314,12 @@ def update_runtime_data_paths(new_data_path: str):
                 if key in mdict:
                     mdict[key] = val
 
+    try:
+        from Structure.Environment_Controller import invalidate_environment_cache
+        invalidate_environment_cache()
+    except Exception:
+        pass
+
 
 
 # Sicherstellen, dass die initialen Ordner existieren

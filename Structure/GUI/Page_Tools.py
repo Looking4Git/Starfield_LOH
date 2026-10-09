@@ -183,9 +183,9 @@ class Page_Tools(QWidget):
         self.apply_environment_security()
 
     def apply_environment_security(self):
-        """Wendet die Sperrmatrix für Fremdsysteme an."""
-        from Structure.Environment_Controller import is_primary_system
-        is_primary = is_primary_system()
+        """Wendet die Sperrmatrix für Fremdsysteme und fehlende Spieldateien an."""
+        from Structure.Environment_Controller import get_game_environment_status
+        env_ready, reason = get_game_environment_status()
 
         foreign_blocked = [
             self.btn_local_check,
@@ -196,9 +196,9 @@ class Page_Tools(QWidget):
         ]
 
         for btn in foreign_blocked:
-            if not is_primary:
+            if not env_ready:
                 btn.setEnabled(False)
-                btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+                btn.setToolTip(reason if reason else "Auf diesem System gesperrt")
             else:
                 btn.setEnabled(True)
                 if btn == self.btn_reset_filedate:
@@ -366,8 +366,8 @@ class Page_Tools(QWidget):
         self.worker.start()
 
     def set_buttons_enabled(self, enabled):
-        from Structure.Environment_Controller import is_primary_system
-        is_primary = is_primary_system()
+        from Structure.Environment_Controller import get_game_environment_status
+        env_ready, reason = get_game_environment_status()
 
         foreign_blocked = {
             self.btn_local_check,
@@ -394,9 +394,9 @@ class Page_Tools(QWidget):
             if not enabled:
                 btn.setEnabled(False)
             else:
-                if not is_primary and btn in foreign_blocked:
+                if not env_ready and btn in foreign_blocked:
                     btn.setEnabled(False)
-                    btn.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+                    btn.setToolTip(reason if reason else "Auf diesem System gesperrt")
                 else:
                     btn.setEnabled(True)
                     if btn == self.btn_reset_filedate:

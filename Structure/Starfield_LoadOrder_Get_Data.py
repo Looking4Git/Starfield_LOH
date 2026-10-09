@@ -25,6 +25,7 @@ def get_load_order_get_data_logger():
         
     logger = logging.getLogger("Starfield_LoadOrder_Get_Data")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(LOADORDER_GET_DATA_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -55,6 +56,8 @@ def run_load_order_get_data(log_signal=None):
             print(msg)
         write_to_log(msg)
 
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Starfield LoadOrder Get Data' gestartet. Detailliertes Protokoll: {LOADORDER_GET_DATA_LOG_FILE}")
     log_msg("--- Starfield LoadOrder Get Data & Re-Sequence gestartet ---")
 
     # 1. Snapshot der aktuellen Plugins.txt in LOH_Workspace sichern
@@ -177,6 +180,7 @@ def run_load_order_get_data(log_signal=None):
 
         conn.commit()
         log_msg("\n--- Starfield LoadOrder Get Data & Re-Sequence erfolgreich beendet ---\n")
+        main_log.info("Prozess 'Starfield LoadOrder Get Data' erfolgreich abgeschlossen.")
         return True
         
     except Exception as e:
@@ -185,6 +189,7 @@ def run_load_order_get_data(log_signal=None):
         import traceback
         log_msg(f"KRITISCHER FEHLER beim Load Order Get Data: {str(e)}")
         log_msg(traceback.format_exc())
+        main_log.error(f"Prozess 'Starfield LoadOrder Get Data' mit Fehlern beendet: {str(e)}")
         return False
     finally:
         if conn:

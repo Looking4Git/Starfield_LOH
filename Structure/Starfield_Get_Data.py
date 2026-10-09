@@ -544,6 +544,7 @@ def get_check_logger():
         
     logger = logging.getLogger("Starfield_Get_Data")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(GET_DATA_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -715,6 +716,8 @@ def run_local_check(log_signal):
 
     start_dt = datetime.datetime.now()
     record_script_start("Starfield_Get_Data.py", start_dt)
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Starfield Get Data' gestartet. Detailliertes Protokoll: {GET_DATA_LOG_FILE}")
     conn = None
     try:
         log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
@@ -727,6 +730,7 @@ def run_local_check(log_signal):
             log_msg(f"-> Erfolgreich kopiert: Plugins.txt (nach {backup_dir})")
         else:
             log_msg(f"FEHLER: Plugins.txt nicht gefunden.")
+            main_log.error("Prozess 'Starfield Get Data' abgebrochen: Plugins.txt nicht gefunden.")
             return False
 
         catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
@@ -1046,6 +1050,7 @@ def run_local_check(log_signal):
         log_msg(f"- {update_mods_count} bestehende Mods verarbeitet.")
         log_msg("\nProzess erfolgreich abgeschlossen.\n")
         record_script_end("Starfield_Get_Data.py", datetime.datetime.now())
+        main_log.info(f"Prozess 'Starfield Get Data' erfolgreich abgeschlossen ({processed_count} Plugins verarbeitet, {new_mods_count} neu, {update_mods_count} aktualisiert).")
         return True
 
     except Exception as e:
@@ -1054,6 +1059,7 @@ def run_local_check(log_signal):
         import traceback
         log_msg(f"KRITISCHER FEHLER im Skript: {str(e)}")
         log_msg(traceback.format_exc())
+        main_log.error(f"Prozess 'Starfield Get Data' mit Fehlern beendet: {str(e)}")
         return False
     finally:
         if conn:

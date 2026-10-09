@@ -19,6 +19,7 @@ def get_check_logger():
         
     logger = logging.getLogger("Starfield_Check_Deleted")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(CHECK_LOG_FILE, encoding='utf-8')
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -41,11 +42,14 @@ def run_deleted_check(log_signal=None):
             print(msg)
         write_to_log(msg)
 
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Starfield Check Deleted' gestartet. Detailliertes Protokoll: {CHECK_LOG_FILE}")
     log_msg("--- Starfield Check Deleted Prozess gestartet ---")
     
     # 1. Plugins.txt einlesen und parsen
     if not os.path.exists(STARFIELD_PLUGINS_PATH):
         log_msg(f"FEHLER: Plugins.txt unter '{STARFIELD_PLUGINS_PATH}' nicht gefunden.")
+        main_log.error("Prozess 'Starfield Check Deleted' abgebrochen: Plugins.txt nicht gefunden.")
         return False
         
     # Sicherheitskopie anlegen
@@ -133,6 +137,7 @@ def run_deleted_check(log_signal=None):
         log_msg(f"- {checked_mods_count} Mods mit Masterfiles geprüft.")
         log_msg(f"- {deleted_mods_count} Mods auf Status 'entfernt' (2) gesetzt.")
         log_msg("--- Starfield Check Deleted erfolgreich beendet ---\n")
+        main_log.info(f"Prozess 'Starfield Check Deleted' erfolgreich abgeschlossen ({checked_mods_count} Mods geprüft, {deleted_mods_count} entfernt).")
         return True
         
     except Exception as e:
@@ -141,6 +146,7 @@ def run_deleted_check(log_signal=None):
         import traceback
         log_msg(f"KRITISCHER FEHLER beim Check Deleted: {str(e)}")
         log_msg(traceback.format_exc())
+        main_log.error(f"Prozess 'Starfield Check Deleted' mit Fehlern beendet: {str(e)}")
         return False
     finally:
         if conn:

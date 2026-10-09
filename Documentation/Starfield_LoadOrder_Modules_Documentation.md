@@ -59,6 +59,7 @@ graph TD
 ### 2.1 `Starfield_LoadOrder_Import.py` (Fokussierter Profil-Import)
 * **Aufruf:** Ausschließlich interaktiv über die Schaltfläche **»Einlesen«** auf [Page_LoadOrder.py](file:///d:/Starfield_LOH/Structure/GUI/Page_LoadOrder.py).
 * **Zweck:** Liest eine bestehende `Plugins.txt` ein, validiert fehlende Komponenten gegen die Mod-Datenbank und legt ein **neues, separates Profil** (mit vom Benutzer frei wählbarem Profilnamen und optionaler Beschreibung via [Dialog_Profil.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Profil.py)) in der Datenbank an.
+* **Umgebungs-Schutz:** Die Schaltfläche **»Einlesen«** ist deaktiviert, wenn das System nicht autorisiert ist oder die Spielumgebung nicht vollständig einsatzbereit ist (`is_game_environment_ready() == False`).
 * **Sicherungskategorie:** Passiv (Snapshot).
 * **Sicherungsort:** `Data/Backups/LOH_Workspace/Starfield_LoadOrder_Import/Plugins.txt`.
 

@@ -184,10 +184,11 @@ class Page_Update(QWidget):
                 variant="blue"
             )
             self.btn_start_update.clicked.connect(self.on_start_update_clicked)
-            from Structure.Environment_Controller import is_primary_system
-            if not is_primary_system():
+            from Structure.Environment_Controller import get_game_environment_status
+            env_ready, reason = get_game_environment_status()
+            if not env_ready:
                 self.btn_start_update.setEnabled(False)
-                self.btn_start_update.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+                self.btn_start_update.setToolTip(reason if reason else "Auf diesem System gesperrt")
 
         self.btn_resolve_update_status = ui.findChild(QPushButton, "btn_resolve_update_status")
         if self.btn_resolve_update_status:
@@ -364,12 +365,13 @@ class Page_Update(QWidget):
             if hasattr(self, "btn_start_update") and self.btn_start_update:
                 self.btn_start_update.setEnabled(True)
 
-        # 4. Fremdsystem-Schutz: 'Update starten' auf fremder Hardware sperren
-        from Structure.Environment_Controller import is_primary_system
-        if not is_primary_system():
+        # 4. Umgebungs-Schutz: 'Update starten' bei Fremdsystem oder fehlenden Spieldateien sperren
+        from Structure.Environment_Controller import get_game_environment_status
+        env_ready, reason = get_game_environment_status()
+        if not env_ready:
             if hasattr(self, "btn_start_update") and self.btn_start_update:
                 self.btn_start_update.setEnabled(False)
-                self.btn_start_update.setToolTip("Auf diesem System gesperrt (Fremdsystem-Schutz)")
+                self.btn_start_update.setToolTip(reason if reason else "Auf diesem System gesperrt")
         elif hasattr(self, "btn_start_update") and self.btn_start_update and self.btn_start_update.isEnabled():
             self.btn_start_update.setToolTip("")
 

@@ -1,5 +1,9 @@
 """
-Konsolidierter Single-Pass ESM-Parser für Bethesda Creation Engine 2 (.esm / .esp).
+Starfield LOH – File_ESM_Parser
+Konsolidierter Single-Pass ESM-Parser für Bethesda Creation Engine 2 (.esm / .esp) mit Subrecord- und Header-Analyse.
+
+Dokumentation: Documentation/File_ESM_Parser_Documentation.md
+
 Vereint Header-Analyse, Subrecord-Iteratoren und modulare Sub-Parser für:
 - TES4 Header & Masterfiles
 - CELL Records & Location-Verknüpfungen (XLCN)

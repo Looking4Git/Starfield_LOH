@@ -1,5 +1,9 @@
 """
-Zentrales Datenbank-Core-Modul (sqlite3) für Starfield LOH.
+Starfield LOH – Database_Core
+Verbindungsmanagement, transaktionale Context-Manager, Journalmodi und Basisschema-Initialisierung.
+
+Dokumentation: Documentation/Database_Documentation.md
+
 Verantwortlich für:
 - Verbindungsmanagement (get_db_connection)
 - Transaktionale Context-Manager (db_connection, db_cursor)

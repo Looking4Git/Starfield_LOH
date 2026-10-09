@@ -1,6 +1,8 @@
 """
-Structure/Database_Mods.py
-Verwaltung von Mods, Komponenten, Bildern, Lookups und Anforderungen.
+Starfield LOH – Database_Mods
+Verwaltung und Persistierung von Mods, Komponenten, Kategorien, Bildern und Mod-Anforderungen.
+
+Dokumentation: Documentation/Database_Documentation.md
 """
 
 import os

@@ -1,6 +1,8 @@
 """
-Modulares Nexus Mods Datenabruf-Modul (Hybrid-Architektur: REST-API mit Playwright-Fallback).
-Ermöglicht den schnellen, zuverlässigen und geschützten Metadatenabgleich für Starfield-Mods.
+Starfield LOH – Nexus_Fetch
+Nexus Mods Datenabruf-Modul (Hybrid-Architektur: REST-API mit Playwright-Fallback) für Metadatenabgleich.
+
+Dokumentation: Documentation/Nexus_Fetch_Documentation.md
 """
 
 import os

@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_LoadOrder_Get_Data
+Auslesen und Synchronisieren der aktuellen aktiven Ladereihenfolge aus Plugins.txt in die Profildatenbank.
+
+Dokumentation: Documentation/Starfield_LoadOrder_Modules_Documentation.md
+"""
+
 import os
 import sys
 import shutil

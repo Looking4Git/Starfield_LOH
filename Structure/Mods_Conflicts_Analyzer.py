@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Mods_Conflicts_Analyzer
+Analyse von Mod-Konflikten und Überschreibungen auf Record- und Subrecord-Ebene inklusive Konfliktstufen-Bewertung.
+
+Dokumentation: Documentation/Mods_Conflicts_Analyzer_Documentation.md
+"""
+
 import os
 import sys
 import time

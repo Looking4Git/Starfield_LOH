@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_Get_Data
+Erfassung, Parsing und Synchronisation lokaler Mod-Installationen und ContentCatalog-Daten in die Datenbank.
+
+Dokumentation: Documentation/Starfield_Get_Data_Documentation.md
+"""
+
 import os
 import shutil
 import datetime

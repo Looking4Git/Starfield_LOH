@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_Profile_Activation
+Aktivierung von Mod-Profilen und transaktionssicheres Schreiben der resultierenden Plugins.txt.
+
+Dokumentation: Documentation/Starfield_LoadOrder_Modules_Documentation.md
+"""
+
 import os
 import shutil
 import logging

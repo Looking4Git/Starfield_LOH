@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-ESM_CLI_Tool.py
-================
+Starfield LOH – ESM_CLI_Tool
+Kommandozeilen-Diagnosewerkzeug für ESM-Dateien, Records, Subrecords und Konflikte.
+
+Dokumentation: Documentation/ESM_CLI_Tool_Documentation.md
+
 Universelles Kommandozeilen-Diagnosewerkzeug für Starfield ESM-Dateien,
 Records, Subrecords, Zellen und Konflikte im Starfield Load Order Helper (LOH).
 

@@ -1,6 +1,8 @@
 """
-Structure/Database_Profiles.py
-Verwaltung von Benutzerprofilen, LoadOrder-Zuständen und Sorter-Ergebnissen.
+Starfield LOH – Database_Profiles
+Verwaltung von Benutzerprofilen, LoadOrder-Zuständen und Persistierung von Sorter-Ergebnissen.
+
+Dokumentation: Documentation/Database_Documentation.md
 """
 
 import logging

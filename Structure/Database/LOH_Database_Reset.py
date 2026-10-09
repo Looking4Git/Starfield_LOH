@@ -1,5 +1,9 @@
 """
-Modul für das Zurücksetzen von SQLite-Datenbanktabellen des Starfield Load Order Helper.
+Starfield LOH – LOH_Database_Reset
+Sicheres Zurücksetzen von Bewegungstabellen, Bereinigung von Tabellen und Datenbank-Vakuumierung.
+
+Dokumentation: Documentation/Database_Documentation.md
+
 Leert alle Bewegungstabellen, setzt Autoincrement-Zähler zurück, bereinigt temporäre
 Tabellen und führt abschließend ein VACUUM zur physischen Speicherplatzfreigabe durch.
 """

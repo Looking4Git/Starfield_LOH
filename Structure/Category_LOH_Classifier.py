@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Category_LOH_Classifier
+Automatisierte Klassifizierung von Starfield-Mods in LOH-Kategorien anhand technischer ESM-Merkmale und Ausschlusskriterien.
+
+Dokumentation: Documentation/Category_LOH_Classifier_Documentation.md
+"""
+
 import os
 import sys
 

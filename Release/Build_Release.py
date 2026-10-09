@@ -1,5 +1,9 @@
 """
-Starfield LOH - Release & Version Manager
+Starfield LOH – Build_Release
+Zentrales Release- und Packaging-Werkzeug (Git-Commit, Versioning, PyInstaller, GitHub Release).
+
+Dokumentation: Documentation/Release_Packaging_Documentation.md
+
 Zentrales GUI-Werkzeug für den Entwickler zur Steuerung des 4-Stufen-Release-Prozesses:
   1. Git:        Template-DB erstellen & lokalen Git-Commit durchführen.
   2. Version:    Aktuellen Build-Stand prüfen & version.json fortschreiben (SemVer 2.0).

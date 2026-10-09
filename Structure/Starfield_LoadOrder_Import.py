@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_LoadOrder_Import
+Import- und Validierungslogik für externe Ladereihenfolgen und Plugins.txt in spezifische Profile.
+
+Dokumentation: Documentation/Starfield_LoadOrder_Modules_Documentation.md
+"""
+
 import os
 import shutil
 import logging

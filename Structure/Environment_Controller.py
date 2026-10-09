@@ -1,7 +1,8 @@
 """
-Structure/Environment_Controller.py
-===================================
-Zentrale Umgebungs- und Rechneridentifikations-Steuerung für den Starfield Load Order Helper (LOH).
+Starfield LOH – Environment_Controller
+Umgebungs- und Rechneridentifikation, Host-Signatur und Fremdsystem-Sperrmatrix.
+
+Dokumentation: Documentation/Environment_Security_Documentation.md
 Verwaltet die Host-Signatur (MachineGuid, Computername, Benutzername) und implementiert
 die Fremdsystem-Sperrmatrix für portable Ausführungen auf fremder Hardware.
 """

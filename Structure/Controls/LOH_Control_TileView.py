@@ -1,3 +1,10 @@
+"""
+Starfield LOH – LOH_Control_TileView
+Kachel-Ansichtskomponente mit modalem Zoom-Overlay (Lupenfunktion) für Mod-Übersichten.
+
+Dokumentation: Documentation/LOH_Control_TileView_Documentation.md
+"""
+
 import os
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QScrollArea, 

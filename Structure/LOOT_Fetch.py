@@ -1,8 +1,8 @@
 """
-LOOT Fetcher für Starfield LOH.
-Ruft die offizielle LOOT-Masterlist für Starfield ab (lokal oder online via GitHub),
-gleicht alle aktiven Mods mit Masterfiles gegen die LOOT-Datenbank ab und speichert
-die zugeordneten LOH-Kategorien in die Tabelle 'Mods_Category_LOOT'.
+Starfield LOH – LOOT_Fetch
+Abruf der offiziellen LOOT-Masterlist für Starfield und Abgleich aktiver Mods zur Ermittlung von LOH-Kategorien.
+
+Dokumentation: Documentation/LOOT_Fetch_Documentation.md
 """
 
 import os

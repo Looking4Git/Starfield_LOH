@@ -1,5 +1,9 @@
 """
-Datenbankmodul für Skript-Ausführungen (LOH_Executions) und Mod-Update-Zustände.
+Starfield LOH – Database_Executions
+Laufzeiterfassung, Skript-Tracking (LOH_Executions) und Zustandsverwaltung für Mod-Updates.
+
+Dokumentation: Documentation/Database_Documentation.md
+
 Verantwortlich für:
 - Skript-Tracking (Start, Ende, Abbruch, Laufzeiten)
 - State-Auflösung und Status-Texte

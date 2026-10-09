@@ -1,7 +1,8 @@
 """
-Structure/Security.py
-=====================
-Sicherheits- und Signaturprüfungen für den Starfield Load Order Helper (LOH).
+Starfield LOH – Security
+Sicherheits- und Signaturprüfungen für Authenticode-Zertifikate und Anwendungs-Integrität.
+
+Dokumentation: Documentation/Environment_Security_Documentation.md
 Ermöglicht die Integritäts- und Authentizitätsprüfung der laufenden Anwendung
 anhand der digitalen Authenticode-Signatur von Looking4.
 """

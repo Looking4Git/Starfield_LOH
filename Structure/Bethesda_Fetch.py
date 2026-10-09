@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Bethesda_Fetch
+Metadaten-Scraper für Bethesda.net Creations zur automatischen Ergänzung von Mod-Informationen via Playwright.
+
+Dokumentation: Documentation/Starfield_Get_Data_Documentation.md
+"""
+
 import os
 import sqlite3
 import re

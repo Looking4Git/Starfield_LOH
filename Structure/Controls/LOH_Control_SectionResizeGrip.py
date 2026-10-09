@@ -1,3 +1,10 @@
+"""
+Starfield LOH – LOH_Control_SectionResizeGrip
+Interaktiver Sci-Fi-Ziehgriff zur stufenlosen Höhenanpassung von GUI-Sektionen per Mausdrag.
+
+Dokumentation: Documentation/LOH_Control_SectionResizeGrip_Documentation.md
+"""
+
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QPointF, Signal
 from PySide6.QtGui import QPainter, QPen, QColor, QMouseEvent

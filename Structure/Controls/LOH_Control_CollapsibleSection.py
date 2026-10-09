@@ -1,6 +1,8 @@
 """
-Starfield LOH - Reusable Collapsible Section Control
-Wiederverwendbares Klapp-Sektions-Widget im Starfield-Sci-Fi-Design:
+Starfield LOH – LOH_Control_CollapsibleSection
+Wiederverwendbares Klapp-Sektions-Widget im Starfield-Sci-Fi-Design mit Status-Indikator und Signalen.
+
+Dokumentation: Documentation/LOH_Control_CollapsibleSection_Documentation.md
 - Enthält eine klickbare Kopfzeile mit Icon, Titel und Status-Pfeil (Auf-/Zuklappen).
 - Farbakzentuierung im Starfield-Design (#1e1e1e, #304C7A Blau, #D7A64B Gold-Hover).
 - Vollständig gekapselter Inhalts-Container mit Signal-Benachrichtigung (toggled).

@@ -1,5 +1,9 @@
 """
-Modul für die automatische und regelbasierte Sortierung der Ladereihenfolge (LoadOrder Sorter).
+Starfield LOH – LoadOrder_Sorter
+Automatische und regelbasierte Sortierung der Ladereihenfolge (LoadOrder) nach dem modularen Block-First- und Band-Prinzip.
+
+Dokumentation: Documentation/LoadOrder_Sorter_Documentation.md
+
 Implementiert die modulare Block-First-Architektur:
 - Schritt 1: Mod-Block-Bildung & Vorsortieren nach Kategorien (Position 1 bis 32)
 - Schritt 2: Globale Block-Abhängigkeitsauflösung über die gesamte Liste (Maximum-Prinzip)

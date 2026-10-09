@@ -1,5 +1,9 @@
 """
-Datenbankmodul für Views, Konfliktmatrizen und Dimensionsstatistiken.
+Starfield LOH – Database_Views
+Verwaltung von SQLite-Views und Abfragen für Konfliktmatrizen und Kategorie-Dimensionen.
+
+Dokumentation: Documentation/Database_View_Mods_Conflicts_Matrix_Documentation.md
+
 Verantwortlich für:
 - View_Mods_Conflicts_Matrix (Paarweise FormID-Kollisionen nach Signaturen)
 - get_mod_conflicts_matrix (Abfrage für spezifische Mods)

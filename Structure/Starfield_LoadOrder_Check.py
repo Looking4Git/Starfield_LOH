@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_LoadOrder_Check
+Validierung der Konsistenz und Aktivierungszustände der Ladereihenfolge gegen die Profildatenbank.
+
+Dokumentation: Documentation/Starfield_LoadOrder_Modules_Documentation.md
+"""
+
 import os
 import sys
 import shutil

@@ -1,3 +1,10 @@
+"""
+Starfield LOH – LOH_Backup_Manager
+Backup-Verwaltung und Rotationslogik für Sicherungskopien sensibler Spieldateien.
+
+Dokumentation: Documentation/LOH_Backup_Architecture_Documentation.md
+"""
+
 import os
 import re
 import shutil

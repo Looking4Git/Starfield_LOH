@@ -1,3 +1,10 @@
+"""
+Starfield LOH – Starfield_Check_Deleted
+Prüfung und Bereinigung von gelöschten oder deinstallierten Mods und Synchronisation des Datenbankbestands.
+
+Dokumentation: Documentation/Starfield_Get_Data_Documentation.md
+"""
+
 import os
 import shutil
 import sqlite3

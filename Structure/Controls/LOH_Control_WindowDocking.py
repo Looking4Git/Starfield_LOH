@@ -1,3 +1,10 @@
+"""
+Starfield LOH – LOH_Control_WindowDocking
+Universeller Docking-Manager für Starfield LOH zur Verwaltung angedockter Fenster und Geometrien.
+
+Dokumentation: Documentation/LOH_Control_WindowDocking_Documentation.md
+"""
+
 import sys
 from PySide6.QtCore import QObject, Qt, QTimer, QEvent
 from PySide6.QtWidgets import QMainWindow, QDockWidget

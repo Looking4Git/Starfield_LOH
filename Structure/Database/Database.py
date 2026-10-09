@@ -1,6 +1,8 @@
 """
-Structure/Database.py
-Zentrale Fassade für das Datenbank-Subsystem von Starfield LOH.
+Starfield LOH – Database
+Zentrale Fassade für das modulare Datenbank-Subsystem (Re-Export aller Submodule).
+
+Dokumentation: Documentation/Database_Documentation.md
 
 Re-exportiert alle Funktionen, Klassen und Konstanten aus den spezialisierten Modulen:
 - Structure.Database_Core: DB-Verbindung, Transaktions-Context-Manager, Schema-Migrationen, Performance-Pragmas

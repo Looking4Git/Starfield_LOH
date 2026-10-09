@@ -1,7 +1,8 @@
 """
-File_ESM_Parser_Dynamic.py
-==========================
-Universelle, dynamische Funktionsbibliothek für gezielte ESM-Struktur- und Inhaltsabfragen.
+Starfield LOH – File_ESM_Parser_Dynamic
+Dynamische Funktionsbibliothek und Data-Access-Schicht (DAL) für gezielte ESM-Struktur- und Inhaltsabfragen.
+
+Dokumentation: Documentation/File_ESM_Parser_Dynamic_Documentation.md
 
 Stellt eine neutrale Data-Access-Schicht (DAL) bereit, um spezifische Records,
 Subrecords oder hierarchische GRUP-Verknüpfungen direkt aus .esm-Dateien abzufragen,

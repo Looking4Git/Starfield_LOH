@@ -1,8 +1,8 @@
 """
-Hauptmodul: Starfield_Mod_Update
-Zuständig für die strukturierte Sicherung, Deinstallations-Vorbereitung,
-den Hintergrund-Scanner (0,5s), die Validierung und die Prozessführung beim
-Aktualisieren von Creations-Mods über das Desktop-Overlay oder die Statusklärung.
+Starfield LOH – Starfield_Mod_Update
+Prozessführung, Hintergrund-Scanner, Validierung und Rollback-Mechanismen für Creation Store Mod-Updates.
+
+Dokumentation: Documentation/Starfield_Mod_Update_Documentation.md
 
 Implementiert die 8-stufige semantische Pipeline:
 - Schritt 1: Prüfen des vorherigen Updates (LOH_Executions & Mods_Updates)

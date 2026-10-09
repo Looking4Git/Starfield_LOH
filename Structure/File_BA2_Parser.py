@@ -1,4 +1,9 @@
-"""Zentraler Binär-Parser für Bethesda .ba2-Archivdateien."""
+"""
+Starfield LOH – File_BA2_Parser
+Zentraler Binär-Parser für Bethesda .ba2-Archivdateien zur Ermittlung enthaltener Asset-Typen.
+
+Dokumentation: Documentation/File_ESM_Parser_Documentation.md
+"""
 
 import os
 import struct

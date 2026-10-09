@@ -1,3 +1,10 @@
+"""
+Starfield LOH – LOH_Control_HeaderView
+Universeller Tabellenkopf mit deklarativen Spaltenregeln (Breiten, Stretch, Content-Cap).
+
+Dokumentation: Documentation/LOH_Control_HeaderView_Documentation.md
+"""
+
 from PySide6.QtWidgets import QHeaderView, QTableView
 from PySide6.QtCore import Qt, QEvent
 

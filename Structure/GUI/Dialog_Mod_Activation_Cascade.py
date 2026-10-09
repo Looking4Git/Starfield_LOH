@@ -249,17 +249,25 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         dep_map = self.cascade_data.get("dep_map", {})
         profile_mod_active = self.cascade_data.get("profile_mod_active", {})
 
-        # Direkte und transitive Nachfolger der Ziel-Mod ermitteln
-        target_descendants = set()
-        q_dep = [int(x) for x in dep_map.get(self.target_mod_id, [])]
-        while q_dep:
-            d = q_dep.pop(0)
-            if d not in target_descendants:
-                target_descendants.add(d)
-                q_dep.extend([int(x) for x in dep_map.get(d, [])])
-
         # Zwingend aktivierte Voraussetzungen der Ziel-Mod
         mandatory_reqs = {int(r["Mod_ID"]) for r in rows if r.get("Relationship") in ("TARGET", "REQUIREMENT")}
+
+        # Automatisch zu aktivierende Folge-Mods ermitteln:
+        # Startet strikt top-down bei Ziel-Mod und zwingenden Voraussetzungen.
+        # Nur echte Nachfolger (in dep_map), deren Voraussetzungen vollständig erfüllt sind
+        # (bereits im Profil aktiv oder in auto_activated_mids), werden als erfüllte Folge-Abhängigkeit vorausgewählt.
+        auto_activated_mids = set(mandatory_reqs)
+        candidate_queue = list(mandatory_reqs)
+        while candidate_queue:
+            curr = candidate_queue.pop(0)
+            for child in dep_map.get(curr, []):
+                child = int(child)
+                if child in auto_activated_mids or profile_mod_active.get(child, False):
+                    continue
+                c_reqs = [int(x) for x in req_map.get(child, [])]
+                if c_reqs and all(p in auto_activated_mids or profile_mod_active.get(p, False) for p in c_reqs):
+                    auto_activated_mids.add(child)
+                    candidate_queue.append(child)
 
         for r_data in rows:
             pos = r_data.get("Position", 0)
@@ -310,23 +318,9 @@ class Dialog_Mod_Activation_Cascade(QDialog):
                 item_active.setToolTip("Zwingende Voraussetzung der Ziel-Mod (kann hier nicht umgestellt werden)")
             else:
                 # DEPENDENT / PROPOSAL im ACTIVATE-Modus:
-                # Darf nur dann initial automatisch angehakt sein, wenn:
-                # 1. Die Mod ein echter Nachfolger der Ziel-Mod ist
-                # 2. ALLE sonstigen Voraussetzungen der Mod bereits in der LoadOrder aktiv sind
-                dep_reqs = [int(x) for x in req_map.get(mod_id, [])]
-                is_target_descendant = (mod_id in target_descendants)
-
-                all_other_reqs_active = True
-                for p_id in dep_reqs:
-                    if p_id in mandatory_reqs:
-                        continue
-                    if not profile_mod_active.get(p_id, False):
-                        all_other_reqs_active = False
-                        break
-
-                if is_target_descendant and all_other_reqs_active:
+                if mod_id in auto_activated_mids:
                     item_active.setCheckState(Qt.CheckState.Checked)
-                    item_active.setToolTip("Direkte Folge-Abhängigkeit (alle Voraussetzungen im Profil aktiv)")
+                    item_active.setToolTip("Folge-Abhängigkeit (alle Voraussetzungen im Profil erfüllt)")
                 else:
                     item_active.setCheckState(Qt.CheckState.Unchecked)
                     item_active.setToolTip("Optionale Abhängigkeit / Vorschlag (Voraussetzungen noch nicht vollständig aktiv)")
@@ -452,25 +446,38 @@ class Dialog_Mod_Activation_Cascade(QDialog):
             profile_mod_active = self.cascade_data.get("profile_mod_active", {})
 
             if is_checked:
-                # 1. Voraussetzungen der angehakten Mod in der Liste automatisch aktivieren
-                needed_reqs = set()
-                q = [int(x) for x in req_map.get(mod_id, [])]
-                while q:
-                    cur = q.pop(0)
-                    if cur not in needed_reqs:
-                        needed_reqs.add(cur)
-                        q.extend([int(x) for x in req_map.get(cur, [])])
-
+                # 1. Bereits aktive Mods ermitteln, damit nur TATSÄCHLICH neu aktivierte Mods erfasst werden
+                already_checked_mids = set()
                 for r in range(self.model.rowCount()):
                     it = self.model.item(r, 1)
                     mid = int((it.data(Qt.ItemDataRole.UserRole) or {}).get("Mod_ID", 0))
-                    if mid in needed_reqs and it.checkState() != Qt.CheckState.Checked:
+                    # Beachte: item (angeklickt) ist in der Tabelle bereits Checked, alle anderen gemäß aktuellem Zustand
+                    if mid != mod_id and it.checkState() == Qt.CheckState.Checked:
+                        if mid:
+                            already_checked_mids.add(mid)
+
+                newly_activated = {mod_id}
+                q_req = [int(x) for x in req_map.get(mod_id, [])]
+                while q_req:
+                    cur = q_req.pop(0)
+                    if cur not in newly_activated and cur not in already_checked_mids and not profile_mod_active.get(cur, False):
+                        newly_activated.add(cur)
+                        q_req.extend([int(x) for x in req_map.get(cur, [])])
+
+                # Checkboxen der neu aktivierten Voraussetzungen in der Tabelle setzen
+                for r in range(self.model.rowCount()):
+                    it = self.model.item(r, 1)
+                    mid = int((it.data(Qt.ItemDataRole.UserRole) or {}).get("Mod_ID", 0))
+                    if mid in newly_activated and it.checkState() != Qt.CheckState.Checked:
                         it.setCheckState(Qt.CheckState.Checked)
 
-                # 2. Abhängigkeiten prüfen: Sind durch das Aktivieren nun alle Voraussetzungen erfüllt?
-                changed_any = True
-                while changed_any:
-                    changed_any = False
+                # 2. Abhängigkeiten der neu aktivierten Mods prüfen:
+                # Wurde eine Mod neu aktiviert (direkt oder als Voraussetzung),
+                # werden alle deren Folge-Abhängigkeiten aktiviert, sofern all deren Voraussetzungen erfüllt sind.
+                # Schleife läuft iterativ (Fixed-Point), bis keine weiteren abhängigen Mods neu hinzukommen.
+                changed = True
+                while changed:
+                    changed = False
                     checked_mids = set()
                     for r in range(self.model.rowCount()):
                         it = self.model.item(r, 1)
@@ -479,14 +486,21 @@ class Dialog_Mod_Activation_Cascade(QDialog):
                             if mid:
                                 checked_mids.add(mid)
 
-                    for r in range(self.model.rowCount()):
-                        it = self.model.item(r, 1)
-                        if it.checkState() == Qt.CheckState.Unchecked and not it.data(ROLE_LOCKED):
-                            mid = int((it.data(Qt.ItemDataRole.UserRole) or {}).get("Mod_ID", 0))
-                            m_reqs = [int(x) for x in req_map.get(mid, [])]
-                            if m_reqs and all(p in checked_mids or profile_mod_active.get(p, False) for p in m_reqs):
-                                it.setCheckState(Qt.CheckState.Checked)
-                                changed_any = True
+                    for parent_mid in list(newly_activated):
+                        for child_mid in dep_map.get(parent_mid, []):
+                            child_mid = int(child_mid)
+                            if child_mid in checked_mids or profile_mod_active.get(child_mid, False):
+                                continue
+                            c_reqs = [int(x) for x in req_map.get(child_mid, [])]
+                            if c_reqs and all(p in checked_mids or profile_mod_active.get(p, False) for p in c_reqs):
+                                for r in range(self.model.rowCount()):
+                                    it = self.model.item(r, 1)
+                                    mid = int((it.data(Qt.ItemDataRole.UserRole) or {}).get("Mod_ID", 0))
+                                    if mid == child_mid and not it.data(ROLE_LOCKED):
+                                        it.setCheckState(Qt.CheckState.Checked)
+                                        newly_activated.add(child_mid)
+                                        changed = True
+                                        break
 
             else:
                 # Mod wurde abgewählt: Alle abhängigen Folge-Mods in der Liste abwählen

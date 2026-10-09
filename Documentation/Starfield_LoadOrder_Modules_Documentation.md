@@ -134,9 +134,10 @@ graph TD
     * Bereits aktive / fixierte Folge-Mods: Muted Grün (`#164329`).
     * Frei editierbare Voraussetzungen bzw. Abhängigkeiten: Aktives Rot (`#C72138`) bzw. Aktives Grün (`#1F7343`).
   * **Checkbox-Schutz:** Fixierte Mods sind gesperrt (`disabled`) und visuell über `QTableView::indicator:disabled` ausgegraut (`#7A7A7A` / `#6A6E73`) dargestellt.
-  * **Interaktive Kaskaden-Synchronisation:**
-    * Aktivieren einer Mod aktiviert automatisch rekursiv alle Voraussetzungen und schaltet nun erfüllte Abhängigkeiten frei.
-    * Deaktivieren einer Mod deaktiviert automatisch alle abhängigen Mods.
+  * **Interaktive Kaskaden-Synchronisation & Vorbelegungs-Regel:**
+    * **Initiale Vorbelegung:** Ziel-Mod und zwingende Voraussetzungen sind fest verankert (`ROLE_LOCKED`). Echte Nachfolger (Top-Down BFS), deren Voraussetzungen im Profil vollständig erfüllt sind (bereits aktiv in der LoadOrder oder unter den zu aktivierenden Komponenten), werden als Folge-Abhängigkeiten initial vorgeschlagen (`Checked`, Starfield-Gold) und bleiben frei abwählbar. Fremde Wurzeln/Eltern werden nicht vorausgewählt.
+    * **Interaktive Klicks:** Aktivieren einer Mod aktiviert rekursiv ausschließlich deren Voraussetzungen (`needed_reqs`). Abwählen einer Mod deaktiviert automatisch alle abhängigen Folge-Mods (`uncheck_deps`). Unabhängige Geschwister-Patches behalten ihren Zustand und werden nicht zwangsreaktiviert.
+    * **Deaktivieren:** Deaktivieren einer Mod deaktiviert automatisch alle abhängigen Mods.
 * **Aktionen:**
   * »Aktivieren«: Schreibt alle ausgewählten Komponenten mit `Is_Active = 1` in `LoadOrder` und aktualisiert die Tabelle und Limit-Balken auf `Page_LoadOrder`.
   * »Abbrechen«: Verwirft alle Änderungen vollständig und stellt die Checkbox auf ihren inaktiven Stand zurück.

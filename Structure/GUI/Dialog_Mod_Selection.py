@@ -162,7 +162,6 @@ class ModSelectionDialog(QDialog):
         self.lbl_search = QLabel("Suche:")
         self.lbl_search.setStyleSheet("color: #ECECEC; font-weight: bold;")
         self.inp_search = QLineEdit()
-        self.inp_search.setPlaceholderText("Live-Filter nach Mod-Name oder Masterfile...")
         self.inp_search.textChanged.connect(self.on_search_changed)
         self.search_layout.addWidget(self.lbl_search)
         self.search_layout.addWidget(self.inp_search)

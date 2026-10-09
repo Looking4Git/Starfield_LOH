@@ -14,6 +14,7 @@ from Structure.GUI.Page_Update import Page_Update
 from Structure.GUI.Page_Tools import Page_Tools
 from Structure.GUI.Page_Settings import Page_Settings
 from Structure.GUI.Window_Mod_Statistics import Window_Mod_Statistics
+from Structure.GUI.Window_Splash_Screen import Window_SplashScreen
 from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
@@ -96,10 +97,12 @@ class SidebarButton(QPushButton):
         self.text_label.setVisible(not is_compact)
 
 class StarfieldLOH(QMainWindow):
-    def __init__(self):
+    def __init__(self, splash_callback=None):
         super().__init__()
         
         # 1. Manifest und Settings laden
+        if splash_callback:
+            splash_callback("Lade Programmeinstellungen & Konfiguration ...")
         self.manifest = self.load_manifest()
         self.settings = self.load_settings()
         
@@ -180,21 +183,29 @@ class StarfieldLOH(QMainWindow):
         }
 
         # Seiten initialisieren und hinzufügen
+        if splash_callback:
+            splash_callback("Initialisiere Mod-Verwaltung (Page_Mods) ...")
         self.page_mods = Page_Mods()
         self.page_mods.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_mods)
         self.btn_mods.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_mods))
 
+        if splash_callback:
+            splash_callback("Initialisiere Ladereihenfolge (Page_LoadOrder) ...")
         self.page_lo = Page_LoadOrder()
         self.page_lo.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_lo)
         self.btn_lo.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_lo))
 
+        if splash_callback:
+            splash_callback("Initialisiere Update-Modul (Page_Update) ...")
         self.page_update = Page_Update()
         self.page_update.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_update)
         self.btn_update.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_update))
 
+        if splash_callback:
+            splash_callback("Initialisiere Diagnose-Werkzeuge (Page_Tools) ...")
         self.page_tools = Page_Tools()
         self.page_tools.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_tools)
@@ -204,6 +215,8 @@ class StarfieldLOH(QMainWindow):
         if hasattr(self.page_update, "log_message_emitted") and hasattr(self.page_tools, "log_console"):
             self.page_update.log_message_emitted.connect(self.page_tools.log_console.append_log)
 
+        if splash_callback:
+            splash_callback("Initialisiere Programmeinstellungen (Page_Settings) ...")
         self.page_settings = Page_Settings()
         self.page_settings.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_settings)
@@ -216,6 +229,8 @@ class StarfieldLOH(QMainWindow):
         self.main_layout.addWidget(self.content_stack)
 
         # Mod-Analyse Dock-Fenster & Dock-Manager initialisieren
+        if splash_callback:
+            splash_callback("Bereite Diagnosezentrum & Mod-Statistiken vor ...")
         self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
         self.dock_statistics = Window_Mod_Statistics(self)
         stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
@@ -229,6 +244,8 @@ class StarfieldLOH(QMainWindow):
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
         self.dock_statistics.category_changed.connect(self.on_mod_category_changed)
 
+        if splash_callback:
+            splash_callback("Lade Starfield Sci-Fi Stylesheets ...")
         self.load_stylesheet()
 
         self.previous_page = None
@@ -514,17 +531,7 @@ def setup_main_logging():
 if __name__ == "__main__":
     setup_main_logging()
     logging.info("Starfield Load Order Helper gestartet.")
-    from Structure.Environment_Controller import get_game_environment_status, is_primary_system
-    is_primary = is_primary_system()
-    env_ready, env_reason = get_game_environment_status()
-    if env_ready:
-        logging.info("Systemprüfung: Autorisierung und Spielumgebung erfolgreich verifiziert (Primärsystem: Ja, Spielumgebung: Bereit).")
-    else:
-        logging.warning(
-            f"Systemprüfung: Spielumgebung nicht bereit (Primärsystem: {'Ja' if is_primary else 'Nein'}, "
-            f"Grund: {env_reason}). Spielebezogene Funktionen bleiben gesperrt."
-        )
-    ensure_default_database_mode()
+
     app = QApplication(sys.argv)
     setup_dropdown_wheel_guard(app)
     app.setStyle("Fusion")
@@ -545,8 +552,38 @@ if __name__ == "__main__":
     if os.path.exists(ico_path):
         app.setWindowIcon(QIcon(ico_path))
 
-    window = StarfieldLOH()
+    # 1. Animiertes Ladefenster (Splash Screen) direkt für sofortiges visuelles Feedback anzeigen
+    splash = Window_SplashScreen()
+    splash.show()
+    app.processEvents()
+
+    # 2. System- & Autorisierungsprüfung
+    splash.set_status("Prüfe Systemumgebung & Rechner-Autorisierung ...")
+    from Structure.Environment_Controller import get_game_environment_status, is_primary_system
+    is_primary = is_primary_system()
+
+    # 3. Starfield-Spielumgebung & Spieldateien prüfen
+    splash.set_status("Prüfe Starfield-Spieleverzeichnis & Spielumgebung ...")
+    env_ready, env_reason = get_game_environment_status()
+    if env_ready:
+        logging.info("Systemprüfung: Autorisierung und Spielumgebung erfolgreich verifiziert (Primärsystem: Ja, Spielumgebung: Bereit).")
+    else:
+        logging.warning(
+            f"Systemprüfung: Spielumgebung nicht bereit (Primärsystem: {'Ja' if is_primary else 'Nein'}, "
+            f"Grund: {env_reason}). Spielebezogene Funktionen bleiben gesperrt."
+        )
+
+    # 4. Datenbank-Integrität & WAL-Modus sicherstellen
+    splash.set_status("Prüfe Datenbank-Integrität & WAL-Modus ...")
+    ensure_default_database_mode()
+
+    # 5. Hauptanwendungsfenster initialisieren (Submodule senden Status-Updates an Splash Screen)
+    window = StarfieldLOH(splash_callback=splash.set_status)
     window.show()
+
+    # 6. Ladefenster sauber beenden und Hauptfenster in den Vordergrund bringen
+    splash.finish(window)
+
     exit_code = app.exec()
     logging.info("Starfield Load Order Helper regulär beendet.")
     sys.exit(exit_code)

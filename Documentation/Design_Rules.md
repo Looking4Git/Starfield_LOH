@@ -355,3 +355,30 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
    * **Problem:** Wird `_set_dark_title_bar(widget)` ausschließlich im Konstruktor `__init__` aufgerufen, ist das native Windows-Fenster-Handle (`HWND`) zum Zeitpunkt des Aufrufs häufig noch nicht final vom Fenstermanager gemappt. Zudem setzt das Windows DWM die Non-Client-Attribute bei bestimmten Fenstereignissen (Minimieren/Wiederherstellen, Aktivierungswechsel oder verzögertes Rendering bei `QDialog.show()` / `exec()`) auf den Systemstandard (hell) zurück.
    * **Architektur-Regel:** Jedes Dialog- oder Toolfenster **muss zwingend die Methode `showEvent(self, event)` überschreiben** und darin `_set_dark_title_bar(self)` aufrufen. Dies garantiert, dass die Titelleiste bei jedem Anzeigen, Wiederherstellen und Aktivieren des Fensters dauerhaft im Dark Mode verbleibt.
 
+---
+
+## 11. Animierter Splash Screen (Start- und Ladefenster)
+
+Für den Anwendungsstart von `Starfield_LOH.pyw` ist ein eigenständiges, animiertes Ladefenster (`Window_SplashScreen` in `Structure/GUI/Window_Splash_Screen.py`) verbindlich definiert:
+
+1. **Visuelles Sofort-Feedback & Latenz-Überbrückung:**
+   * Bei Start auf Zielsystemen (z. B. i5-12400 ohne Starfield-Installation) verhindert das Fenster eine 10–12 Sekunden dauernde Verzögerung ohne Rückmeldung.
+   * Die Erzeugung und Anzeige erfolgt direkt nach Erzeugung der `QApplication` vor allen System-, Umgebungs-, Datenbank- und Modul-Initialisierungen (`splash.show()` + `app.processEvents()`).
+2. **Geometrie, Symmetrie & Kontur:**
+   * **Fenstermaße:** 632 × 188 px, randlos (`Qt.WindowType.FramelessWindowHint | Qt.WindowType.SplashScreen`), zentriert auf dem primären Bildschirm.
+   * **Freistellung & Radius:** Transparenter Fensterhintergrund (`WA_TranslucentBackground = True`) mit Innen-Container (`QFrame` / `QWidget`, Hintergrund `#161B22`, Rahmen `1px solid #394450`, `border-radius: 8px`).
+   * **18-px-Symmetrie:** Außenränder (Links, Rechts, Oben, Unten) sowie der Abstand zwischen Logo und Titel betragen exakt und gleichmäßig **18 px**.
+3. **Komponenten & Typografie:**
+   * **Logo:** 64 × 64 px `Icon_Mods.svg` in der oberen linken Ecke.
+   * **Titelzeile:** `"Starfield Load Order Helper"`, 41px `"Segoe UI"`, DemiBold (600), Starfield Gold (`#D7A64B`), exakt 514 px Textbreite.
+   * **Ladebalken:** 514 px Gesamtbreite (fluchtet exakt 1:1 zum Titel), bestehend aus 44 px hohen Klammern (`Icon_Bracket_Left.svg`, `Icon_Bracket_Right.svg`) und 20 Puzzleteilen (22 × 18 px) mit gleichmäßigem 2-px-Raster.
+   * **Animations-Ticker:** 200 ms QTimer Taktung; zyklischer 3er-Farben-Block wandert nach rechts (`[Gelb #D7A64B, Orange #E06236, Rot #C72138]`), inaktive Teile in Grau (`Icon_Progress_Grey.svg`).
+   * **Statuszeile:** 14px `"Segoe UI"`, zentriert unter dem Ladebalken, Schriftfarbe im Weiß des Puzzleteils (`#ECECEC` aus `Icon_Mods.svg`), um sich harmonisch ins Gesamtdesign einzufügen ohne unruhig hervorzustechen.
+4. **Initialisierungs-Kaskade:**
+   * `splash.set_status(...)` begleitet alle Prüfschritte transparent:
+     1. Rechner-Autorisierung & Primärsystem (`is_primary_system()`)
+     2. Starfield-Spieleverzeichnis & Spieldateien (`get_game_environment_status()`)
+     3. Datenbank-Integrität & WAL-Modus (`ensure_default_database_mode()`)
+     4. Submodul-Aufbau (`Page_Mods`, `Page_LoadOrder`, `Page_Update`, `Page_Tools`, `Page_Settings`, `Window_Mod_Statistics`)
+   * Sobald das Hauptfenster fertig konstruiert und gerendert ist: `window.show()`, `splash.finish(window)`.
+

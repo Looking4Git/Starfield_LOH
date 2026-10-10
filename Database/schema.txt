@@ -1936,6 +1936,8 @@ CREATE TABLE "Mods" (
                 "ID_ContentCatalog"    TEXT,
                 "Name_ContentCatalog"    TEXT,
                 "Name_Online"    TEXT,
+                "ID_Nexus"    INTEGER,
+                "User_Nexus"    TEXT,
                 "Author"    TEXT,
                 "Description"    TEXT,
                 "Image"    BLOB,

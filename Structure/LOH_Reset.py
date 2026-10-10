@@ -5,7 +5,7 @@ anschließend den lokalen Mod-Bilderordner (MOD_IMAGES_DIR).
 """
 
 import os
-from Structure.Paths import MOD_IMAGES_DIR
+from Structure.Paths import MOD_IMAGES_DIR, BACKUPS_DIR
 from Structure.Database.LOH_Database_Reset import reset_database_tables
 
 
@@ -14,6 +14,7 @@ def reset_project_data(log_signal=None) -> bool:
     Führt einen vollständigen Reset des Projekts durch:
     1. Leert die Bewegungstabellen der Datenbank und führt ein VACUUM durch.
     2. Leert das Verzeichnis der Mod-Vorschaubilder.
+    3. Leert alle Backup-Verzeichnisse (unter Beibehaltung der .gitkeep-Struktur).
     """
     def log(msg):
         if log_signal:
@@ -47,6 +48,31 @@ def reset_project_data(log_signal=None) -> bool:
             except Exception as img_e:
                 log(f"WARNUNG: Datei '{filename}' konnte nicht gelöscht werden: {img_e}")
         log(f"-> Verzeichnis '{MOD_IMAGES_DIR}' geleert ({cleaned_count} Dateien entfernt).")
+
+    # 3. Backup-Verzeichnisse leeren (Dateien & temporäre Unterordner entfernen, .gitkeep behalten)
+    if os.path.exists(BACKUPS_DIR):
+        log(f"-> Bereinige Backups in '{BACKUPS_DIR}'...")
+        cleaned_backup_files = 0
+        cleaned_backup_dirs = 0
+        for root, dirs, files in os.walk(BACKUPS_DIR, topdown=False):
+            for file in files:
+                if file == ".gitkeep":
+                    continue
+                file_path = os.path.join(root, file)
+                try:
+                    os.unlink(file_path)
+                    cleaned_backup_files += 1
+                except Exception as e:
+                    log(f"WARNUNG: Backup-Datei '{file_path}' konnte nicht gelöscht werden: {e}")
+            for d in dirs:
+                dir_path = os.path.join(root, d)
+                try:
+                    if os.path.exists(dir_path) and not os.listdir(dir_path):
+                        os.rmdir(dir_path)
+                        cleaned_backup_dirs += 1
+                except Exception as e:
+                    pass
+        log(f"-> Backup-Verzeichnisse geleert ({cleaned_backup_files} Dateien und {cleaned_backup_dirs} Zeitstempel-Ordner entfernt).")
 
     log("=== Starfield LOH Gesamt-Reset erfolgreich abgeschlossen ===")
     return True

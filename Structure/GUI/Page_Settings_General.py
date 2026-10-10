@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, QSize, Signal, QThread
 from Structure.Paths import (
     get_setting, set_setting, STARFIELD_GAME_DATA_PATH, DATA_DIR, APP_ROOT,
     resolve_path, to_storable_path,
-    GRAPHICS_DIR, DEFAULT_GAME_PATH, SETTINGS_FILE
+    GRAPHICS_DIR, DEFAULT_GAME_PATH, SETTINGS_FILE, SETTINGS_DEFAULT_FILE
 )
 from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
 from Structure.LOH_Reset import reset_database
@@ -50,7 +50,7 @@ class NexusKeyValidatorWorker(QThread):
         if not clean_key:
             return
 
-        from Structure.Nexus_Fetch import validate_nexus_api_key
+        from Structure.Nexus_Fetch_API import validate_nexus_api_key
 
         last_error_msg = ""
         for attempt in range(1, self.max_attempts + 1):
@@ -817,39 +817,55 @@ class Page_Settings_General(QWidget):
                 if os.path.exists(SETTINGS_FILE):
                     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                         cfg = json.load(f)
-                
-                cfg["paths"] = {"starfield_data": DEFAULT_GAME_PATH, "LOH_data": "Data"}
-                cfg["nexus"] = {"api_key": ""}
-                cfg["settings"] = {
-                    "Auto_Save": 0,
+
+                # Default-Vorlage laden
+                default_cfg = {}
+                if os.path.exists(SETTINGS_DEFAULT_FILE):
+                    with open(SETTINGS_DEFAULT_FILE, "r", encoding="utf-8") as f:
+                        default_cfg = json.load(f)
+
+                cfg["paths"] = default_cfg.get("paths", {"starfield_data": DEFAULT_GAME_PATH, "LOH_data": "Data"})
+                cfg["nexus"] = default_cfg.get("nexus", {"api_key": ""})
+                cfg["settings"] = default_cfg.get("settings", {
+                    "Auto_Save": 1,
                     "Limit_Warning_Percentage": 90,
                     "Prefer_Content_BarChart": False,
                     "Prefer_Classification_Tiles": True,
                     "Prefer_Conflict_Tiles": True,
                     "Starfield_Mod_Update_Backup_Strategy": False
-                }
-                cfg["creation_engine_limits"] = {
+                })
+                cfg["creation_engine_limits"] = default_cfg.get("creation_engine_limits", {
                     "Limit_Full_Master": 254,
                     "Limit_Medium_Master": 1024,
                     "Limit_Small_Master": 4096,
                     "Projection_PointerHandles_Core": 1200000,
                     "Projection_PointerHandles_Mods": 23,
                     "Limit_PointerHandles": 2097152
-                }
+                })
                 with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                     json.dump(cfg, f, indent=2)
             except Exception as e:
                 print(f"Fehler beim Zurücksetzen der Settings: {e}")
 
             # 3. Pfadanzeige und Checkboxen auf Seite aktualisieren
+            def_settings = cfg.get("settings", {})
             self.inp_starfield_data.setText(DEFAULT_GAME_PATH)
             self.update_status_display(DEFAULT_GAME_PATH)
             self.inp_nexus_api_key.setText("")
             self.update_nexus_status_display("")
-            self.chk_auto_save.setChecked(False)
-            self.chk_backup_strategy.setChecked(False)
-            self.chk_prefer_content_bar.setChecked(False)
-            self.chk_prefer_tiles.setChecked(False)
+
+            # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
+            for chk in [self.chk_auto_save, self.chk_backup_strategy, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+                chk.blockSignals(True)
+
+            self.chk_auto_save.setChecked(def_settings.get("Auto_Save", 1) == 1)
+            self.chk_backup_strategy.setChecked(bool(def_settings.get("Starfield_Mod_Update_Backup_Strategy", False)))
+            self.chk_prefer_content_bar.setChecked(bool(def_settings.get("Prefer_Content_BarChart", False)))
+            self.chk_prefer_classification_tiles.setChecked(bool(def_settings.get("Prefer_Classification_Tiles", True)))
+            self.chk_prefer_tiles.setChecked(bool(def_settings.get("Prefer_Conflict_Tiles", True)))
+
+            for chk in [self.chk_auto_save, self.chk_backup_strategy, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+                chk.blockSignals(False)
 
             # 4. Bestätigungsdialog anzeigen
             info_box = QMessageBox(self)

@@ -28,6 +28,7 @@ CHECK_LOG_FILE = GET_DATA_LOG_FILE
 LOADORDER_GET_DATA_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_LoadOrder_Get_Data.log")
 LOADORDER_CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_LoadOrder_Check.log")
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")
+NEXUS_API_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus_API.log")
 MOD_UPDATE_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Update.log")
 DB_FILE = os.path.join(DATABASE_DIR, "Starfield_LOH.db")
 DATABASE_FILE = DB_FILE

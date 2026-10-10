@@ -9,7 +9,7 @@ from Structure.Starfield_Check_Deleted import run_deleted_check
 from Structure.Starfield_LoadOrder_Get_Data import run_load_order_get_data
 from Structure.Bethesda_Fetch import run_fetch
 from Structure.Mods_Conflicts_Analyzer import analyze_conflicts
-from Structure.Nexus_Fetch import run_nexus_fetch
+from Structure.Nexus_Fetch_API import run_nexus_fetch_api
 from Structure.LOOT_Fetch import run_loot_fetch
 from Structure.Category_LOH_Classifier import run_classifier
 from Structure.LoadOrder_Sorter import run_load_order_sorter, start_sorter_pre_checks
@@ -250,7 +250,7 @@ class Page_Tools(QWidget):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(run_nexus_fetch, start_message="Thread gestartet: Nexus Mods Fetch...")
+        self.worker = TaskWorker(run_nexus_fetch_api, start_message="Thread gestartet: Nexus Mods API Fetch...")
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()

@@ -824,7 +824,7 @@ def run_local_check(log_signal):
                 update_mods_count += 1
                 
                 # Mod-Zustand aus DB holen
-                cursor.execute("SELECT ID, ID_ContentCatalog, Name_ContentCatalog, State, Version_installed FROM Mods WHERE ID = ?", (mod_id,))
+                cursor.execute("SELECT ID, ID_ContentCatalog, Name_ContentCatalog, State, Version_installed, Author, Description, Date_installed FROM Mods WHERE ID = ?", (mod_id,))
                 db_mod_row = cursor.fetchone()
                 
                 if db_mod_row:
@@ -931,6 +931,36 @@ def run_local_check(log_signal):
                             log_msg(f"    -> [RESTORE LINK] Verknüpfung für bestehende Nexus-Komponente '{filename}' wiederhergestellt.")
                             
                         dry_run_components.add(filename.lower())
+
+                        # Fehlende Metadaten aus dem lokalen TES4-Header nachpflegen
+                        filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
+                        if os.path.exists(filepath):
+                            try:
+                                upd_fields = []
+                                upd_params = []
+                                cur_author = db_mod_row["Author"] if "Author" in db_mod_row.keys() else None
+                                cur_desc = db_mod_row["Description"] if "Description" in db_mod_row.keys() else None
+                                cur_date = db_mod_row["Date_installed"] if "Date_installed" in db_mod_row.keys() else None
+
+                                hdr_author, hdr_desc = parse_tes4_header(filepath)
+                                if (not cur_author or cur_author.strip().lower() == 'default') and hdr_author and hdr_author.strip() and hdr_author.strip().lower() != 'default':
+                                    upd_fields.append("Author = ?")
+                                    upd_params.append(hdr_author.strip())
+                                if not cur_desc and hdr_desc and hdr_desc.strip():
+                                    upd_fields.append("Description = ?")
+                                    upd_params.append(hdr_desc.strip())
+                                if not cur_date:
+                                    mtime = os.path.getmtime(filepath)
+                                    mtime_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                                    upd_fields.append("Date_installed = ?")
+                                    upd_params.append(mtime_str)
+
+                                if upd_fields:
+                                    upd_params.append(mod_id)
+                                    cursor.execute(f"UPDATE Mods SET {', '.join(upd_fields)} WHERE ID = ?", tuple(upd_params))
+                                    log_msg(f"    -> [UPDATE HEADER] Metadaten aus TES4-Header für bestehende Mod '{filename}' nachgepflegt.")
+                            except Exception as e:
+                                log_msg(f"    -> WARNUNG: Fehler beim Nachpflegen des TES4-Headers für '{filename}': {e}")
                             
             else:
                 # FALL A: Masterfile-Komponente noch nicht in der Tabelle Components angelegt (NEUER MOD)
@@ -990,21 +1020,38 @@ def run_local_check(log_signal):
                 else:
                     log_msg(f"\n  [INSERT MOD] NEU: Unbekannter Mod (nicht im Catalog)")
                     log_msg(f"    - Platform: 3 (Unbekannt)")
+                    filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
                     # Default: Gehen wir davon aus, dass es ein Full Master ist, wenn wir die Datei nicht parsen konnten
-                    master_code, bp_code = check_plugin_flags(os.path.join(STARFIELD_GAME_DATA_PATH, filename))
+                    master_code, bp_code = check_plugin_flags(filepath)
                     master_code = 1 if master_code == 0 and bp_code == 0 else master_code
                     log_msg(f"    -> [INSERT COMPONENT] {filename} (Is_Masterfile: {master_code}, Is_Blueprint: {bp_code})")
                     dry_run_components.add(filename.lower())
-                    
+
+                    # TES4-Header auslesen (Autor, Beschreibung) und Dateidatum ermitteln
+                    author_val = None
+                    desc_val = None
+                    date_val = None
+                    if os.path.exists(filepath):
+                        try:
+                            hdr_author, hdr_desc = parse_tes4_header(filepath)
+                            if hdr_author and hdr_author.strip() and hdr_author.strip().lower() != 'default':
+                                author_val = hdr_author.strip()
+                            if hdr_desc and hdr_desc.strip():
+                                desc_val = hdr_desc.strip()
+                            mtime = os.path.getmtime(filepath)
+                            date_val = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                        except Exception as e:
+                            log_msg(f"    -> WARNUNG: Konnte TES4-Header für '{filename}' nicht lesen: {e}")
+
                     # Neuen unbekannten Mod in DB einfügen (State = 1 für 'installiert')
                     note_val = None
                     if filename.lower().endswith('.esp'):
                         note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .esp Plugin!"
 
                     cursor.execute("""
-                        INSERT INTO Mods (Platform, Name_ContentCatalog, State, Note)
-                        VALUES (3, ?, 1, ?)
-                    """, (filename, note_val))
+                        INSERT INTO Mods (Platform, Name_ContentCatalog, Author, Description, Date_installed, State, Note)
+                        VALUES (3, ?, ?, ?, ?, 1, ?)
+                    """, (filename, author_val, desc_val, date_val, note_val))
                     mod_id = cursor.lastrowid
                     
                     # Komponente in DB einfügen

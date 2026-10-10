@@ -167,6 +167,16 @@ class BuildReleaseWindow(QWidget):
         self.ui.btn_md_hr.clicked.connect(self.on_format_hr)
         self.ui.btn_md_bold.clicked.connect(self.on_format_bold)
         self.ui.btn_md_list.clicked.connect(self.on_format_list)
+        if hasattr(self.ui, 'btn_md_link') and self.ui.btn_md_link:
+            self.ui.btn_md_link.clicked.connect(self.on_format_link)
+        if hasattr(self.ui, 'btn_md_color_yellow') and self.ui.btn_md_color_yellow:
+            self.ui.btn_md_color_yellow.clicked.connect(lambda: self.on_format_color("#D7A64B"))
+        if hasattr(self.ui, 'btn_md_color_red') and self.ui.btn_md_color_red:
+            self.ui.btn_md_color_red.clicked.connect(lambda: self.on_format_color("#E03048"))
+        if hasattr(self.ui, 'btn_md_color_blue') and self.ui.btn_md_color_blue:
+            self.ui.btn_md_color_blue.clicked.connect(lambda: self.on_format_color("#4493F8"))
+        if hasattr(self.ui, 'btn_md_color_green') and self.ui.btn_md_color_green:
+            self.ui.btn_md_color_green.clicked.connect(lambda: self.on_format_color("#2EA44F"))
 
         # Release Notes Aktionen
         self.ui.btn_generate_notes.clicked.connect(self.on_generate_release_notes)
@@ -517,7 +527,7 @@ class BuildReleaseWindow(QWidget):
         self.ui.inp_rel_notes.setFocus()
 
     def on_format_h2(self):
-        self._apply_markdown_formatting("\n## ", "\n---\n")
+        self._apply_markdown_formatting("\n---\n## ", "\n")
 
     def on_format_h3(self):
         self._apply_markdown_formatting("\n### ", "\n")
@@ -530,6 +540,28 @@ class BuildReleaseWindow(QWidget):
 
     def on_format_list(self):
         self._apply_markdown_formatting("", is_list=True)
+
+    def on_format_link(self):
+        cursor = self.ui.inp_rel_notes.textCursor()
+        if cursor.hasSelection():
+            selected = cursor.selectedText()
+            cursor.insertText(f"[{selected}](https://)")
+        else:
+            cursor.insertText("[Link-Text](https://)")
+        self.ui.inp_rel_notes.setFocus()
+
+    def on_format_color(self, hex_color: str):
+        cursor = self.ui.inp_rel_notes.textCursor()
+        if cursor.hasSelection():
+            selected = cursor.selectedText()
+            cursor.insertText(f'<span style="color: {hex_color};">{selected}</span>')
+        else:
+            pos = cursor.position()
+            cursor.insertText(f'<span style="color: {hex_color};">Text</span>')
+            cursor.setPosition(pos + len(f'<span style="color: {hex_color};">'))
+            cursor.setPosition(cursor.position() + 4, cursor.MoveMode.KeepAnchor)
+            self.ui.inp_rel_notes.setTextCursor(cursor)
+        self.ui.inp_rel_notes.setFocus()
 
     def _get_current_release_context(self) -> tuple[dict, str, str, bool]:
         """Ermittelt den aktuellen Stand für Version, Notizen, Dateinamen und Beta-Zustand."""

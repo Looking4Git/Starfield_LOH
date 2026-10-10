@@ -1141,6 +1141,116 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="btn_md_link">
+           <property name="minimumSize">
+            <size>
+             <width>38</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Hyperlink einfügen ([Text](URL))</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #ECECEC; border: 1px solid #444444; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #304C7A; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+           </property>
+           <property name="text">
+            <string>Link</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_color_yellow">
+           <property name="minimumSize">
+            <size>
+             <width>26</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Textfarbe: Starfield Gelb (#D7A64B)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #D7A64B; border: 1px solid #444444; border-bottom: 3px solid #D7A64B; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #383838; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e1e1e; }</string>
+           </property>
+           <property name="text">
+            <string>A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_color_red">
+           <property name="minimumSize">
+            <size>
+             <width>26</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Textfarbe: Starfield Rot (#E03048)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #E03048; border: 1px solid #444444; border-bottom: 3px solid #E03048; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #383838; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e1e1e; }</string>
+           </property>
+           <property name="text">
+            <string>A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_color_blue">
+           <property name="minimumSize">
+            <size>
+             <width>26</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Textfarbe: Starfield Blau (#4493F8)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #4493F8; border: 1px solid #444444; border-bottom: 3px solid #4493F8; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #383838; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e1e1e; }</string>
+           </property>
+           <property name="text">
+            <string>A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_md_color_green">
+           <property name="minimumSize">
+            <size>
+             <width>26</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="toolTip">
+            <string>Textfarbe: Starfield Grün (#2EA44F)</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #252525; color: #2EA44F; border: 1px solid #444444; border-bottom: 3px solid #2EA44F; border-radius: 2px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #383838; border-color: #5b7a9e; } QPushButton:pressed { background-color: #1e1e1e; }</string>
+           </property>
+           <property name="text">
+            <string>A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="spacer_toolbar">
            <property name="orientation">
             <enum>Qt::Orientation::Horizontal</enum>

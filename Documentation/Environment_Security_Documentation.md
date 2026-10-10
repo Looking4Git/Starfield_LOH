@@ -3,7 +3,7 @@
 ## 1. Übersicht & Zielsetzung
 Die Module der Umgebungssteuerung stellen sicher, dass die portable Version von **Starfield Load Order Helper (LOH)** sicher auf Fremdrechnern oder USB-Sticks betrieben werden kann, ohne dass lokale Spieldateien fremder Systeme beschädigt oder fehlerhafte Daten in die bestehende SQLite-Datenbank eingelesen werden.
 
-Gleichzeitig schützt die Architektur verschlüsselte Zugangsdaten (DPAPI) vor Rechnerwechsel-Abstürzen und härtet die Playwright-Browserinstanzen gegen Windows-Firewall-Warnungen und unautorisierte Cookies ab.
+Gleichzeitig schützt die Architektur verschlüsselte Zugangsdaten (DPAPI) vor Rechnerwechsel-Abstürzen und gewährleistet durch den vollständigen Verzicht auf Browser-Engines einen schlanken, firewall-neutralen und sicheren Datenabruf.
 
 ---
 

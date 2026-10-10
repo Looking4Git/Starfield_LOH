@@ -366,6 +366,9 @@ class StarfieldLOH(QMainWindow):
             self.page_update.load_data()
             self.page_update_flags["Page_Update"] = False
 
+        elif current_widget == getattr(self, 'page_tools', None):
+            self.page_tools.apply_environment_security()
+
     def closeEvent(self, event):
         """Prüft auf laufende Hintergrundprozesse und speichert den Fensterzustand."""
         # 1. Schutz vor unvollständigen Prozessen und Dateninkonsistenzen

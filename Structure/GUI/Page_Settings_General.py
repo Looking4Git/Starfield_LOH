@@ -442,6 +442,7 @@ class Page_Settings_General(QWidget):
         import Structure.Paths as P
         P.DPAPI_HARDWARE_MISMATCH = False
         self.update_nexus_status_display(val)
+        self.data_updated.emit()
 
     def on_nexus_api_key_text_changed(self, text: str):
         """Reagiert auf Textänderungen (z. B. sofortige Statusanpassung bei Leeren)."""
@@ -449,6 +450,7 @@ class Page_Settings_General(QWidget):
         if not val:
             set_setting("nexus", "api_key", "")
             self.update_nexus_status_display("")
+            self.data_updated.emit()
 
     def update_nexus_status_display(self, api_key: str):
         """Aktualisiert die Statusanzeige für den Nexus API-Key asynchron mit offiziellen Starfield-Farben."""
@@ -471,12 +473,17 @@ class Page_Settings_General(QWidget):
 
         self._validator_thread = NexusKeyValidatorWorker(clean_key, self)
         self._validator_thread.status_signal.connect(self._on_nexus_status_updated)
+        self._validator_thread.finished_result.connect(self._on_nexus_validation_finished)
         self._validator_thread.start()
 
     def _on_nexus_status_updated(self, text: str, style: str):
         """Aktualisiert das Status-Label thread-sicher über Qt-Signale."""
         self.lbl_nexus_status.setText(text)
         self.lbl_nexus_status.setStyleSheet(style)
+
+    def _on_nexus_validation_finished(self, result: dict):
+        """Wird ausgelöst, wenn die Hintergrundvalidierung des Nexus API-Keys abgeschlossen ist."""
+        self.data_updated.emit()
 
     def _stop_validator_thread(self):
         """Beendet einen eventuell laufenden Validierungs-Worker geordnet."""

@@ -182,6 +182,11 @@ class Page_Tools(QWidget):
 
         self.apply_environment_security()
 
+    def showEvent(self, event):
+        """Aktualisiert bei jedem Anzeigen der Seite die Environment- und Schlüsselprüfungen."""
+        super().showEvent(event)
+        self.apply_environment_security()
+
     def apply_environment_security(self):
         """Wendet die Sperrmatrix für Fremdsysteme und fehlende Spieldateien an."""
         from Structure.Environment_Controller import get_game_environment_status

@@ -12,38 +12,7 @@ from datetime import datetime
 from Structure.Paths import APP_ROOT
 
 
-def load_readme_legal_and_signature() -> str:
-    """Liest die Lizenz-, Disclaimer- und Signatur-Abschnitte 1:1 aus der README.md ein."""
-    readme_path = os.path.join(APP_ROOT, "README.md")
-    if os.path.exists(readme_path):
-        try:
-            with open(readme_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            marker = "## Lizenz & Rechtliche Hinweise"
-            if marker in content:
-                part = content[content.index(marker):]
-                if "</div>" in part:
-                    end_idx = part.index("</div>") + len("</div>")
-                    return part[:end_idx].strip()
-        except Exception:
-            pass
-    # Exakter 1:1 Fallback wie in README.md Zeilen 106-140
-    return """## Lizenz & Rechtliche Hinweise
-
-Dieses Projekt ist unter der **[MIT-Lizenz](LICENSE)** lizenziert.
-
-### Markenrechtlicher Disclaimer & Drittanbieter
-- **Starfield™** ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
-- **Nexus Mods™** ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
-- **LOOT (Load Order Optimisation Tool):** Verwendet die offizielle Starfield Masterlist, lizenziert unter [Creative Commons Zero (CC0 1.0)](https://github.com/loot/starfield).
-- **Bethesda Creations & Webdaten:** Der Abruf öffentlich sichtbarer Metadaten erfolgt rein im lokalen Browser-Kontext des Benutzers zur persönlichen Konfiguration seiner installierten Mods. Dieses Tool steht in keiner Verbindung zu Bethesda Softworks und wird nicht von Bethesda autorisiert.
-- Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.
-- Entwickelt mit Python und PySide6 (Qt für Python, lizenziert unter der LGPLv3).
-- Detaillierte Lizenz- und Urheberrechtsangaben aller verwendeten Komponenten sind in der Datei **[NOTICE](NOTICE)** hinterlegt.
-
----
-
-## Echtheitsprüfung & Signatur
+AUTHENTICODE_RELEASE_NOTES_SECTION = """## Echtheitsprüfung & Signatur
 
 Offizielle Release-Binärdateien (`Starfield_LOH.exe`) werden digital mit Microsoft Authenticode signiert. Zur Überprüfung der Integrität und Echtheit kann der kryptografische Fingerabdruck (SHA-1 Thumbprint) in den Windows-Dateieigenschaften (*Rechtsklick auf die Datei &rarr; Eigenschaften &rarr; Digitale Signaturen &rarr; Details*) mit dem offiziellen Schlüssel abgeglichen werden:
 
@@ -52,17 +21,57 @@ Offizielle Release-Binärdateien (`Starfield_LOH.exe`) werden digital mit Micros
   <table border="0" cellspacing="0" cellpadding="0">
     <tr>
       <td align="center" bgcolor="#FFFFFF" style="background-color: #FFFFFF; padding: 12px 28px; border-radius: 6px; border: 1px solid #D0D7DE;">
-        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px;">
-          1C70DCFE3AA3A3E645AF5D39B0240BEF16A0A413
+        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">
+          XXXXXXXX
         </span>
       </td>
     </tr>
   </table>
   <p align="center">
-    <sub><strong>Offizieller Looking4 Authenticode-Fingerabdruck (SHA-1 Thumbprint)</strong></sub>
+    <sub><strong style="color: #C72138;">
+      Um den offiziellen Looking4 Authenticode-Fingerabdruck (SHA-1 Thumbprint)<br>
+      einzusehen, rufen Sie bitte die offizielle Projektseite auf GitHub unter<br>
+      https://github.com/Looking4Git/Starfield_LOH auf.
+    </strong></sub>
   </p>
   <br>
 </div>"""
+
+
+def load_readme_legal_and_signature() -> str:
+    """Liest den Lizenz- und Disclaimer-Abschnitt aus README.md ein und fügt die Release-Authenticode-Hinweise an."""
+    readme_path = os.path.join(APP_ROOT, "README.md")
+    legal_part = None
+    if os.path.exists(readme_path):
+        try:
+            with open(readme_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            marker = "## Lizenz & Rechtliche Hinweise"
+            if marker in content:
+                part = content[content.index(marker):]
+                if "## Echtheitsprüfung & Signatur" in part:
+                    legal_part = part[:part.index("## Echtheitsprüfung & Signatur")].strip()
+                elif "</div>" in part:
+                    end_idx = part.index("</div>") + len("</div>")
+                    legal_part = part[:end_idx].strip()
+        except Exception:
+            pass
+
+    if not legal_part:
+        legal_part = """## Lizenz & Rechtliche Hinweise
+
+Dieses Projekt ist unter der **[MIT-Lizenz](LICENSE)** lizenziert.
+
+### Markenrechtlicher Disclaimer & Drittanbieter
+- **Starfield™** ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
+- **Nexus Mods™** ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
+- **LOOT (Load Order Optimisation Tool):** Verwendet die offizielle Starfield Masterlist, lizenziert unter [Creative Commons Zero (CC0 1.0)](https://github.com/loot/starfield).
+- **Bethesda Creations & Webdaten:** Der Abruf öffentlich zugänglicher Metadaten erfolgt automatisiert über die REST- und GraphQL-Schnittstellen zur persönlichen Konfiguration der installierten Mods. Dieses Tool steht in keiner Verbindung zu Bethesda Softworks und wird nicht von Bethesda autorisiert.
+- Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.
+- Entwickelt mit Python und PySide6 (Qt für Python, lizenziert unter der LGPLv3).
+- Detaillierte Lizenz- und Urheberrechtsangaben aller verwendeten Komponenten sind in der Datei **[NOTICE](NOTICE)** hinterlegt."""
+
+    return f"{legal_part}\n\n---\n\n{AUTHENTICODE_RELEASE_NOTES_SECTION}"
 
 
 def format_display_date(date_str: str = None) -> str:

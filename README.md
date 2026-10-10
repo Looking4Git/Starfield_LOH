@@ -125,7 +125,7 @@ Offizielle Release-Binärdateien (`Starfield_LOH.exe`) werden digital mit Micros
   <table border="0" cellspacing="0" cellpadding="0">
     <tr>
       <td align="center" bgcolor="#FFFFFF" style="background-color: #FFFFFF; padding: 12px 28px; border-radius: 6px; border: 1px solid #D0D7DE;">
-        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 1px;">
+        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">
           1C70DCFE3AA3A3E645AF5D39B0240BEF16A0A413
         </span>
       </td>

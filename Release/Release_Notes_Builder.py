@@ -18,15 +18,11 @@ Offizielle Release-Binärdateien (`Starfield_LOH.exe`) werden digital mit Micros
 
 <div align="center">
   <br>
-  <table border="0" cellspacing="0" cellpadding="0">
-    <tr>
-      <td align="center" bgcolor="#FFFFFF" style="background-color: #FFFFFF; padding: 12px 28px; border-radius: 6px; border: 1px solid #D0D7DE;">
-        <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">
-          XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        </span>
-      </td>
-    </tr>
-  </table>
+  <div style="display: inline-block; background-color: #FFFFFF; padding: 12px 28px; border-radius: 6px; border: 1px solid #D0D7DE;">
+    <span style="color: #111111; font-family: Consolas, 'Courier New', monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">
+      XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    </span>
+  </div>
   <p align="center">
     <sub><strong style="color: #C72138;">
       Um den offiziellen Looking4 Authenticode-Fingerabdruck (SHA-1 Thumbprint)<br>

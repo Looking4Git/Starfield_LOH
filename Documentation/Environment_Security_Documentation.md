@@ -103,26 +103,15 @@ Zieht der Benutzer bewusst mit seiner Installation dauerhaft auf einen neuen Hau
 ## 6. Playwright Chromium-Härtung & Datenschutz
 
 ### A. Windows-Firewall-Schutz
-Sowohl in `Bethesda_Fetch.py` als auch in `Nexus_Fetch.py` startet Chromium mit folgenden Flags:
+In `Bethesda_Fetch.py` startet Chromium zur einmaligen Sitzungs- und Token-Generierung mit folgenden Härtungs-Flags:
 * `--disable-background-networking`: Unterbindet Hintergrund-Netzwerkverkehr.
 * `--disable-sync`: Verhindert Google-Sync-Dienste.
 * `--no-first-run`: Unterdrückt Begrüßungs- und Setup-Routinen.
 * `--metrics-recording-only`: Deaktiviert Telemetrie-Senden.
 * `--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider`: Deaktiviert lokale mDNS/SSDP-Geräteerkennung, die typischerweise die Windows-Firewall-Warnung triggert.
 
-### B. Deterministische Cookie-Ablehnung (Nexus Mods)
-Im persistenten Browserprofil von `Nexus_Fetch.py` führt die Methode `handle_onetrust_consent(page)` bei Erkennung des OneTrust-Banners gezielt das strikte Opt-Out aus:
-1. Klick auf `#onetrust-reject-all-handler`.
-2. Ergänzende Ausführung von `window.OneTrust.RejectAll()`.
-3. **Ergebnis:**
-   * Ausschließlich Kategorie `C0001` (Strictly Necessary Cookies) bleibt aktiv, da sie technisch für Cloudflare und den Webseitenbetrieb zwingend erforderlich ist.
-   * Alle Tracking-, Marketing-, Performance- und Funktions-Cookies (`C0002` bis `C0005`) werden vollständig abgelehnt und bleiben im Profil dauerhaft gesperrt.
+### B. Nexus Mods: Vollständige Entkopplung via GraphQL v2
+* Im Gegensatz zu früheren Scraper-Ansätzen benötigt der **Nexus Mods API Fetcher** ([Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py)) keinerlei Browser-Instanz oder Playwright-Sitzung.
+* Sämtliche Daten und Dateiinhalts-Suchen werden direkt über die offizielle **Nexus GraphQL API v2** abgewickelt. Dadurch entfallen Browser-Profile, Cookie-Banner und Cloudflare Turnstile Challenges vollständig.
 
-### C. Bedarfsgesteuerte Cloudflare Turnstile Freigabe (Headful Switch)
-* **Hintergrund:** Nexus Mods schützt Webseiten durch Cloudflare Turnstile Bot-Protection (HTTP 403 / *„Just a moment...“*), die im Headless-Betrieb nicht automatisiert gelöst werden kann.
-* **Automatischer Wechsel (Headful Switch):**
-  1. Standardmäßig operiert der Browser geräuschlos im Hintergrund (`headless=True`).
-  2. Wird eine aktive Cloudflare-Sicherheitsabfrage erkannt (`is_cloudflare_challenge`), wechselt `PlaywrightSession` dynamisch in ein sichtbares Fenster (`headless=False`).
-  3. Der Anwender erhält im Logfenster eine transparente Rückmeldung und kann die Freigabe per Klick bestätigen.
-  4. Sobald die Freigabe erteilt ist, speichert Chromium das resultierende `cf_clearance`-Cookie im persistenten Profil (`Data/Nexus_Browser_Profile/`), sodass nachfolgende Aufrufe wieder ohne Interaktion passieren.
 

@@ -261,7 +261,6 @@ BACKUPS_LOADORDER_GET_DATA_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_
 BACKUPS_LOADORDER_CHECK_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Check")
 BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
 BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_DIR, "Starfield_Mod_Update")
-NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
 
 
 def update_runtime_data_paths(new_data_path: str):
@@ -271,7 +270,7 @@ def update_runtime_data_paths(new_data_path: str):
     global DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR
     global BACKUPS_GET_DATA_DIR, BACKUPS_IMPORT_DIR, BACKUPS_CHECK_DELETED_DIR
     global BACKUPS_LOADORDER_GET_DATA_DIR, BACKUPS_LOADORDER_CHECK_DIR
-    global BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR, NEXUS_BROWSER_PROFILE_DIR
+    global BACKUPS_ACTIVATION_DIR, BACKUPS_MOD_UPDATE_DIR
     DATA_DIR = resolve_path(new_data_path, "Data")
     MOD_IMAGES_DIR = os.path.join(DATA_DIR, "Mod_Images")
     BACKUPS_DIR = os.path.join(DATA_DIR, "Backups")
@@ -283,7 +282,6 @@ def update_runtime_data_paths(new_data_path: str):
     BACKUPS_LOADORDER_CHECK_DIR = os.path.join(BACKUPS_WORKSPACE_DIR, "Starfield_LoadOrder_Check")
     BACKUPS_ACTIVATION_DIR = os.path.join(BACKUPS_DIR, "Profile_Activation")
     BACKUPS_MOD_UPDATE_DIR = os.path.join(BACKUPS_DIR, "Starfield_Mod_Update")
-    NEXUS_BROWSER_PROFILE_DIR = os.path.join(DATA_DIR, "Nexus_Browser_Profile")
     
     for directory in [
         DATA_DIR, MOD_IMAGES_DIR, BACKUPS_DIR, BACKUPS_WORKSPACE_DIR,
@@ -306,7 +304,6 @@ def update_runtime_data_paths(new_data_path: str):
         "BACKUPS_LOADORDER_CHECK_DIR": BACKUPS_LOADORDER_CHECK_DIR,
         "BACKUPS_ACTIVATION_DIR": BACKUPS_ACTIVATION_DIR,
         "BACKUPS_MOD_UPDATE_DIR": BACKUPS_MOD_UPDATE_DIR,
-        "NEXUS_BROWSER_PROFILE_DIR": NEXUS_BROWSER_PROFILE_DIR,
     }
     for mod in list(sys.modules.values()):
         if mod and hasattr(mod, "__dict__"):

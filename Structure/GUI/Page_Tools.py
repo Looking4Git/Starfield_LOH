@@ -206,6 +206,19 @@ class Page_Tools(QWidget):
                 else:
                     btn.setToolTip("")
 
+        # Nexus API-Key & Hardware-Bindung prüfen
+        from Structure.Paths import get_nexus_api_key, is_dpapi_hardware_mismatch
+        nexus_key = get_nexus_api_key()
+        if is_dpapi_hardware_mismatch():
+            self.btn_nexus_fetch.setEnabled(False)
+            self.btn_nexus_fetch.setToolTip("Nexus API-Schlüssel ungültig (Hardwarewechsel erkannt). Bitte in den Einstellungen neu eingeben.")
+        elif not (nexus_key and str(nexus_key).strip()):
+            self.btn_nexus_fetch.setEnabled(False)
+            self.btn_nexus_fetch.setToolTip("Nexus Fetch erfordert einen gültigen API-Schlüssel in den Einstellungen.")
+        else:
+            self.btn_nexus_fetch.setEnabled(True)
+            self.btn_nexus_fetch.setToolTip("")
+
     def start_local_check(self):
         self.set_buttons_enabled(False)
         self.log_console.clear()
@@ -390,6 +403,17 @@ class Page_Tools(QWidget):
             self.btn_reset_filedate,
             self.btn_log_files,
         ]
+        from Structure.Paths import get_nexus_api_key, is_dpapi_hardware_mismatch
+        nexus_key = get_nexus_api_key()
+        nexus_mismatch = is_dpapi_hardware_mismatch()
+        nexus_ready = bool(nexus_key and str(nexus_key).strip()) and not nexus_mismatch
+        if nexus_mismatch:
+            nexus_tooltip = "Nexus API-Schlüssel ungültig (Hardwarewechsel erkannt). Bitte in den Einstellungen neu eingeben."
+        elif not nexus_ready:
+            nexus_tooltip = "Nexus Fetch erfordert einen gültigen API-Schlüssel in den Einstellungen."
+        else:
+            nexus_tooltip = ""
+
         for btn in all_buttons:
             if not enabled:
                 btn.setEnabled(False)
@@ -397,6 +421,9 @@ class Page_Tools(QWidget):
                 if not env_ready and btn in foreign_blocked:
                     btn.setEnabled(False)
                     btn.setToolTip(reason if reason else "Auf diesem System gesperrt")
+                elif btn == self.btn_nexus_fetch:
+                    btn.setEnabled(nexus_ready)
+                    btn.setToolTip(nexus_tooltip)
                 else:
                     btn.setEnabled(True)
                     if btn == self.btn_reset_filedate:

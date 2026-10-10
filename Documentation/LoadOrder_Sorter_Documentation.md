@@ -63,7 +63,7 @@ CREATE TABLE "LOH_Executions" (
 #### Erfasste Module:
 * `Starfield_Get_Data.py`
 * `Bethesda_Fetch.py`
-* `Nexus_Fetch.py`
+* `Nexus_Fetch_API.py`
 * `Category_LOH_Classifier.py`
 * `Mods_Conflicts_Analyzer.py`
 * `LoadOrder_Sorter.py`

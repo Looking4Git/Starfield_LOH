@@ -42,7 +42,7 @@ Um sicherzustellen, dass die portable Version auf beliebigen Zielsystemen ohne v
 1. **Revisionserkennung:** Auslesen der benötigten Browser-Revision für `chromium-headless-shell` direkt aus `browsers.json` des installierten Playwright-Pakets.
 2. **Automatische Bereitstellung:** Existiert der Browser-Ordner (`chromium_headless_shell-<rev>`) nicht in `%LOCALAPPDATA%\ms-playwright`, wird er automatisch via `py -m playwright install chromium` bezogen.
 3. **Natives Staging:** Kopieren des gesamten Ordners in das Staging-Verzeichnis unter `_internal\playwright\driver\package\.local-browsers\chromium_headless_shell-<rev>\`.
-4. **Vollständige Autarkie:** Beim Start der kompilierten Anwendung (`Starfield_LOH.exe`) finden die Module [Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) und [Nexus_Fetch.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch.py) den integrierten Headless-Browser vollständig nativ, ohne dass Pfad-Hacks oder Umgebungsvariablen nötig sind.
+4. **Vollständige Autarkie:** Beim Start der kompilierten Anwendung (`Starfield_LOH.exe`) findet das Modul [Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) den integrierten Headless-Browser vollständig nativ (für die REST-Session-Initialisierung), ohne dass Pfad-Hacks oder Umgebungsvariablen nötig sind. (Der [Nexus Mods API Fetcher](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py) arbeitet browserlos rein über HTTP/GraphQL).
 
 ---
 

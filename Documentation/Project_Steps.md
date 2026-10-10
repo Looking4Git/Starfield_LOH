@@ -53,9 +53,8 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
     - [X] Zeitsparendes Modifikationsdatums-Caching (`Filedate_Last_Check`)
     - [X] Auslesen und Speichern von Schiffs-Zellen (`CELL_Ship`)
     - [X] Requirements-Header-Erkennung (`MAST` Full Masters und `TNAM` Creations Transients)
-  - [X] Implementierung von [Structure/Starfield_Check_Deleted.py](file:///d:/Starfield_LOH/Structure/Starfield_Check_Deleted.py) zur Erkennung entfernter Plugins
-  - [X] Implementierung von [Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) (Creations Playwright/JSON-Scraper, Bild-Caching)
-  - [X] Implementierung von [Structure/Nexus_Fetch.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch.py) (REST-API & Browser-Hybrid, Cloudflare-Headful-Freigabe, Timeouts)
+  - [X] Implementierung von [Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) (High-Speed Turbo REST-API v2 mit einmaliger Playwright-Token-Initialisierung, Bild-Caching)
+  - [X] Implementierung von [Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py) (Nexus GraphQL v2 API, modFileContents-Inhaltssuche, Multi-Kandidaten-Kaskade, browserfrei)
   - [X] Implementierung von [Structure/LOOT_Fetch.py](file:///d:/Starfield_LOH/Structure/LOOT_Fetch.py) (Abruf offizieller LOOT-Masterlist-Sortiergruppen)
 
 - [X] **Phase 5: Analyse-, Klassifizierungs- & Sortier-Module**

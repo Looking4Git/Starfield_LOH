@@ -91,7 +91,6 @@ cd Starfield_LOH
 #### 2. Abhängigkeiten installieren
 ```bash
 pip install -r requirements.txt
-playwright install chromium
 ```
 
 #### 3. Anwendung starten
@@ -110,7 +109,7 @@ Dieses Projekt ist unter der **[MIT-Lizenz](LICENSE)** lizenziert.
 - **Starfield™** ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
 - **Nexus Mods™** ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
 - **LOOT (Load Order Optimisation Tool):** Verwendet die offizielle Starfield Masterlist, lizenziert unter [Creative Commons Zero (CC0 1.0)](https://github.com/loot/starfield).
-- **Bethesda Creations & Webdaten:** Der Abruf öffentlich sichtbarer Metadaten erfolgt rein im lokalen Browser-Kontext des Benutzers zur persönlichen Konfiguration seiner installierten Mods. Dieses Tool steht in keiner Verbindung zu Bethesda Softworks und wird nicht von Bethesda autorisiert.
+- **Bethesda Creations & Webdaten:** Der Abruf öffentlich zugänglicher Metadaten erfolgt automatisiert über die REST- und GraphQL-Schnittstellen zur persönlichen Konfiguration der installierten Mods. Dieses Tool steht in keiner Verbindung zu Bethesda Softworks und wird nicht von Bethesda autorisiert.
 - Der Starfield Load Order Helper ist ein inoffizielles Community-Projekt und steht in keiner geschäftlichen Verbindung zu Bethesda Softworks, ZeniMax Media oder Black Tree Gaming Ltd.
 - Entwickelt mit Python und PySide6 (Qt für Python, lizenziert unter der LGPLv3).
 - Detaillierte Lizenz- und Urheberrechtsangaben aller verwendeten Komponenten sind in der Datei **[NOTICE](NOTICE)** hinterlegt.

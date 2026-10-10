@@ -19,18 +19,7 @@ https://www.gnu.org/licenses/lgpl-3.0.html und https://www.gnu.org/licenses/gpl-
 eingesehen werden.
 
 ================================================================================
-2. Playwright for Python
-================================================================================
-Lizenz: Apache License 2.0
-Copyright (c) Microsoft Corporation.
-Website: https://playwright.dev / https://github.com/microsoft/playwright-python
-
-Lizenziert unter der Apache-Lizenz, Version 2.0 (die „Lizenz"); die Nutzung ist nur im
-Rahmen der Lizenz gestattet. Eine Kopie der Lizenz kann unter folgendem Link eingesehen werden:
-http://www.apache.org/licenses/LICENSE-2.0
-
-================================================================================
-3. LOOT (Load Order Optimisation Tool) - Starfield Masterlist
+2. LOOT (Load Order Optimisation Tool) - Starfield Masterlist
 ================================================================================
 Lizenz: Creative Commons Zero v1.0 Universal (CC0 1.0) - Public Domain Dedication
 Website: https://loot.github.io / https://github.com/loot/starfield
@@ -40,7 +29,7 @@ CC0 1.0 Public Domain Dedication. Sämtliche Urheber- und Leistungsschutzrechte 
 im Rahmen des rechtlich Möglichen an die Allgemeinheit abgetreten.
 
 ================================================================================
-4. Markenrechtliche Hinweise & Haftungsausschluss
+3. Markenrechtliche Hinweise & Haftungsausschluss
 ================================================================================
 - Starfield™ ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc.
 - Nexus Mods™ ist ein eingetragenes Warenzeichen von Black Tree Gaming Ltd.
@@ -49,5 +38,6 @@ Der Starfield Load Order Helper (LOH) ist ein unabhängiges, nicht-kommerzielles
 Community-Projekt und steht in keiner geschäftlichen Beziehung zu Bethesda Softworks LLC,
 ZeniMax Media Inc. oder Black Tree Gaming Ltd.
 
-Der Abruf von Mod-Metadaten erfolgt ausschließlich lokal und automatisiert über den
-persönlichen Browser-Kontext des Anwenders zur Konfiguration seiner installierten Modifikationen.
+Der Abruf von Mod-Metadaten erfolgt ausschließlich automatisiert über die offiziellen
+HTTP- und GraphQL-Schnittstellen der jeweiligen Plattformen zur Konfiguration der
+installierten Modifikationen.

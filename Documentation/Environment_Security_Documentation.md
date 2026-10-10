@@ -100,18 +100,17 @@ Zieht der Benutzer bewusst mit seiner Installation dauerhaft auf einen neuen Hau
 
 ---
 
-## 6. Playwright Chromium-Härtung & Datenschutz
+## 6. Vollständige Browserlosigkeit & Datenschutz (Entfall von Playwright)
 
-### A. Windows-Firewall-Schutz
-In `Bethesda_Fetch.py` startet Chromium zur einmaligen Sitzungs- und Token-Generierung mit folgenden Härtungs-Flags:
-* `--disable-background-networking`: Unterbindet Hintergrund-Netzwerkverkehr.
-* `--disable-sync`: Verhindert Google-Sync-Dienste.
-* `--no-first-run`: Unterdrückt Begrüßungs- und Setup-Routinen.
-* `--metrics-recording-only`: Deaktiviert Telemetrie-Senden.
-* `--disable-features=AudioServiceSandbox,MediaRouter,DialMediaRouteProvider`: Deaktiviert lokale mDNS/SSDP-Geräteerkennung, die typischerweise die Windows-Firewall-Warnung triggert.
+Mit der Modernisierung der Metadaten-Pipelines ist Starfield LOH **zu 100 % browserlos**:
+* **Bethesda Creations ([Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py)):** Direkter Bezug des Session-Keys über `cdn.bethesda.net` und native HTTPS-Abfragen via Standard-Python (`urllib.request`).
+* **Nexus Mods ([Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py)):** Direkter Daten- und Dateiabgleich über die offizielle Nexus GraphQL API v2.
+* **LOOT Masterlist ([Structure/LOOT_Fetch.py](file:///d:/Starfield_LOH/Structure/LOOT_Fetch.py)):** Lokales Parsing bzw. direkter GitHub-Download.
 
-### B. Nexus Mods: Vollständige Entkopplung via GraphQL v2
-* Im Gegensatz zu früheren Scraper-Ansätzen benötigt der **Nexus Mods API Fetcher** ([Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py)) keinerlei Browser-Instanz oder Playwright-Sitzung.
-* Sämtliche Daten und Dateiinhalts-Suchen werden direkt über die offizielle **Nexus GraphQL API v2** abgewickelt. Dadurch entfallen Browser-Profile, Cookie-Banner und Cloudflare Turnstile Challenges vollständig.
+### Sicherheits- und Systemvorteile:
+1. **Kein Headless-Browser:** Sämtliche Browser-Engines (Chromium/Playwright) wurden vollständig aus dem Projekt entfernt.
+2. **Keine Windows-Firewall-Warnungen:** Da kein Chromium mehr im Hintergrund läuft, treten typische Chromium-Netzwerkscans (mDNS, SSDP, MediaRouter) erst gar nicht auf.
+3. **Keine Browser-Profile & Cookie-Risiken:** Keine lokalen Profildaten, keine Drittanbieter-Tracker oder OneTrust-Banner. Alle Abfragen sind rein lesende, minimale HTTPS-JSON-Anfragen.
+
 
 

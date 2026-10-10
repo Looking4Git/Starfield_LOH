@@ -53,7 +53,7 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
     - [X] Zeitsparendes Modifikationsdatums-Caching (`Filedate_Last_Check`)
     - [X] Auslesen und Speichern von Schiffs-Zellen (`CELL_Ship`)
     - [X] Requirements-Header-Erkennung (`MAST` Full Masters und `TNAM` Creations Transients)
-  - [X] Implementierung von [Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) (High-Speed Turbo REST-API v2 mit einmaliger Playwright-Token-Initialisierung, Bild-Caching)
+  - [X] Implementierung von [Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) (Nativer High-Speed HTTP-Fetch via CDN-Session-Key und REST-API v2, Bild-Caching, browserfrei)
   - [X] Implementierung von [Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py) (Nexus GraphQL v2 API, modFileContents-Inhaltssuche, Multi-Kandidaten-Kaskade, browserfrei)
   - [X] Implementierung von [Structure/LOOT_Fetch.py](file:///d:/Starfield_LOH/Structure/LOOT_Fetch.py) (Abruf offizieller LOOT-Masterlist-Sortiergruppen)
 
@@ -138,7 +138,7 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
     - [X] Stufe 2 (Version): SemVer-Prüfung & Verwaltung von `version.json`
     - [X] Stufe 3 (GitHub): Synchronisationsstatus & automatisierter Git-Push
     - [X] Stufe 4 (Release): Konfiguration, Packaging & Release-Erstellung
-  - [X] PyInstaller-Kompilierung & Packaging ([Release/Release_Compiler.py](file:///d:/Starfield_LOH/Release/Release_Compiler.py)) inkl. nativer Playwright Chromium-Shell
+  - [X] Schlanke PyInstaller-Kompilierung & Packaging ([Release/Release_Compiler.py](file:///d:/Starfield_LOH/Release/Release_Compiler.py)) vollständig ohne Playwright/Browser (< 95 MB)
   - [X] Authenticode Code-Signing ([Release/Release_Certificate_Manager.py](file:///d:/Starfield_LOH/Release/Release_Certificate_Manager.py))
   - [X] GitHub REST API Integration ([Release/Release_GitHub_Manager.py](file:///d:/Starfield_LOH/Release/Release_GitHub_Manager.py))
   - [X] Automatisierte Release-Notes-Generierung mit HTML-Vorschau ([Release/Release_Notes_Builder.py](file:///d:/Starfield_LOH/Release/Release_Notes_Builder.py))

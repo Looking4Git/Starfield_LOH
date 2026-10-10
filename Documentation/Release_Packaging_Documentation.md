@@ -35,14 +35,18 @@ Die Erstellung der portablen Windows-Binärdatei erfolgt über `Release_Compiler
    * `--icon=Graphics/Starfield_LOH.ico`: Bindet das offizielle Starfield Multi-Resolution Icon fest in den Header der `.exe` ein.
    * `--clean`, `--noconfirm`: Garantiert reproduzierbare Builds ohne Cache-Altlasten.
 
-### 2.1 Playwright Browser-Bundling (`bundle_playwright_browsers`)
-In der kompilierten PyInstaller-Umgebung (`sys.frozen == True`) erzwingt Playwright intern die Umgebungsvariable `PLAYWRIGHT_BROWSERS_PATH="0"`. Dies weist den Playwright-Treiber an, Chromium-Binärdateien nativ unter `_internal\playwright\driver\package\.local-browsers\` zu erwarten.
+### 2.1 Vollständige Browserlosigkeit (Entfall von Playwright & Chromium)
+Frühere Versionen benötigten zur Abfrage der Bethesda-Creations-Metadaten einen Playwright-Treiber samt `chromium_headless_shell` (~258 MB). 
 
-Um sicherzustellen, dass die portable Version auf beliebigen Zielsystemen ohne vorherige Python- oder Browser-Installation funktioniert, führt `Release_Compiler.py` vor dem Packen des ZIP-Archivs folgendes automatisches Staging aus:
-1. **Revisionserkennung:** Auslesen der benötigten Browser-Revision für `chromium-headless-shell` direkt aus `browsers.json` des installierten Playwright-Pakets.
-2. **Automatische Bereitstellung:** Existiert der Browser-Ordner (`chromium_headless_shell-<rev>`) nicht in `%LOCALAPPDATA%\ms-playwright`, wird er automatisch via `py -m playwright install chromium` bezogen.
-3. **Natives Staging:** Kopieren des gesamten Ordners in das Staging-Verzeichnis unter `_internal\playwright\driver\package\.local-browsers\chromium_headless_shell-<rev>\`.
-4. **Vollständige Autarkie:** Beim Start der kompilierten Anwendung (`Starfield_LOH.exe`) findet das Modul [Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py) den integrierten Headless-Browser vollständig nativ (für die REST-Session-Initialisierung), ohne dass Pfad-Hacks oder Umgebungsvariablen nötig sind. (Der [Nexus Mods API Fetcher](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py) arbeitet browserlos rein über HTTP/GraphQL).
+Durch die Modernisierung aller Schnittstellen arbeitet Starfield LOH nun **vollständig browserlos**:
+* **Bethesda Fetch ([Structure/Bethesda_Fetch.py](file:///d:/Starfield_LOH/Structure/Bethesda_Fetch.py)):** Direkter HTTPS-Abruf des Session-Keys über `cdn.bethesda.net` und native REST-Calls via Standard-Python (`urllib.request`).
+* **Nexus Fetch ([Structure/Nexus_Fetch_API.py](file:///d:/Starfield_LOH/Structure/Nexus_Fetch_API.py)):** Direkter Daten- und Dateiabgleich über die offizielle Nexus GraphQL API v2.
+* **LOOT Fetch ([Structure/LOOT_Fetch.py](file:///d:/Starfield_LOH/Structure/LOOT_Fetch.py)):** Lokales YAML-Parsing bzw. direkter GitHub-Download.
+
+**Vorteile für das Packaging:**
+1. Der frühere Bündelungsschritt `bundle_playwright_browsers` und das Staging von `.local-browsers` entfallen ersatzlos.
+2. Keine Playwright- oder Chromium-Binärdateien mehr im Ordner `_internal`.
+3. **Massive Größenreduktion:** Das komprimierte portable ZIP-Archiv schrumpft von **~193 MB auf unter 95 MB** (Einsparung von über 50 %).
 
 ---
 

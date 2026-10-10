@@ -462,7 +462,7 @@ class Page_Settings_General(QWidget):
 
         clean_key = (api_key or "").strip()
         if not clean_key:
-            self.lbl_nexus_status.setText("ℹ Kein API-Key hinterlegt (Datenabruf erfolgt rein über Playwright-Webabgleich).")
+            self.lbl_nexus_status.setText("ℹ Kein API-Key hinterlegt (Nexus Fetch ist ohne API-Schlüssel deaktiviert).")
             self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
             return
 

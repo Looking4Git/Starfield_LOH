@@ -887,7 +887,22 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
         cell_a, wrld_a, data_a = entry_a if entry_a else (None, None, None)
         cell_b, wrld_b, data_b = entry_b if entry_b else (None, None, None)
 
-        cell_fid = cell_a or cell_b
+        # Symmetrische und priorisierte Zellauflösung
+        def _resolve_preferred_cell(c_a, c_b):
+            if not c_a:
+                return c_b
+            if not c_b:
+                return c_a
+            if c_a == c_b:
+                return c_a
+            # Reale statische Spielzelle (< 0x00FE0000) bevorzugen gegenüber temporärem Overlay-Index
+            if c_a < 0x00FE0000 and c_b >= 0x00FE0000:
+                return c_a
+            if c_b < 0x00FE0000 and c_a >= 0x00FE0000:
+                return c_b
+            return c_a
+
+        cell_fid = _resolve_preferred_cell(cell_a, cell_b)
         wrld_fid = wrld_a or wrld_b
 
         # 1. Identitätsprüfung (Teilschritt 7.1)
@@ -920,8 +935,33 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
             continue
 
         # 3. Reale Weltzelle (Teilschritte 7.4, 7.5, 7.6)
+        # Symmetrische Zählung: In cell_fid sowie in mod-spezifischer Elternzelle prüfen
         cnt_a = count_cell_refs(comp_id_a, cell_fid)
+        if cnt_a == 0 and cell_a and cell_a != cell_fid:
+            cnt_a = count_cell_refs(comp_id_a, cell_a)
+
         cnt_b = count_cell_refs(comp_id_b, cell_fid)
+        if cnt_b == 0 and cell_b and cell_b != cell_fid:
+            cnt_b = count_cell_refs(comp_id_b, cell_b)
+
+        # Falls eine Mod in ihrer spezifischen Zelle bauliche Referenzen hat, diese Zelle für Diagnose/EDID nutzen
+        active_cell = cell_fid
+        if cnt_a > 0 and (not active_cell or active_cell >= 0x00FE0000) and cell_a and cell_a < 0x00FE0000:
+            active_cell = cell_a
+        elif cnt_b > 0 and (not active_cell or active_cell >= 0x00FE0000) and cell_b and cell_b < 0x00FE0000:
+            active_cell = cell_b
+
+        if active_cell != cell_fid:
+            _, cell_edid = get_cell_info(active_cell)
+            loc_desc = []
+            if wrld_fid:
+                wname = get_world_name(wrld_fid)
+                loc_desc.append(wname)
+            if cell_edid:
+                loc_desc.append(cell_edid)
+            elif active_cell:
+                loc_desc.append(f"Zelle 0x{active_cell:08X}")
+            loc_str = f" in {' / '.join(loc_desc)}" if loc_desc else ""
 
         if cnt_a > 0 and cnt_b > 0:
             # Beidseitiger Neubau-Clash (Teilschritt 7.4)
@@ -930,7 +970,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods platzieren neue Gebäude und NPCs ({cnt_a} vs. {cnt_b} Referenzen) im selben Bereich und überschreiben das NavMesh. "
                 f"Gegenseitige Zerstörung des Wegnetzes."
             )
-            branch_7_4.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+            branch_7_4.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, active_cell, cell_edid))
         elif (cnt_a > 0 and cnt_b == 0) or (cnt_b > 0 and cnt_a == 0):
             # Asymmetrisch: Eine Mod baut, die andere resaved (Teilschritt 7.5)
             if cnt_a > 0:
@@ -951,7 +991,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Da offizielle BGS-Inhalte von Starfield zwingend am Anfang der Ladereihenfolge verankert sind, "
                     f"lädt '{name_bld}' garantiert danach. Das angepasste Wegfindungsnetz bleibt im Spiel aktiv."
                 )
-                branch_7_5_typ0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
+                branch_7_5_typ0.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, active_cell, cell_edid))
             else:
                 reason = (
                     f"Asymmetrische Wegfindungs-Überschreibung{loc_str}: "
@@ -960,7 +1000,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                     f"Ladereihenfolge-Empfehlung: '{name_bld}' muss NACH '{name_res}' geladen werden! "
                     f"(Lädt '{name_res}' später, wird das angepasste NavMesh überschrieben und zerstört)."
                 )
-                branch_7_5_typ3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, cell_fid, cell_edid))
+                branch_7_5_typ3.append((comp_id_a, comp_id_b, form_id, sig, reason, id_req, id_dep, 1, active_cell, cell_edid))
         else:
             # Reine NavMesh-Optimierung (keine neuen Referenzen) (Teilschritt 7.6)
             reason = (
@@ -968,7 +1008,7 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
                 f"Beide Mods überarbeiten das NavMesh ohne bauliche Veränderungen. "
                 f"Die spätere Mod überschreibt die Wegfindungskorrekturen der früheren Mod."
             )
-            branch_7_6.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, cell_fid, cell_edid))
+            branch_7_6.append((comp_id_a, comp_id_b, form_id, sig, reason, None, None, None, active_cell, cell_edid))
 
     # Teilschritt-Batchaktualisierungen mit dynamischer Step_ID
     cnt_7_1 = _update_conflicts_batch(cur, f"{step_id}.1", "Wegfindung: Identität", 0, branch_7_1)

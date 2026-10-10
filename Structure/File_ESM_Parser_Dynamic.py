@@ -501,7 +501,9 @@ def get_record_context(component, form_id):
                     if nv_info:
                         if not p_wrld and nv_info['world_candidate']:
                             p_wrld = nv_info['world_candidate']
-                        if nv_info['cell_candidate']:
+                        if not p_cell and nv_info['cell_candidate']:
+                            p_cell = nv_info['cell_candidate']
+                        elif p_cell and p_cell >= 0x00FE0000 and nv_info['cell_candidate'] and nv_info['cell_candidate'] < 0x00FE0000:
                             p_cell = nv_info['cell_candidate']
 
                 return {
@@ -597,7 +599,9 @@ def get_records_context(component, target_sig=None):
                     if nv_info:
                         if not p_wrld and nv_info['world_candidate']:
                             p_wrld = nv_info['world_candidate']
-                        if nv_info['cell_candidate']:
+                        if not p_cell and nv_info['cell_candidate']:
+                            p_cell = nv_info['cell_candidate']
+                        elif p_cell and p_cell >= 0x00FE0000 and nv_info['cell_candidate'] and nv_info['cell_candidate'] < 0x00FE0000:
                             p_cell = nv_info['cell_candidate']
 
                 records[local_fid] = (p_cell, p_wrld, d)

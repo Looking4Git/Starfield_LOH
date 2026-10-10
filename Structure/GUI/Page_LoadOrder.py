@@ -2109,6 +2109,7 @@ class Page_LoadOrder(QWidget):
         success, count, msg = apply_sorter_to_profile(self.current_profile_id)
         if success:
             self.load_data()
+            self.refresh_profile_highlights()
             self.show_message_box(
                 "Erfolg",
                 f"Die berechneten Positionen wurden für {count} Komponenten im aktuellen Profil übernommen.",
@@ -2137,6 +2138,7 @@ class Page_LoadOrder(QWidget):
         success, prof_count, item_count, msg = apply_sorter_to_all_profiles()
         if success:
             self.load_data()
+            self.refresh_profile_highlights()
             self.show_message_box(
                 "Erfolg",
                 f"Die berechneten Positionen wurden auf {prof_count} Profile ({item_count} Komponenten insgesamt) übertragen.",

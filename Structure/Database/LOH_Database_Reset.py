@@ -62,6 +62,7 @@ def reset_database_tables(db_path: Optional[str] = None, log_signal: Optional[Ca
             "Mods_Components",
             "Mods_Category_Creations",
             "Components",
+            "Components_ESM_References",
             "Mods_Requirements",
             "Mods_Requirements_Masterfile_List",
             "LoadOrder",
@@ -87,7 +88,8 @@ def reset_database_tables(db_path: Optional[str] = None, log_signal: Optional[Ca
         master_tables = [
             "Assessments", "Categories_LOH", "Platforms",
             "Mods_State", "Categories_Creations", "Classifier_Result_Types",
-            "Mods_Updates_States", "LOH_Executions_States"
+            "Mods_Updates_States", "LOH_Executions_States",
+            "Conflict_Solution_Types", "Mods_Category_LOOT"
         ]
         placeholders = ", ".join("?" for _ in master_tables)
         cursor.execute(f"DELETE FROM sqlite_sequence WHERE name NOT IN ({placeholders});", master_tables)

@@ -299,7 +299,7 @@ class StarfieldLOH(QMainWindow):
         if hasattr(self, 'page_tools') and self.page_tools:
             self.page_tools.apply_environment_security()
         if hasattr(self, 'page_lo') and self.page_lo:
-            self.page_lo.update_activate_button_state()
+            self.page_lo.refresh_profile_highlights()
 
         if hasattr(self, 'dock_statistics') and self.dock_statistics and self.dock_statistics.isVisible():
             self.dock_statistics.refresh_data()

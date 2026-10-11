@@ -24,8 +24,8 @@ class Page_Settings_Info(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 8, 10, 10)
-        layout.setSpacing(14)
+        layout.setContentsMargins(0, 0, 10, 10)
+        layout.setSpacing(0)
 
         # =============================================================
         # 1. Abschnitt: Version
@@ -33,6 +33,7 @@ class Page_Settings_Info(QWidget):
         lbl_section_ver = QLabel("Version")
         lbl_section_ver.setObjectName("lbl_details")
         layout.addWidget(lbl_section_ver)
+        layout.addSpacing(6)
 
         form_layout = QFormLayout()
         form_layout.setContentsMargins(0, 4, 0, 0)
@@ -97,19 +98,19 @@ class Page_Settings_Info(QWidget):
         # =============================================================
         # 2. Abschnitt: Entwickler (Trennlinie + Logos & Beschreibungen)
         # =============================================================
-        layout.addSpacing(16)
+        layout.addSpacing(12)
         sep1 = QFrame()
         sep1.setObjectName("detail_separator")
         sep1.setFrameShape(QFrame.Shape.HLine)
         sep1.setFrameShadow(QFrame.Shadow.Plain)
         sep1.setFixedHeight(4)
         layout.addWidget(sep1)
-        layout.addSpacing(10)
+        layout.addSpacing(8)
 
         lbl_section_dev = QLabel("Entwickler")
         lbl_section_dev.setObjectName("lbl_details")
         layout.addWidget(lbl_section_dev)
-        layout.addSpacing(4)
+        layout.addSpacing(8)
 
         # -------------------------------------------------------------
         # Block 1: Looking4 (Logo links, Text rechts)
@@ -203,19 +204,19 @@ class Page_Settings_Info(QWidget):
         # =============================================================
         # 3. Abschnitt: Rechtliche Hinweise & Disclaimer
         # =============================================================
-        layout.addSpacing(16)
+        layout.addSpacing(12)
         sep2 = QFrame()
         sep2.setObjectName("detail_separator")
         sep2.setFrameShape(QFrame.Shape.HLine)
         sep2.setFrameShadow(QFrame.Shadow.Plain)
         sep2.setFixedHeight(4)
         layout.addWidget(sep2)
-        layout.addSpacing(10)
+        layout.addSpacing(8)
 
         lbl_section_legal = QLabel("Rechtliche Hinweise & Disclaimer")
         lbl_section_legal.setObjectName("lbl_details")
         layout.addWidget(lbl_section_legal)
-        layout.addSpacing(4)
+        layout.addSpacing(8)
 
         lbl_legal = QLabel(
             "Starfield™ ist ein eingetragenes Warenzeichen von Bethesda Softworks LLC / ZeniMax Media Inc. "

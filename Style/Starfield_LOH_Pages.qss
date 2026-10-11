@@ -221,8 +221,6 @@ QLabel#lbl_install_process {
     color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
     font-size: 16px;
     font-weight: bold;
-    margin-top: 4px;
-    margin-bottom: 2px;
 }
 
 QFrame#detail_separator,
@@ -550,7 +548,8 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
     color: #ECECEC;
     font-size: 22px;
     font-weight: bold;
-    padding-bottom: 2px;
+    margin: 0px;
+    padding: 0px;
 }
 
 #Page_Settings #detail_view QLineEdit {

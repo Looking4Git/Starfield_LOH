@@ -39,6 +39,10 @@ class Page_Tools(QWidget):
         # -------------------------------------------------------------
         # Abschnitt 1: Starfield LOH Module
         # -------------------------------------------------------------
+        sep_modules = QFrame()
+        sep_modules.setObjectName("sep_modules_section")
+        self.layout.addWidget(sep_modules)
+
         lbl_modules = QLabel("Starfield LOH Module")
         lbl_modules.setObjectName("lbl_modules_section")
         self.layout.addWidget(lbl_modules)

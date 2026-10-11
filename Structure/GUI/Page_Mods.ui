@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <ui version="4.0">
  <class>Page_Mods</class>
  <widget class="QWidget" name="Page_Mods">
@@ -49,13 +49,13 @@
     <widget class="QScrollArea" name="scroll_area_detail">
      <property name="minimumSize">
       <size>
-       <width>600</width>
+       <width>645</width>
        <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>600</width>
+       <width>645</width>
        <height>16777215</height>
       </size>
      </property>
@@ -134,14 +134,32 @@
            <property name="text">
             <string>Filter:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="1" column="1">
           <widget class="QComboBox" name="cmb_state_filter">
            <property name="minimumSize">
             <size>
-             <width>220</width>
+             <width>242</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>242</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -168,15 +186,52 @@
            <property name="text">
             <string>Name:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="4" column="1">
-          <widget class="QLineEdit" name="inp_name_online"/>
+          <widget class="QLineEdit" name="inp_name_online">
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>518</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item row="5" column="0">
           <widget class="QLabel" name="lbl_name_catalog_label">
            <property name="text">
             <string>Name Catalog:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -185,12 +240,36 @@
            <property name="readOnly">
             <bool>true</bool>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>518</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="6" column="0">
           <widget class="QLabel" name="lbl_id_catalog_label">
            <property name="text">
             <string>ID Catalog:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -199,6 +278,18 @@
            <property name="readOnly">
             <bool>true</bool>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>518</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="7" column="0">
@@ -206,15 +297,52 @@
            <property name="text">
             <string>Autor:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="7" column="1">
-          <widget class="QLineEdit" name="inp_author"/>
+          <widget class="QLineEdit" name="inp_author">
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>518</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item row="8" column="0">
           <widget class="QLabel" name="lbl_url_label">
            <property name="text">
             <string>URL:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -227,12 +355,18 @@
             <widget class="QTextEdit" name="inp_url">
              <property name="maximumSize">
               <size>
-               <width>16777215</width>
+               <width>518</width>
                <height>78</height>
               </size>
              </property>
              <property name="acceptRichText">
               <bool>false</bool>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>518</width>
+               <height>78</height>
+              </size>
              </property>
             </widget>
            </item>
@@ -255,13 +389,13 @@
               <widget class="QPushButton" name="btn_open_url">
                <property name="minimumSize">
                 <size>
-                 <width>120</width>
+                 <width>125</width>
                  <height>32</height>
                 </size>
                </property>
                <property name="maximumSize">
                 <size>
-                 <width>120</width>
+                 <width>125</width>
                  <height>32</height>
                 </size>
                </property>
@@ -295,6 +429,18 @@
            <property name="indent">
             <number>0</number>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="9" column="1">
@@ -307,13 +453,13 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>220</width>
+             <width>518</width>
              <height>140</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>16777215</width>
+             <width>518</width>
              <height>140</height>
             </size>
            </property>
@@ -324,14 +470,32 @@
            <property name="text">
             <string>Kategorie:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="10" column="1">
           <widget class="QComboBox" name="cmb_category">
            <property name="minimumSize">
             <size>
-             <width>220</width>
+             <width>242</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>242</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -340,6 +504,18 @@
           <widget class="QLabel" name="lbl_assessment_label">
            <property name="text">
             <string>Bewertung:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -364,8 +540,14 @@
             <widget class="QComboBox" name="cmb_assessment">
              <property name="minimumSize">
               <size>
-               <width>220</width>
+               <width>242</width>
                <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>242</width>
+               <height>16777215</height>
               </size>
              </property>
             </widget>
@@ -373,7 +555,7 @@
            <item>
             <widget class="QLabel" name="lbl_assessment_stars">
              <property name="text">
-              <string/>
+              <string />
              </property>
             </widget>
            </item>
@@ -397,6 +579,18 @@
            <property name="text">
             <string>Notiz:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="12" column="1">
@@ -409,12 +603,18 @@
            </property>
            <property name="maximumSize">
             <size>
-             <width>16777215</width>
+             <width>518</width>
              <height>78</height>
             </size>
            </property>
            <property name="acceptRichText">
             <bool>false</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>78</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -422,6 +622,18 @@
           <widget class="QLabel" name="lbl_date_inst_label">
            <property name="text">
             <string>installiert:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -446,13 +658,13 @@
             <widget class="QLineEdit" name="inp_date_inst">
              <property name="minimumSize">
               <size>
-               <width>178</width>
+               <width>210</width>
                <height>0</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>189</width>
+               <width>210</width>
                <height>16777215</height>
               </size>
              </property>
@@ -485,13 +697,13 @@
             <widget class="QLineEdit" name="inp_date_avail">
              <property name="minimumSize">
               <size>
-               <width>178</width>
+               <width>210</width>
                <height>0</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>189</width>
+               <width>210</width>
                <height>16777215</height>
               </size>
              </property>
@@ -503,6 +715,18 @@
           <widget class="QLabel" name="lbl_ver_inst_label">
            <property name="text">
             <string>Version.:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -527,13 +751,13 @@
             <widget class="QLineEdit" name="inp_ver_inst">
              <property name="minimumSize">
               <size>
-               <width>178</width>
+               <width>210</width>
                <height>0</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>189</width>
+               <width>210</width>
                <height>16777215</height>
               </size>
              </property>
@@ -566,13 +790,13 @@
             <widget class="QLineEdit" name="inp_ver_avail">
              <property name="minimumSize">
               <size>
-               <width>178</width>
+               <width>210</width>
                <height>0</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>189</width>
+               <width>210</width>
                <height>16777215</height>
               </size>
              </property>
@@ -585,14 +809,32 @@
            <property name="text">
             <string>Plattform:</string>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="15" column="1">
           <widget class="QComboBox" name="cmb_platform">
            <property name="minimumSize">
             <size>
-             <width>209</width>
+             <width>242</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>242</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -628,13 +870,13 @@
             <widget class="QPushButton" name="btn_discard_detail">
              <property name="minimumSize">
               <size>
-               <width>120</width>
+               <width>125</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>120</width>
+               <width>125</width>
                <height>32</height>
               </size>
              </property>
@@ -657,13 +899,13 @@
             <widget class="QPushButton" name="btn_save_detail">
              <property name="minimumSize">
               <size>
-               <width>120</width>
+               <width>125</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>120</width>
+               <width>125</width>
                <height>32</height>
               </size>
              </property>
@@ -695,19 +937,31 @@
            <property name="indent">
             <number>0</number>
            </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="17" column="1">
           <widget class="QTreeView" name="list_components">
            <property name="minimumSize">
             <size>
-             <width>220</width>
+             <width>518</width>
              <height>140</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>16777215</width>
+             <width>518</width>
              <height>140</height>
             </size>
            </property>
@@ -732,6 +986,18 @@
            </property>
            <property name="indent">
             <number>0</number>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -771,10 +1037,13 @@
        </item>
       </layout>
      </widget>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+     </property>
     </widget>
    </item>
   </layout>
  </widget>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
 </ui>

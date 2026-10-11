@@ -89,7 +89,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Mausberührung (`item:hover`): Helles Blau (`#5B7A9E`), Textfarbe Weiß (`#FFFFFF`).
   * Rahmen: `1px solid #304C7A`.
   * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Pages.qss` für alle Hauptseiten sowie alle angedockten Diagnose- und Statistikfenster. Lokale Widget-Stylesheets müssen diese View-Eigenschaften zwingend mitführen.
-* **Mindestbreite:** Im Formularbereich standardmäßig `220px`.
+* **Mindest- & Standardbreite:** Im Formularbereich für kurze Dropdown-Felder verbindlich **242 px** (210 px weißes Textfeld + 32 px rechter blauer Aufklapp-Button; `min-width: 242px; max-width: 242px;`).
 * **Mausrad-Schutz:** Globaler Schutz vor versehentlichem Verstellen über `setup_dropdown_wheel_guard` (`LOH_Control_Dropdown.py`).
 
 ---
@@ -107,9 +107,9 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Rahmen & Rundung: `border: none; border-radius: 2px;`.
   * Standardhöhe: `32px`, Padding `4px 8px`, Icongröße `18x18 px` bis `22x22 px`.
   * **Standardbreite für Detail-Aktionsbuttons (Rechtsbündige Belegung):**  
-    Alle Aktionsschaltflächen, die in Detailbereichen und Formularen vom rechten Rand nach links aufgelegt werden (z. B. `btn_open_url`, `btn_analysis`, `btn_discard_detail`, `btn_save_detail`, `btn_apply_classifier_*`, `btn_add/remove_requirement`, `btn_apply_sorter_*`), erhalten eine verbindliche feste Einheitsbreite von **120 px** (`min-width: 120px; max-width: 120px; min-height: 32px; max-height: 32px;`).
+    Alle Aktionsschaltflächen, die in Detailbereichen und Formularen vom rechten Rand nach links aufgelegt werden (z. B. `btn_open_url`, `btn_analysis`, `btn_discard_detail`, `btn_save_detail`, `btn_apply_classifier_*`, `btn_add/remove_requirement`, `btn_apply_sorter_*`), erhalten eine verbindliche feste Einheitsbreite von **125 px** (`min-width: 125px; max-width: 125px; min-height: 32px; max-height: 32px;`).
   * **Profil-Aktionsleiste unter dem Beschreibungsfeld (`Page_LoadOrder`):**  
-    Die 4 Schaltflächen (*Aktivieren*, *Einlesen*, *Kopieren*, *Löschen*) liegen direkt in Spalte 1 des Formular-Layouts unter dem Beschreibungsfeld (`inp_profile_desc`, 498 px Feldbreite). Bei 4 Buttons à 120 px und standardmäßigem Spacing von 6 px ($4 \times 120\,\text{px} + 3 \times 6\,\text{px} = 498\,\text{px}$) schließt *Aktivieren* exakt linksbündig und *Löschen* exakt rechtsbündig mit dem Beschreibungsfeld ab.
+    Die 4 Schaltflächen (*Aktivieren*, *Einlesen*, *Kopieren*, *Löschen*) liegen direkt in Spalte 1 des Formular-Layouts unter dem Beschreibungsfeld (`inp_profile_desc`, 518 px Feldbreite). Bei 4 Buttons à 125 px und standardmäßigem Spacing von 6 px ($4 \times 125\,\text{px} + 3 \times 6\,\text{px} = 518\,\text{px}$) schließt *Aktivieren* exakt linksbündig und *Löschen* exakt rechtsbündig mit dem Beschreibungsfeld und allen weiteren Vollfeldern ab.
 * **Pfeil- und Symbolbuttons (z. B. `btn_pos_up`, `btn_pos_down`):**
   * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
 * **Spezifische Icon-Standards:**
@@ -314,6 +314,46 @@ Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View
 * **Synchronisation bei Seitenwechsel:** Beim Wechsel zwischen den Hauptseiten `Page_Mods` und `Page_LoadOrder` wird die aktuell selektierte Mod auf die Zielseite übertragen und dort markiert (`select_mod_by_id`).
 * **Ergonomische Höhenausrichtung:** Die Zeile wird auf derselben relativen Sichthöhe im Viewport positioniert (`offset_from_top`), sofern nicht die Listenränder (oben/unten) die Scrollbewegung begrenzen.
 * **Fehlertoleranz:** Existiert die Mod in der Zielansicht nicht (z. B. leere Load Order, gefilterte Ansicht oder anderer Mod-Status in `Page_Mods`), bleibt die bestehende Auswahl unberührt ohne Fehlermeldung.
+
+---
+
+### 3.8 Detailbereiche (Geometrie, Dreisäulen-Raster & Vorlagenbreiten)
+
+Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mods`, `Page_Update`) folgen einer verbindlichen, pixelgenauen Dreispaltengliederung nach dem **Fixed-Geometry-Prinzip** (`minimumWidth == maximumWidth`):
+
+1. **Dreispaltiger Aufbau & Arithmetik:**
+   ```text
+   |<--------------------------------- Detailbereich Gesamt (645 px) --------------------------------->|
+   |                                                                                                  |
+   | [Spalte 1: Label]  | [Spalte 2: Mittlerer Datenbereich]                 | [Spalte 3: Rollbalken] |
+   | 100 px             | 518 px (4x Button 125 px + 3x Abstand 6 px)        | 22 px (16px VSB + 6px) |
+   |                    |                                                    |                        |
+   ```
+   * **Spalte 1 (Labels):** Feste Breite **100 px** (`min-width: 100px; max-width: 100px;`). Verhindert Schwankungen zwischen kurzen und langen Bezeichnungen.
+   * **Formular-Abstand:** **5 px** (`horizontalSpacing = 5` im `QFormLayout`).
+   * **Spalte 2 (Datenbereich):** Feste Breite **518 px** ($4 \times 125\,\text{px} + 3 \times 6\,\text{px} = 518\,\text{px}$). Füllt den Raum zwischen Label-Abstand und Rollbalken-Gutter exakt aus.
+   * **Spalte 3 (Rollbalken-Gutter):** Feste Reservierung **22 px** ($16\,\text{px}$ vertikale Scrollbar + $6\,\text{px}$ Randabstand `rightMargin` im `detail_layout`).
+   * **Gesamtbreite (`scroll_area_detail`):** Verbindlich **645 px** ($100 + 5 + 518 + 22 = 645\,\text{px}$; `min-width: 645px; max-width: 645px;`).
+
+2. **Standardisierte Vorlagenbreiten im Datenbereich (Spalte 2):**
+   * **Vollflächige Felder (518 px):** Mod-Name, Katalog-Name, ID, Autor, URLs, Beschreibungen, Notizen, Tabellen/Bäume (`tree_profile`, `tree_requirements`, `tree_dependencies`, `list_components`), Progress-Bars. Füllen exakt 518 px aus (`min-width: 518px; max-width: 518px;`).
+   * **Kurze Textfelder (210 px):** Feste Breite **210 px** (`min-width: 210px; max-width: 210px;`, z. B. `inp_sorter_last_update`, `inp_classifier_category`, `inp_date_inst`, `inp_date_avail`, `inp_ver_inst`, `inp_ver_avail`, `inp_last_update_date`). In zweispaltigen Zeilen (wie Datum und Version) sind beide Felder exakt 210 px breit und symmetrisch ausgerichtet.
+   * **Positionszeile (210 px Abschluss):** `inp_position` mit **88 px** Breite; zusammen mit Spacing und den beiden Pfeiltasten à 56 px ($88 + 5 + 56 + 5 + 56 = \mathbf{210\,\text{px}}$) schließt `btn_pos_down` exakt bündig an der 210-px-Fluchtlinie ab.
+   * **Kurze Dropdown-Felder (242 px):** Der weiße Textbereich erhält die standardisierten 210 px; der blaue Pfeil-Button verlängert um 32 px nach rechts $\rightarrow$ feste Gesamtbreite **242 px** (`min-width: 242px; max-width: 242px;`, z. B. `cmb_dynamic_mode`, `cmb_category`, `cmb_state_filter`, `cmb_mode_filter`, `cmb_platform`, `cmb_assessment`).
+   * **Rechtsbündige Aktionsschaltflächen (125 px):** Standardbreite **125 px** (`min-width: 125px; max-width: 125px; height: 32px;`), Zwischenabstand **6 px**. Maximal 4 Buttons je Zeile:
+     * 4 Buttons = 518 px (schließen links- und rechtsbündig exakt mit den Vollfeldern ab).
+     * 2 Buttons = 256 px (rechtsbündig angeordnet, z. B. *Verwerfen* / *Speichern*, *Hinzufügen* / *Entfernen*).
+     * 1 Button = 125 px (rechtsbündig, z. B. *Analyse*, *Öffnen*).
+
+3. **Verbindliche Fluchtlinien:**
+   * **Linke Daten-Fluchtlinie:** Exakt bei **Pixel 105** (100 px Label + 5 px Spacing).
+   * **Rechte Kante Kurzfelder & Pfeiltasten-Ende:** Exakt bei **Pixel 315** (105 + 210 px).
+   * **Rechte Kante Kurzfelder (Dropdown):** Exakt bei **Pixel 347** (105 + 242 px).
+   * **Rechte Kante Vollfelder & 4er-Buttons:** Exakt bei **Pixel 623** (105 + 518 px).
+   * **Rechte Kante Außenrand (inkl. Scrollbar):** Exakt bei **Pixel 645**.
+
+4. **Deaktivierung des horizontalen Rollbalkens:**
+   * In allen Detailbereichen ist `horizontalScrollBarPolicy = Qt.ScrollBarPolicy.ScrollBarAlwaysOff` gesetzt. Da der gesamte Inhalt arithmetisch auf das 645-px-Raster normiert ist, ist ein horizontaler Überhang mathematisch ausgeschlossen.
 
 ---
 

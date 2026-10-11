@@ -65,6 +65,7 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             m.ID_ContentCatalog,
             m.URL,
             m.Author,
+            m.User_Nexus,
             m.Note,
             m.Date_available,
             m.Version_available,
@@ -113,6 +114,7 @@ def get_mods_for_update_view(mode: str = "updates") -> list[dict]:
             m.ID_ContentCatalog,
             m.URL,
             m.Author,
+            m.User_Nexus,
             m.Note,
             m.Date_available,
             m.Version_available,
@@ -286,13 +288,15 @@ def get_lookup_data(table_name: str, order_by: str = "ID") -> list[dict]:
 
 def update_mod_details(mod_id: int, update_data: dict) -> bool:
     """Aktualisiert die Details eines Mods in der Datenbank."""
-    query = """
+    user_nexus_sql = "User_Nexus = :User_Nexus," if "User_Nexus" in update_data else ""
+    query = f"""
         UPDATE Mods 
         SET Platform = :Platform,
             Name_Online = :Name_Online,
             Name_ContentCatalog = :Name_ContentCatalog,
             URL = :URL,
             Author = :Author,
+            {user_nexus_sql}
             Note = :Note,
             Category_LOH = :Category_LOH,
             Category_LOH_Classifier = :Category_LOH_Classifier,

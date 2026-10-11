@@ -138,7 +138,6 @@ class Page_Update(QWidget):
         self.table_view = ui.findChild(QTableView, "master_table")
         self.detail_frame = ui.findChild(QWidget, "detail_view")
         self.scroll_area_detail = ui.findChild(QScrollArea, "scroll_area_detail")
-
         vsb = self.scroll_area_detail.verticalScrollBar()
         vsb.rangeChanged.connect(self.update_scrollbar_visibility)
         self.update_scrollbar_visibility(vsb.minimum(), vsb.maximum())
@@ -529,8 +528,14 @@ class Page_Update(QWidget):
 
         self.inp_name_online.setText(mod_data.get("Name_Online") or "")
         self.inp_name_catalog.setText(mod_data.get("Name_ContentCatalog") or "")
-        self.inp_id_catalog.setText(mod_data.get("ID_ContentCatalog") or "")
-        self.inp_author.setText(mod_data.get("Author") or "")
+        user_nexus = (mod_data.get("User_Nexus") or "").strip()
+        platform_id = mod_data.get("Platform_ID")
+        from Structure.Paths import get_setting
+        replace_author_active = bool(get_setting("Replace_Author_With_Nexus_User", False))
+        if replace_author_active and platform_id == 2 and user_nexus:
+            self.inp_author.setText(user_nexus)
+        else:
+            self.inp_author.setText(mod_data.get("Author") or "")
         self.inp_url.setPlainText(mod_data.get("URL") or "")
         self.inp_note.setPlainText(mod_data.get("Note") or "")
 

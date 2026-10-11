@@ -28,7 +28,9 @@ DEFAULT_SETTINGS = {
     "nexus": {"api_key": ""},
     "settings": {
         "Auto_Save": 1,
+        "Link_Mod_Selection": 1,
         "Limit_Warning_Percentage": 90,
+        "Replace_Author_With_Nexus_User": False,
         "Prefer_Content_BarChart": False,
         "Prefer_Classification_Tiles": True,
         "Prefer_Conflict_Tiles": True,
@@ -309,14 +311,27 @@ class StarfieldLOH(QMainWindow):
     def on_page_changed(self, index):
         """Wird aufgerufen, wenn sich die Seite im QStackedWidget ändert."""
         current_widget = self.content_stack.currentWidget()
-        
-        # Auto-Save auf der verlassenen Seite triggern
+        prev_widget = getattr(self, 'previous_page', None)
+
         from Structure.Paths import get_setting
+
+        # Gekoppelte Markierung vorbereiten (vor eventuellem Auto-Save und Seitenwechsel)
+        link_mod_id = None
+        link_offset = None
+        if get_setting("Link_Mod_Selection", 1) in (1, True, "1") and prev_widget:
+            if prev_widget == getattr(self, 'page_mods', None) and current_widget == getattr(self, 'page_lo', None):
+                link_mod_id = getattr(self.page_mods, 'current_mod_id', None)
+                link_offset = self.page_mods.get_selected_row_viewport_offset()
+            elif prev_widget == getattr(self, 'page_lo', None) and current_widget == getattr(self, 'page_mods', None):
+                link_mod_id = getattr(self.page_lo, 'current_mod_id', None)
+                link_offset = self.page_lo.get_selected_row_viewport_offset()
+
+        # Auto-Save auf der verlassenen Seite triggern
         if get_setting("Auto_Save", 0) == 1:
-            if hasattr(self, 'previous_page') and self.previous_page:
-                if self.previous_page == getattr(self, 'page_mods', None) and self.page_mods.current_mod_id:
+            if prev_widget:
+                if prev_widget == getattr(self, 'page_mods', None) and self.page_mods.current_mod_id:
                     self.page_mods.save_detail_data(reload_table=False)
-                elif self.previous_page == getattr(self, 'page_lo', None) and self.page_lo.current_mod_id:
+                elif prev_widget == getattr(self, 'page_lo', None) and self.page_lo.current_mod_id:
                     self.page_lo.save_detail_data(reload_table=False)
                     
         self.previous_page = current_widget
@@ -368,6 +383,13 @@ class StarfieldLOH(QMainWindow):
 
         elif current_widget == getattr(self, 'page_tools', None):
             self.page_tools.apply_environment_security()
+
+        # 3. Gekoppelte Mod-Markierung anwenden (falls zutreffend)
+        if link_mod_id:
+            if current_widget == getattr(self, 'page_lo', None):
+                self.page_lo.select_mod_by_id(link_mod_id, link_offset)
+            elif current_widget == getattr(self, 'page_mods', None):
+                self.page_mods.select_mod_by_id(link_mod_id, link_offset)
 
     def closeEvent(self, event):
         """Prüft auf laufende Hintergrundprozesse und speichert den Fensterzustand."""

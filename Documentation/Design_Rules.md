@@ -140,6 +140,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_HeaderView_Documentation.md).
+* **Initiale Spaltenbreite für Mod-Namen:** In den Haupttabellen (`Page_Mods` und `Page_LoadOrder`) wird die Spalte *Name* beim Initialisieren verbindlich auf **440 px** kalibriert (`setColumnWidth(..., 440)`), um eine Verdrängung der Folgespalten durch vereinzelte überlange Namen zu verhindern. Der Spaltenmodus bleibt interaktiv (`Interactive`) für individuelle Benutzeranpassungen.
 * **Aktive Profilmarkierung & Zeilenhöhe (`tree_profile`):**
   * **Zeilenhöhe:** Feste Zeilenhöhe von `26px` (`#tree_profile::item { height: 26px; }`), um eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons zu gewährleisten.
   * **Spaltenstruktur:** Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
@@ -294,6 +295,25 @@ Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View
 * **`Starfield_LOH_Main.qss`:** Definiert die Shell, Fensterrahmen, Titelleisten und die Sidebar-Navigation.
 * **`Starfield_LOH_Pages.qss`:** Zentrales Stylesheet für alle Pages, Tabellen (`QTableView`), Detailbereiche, Kacheln und Scrollbars.
 * **Strikte Trennung:** Layout, Margins und Geometrien verbleiben in `.ui`-Dateien; Farben, Hover, Rahmen und Typografie werden exklusiv in `.qss` gepflegt.
+
+---
+
+### 3.6 Feld-Darstellung Autoren (`inp_author`)
+* **Optionale Steuerung:** In den Programmeinstellungen unter *Anzeige* steuert die Option »Author durch Nexus Benutzer ersetzen.« (`chk_replace_author_nexus`, Key `Replace_Author_With_Nexus_User`, Standard: `false` / deaktiviert) das Verhalten.
+* **Detailbereiche (`Page_Mods`, `Page_Update`):**
+  * Ist die Option **aktiv (`true`)**: Bei Mods der Plattform **Nexus** (`Platform = 2`) und vorhandenem Nexus-Uploader (`User_Nexus`) wird im Feld *Autor* der Wert `User_Nexus` dargestellt.
+  * Ist die Option **inaktiv (`false`)** oder bei allen anderen Plattformen (z. B. *Creations*) bzw. fehlendem `User_Nexus`: Es wird der Masterfile-Header-Wert `Author` angezeigt.
+  * Beim Speichern auf `Page_Mods` bleibt der originale `Author`-Wert erhalten, sofern der Benutzer das Feld nicht aktiv ändert.
+* **Tabellen-Integrität:**
+  * Tabellendarstellungen (`QTableView`) bleiben strikt unberührt und listen stets den `Author`-Wert der Masterfile.
+
+---
+
+### 3.7 Gekoppelte Mod-Markierung (`Link_Mod_Selection`)
+* **Standard-Einstellung:** In den Einstellungen unter *Allgemein* (`chk_link_selection`, Key `Link_Mod_Selection`, Standardwert `1` / aktiv).
+* **Synchronisation bei Seitenwechsel:** Beim Wechsel zwischen den Hauptseiten `Page_Mods` und `Page_LoadOrder` wird die aktuell selektierte Mod auf die Zielseite übertragen und dort markiert (`select_mod_by_id`).
+* **Ergonomische Höhenausrichtung:** Die Zeile wird auf derselben relativen Sichthöhe im Viewport positioniert (`offset_from_top`), sofern nicht die Listenränder (oben/unten) die Scrollbewegung begrenzen.
+* **Fehlertoleranz:** Existiert die Mod in der Zielansicht nicht (z. B. leere Load Order, gefilterte Ansicht oder anderer Mod-Status in `Page_Mods`), bleibt die bestehende Auswahl unberührt ohne Fehlermeldung.
 
 ---
 

@@ -23,7 +23,9 @@
   },
   "settings": {
     "Auto_Save": 1,
+    "Link_Mod_Selection": 1,
     "Limit_Warning_Percentage": 90,
+    "Replace_Author_With_Nexus_User": false,
     "Prefer_Content_BarChart": false,
     "Prefer_Classification_Tiles": true,
     "Prefer_Conflict_Tiles": true,

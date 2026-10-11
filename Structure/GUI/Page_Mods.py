@@ -235,6 +235,7 @@ class Page_Mods(QWidget):
         
         self.table_view.hideColumn(0) 
         self.table_view.resizeColumnsToContents()
+        self.table_view.setColumnWidth(1, 440)
         
         from PySide6.QtWidgets import QHeaderView
         last_column_idx = header.count() - 1
@@ -321,9 +322,14 @@ class Page_Mods(QWidget):
         self.inp_name_catalog.setText(mod_data.get("Name_ContentCatalog") or "")
         self.inp_id_catalog.setText(mod_data.get("ID_ContentCatalog") or "")
         self.inp_url.setPlainText(mod_data.get("URL") or "")
-        if self.inp_note:
-            self.inp_note.setPlainText(mod_data.get("Note") or "")
-        self.inp_author.setText(mod_data.get("Author") or "")
+        user_nexus = (mod_data.get("User_Nexus") or "").strip()
+        platform_id = mod_data.get("Platform_ID")
+        from Structure.Paths import get_setting
+        replace_author_active = bool(get_setting("Replace_Author_With_Nexus_User", False))
+        if replace_author_active and platform_id == 2 and user_nexus:
+            self.inp_author.setText(user_nexus)
+        else:
+            self.inp_author.setText(mod_data.get("Author") or "")
         if hasattr(self, 'ctrl_description') and self.ctrl_description:
             desc_text = mod_data.get("Description") or ""
             mod_title = mod_data.get("Name_Online") or mod_data.get("Name_ContentCatalog") or "Mod-Beschreibung"
@@ -487,12 +493,25 @@ class Page_Mods(QWidget):
         else:
             db_date_avail = ""
 
+        orig_user_nexus = (self.current_mod_data.get("User_Nexus") or "").strip() if self.current_mod_data else ""
+        orig_author = (self.current_mod_data.get("Author") or "").strip() if self.current_mod_data else ""
+        current_platform = self.current_mod_data.get("Platform_ID") if self.current_mod_data else None
+
+        from Structure.Paths import get_setting
+        replace_author_active = bool(get_setting("Replace_Author_With_Nexus_User", False))
+        orig_author_display = orig_user_nexus if (replace_author_active and current_platform == 2 and orig_user_nexus) else orig_author
+        author_input = self.inp_author.text().strip()
+        author_changed = (author_input != orig_author_display)
+
+        # Wenn der Autor unverändert blieb, den Original-Author beibehalten (nicht mit User_Nexus überschreiben)
+        final_author = author_input if author_changed else (self.current_mod_data.get("Author") or "")
+
         update_data = {
             "Platform": self.cmb_platform.currentData(),
             "Name_Online": self.inp_name_online.text().strip(),
             "Name_ContentCatalog": self.inp_name_catalog.text().strip(),
             "URL": self.inp_url.toPlainText().strip(),
-            "Author": self.inp_author.text().strip(),
+            "Author": final_author,
             "Note": self.inp_note.toPlainText().strip() if self.inp_note else "",
             "Category_LOH": self.cmb_category.currentData(),
             "Category_LOH_Classifier": self.current_mod_data.get("Category_Classifier_ID") if self.current_mod_data else None,
@@ -502,6 +521,10 @@ class Page_Mods(QWidget):
             "Version_available": self.inp_ver_avail.text().strip(),
             "Assessment": self.cmb_assessment.currentData()
         }
+
+        # Falls der Benutzer bei einer Nexus-Mod das Feld manuell editiert hat, User_Nexus synchron halten
+        if author_changed and update_data["Platform"] == 2 and replace_author_active:
+            update_data["User_Nexus"] = author_input
         
         # Check if anything actually changed
         if self.current_mod_data:
@@ -510,7 +533,7 @@ class Page_Mods(QWidget):
                 (self.current_mod_data.get("Name_Online") or "").strip() != update_data["Name_Online"] or
                 (self.current_mod_data.get("Name_ContentCatalog") or "").strip() != update_data["Name_ContentCatalog"] or
                 (self.current_mod_data.get("URL") or "").strip() != update_data["URL"] or
-                (self.current_mod_data.get("Author") or "").strip() != update_data["Author"] or
+                author_changed or
                 (self.current_mod_data.get("Note") or "").strip() != update_data["Note"] or
                 self.current_mod_data.get("Category_ID") != update_data["Category_LOH"] or
                 (self.current_mod_data.get("Date_installed") or "").strip() != update_data["Date_installed"] or
@@ -652,3 +675,34 @@ class Page_Mods(QWidget):
                 self.current_mod_data["Category_LOH"] = category_id
                 self.current_mod_data["Category_Name"] = category_name
             self.set_combo_by_data(self.cmb_category, category_id)
+
+    def get_selected_row_viewport_offset(self) -> int:
+        """Gibt den relativen Zeilenabstand der ausgewählten Zeile zur oberen Kante des sichtbaren Viewports zurück."""
+        indexes = self.table_view.selectionModel().selectedRows()
+        if not indexes:
+            return 0
+        proxy_row = indexes[0].row()
+        vscroll = self.table_view.verticalScrollBar().value()
+        return max(0, proxy_row - vscroll)
+
+    def select_mod_by_id(self, mod_id: int | str, offset_from_top: int = None) -> bool:
+        """Wählt eine Mod anhand ihrer Mod-ID aus und passt optional die Scrollposition an."""
+        if not mod_id or not hasattr(self, 'model') or not self.model:
+            return False
+        target_mod_id = str(mod_id)
+        for r in range(self.model.rowCount()):
+            item_id = self.model.item(r, 0)
+            if item_id and item_id.text() == target_mod_id:
+                source_index = self.model.index(r, 0)
+                proxy_index = self.proxy_model.mapFromSource(source_index)
+                if proxy_index.isValid():
+                    proxy_row = proxy_index.row()
+                    self.table_view.selectRow(proxy_row)
+                    if offset_from_top is not None:
+                        vscroll = max(0, proxy_row - offset_from_top)
+                        self.table_view.verticalScrollBar().setValue(vscroll)
+                    else:
+                        from PySide6.QtWidgets import QAbstractItemView
+                        self.table_view.scrollTo(proxy_index, QAbstractItemView.ScrollHint.EnsureVisible)
+                    return True
+        return False

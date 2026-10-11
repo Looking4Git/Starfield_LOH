@@ -1021,7 +1021,7 @@ class Page_LoadOrder(QWidget):
         self.table_view.setColumnWidth(self.COL_NEW, 50)
         self.table_view.setColumnWidth(self.COL_POS, 50)
         self.table_view.setColumnWidth(self.COL_ACTIVE, 60)
-        self.table_view.resizeColumnToContents(self.COL_NAME)
+        self.table_view.setColumnWidth(self.COL_NAME, 440)
         self.table_view.resizeColumnToContents(self.COL_MASTER)
         self.table_view.resizeColumnToContents(self.COL_CATEGORY)
         self.table_view.resizeColumnToContents(self.COL_CLASSIFIER)
@@ -2235,4 +2235,37 @@ class Page_LoadOrder(QWidget):
 
         # Selektion wiederherstellen und Markierungen an neuer Position frisch setzen
         self._restore_selection_and_highlights(selected_mod_id)
+
+    def get_selected_row_viewport_offset(self) -> int:
+        """Gibt den relativen Zeilenabstand der ausgewählten Zeile zur oberen Kante des sichtbaren Viewports zurück."""
+        indexes = self.table_view.selectionModel().selectedRows()
+        if not indexes:
+            return 0
+        row = indexes[0].row()
+        vscroll = self.table_view.verticalScrollBar().value()
+        return max(0, row - vscroll)
+
+    def select_mod_by_id(self, mod_id: int | str, offset_from_top: int = None) -> bool:
+        """Wählt eine Mod anhand ihrer Mod-ID aus und passt optional die Scrollposition an."""
+        if not mod_id or not hasattr(self, 'model') or not self.model:
+            return False
+        target_mod_id = str(mod_id)
+        found_row = None
+        for r in range(self.model.rowCount()):
+            item_pos = self.model.item(r, self.COL_POS)
+            if item_pos:
+                row_data = self.get_row_data(item_pos)
+                if row_data and str(row_data.get("Mod_ID")) == target_mod_id:
+                    found_row = r
+                    break
+        if found_row is not None:
+            self.table_view.selectRow(found_row)
+            if offset_from_top is not None:
+                vscroll = max(0, found_row - offset_from_top)
+                self.table_view.verticalScrollBar().setValue(vscroll)
+            else:
+                from PySide6.QtWidgets import QAbstractItemView
+                self.table_view.scrollTo(self.model.index(found_row, self.COL_NAME), QAbstractItemView.ScrollHint.EnsureVisible)
+            return True
+        return False
 

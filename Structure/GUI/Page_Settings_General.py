@@ -315,6 +315,14 @@ class Page_Settings_General(QWidget):
         layout.addWidget(self.chk_auto_save)
         layout.addSpacing(6)
 
+        self.chk_link_selection = QCheckBox("Mod Markierung koppeln.")
+        self.chk_link_selection.setObjectName("chk_link_selection")
+        link_selection_val = get_setting("Link_Mod_Selection", 1)
+        self.chk_link_selection.setChecked(link_selection_val in (1, True, "1"))
+        self.chk_link_selection.stateChanged.connect(self.on_link_selection_changed)
+        layout.addWidget(self.chk_link_selection)
+        layout.addSpacing(6)
+
         self.chk_backup_strategy = QCheckBox("Sicherungen der Mod Dateien nach einem Starfield Mod Update aufbewahren.")
         self.chk_backup_strategy.setObjectName("chk_backup_strategy")
         backup_strat_val = get_setting("Starfield_Mod_Update_Backup_Strategy", False)
@@ -338,6 +346,14 @@ class Page_Settings_General(QWidget):
         lbl_display_section = QLabel("Anzeige")
         lbl_display_section.setObjectName("lbl_details")
         layout.addWidget(lbl_display_section)
+        layout.addSpacing(6)
+
+        self.chk_replace_author_nexus = QCheckBox("Author durch Nexus Benutzer ersetzen.")
+        self.chk_replace_author_nexus.setObjectName("chk_replace_author_nexus")
+        replace_author_val = get_setting("Replace_Author_With_Nexus_User", False)
+        self.chk_replace_author_nexus.setChecked(bool(replace_author_val))
+        self.chk_replace_author_nexus.stateChanged.connect(self.on_replace_author_nexus_changed)
+        layout.addWidget(self.chk_replace_author_nexus)
         layout.addSpacing(6)
 
         self.chk_prefer_content_bar = QCheckBox("Balkendiagramme in Abschnitt Inhalte bevorzugen (Fenster: Mod-Analyse Statistiken)")
@@ -410,10 +426,22 @@ class Page_Settings_General(QWidget):
         set_setting("settings", "Auto_Save", val)
         self.data_updated.emit()
 
+    def on_link_selection_changed(self, state):
+        """Speichert die Präferenz für gekoppelte Mod-Markierung in den Settings."""
+        val = 1 if (state == Qt.CheckState.Checked.value or state == 2) else 0
+        set_setting("settings", "Link_Mod_Selection", val)
+        self.data_updated.emit()
+
     def on_backup_strategy_changed(self, state):
         """Speichert die Präferenz für Mod-Update-Sicherungen in den Settings."""
         val = (state == Qt.CheckState.Checked.value or state == 2)
         set_setting("settings", "Starfield_Mod_Update_Backup_Strategy", val)
+        self.data_updated.emit()
+
+    def on_replace_author_nexus_changed(self, state):
+        """Speichert die Präferenz für das Ersetzen des Autors durch den Nexus-Benutzer in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Replace_Author_With_Nexus_User", val)
         self.data_updated.emit()
 
     def on_prefer_content_bar_changed(self, state):
@@ -835,7 +863,9 @@ class Page_Settings_General(QWidget):
                 cfg["nexus"] = default_cfg.get("nexus", {"api_key": ""})
                 cfg["settings"] = default_cfg.get("settings", {
                     "Auto_Save": 1,
+                    "Link_Mod_Selection": 1,
                     "Limit_Warning_Percentage": 90,
+                    "Replace_Author_With_Nexus_User": False,
                     "Prefer_Content_BarChart": False,
                     "Prefer_Classification_Tiles": True,
                     "Prefer_Conflict_Tiles": True,
@@ -862,16 +892,18 @@ class Page_Settings_General(QWidget):
             self.update_nexus_status_display("")
 
             # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
-            for chk in [self.chk_auto_save, self.chk_backup_strategy, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
                 chk.blockSignals(True)
 
             self.chk_auto_save.setChecked(def_settings.get("Auto_Save", 1) == 1)
+            self.chk_link_selection.setChecked(def_settings.get("Link_Mod_Selection", 1) in (1, True, "1"))
             self.chk_backup_strategy.setChecked(bool(def_settings.get("Starfield_Mod_Update_Backup_Strategy", False)))
+            self.chk_replace_author_nexus.setChecked(bool(def_settings.get("Replace_Author_With_Nexus_User", False)))
             self.chk_prefer_content_bar.setChecked(bool(def_settings.get("Prefer_Content_BarChart", False)))
             self.chk_prefer_classification_tiles.setChecked(bool(def_settings.get("Prefer_Classification_Tiles", True)))
             self.chk_prefer_tiles.setChecked(bool(def_settings.get("Prefer_Conflict_Tiles", True)))
 
-            for chk in [self.chk_auto_save, self.chk_backup_strategy, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
                 chk.blockSignals(False)
 
             # 4. Bestätigungsdialog anzeigen

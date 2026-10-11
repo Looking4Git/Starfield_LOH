@@ -210,12 +210,14 @@ QDockWidget QLabel,
 #detail_view QLabel#lbl_details,
 #detail_view QLabel#lbl_sorter_section,
 #detail_view QLabel#lbl_display_section,
+#detail_view QLabel#lbl_install_process,
 QLabel#lbl_filter,
 QLabel#lbl_details,
 QLabel#lbl_sorter_section,
 QLabel#lbl_display_section,
 QLabel#lbl_modules_section,
-QLabel#lbl_tools_section {
+QLabel#lbl_tools_section,
+QLabel#lbl_install_process {
     color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
     font-size: 16px;
     font-weight: bold;
@@ -224,10 +226,12 @@ QLabel#lbl_tools_section {
 }
 
 QFrame#detail_separator,
+QFrame#detail_separator_filter,
 QFrame#sorter_separator,
 QFrame#display_separator,
 QFrame#sep_modules_section,
-QFrame#sep_tools_section {
+QFrame#sep_tools_section,
+QFrame#sep_install_process {
     background-color: #304C7A;
     min-height: 4px;
     max-height: 4px;
@@ -326,7 +330,8 @@ QCheckBox#chk_sorter_show_columns::indicator:checked {
 }
 
 #Page_Update #detail_view QLineEdit#inp_name_catalog,
-#Page_Update #detail_view QLineEdit#inp_id_catalog {
+#Page_Update #detail_view QLineEdit#inp_id_catalog,
+#Page_Update #detail_view QLineEdit#inp_author {
     background-color: #D7A64B; 
     color: #000000;
 }

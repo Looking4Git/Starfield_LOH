@@ -319,12 +319,10 @@ class StarfieldLOH(QMainWindow):
         link_mod_id = None
         link_offset = None
         if get_setting("Link_Mod_Selection", 1) in (1, True, "1") and prev_widget:
-            if prev_widget == getattr(self, 'page_mods', None) and current_widget == getattr(self, 'page_lo', None):
-                link_mod_id = getattr(self.page_mods, 'current_mod_id', None)
-                link_offset = self.page_mods.get_selected_row_viewport_offset()
-            elif prev_widget == getattr(self, 'page_lo', None) and current_widget == getattr(self, 'page_mods', None):
-                link_mod_id = getattr(self.page_lo, 'current_mod_id', None)
-                link_offset = self.page_lo.get_selected_row_viewport_offset()
+            if hasattr(prev_widget, 'current_mod_id') and getattr(prev_widget, 'current_mod_id', None):
+                link_mod_id = getattr(prev_widget, 'current_mod_id', None)
+                if hasattr(prev_widget, 'get_selected_row_viewport_offset'):
+                    link_offset = prev_widget.get_selected_row_viewport_offset()
 
         # Auto-Save auf der verlassenen Seite triggern
         if get_setting("Auto_Save", 0) == 1:
@@ -333,6 +331,8 @@ class StarfieldLOH(QMainWindow):
                     self.page_mods.save_detail_data(reload_table=False)
                 elif prev_widget == getattr(self, 'page_lo', None) and self.page_lo.current_mod_id:
                     self.page_lo.save_detail_data(reload_table=False)
+                elif prev_widget == getattr(self, 'page_update', None) and getattr(self.page_update, 'current_mod_id', None):
+                    self.page_update.save_detail_data()
                     
         self.previous_page = current_widget
         
@@ -390,6 +390,8 @@ class StarfieldLOH(QMainWindow):
                 self.page_lo.select_mod_by_id(link_mod_id, link_offset)
             elif current_widget == getattr(self, 'page_mods', None):
                 self.page_mods.select_mod_by_id(link_mod_id, link_offset)
+            elif current_widget == getattr(self, 'page_update', None):
+                self.page_update.select_mod_by_id(link_mod_id, link_offset)
 
     def closeEvent(self, event):
         """Prüft auf laufende Hintergrundprozesse und speichert den Fensterzustand."""
@@ -423,6 +425,17 @@ class StarfieldLOH(QMainWindow):
                 return
         except Exception:
             pass
+
+        # Auto-Save vor dem Schließen für die aktive Seite triggern
+        from Structure.Paths import get_setting
+        if get_setting("Auto_Save", 0) == 1:
+            current_widget = self.content_stack.currentWidget()
+            if current_widget == getattr(self, 'page_mods', None) and self.page_mods.current_mod_id:
+                self.page_mods.save_detail_data(reload_table=False)
+            elif current_widget == getattr(self, 'page_lo', None) and self.page_lo.current_mod_id:
+                self.page_lo.save_detail_data(reload_table=False)
+            elif current_widget == getattr(self, 'page_update', None) and getattr(self.page_update, 'current_mod_id', None):
+                self.page_update.save_detail_data()
 
         # Werte in das Dictionary schreiben
         if hasattr(self, 'dock_manager'):

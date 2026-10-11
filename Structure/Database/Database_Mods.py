@@ -38,6 +38,7 @@ __all__ = [
     "ensure_component_registered",
     "update_mod_category_and_note",
     "update_mod_category",
+    "update_mod_note",
     "get_mod_category_stats",
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
@@ -743,6 +744,28 @@ def update_mod_category(mod_id: int, category_id: int | None) -> bool:
         return True
     except sqlite3.Error as e:
         logging.error(f"Fehler beim Update von Category_LOH für Mod ID {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def update_mod_note(mod_id: int, note: str) -> bool:
+    """Aktualisiert das Notiz-Feld (Note) einer Mod."""
+    query = """
+        UPDATE Mods 
+        SET Note = ?
+        WHERE ID = ?
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (note, mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Update von Note für Mod ID {mod_id}: {e}")
         return False
     finally:
         if conn:

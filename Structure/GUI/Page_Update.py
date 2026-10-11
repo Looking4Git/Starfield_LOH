@@ -8,7 +8,13 @@ from PySide6.QtGui import (QStandardItemModel, QStandardItem, QDesktopServices,
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Database import get_mods_with_updates, get_mods_for_update_view, get_mod_image, get_script_last_execution
+from Structure.Database import (
+    get_mods_with_updates,
+    get_mods_for_update_view,
+    get_mod_image,
+    get_script_last_execution,
+    update_mod_note,
+)
 from Structure.Paths import APP_ROOT
 from Structure.GUI.UI_Utils import make_button_premium
 from Structure.Starfield_Mod_Update import (
@@ -173,6 +179,16 @@ class Page_Update(QWidget):
             make_button_premium(self.btn_open_url, os.path.join(APP_ROOT, "Graphics", "Icon_Downstream.svg"), "Öffnen")
             self.btn_open_url.clicked.connect(self.open_mod_url)
 
+        self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
+        if self.btn_save:
+            make_button_premium(self.btn_save, os.path.join(APP_ROOT, "Graphics", "Icon_Save.svg"), "Speichern")
+            self.btn_save.clicked.connect(self.save_detail_data)
+
+        self.btn_discard = ui.findChild(QPushButton, "btn_discard_detail")
+        if self.btn_discard:
+            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
+            self.btn_discard.clicked.connect(self.discard_detail_data)
+
         self.btn_start_update = ui.findChild(QPushButton, "btn_start_update")
         if self.btn_start_update:
             make_button_premium(
@@ -259,6 +275,9 @@ class Page_Update(QWidget):
     def on_mode_filter_changed(self, index):
         """Wird aufgerufen, wenn der Benutzer im Filter 'Anzeige' einen anderen Modus wählt."""
         if self.cmb_mode_filter:
+            from Structure.Paths import get_setting
+            if get_setting("Auto_Save", 0) == 1 and getattr(self, "current_mod_id", None):
+                self.save_detail_data()
             self.current_mode = self.cmb_mode_filter.currentData() or "updates"
             self.load_data()
 
@@ -376,104 +395,117 @@ class Page_Update(QWidget):
 
     def load_data(self):
         """Lädt alle Mods basierend auf dem gewählten Anzeigemodus ('updates', 'reinstall', 'restore')."""
-        self.update_last_execution_display()
-        self.model = QStandardItemModel()
-        mode = getattr(self, "current_mode", "updates")
-        mods_data = get_mods_for_update_view(mode)
+        from Structure.Paths import get_setting
+        if not getattr(self, '_loading_data', False) and get_setting("Auto_Save", 0) == 1 and getattr(self, "current_mod_id", None):
+            self.save_detail_data()
 
-        self.clear_detail_form()
+        self._loading_data = True
+        try:
+            self.update_last_execution_display()
+            prev_mod_id = getattr(self, "current_mod_id", None)
+            self.model = QStandardItemModel()
+            mode = getattr(self, "current_mode", "updates")
+            mods_data = get_mods_for_update_view(mode)
 
-        # Checkbox-Standard: bei 'updates' alle angehakt, bei 'reinstall'/'restore' alle ausgehakt
-        is_default_checked = (mode == "updates")
-        default_check_state = Qt.CheckState.Checked if is_default_checked else Qt.CheckState.Unchecked
-        default_sort_val = 1 if is_default_checked else 0
+            self.clear_detail_form()
 
-        for row_data in mods_data:
-            item_id = QStandardItem(str(row_data["ID"]))
-            item_id.setData(row_data, Qt.ItemDataRole.UserRole)
+            # Checkbox-Standard: bei 'updates' alle angehakt, bei 'reinstall'/'restore' alle ausgehakt
+            is_default_checked = (mode == "updates")
+            default_check_state = Qt.CheckState.Checked if is_default_checked else Qt.CheckState.Unchecked
+            default_sort_val = 1 if is_default_checked else 0
 
-            # Checkbox für Update / Auswahl
-            item_check = QStandardItem()
-            item_check.setCheckable(True)
-            item_check.setCheckState(default_check_state)
-            item_check.setData(default_sort_val, self.SORT_ROLE)
+            for row_data in mods_data:
+                item_id = QStandardItem(str(row_data["ID"]))
+                item_id.setData(row_data, Qt.ItemDataRole.UserRole)
 
-            name = row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or ""
-            item_name = QStandardItem(name)
-            item_name.setData(name, self.SORT_ROLE)
+                # Checkbox für Update / Auswahl
+                item_check = QStandardItem()
+                item_check.setCheckable(True)
+                item_check.setCheckState(default_check_state)
+                item_check.setData(default_sort_val, self.SORT_ROLE)
 
-            # Installiert (Datum)
-            raw_inst_date = row_data.get("Date_installed") or ""
-            item_date_inst = QStandardItem(self.format_date_display(raw_inst_date))
-            item_date_inst.setData(self.format_date_sort(raw_inst_date), self.SORT_ROLE)
+                name = row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or ""
+                item_name = QStandardItem(name)
+                item_name.setData(name, self.SORT_ROLE)
 
-            # Version (installiert)
-            ver_inst = row_data.get("Version_installed") or ""
-            item_ver_inst = QStandardItem(ver_inst)
-            item_ver_inst.setData(ver_inst, self.SORT_ROLE)
+                # Installiert (Datum)
+                raw_inst_date = row_data.get("Date_installed") or ""
+                item_date_inst = QStandardItem(self.format_date_display(raw_inst_date))
+                item_date_inst.setData(self.format_date_sort(raw_inst_date), self.SORT_ROLE)
 
-            # Verfügbar (Datum)
-            raw_avail_date = row_data.get("Date_available") or ""
-            item_date_avail = QStandardItem(self.format_date_display(raw_avail_date))
-            item_date_avail.setData(self.format_date_sort(raw_avail_date), self.SORT_ROLE)
+                # Version (installiert)
+                ver_inst = row_data.get("Version_installed") or ""
+                item_ver_inst = QStandardItem(ver_inst)
+                item_ver_inst.setData(ver_inst, self.SORT_ROLE)
 
-            # Version (verfügbar)
-            ver_avail = row_data.get("Version_available") or ""
-            item_ver_avail = QStandardItem(ver_avail)
-            item_ver_avail.setData(ver_avail, self.SORT_ROLE)
+                # Verfügbar (Datum)
+                raw_avail_date = row_data.get("Date_available") or ""
+                item_date_avail = QStandardItem(self.format_date_display(raw_avail_date))
+                item_date_avail.setData(self.format_date_sort(raw_avail_date), self.SORT_ROLE)
 
-            # Update (Datum aus Mods_Updates)
-            raw_update_date = row_data.get("Date_update") or ""
-            item_date_update = QStandardItem(self.format_date_display(raw_update_date))
-            item_date_update.setData(self.format_date_sort(raw_update_date), self.SORT_ROLE)
+                # Version (verfügbar)
+                ver_avail = row_data.get("Version_available") or ""
+                item_ver_avail = QStandardItem(ver_avail)
+                item_ver_avail.setData(ver_avail, self.SORT_ROLE)
 
-            # Version (Update aus Mods_Updates)
-            ver_update = row_data.get("Version_update") or ""
-            item_ver_update = QStandardItem(ver_update)
-            item_ver_update.setData(ver_update, self.SORT_ROLE)
+                # Update (Datum aus Mods_Updates)
+                raw_update_date = row_data.get("Date_update") or ""
+                item_date_update = QStandardItem(self.format_date_display(raw_update_date))
+                item_date_update.setData(self.format_date_sort(raw_update_date), self.SORT_ROLE)
 
-            # Status (aus Mods_Updates_States)
-            status_update = row_data.get("State_update_name") or ""
-            item_status_update = QStandardItem(status_update)
-            item_status_update.setData(status_update, self.SORT_ROLE)
+                # Version (Update aus Mods_Updates)
+                ver_update = row_data.get("Version_update") or ""
+                item_ver_update = QStandardItem(ver_update)
+                item_ver_update.setData(ver_update, self.SORT_ROLE)
 
-            self.model.appendRow([
-                item_id, item_check, item_name,
-                item_date_inst, item_ver_inst,
-                item_date_avail, item_ver_avail,
-                item_date_update, item_ver_update,
-                item_status_update
+                # Status (aus Mods_Updates_States)
+                status_update = row_data.get("State_update_name") or ""
+                item_status_update = QStandardItem(status_update)
+                item_status_update.setData(status_update, self.SORT_ROLE)
+
+                self.model.appendRow([
+                    item_id, item_check, item_name,
+                    item_date_inst, item_ver_inst,
+                    item_date_avail, item_ver_avail,
+                    item_date_update, item_ver_update,
+                    item_status_update
+                ])
+
+            # Header-Beschriftungen setzen (mit Abstand für die Checkbox in Spalte 1)
+            self.model.setHorizontalHeaderLabels([
+                "ID", "       Update", "Name", "Installiert", "Version", "Verfügbar", "Version", "Update", "Version", "Status"
             ])
 
-        # Header-Beschriftungen setzen (mit Abstand für die Checkbox in Spalte 1)
-        self.model.setHorizontalHeaderLabels([
-            "ID", "       Update", "Name", "Installiert", "Version", "Verfügbar", "Version", "Update", "Version", "Status"
-        ])
+            self.model.itemChanged.connect(self.on_item_changed)
+            self.proxy_model.setSourceModel(self.model)
 
-        self.model.itemChanged.connect(self.on_item_changed)
-        self.proxy_model.setSourceModel(self.model)
+            # Spaltenbreiten einrichten
+            self.table_view.hideColumn(0)  # ID verbergen
+            self.table_view.setColumnWidth(1, 95)  # Update Checkbox + Label
+            self.table_view.resizeColumnToContents(2)  # Name
+            self.table_view.resizeColumnToContents(3)  # Installiert
+            self.table_view.resizeColumnToContents(4)  # Version
+            self.table_view.resizeColumnToContents(5)  # Verfügbar
+            self.table_view.resizeColumnToContents(6)  # Version
+            self.table_view.resizeColumnToContents(7)  # Update
+            self.table_view.resizeColumnToContents(8)  # Version
+            self.table_view.resizeColumnToContents(9)  # Status
 
-        # Spaltenbreiten einrichten
-        self.table_view.hideColumn(0)  # ID verbergen
-        self.table_view.setColumnWidth(1, 95)  # Update Checkbox + Label
-        self.table_view.resizeColumnToContents(2)  # Name
-        self.table_view.resizeColumnToContents(3)  # Installiert
-        self.table_view.resizeColumnToContents(4)  # Version
-        self.table_view.resizeColumnToContents(5)  # Verfügbar
-        self.table_view.resizeColumnToContents(6)  # Version
-        self.table_view.resizeColumnToContents(7)  # Update
-        self.table_view.resizeColumnToContents(8)  # Version
-        self.table_view.resizeColumnToContents(9)  # Status
+            header = self.table_view.horizontalHeader()
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
 
-        header = self.table_view.horizontalHeader()
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
+            self.header.set_checked(is_default_checked)
+            self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
 
-        self.header.set_checked(is_default_checked)
-        self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
-
-        if self.model.rowCount() > 0:
-            self.table_view.selectRow(0)
+            if prev_mod_id:
+                if not self.select_mod_by_id(prev_mod_id):
+                    if self.model.rowCount() > 0:
+                        self.table_view.selectRow(0)
+            elif self.model.rowCount() > 0:
+                self.table_view.selectRow(0)
+        finally:
+            self._loading_data = False
 
     def toggle_all_updates(self, checked: bool):
         """Schaltet den Update-Status aller Zeilen um."""
@@ -507,6 +539,10 @@ class Page_Update(QWidget):
         self.header.set_checked(all_checked)
 
     def on_row_selected(self, selected, deselected):
+        from Structure.Paths import get_setting
+        if not getattr(self, '_loading_data', False) and get_setting("Auto_Save", 0) == 1 and getattr(self, "current_mod_id", None):
+            self.save_detail_data()
+
         indexes = self.table_view.selectionModel().selectedRows()
         if not indexes:
             self.clear_detail_form()
@@ -528,6 +564,7 @@ class Page_Update(QWidget):
 
         self.inp_name_online.setText(mod_data.get("Name_Online") or "")
         self.inp_name_catalog.setText(mod_data.get("Name_ContentCatalog") or "")
+        self.inp_id_catalog.setText(mod_data.get("ID_ContentCatalog") or "")
         user_nexus = (mod_data.get("User_Nexus") or "").strip()
         platform_id = mod_data.get("Platform_ID")
         from Structure.Paths import get_setting
@@ -581,6 +618,73 @@ class Page_Update(QWidget):
         url_text = self.inp_url.toPlainText().strip()
         if url_text:
             QDesktopServices.openUrl(QUrl(url_text))
+
+    def save_detail_data(self):
+        """Speichert die geänderte Notiz der ausgewählten Mod in die Datenbank und aktualisiert das Model."""
+        if not self.current_mod_id or not self.current_mod_data:
+            return
+        new_note = self.inp_note.toPlainText().strip() if self.inp_note else ""
+        orig_note = (self.current_mod_data.get("Note") or "").strip()
+        if new_note == orig_note:
+            return
+
+        if update_mod_note(int(self.current_mod_id), new_note):
+            self.current_mod_data["Note"] = new_note
+            # Auch den im Model-Item zwischengespeicherten Datensatz aktualisieren, damit kein veralteter Stand zurückgeladen wird!
+            if hasattr(self, 'model') and self.model:
+                for r in range(self.model.rowCount()):
+                    item_id = self.model.item(r, 0)
+                    if item_id and item_id.text() == str(self.current_mod_id):
+                        row_dict = item_id.data(Qt.ItemDataRole.UserRole)
+                        if isinstance(row_dict, dict):
+                            row_dict["Note"] = new_note
+                            item_id.setData(row_dict, Qt.ItemDataRole.UserRole)
+                        break
+            self.data_updated.emit()
+
+    def discard_detail_data(self):
+        """Verwirft Änderungen im Notiz-Feld und lädt den Datenbank-Ausgangszustand."""
+        if not self.current_mod_data:
+            return
+        if self.inp_note:
+            self.inp_note.setPlainText(self.current_mod_data.get("Note") or "")
+
+    def get_selected_row_viewport_offset(self) -> int:
+        """Gibt den relativen Zeilenabstand der ausgewählten Zeile zur oberen Kante des sichtbaren Viewports zurück."""
+        indexes = self.table_view.selectionModel().selectedRows()
+        if not indexes:
+            return 0
+        proxy_row = indexes[0].row()
+        vscroll = self.table_view.verticalScrollBar().value()
+        return max(0, proxy_row - vscroll)
+
+    def select_mod_by_id(self, mod_id: int | str, offset_from_top: int = None) -> bool:
+        """Wählt eine Mod anhand ihrer Mod-ID aus und passt optional die Scrollposition an."""
+        if not mod_id or not hasattr(self, 'model') or not self.model:
+            return False
+        target_mod_id = str(mod_id)
+        for r in range(self.model.rowCount()):
+            item_id = self.model.item(r, 0)
+            if item_id and item_id.text() == target_mod_id:
+                source_index = self.model.index(r, 0)
+                proxy_index = self.proxy_model.mapFromSource(source_index)
+                if proxy_index.isValid():
+                    proxy_row = proxy_index.row()
+                    self.table_view.selectRow(proxy_row)
+                    # Falls die Zeile bereits selektiert war (z. B. nach clear_detail_form), Details direkt laden
+                    if self.current_mod_id != target_mod_id:
+                        mod_data = item_id.data(Qt.ItemDataRole.UserRole)
+                        if mod_data:
+                            self.current_mod_data = mod_data
+                            self.load_mod_details_to_ui(mod_data)
+                    if offset_from_top is not None:
+                        vscroll = max(0, proxy_row - offset_from_top)
+                        self.table_view.verticalScrollBar().setValue(vscroll)
+                    else:
+                        from PySide6.QtWidgets import QAbstractItemView
+                        self.table_view.scrollTo(proxy_index, QAbstractItemView.ScrollHint.EnsureVisible)
+                    return True
+        return False
 
     def on_start_update_clicked(self):
         """Sammelt alle angehakten Mods, führt die Backup-Vorbereitung aus und öffnet das Overlay."""

@@ -335,6 +335,8 @@ class Page_Mods(QWidget):
             mod_title = mod_data.get("Name_Online") or mod_data.get("Name_ContentCatalog") or "Mod-Beschreibung"
             self.ctrl_description.set_title(mod_title)
             self.ctrl_description.set_markdown(desc_text)
+        if hasattr(self, 'inp_note') and self.inp_note:
+            self.inp_note.setPlainText(mod_data.get("Note") or "")
         self.inp_ver_inst.setText(mod_data.get("Version_installed") or "")
         self.inp_ver_avail.setText(mod_data.get("Version_available") or "")
 

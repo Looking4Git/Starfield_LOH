@@ -165,7 +165,7 @@
           </widget>
          </item>
          <item row="2" column="0" colspan="2">
-          <widget class="QFrame" name="detail_separator_filter">
+          <widget class="QFrame" name="detail_separator">
            <property name="frameShape">
             <enum>QFrame::Shape::HLine</enum>
            </property>
@@ -428,53 +428,6 @@
           </layout>
          </item>
          <item row="9" column="0">
-          <widget class="QLabel" name="lbl_note_label">
-           <property name="text">
-            <string>Notiz:</string>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>100</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>100</width>
-             <height>16777215</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-         <item row="9" column="1">
-          <widget class="QTextEdit" name="inp_note">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>518</width>
-             <height>78</height>
-            </size>
-           </property>
-           <property name="readOnly">
-            <bool>true</bool>
-           </property>
-           <property name="acceptRichText">
-            <bool>false</bool>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>518</width>
-             <height>78</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-         <item row="10" column="0">
           <widget class="QLabel" name="lbl_date_inst_label">
            <property name="text">
             <string>installiert:</string>
@@ -493,7 +446,7 @@
            </property>
           </widget>
          </item>
-         <item row="10" column="1">
+         <item row="9" column="1">
           <layout class="QHBoxLayout" name="layout_date_fields">
            <property name="spacing">
             <number>10</number>
@@ -573,7 +526,7 @@
            </item>
           </layout>
          </item>
-         <item row="11" column="0">
+         <item row="10" column="0">
           <widget class="QLabel" name="lbl_ver_inst_label">
            <property name="text">
             <string>Version.:</string>
@@ -592,7 +545,7 @@
            </property>
           </widget>
          </item>
-         <item row="11" column="1">
+         <item row="10" column="1">
           <layout class="QHBoxLayout" name="layout_ver_fields">
            <property name="spacing">
             <number>10</number>
@@ -672,7 +625,138 @@
            </item>
           </layout>
          </item>
-         <item row="12" column="0">
+         <item row="11" column="0">
+          <widget class="QLabel" name="lbl_note_label">
+           <property name="text">
+            <string>Notiz:</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>100</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item row="11" column="1">
+          <widget class="QTextEdit" name="inp_note">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>518</width>
+             <height>78</height>
+            </size>
+           </property>
+           <property name="acceptRichText">
+            <bool>false</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>518</width>
+             <height>78</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item row="12" column="1">
+           <layout class="QHBoxLayout" name="detail_button_layout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <spacer name="detail_button_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_discard_detail">
+              <property name="minimumSize">
+               <size>
+                <width>125</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>125</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Verwerfen</string>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>24</width>
+                <height>24</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_save_detail">
+              <property name="minimumSize">
+               <size>
+                <width>125</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>125</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Speichern</string>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>Graphics/Icon_Save.svg</normaloff>Graphics/Icon_Save.svg</iconset>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>24</width>
+                <height>24</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         <item row="13" column="0">
           <widget class="QLabel" name="lbl_image_label">
            <property name="text">
             <string>Bild:</string>
@@ -697,7 +781,7 @@
            </property>
           </widget>
          </item>
-         <item row="12" column="1">
+         <item row="13" column="1">
           <widget class="QLabel" name="lbl_preview_image">
            <property name="minimumSize">
             <size>
@@ -716,7 +800,24 @@
            </property>
           </widget>
          </item>
-         <item row="13" column="0">
+         <item row="14" column="0" colspan="2">
+           <widget class="QFrame" name="sep_install_process">
+            <property name="frameShape">
+             <enum>QFrame::Shape::HLine</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Shadow::Sunken</enum>
+            </property>
+           </widget>
+          </item>
+         <item row="15" column="0" colspan="2">
+           <widget class="QLabel" name="lbl_install_process">
+            <property name="text">
+             <string>Installationsprozess</string>
+            </property>
+           </widget>
+          </item>
+         <item row="16" column="0">
           <widget class="QLabel" name="lbl_update_label">
            <property name="text">
             <string>Update:</string>
@@ -735,7 +836,7 @@
            </property>
           </widget>
          </item>
-         <item row="13" column="1">
+         <item row="16" column="1">
           <layout class="QHBoxLayout" name="layout_update_fields">
            <property name="spacing">
             <number>10</number>
@@ -780,57 +881,63 @@
            </item>
           </layout>
          </item>
-         <item row="14" column="1">
-          <layout class="QHBoxLayout" name="update_button_layout">
-           <property name="spacing">
-            <number>10</number>
-           </property>
-           <property name="topMargin">
-            <number>12</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QPushButton" name="btn_start_update">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>34</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Update starten</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btn_resolve_update_status">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>34</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Update prüfen</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
+         <item row="17" column="1">
+           <layout class="QVBoxLayout" name="update_button_layout">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="btn_start_update">
+              <property name="minimumSize">
+               <size>
+                <width>210</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>210</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Update starten</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_resolve_update_status">
+              <property name="minimumSize">
+               <size>
+                <width>210</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>210</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Update prüfen</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
         </layout>
        </item>
        <item>

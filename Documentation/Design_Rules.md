@@ -299,11 +299,12 @@ Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View
 ---
 
 ### 3.6 Feld-Darstellung Autoren (`inp_author`)
-* **Optionale Steuerung:** In den Programmeinstellungen unter *Anzeige* steuert die Option »Author durch Nexus Benutzer ersetzen.« (`chk_replace_author_nexus`, Key `Replace_Author_With_Nexus_User`, Standard: `false` / deaktiviert) das Verhalten.
+* **Schreibschutz & Farbgebung:** Das Feld `inp_author` ist in allen Detailbereichen (`Page_Mods`, `Page_Update`) **schreibgeschützt (`readOnly = True`)** und verbindlich in **Starfield Gelb / Gold (`#D7A64B`)** mit schwarzer Schrift (`#000000`) hinterlegt, analog zu `inp_name_catalog` und `inp_id_catalog`.
+* **Optionale Steuerung:** In den Programmeinstellungen unter *Anzeige* steuert die Option »Author durch Nexus Benutzer ersetzen.« (`chk_replace_author_nexus`, Key `Replace_Author_With_Nexus_User`, Standard: `false` / deaktiviert) das Anzeige-Verhalten.
 * **Detailbereiche (`Page_Mods`, `Page_Update`):**
-  * Ist die Option **aktiv (`true`)**: Bei Mods der Plattform **Nexus** (`Platform = 2`) und vorhandenem Nexus-Uploader (`User_Nexus`) wird im Feld *Autor* der Wert `User_Nexus` dargestellt.
+  * Ist die Option **aktiv (`true`)**: Bei Mods der Plattform **Nexus** (`Platform = 2`) und vorhandenem Nexus-Uploader (`User_Nexus`) wird im schreibgeschützten Feld *Autor* der Wert `User_Nexus` dargestellt.
   * Ist die Option **inaktiv (`false`)** oder bei allen anderen Plattformen (z. B. *Creations*) bzw. fehlendem `User_Nexus`: Es wird der Masterfile-Header-Wert `Author` angezeigt.
-  * Beim Speichern auf `Page_Mods` bleibt der originale `Author`-Wert erhalten, sofern der Benutzer das Feld nicht aktiv ändert.
+  * Beim Speichern auf `Page_Mods` bleibt der originale `Author`-Wert in der Datenbank erhalten.
 * **Tabellen-Integrität:**
   * Tabellendarstellungen (`QTableView`) bleiben strikt unberührt und listen stets den `Author`-Wert der Masterfile.
 

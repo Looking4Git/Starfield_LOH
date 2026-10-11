@@ -9,7 +9,6 @@ from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import (
-    get_mods_with_updates,
     get_mods_for_update_view,
     get_mod_image,
     get_script_last_execution,
@@ -110,7 +109,6 @@ class CheckboxHeaderView(QHeaderView):
 
 class Page_Update(QWidget):
     data_updated = Signal()
-    log_message_emitted = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -266,11 +264,6 @@ class Page_Update(QWidget):
             if len(parts) == 3:
                 return f"{parts[2]}-{parts[1]}-{parts[0]}"
         return s
-
-    def log(self, message: str):
-        """Protokolliert eine Nachricht und sendet sie über log_message_emitted an angebundene Konsolen."""
-        logging.info(message)
-        self.log_message_emitted.emit(message)
 
     def on_mode_filter_changed(self, index):
         """Wird aufgerufen, wenn der Benutzer im Filter 'Anzeige' einen anderen Modus wählt."""

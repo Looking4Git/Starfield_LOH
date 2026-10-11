@@ -265,7 +265,7 @@ if __name__ == "__main__":
         "Lade Programmeinstellungen & Konfiguration ...",
         "Initialisiere Mod-Verwaltung (Page_Mods) ...",
         "Initialisiere Ladereihenfolge (Page_LoadOrder) ...",
-        "Initialisiere Update- & Wartungsmodul (Page_Update) ...",
+        "Initialisiere Update-Modul (Page_Update) ...",
         "Initialisiere Diagnose-Werkzeuge (Page_Tools) ...",
         "Bereite Diagnosezentrum & Mod-Statistiken vor ...",
         "Lade Starfield Sci-Fi Stylesheets ...",

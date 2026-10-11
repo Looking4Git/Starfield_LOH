@@ -77,7 +77,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 ### D. Auswahllisten (`QComboBox`)
 * **Eingabebereich:** Weißer Hintergrund (`#FFFFFF`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
 * **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund Starfield-Blau (`#304C7A`), Hover `#5B7A9E`, Rahmen `none`.
-* **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), weiß, zentriert.
+* **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), zentriert. Das Pfeilsymbol wird exklusiv im rechten blauen Drop-Down-Button (`::drop-down`) geführt; das weiße Eingabefeld (Grundfeld) bleibt vollständig rein textbasiert ohne Pfeilsymbole.
+* **Klassisches Drop-Down-Verhalten (Anzeige unterhalb):**
+  * Auswahllisten öffnen sich verbindlich **immer bündig an der Unterkante** der ComboBox (zentral gesteuert über `LOH_Dropdown_Style` mit `SH_ComboBox_Popup = 0` in `LOH_Control_Dropdown.py`).
+  * Die ComboBox (weißes Textfeld + blauer Pfeilbutton) bleibt während der gesamten Auswahl zu 100 % sichtbar an ihrer festen Position im Formular stehen.
+  * Reicht der verfügbare Bildschirmplatz nach unten nicht aus, klappt Qt die Liste automatisch bündig nach oben auf (*Pull-up*).
 * **Aufklappliste / Popup-Ansicht (`QComboBox QAbstractItemView`):**
   * Hintergrund: Reinweiß (`#FFFFFF`).
   * Textfarbe der Einträge: Tiefschwarz (`#000000`).
@@ -86,6 +90,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Rahmen: `1px solid #304C7A`.
   * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Pages.qss` für alle Hauptseiten sowie alle angedockten Diagnose- und Statistikfenster. Lokale Widget-Stylesheets müssen diese View-Eigenschaften zwingend mitführen.
 * **Mindestbreite:** Im Formularbereich standardmäßig `220px`.
+* **Mausrad-Schutz:** Globaler Schutz vor versehentlichem Verstellen über `setup_dropdown_wheel_guard` (`LOH_Control_Dropdown.py`).
 
 ---
 
@@ -100,7 +105,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Schrift & Icons: Weiß/Hellgrau `#ECECEC` (`13px`), `bold` bei Aktionsbuttons für markante Lesbarkeit und hohen Kontrast auch im deaktivierten Zustand.
   * Textausrichtung: Linksbündig (`text-align: left`), damit Text und Icons untereinander exakt auf einer Fluchtlinie liegen.
   * Rahmen & Rundung: `border: none; border-radius: 2px;`.
-  * Abmessungen: Mindesthöhe `32px`, Mindestbreite `120px` bis `130px`, Padding `4px 8px`, Icongröße `18x18 px` bis `22x22 px`.
+  * Standardhöhe: `32px`, Padding `4px 8px`, Icongröße `18x18 px` bis `22x22 px`.
+  * **Standardbreite für Detail-Aktionsbuttons (Rechtsbündige Belegung):**  
+    Alle Aktionsschaltflächen, die in Detailbereichen und Formularen vom rechten Rand nach links aufgelegt werden (z. B. `btn_open_url`, `btn_analysis`, `btn_discard_detail`, `btn_save_detail`, `btn_apply_classifier_*`, `btn_add/remove_requirement`, `btn_apply_sorter_*`), erhalten eine verbindliche feste Einheitsbreite von **120 px** (`min-width: 120px; max-width: 120px; min-height: 32px; max-height: 32px;`).
+  * **Profil-Aktionsleiste unter dem Beschreibungsfeld (`Page_LoadOrder`):**  
+    Die 4 Schaltflächen (*Aktivieren*, *Einlesen*, *Kopieren*, *Löschen*) liegen direkt in Spalte 1 des Formular-Layouts unter dem Beschreibungsfeld (`inp_profile_desc`, 498 px Feldbreite). Bei 4 Buttons à 120 px und standardmäßigem Spacing von 6 px ($4 \times 120\,\text{px} + 3 \times 6\,\text{px} = 498\,\text{px}$) schließt *Aktivieren* exakt linksbündig und *Löschen* exakt rechtsbündig mit dem Beschreibungsfeld ab.
 * **Pfeil- und Symbolbuttons (z. B. `btn_pos_up`, `btn_pos_down`):**
   * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
 * **Spezifische Icon-Standards:**
@@ -211,7 +220,25 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
-## 3. Layout-Disziplin, Navigationsstruktur & Formular-Aufbau
+### K. Markdown-Anzeige & Zoom-Fenster (`LOH_Control_MarkdownView` & `Window_MarkdownView`)
+* **Einsatz:** Wiederverwendbare, formatierte Textdarstellung mit Markdown-Unterstützung (z. B. Mod-Beschreibungen im Detailbereich von `Page_Mods`, Release-Notes, Dokumentationen).
+* **Steuerelement (`LOH_Control_MarkdownView`):**
+  * Kapselt ein `QTextBrowser`-Element (weiß `#FFFFFF`, Text `#000000`, Rand `1px solid #888888`, `setWordWrapMode`) und ein schwebendes Lupen-Icon (`btn_zoom`, 24 × 24 px) oben rechts.
+  * **Schwebendes Lupen-Icon (Konzept A):**
+    * *Ruhezustand:* Vollständig transparent (`background: transparent; border: 1px solid transparent; padding: 0px; margin: 0px;`), feines dunkelgraues Icon `Graphics/Icon_Magnifier.svg` (`#383838`). Maximal dezent auf weißem Grund.
+    * *Hover:* Wechselt auf Starfield-Gold-Rahmen (`border: 1px solid #D7A64B;`), zarten Gold-Glow (`background-color: rgba(215, 166, 75, 0.18);`) und goldenes Icon `Graphics/Icon_Magnifier_Hover.svg` (`#D7A64B`).
+  * **Dynamische Rollbalken-Kompensation & Kantenabstand:**
+    * Die horizontale Position der Lupe wird bei Resize und Änderungen des Scrollbar-Bereichs dynamisch über `viewport().geometry()` ermittelt.
+    * Hält bei sichtbarem vertikalen Rollbalken **10 px lichten Abstand** zur Scrollbar-Kante; ist kein Rollbalken eingeblendet, rückt die Lupe bündig bis auf **2 px** an den rechten Außenrand. Vertikal schließt die Oberkante des Hover-Rahmens exakt bündig mit der Oberkante des Rollbalkens bzw. Innenfelds ab.
+  * **Text- & Listen-Normalisierung:**
+    * Vorverarbeitung von Fließtexten wandelt Unicode-Bullets (`•`, `\x95`, `\ufffd` mit Tabs/Leerzeichen) automatisch in Standard-Markdown-Listen (`- `) um. Dadurch rendert Qt saubere `<ul><li>`-HTML-Listen mit korrektem Einzug ohne Tabulator-Lücken.
+* **Zoom-Fenster (`Window_MarkdownView`):**
+  * Eigenständiger modaler Dialog im konsistenten Sci-Fi-Dark-Design (`#0D0D0D`):
+    * Fenster-Icon: `Graphics/Icon_Magnifier_Hover.svg` (Starfield-Gold für hohe Sichtbarkeit auf dunkler Windows-Titelleiste).
+    * Titel im Kopfbereich in **Starfield-Gold (`#D7A64B`, fett, 15px)**.
+    * Checkbox für automatischen Zeilenumbruch (Standard: aktiviert).
+    * Großflächiger `QTextBrowser` für ermüdungsfreies Lesen langer Markdown-Texte inkl. klickbarer Links.
+    * Rechtsbündige Standard-Schaltfläche *Schließen* (120 × 32 px, Starfield-Blau `#304C7A`).
 
 ### 3.1 Menüstruktur & Navigation (Sidebar)
 Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht und einer erweiterten Ansicht mit Icons und Text umgeschaltet werden:

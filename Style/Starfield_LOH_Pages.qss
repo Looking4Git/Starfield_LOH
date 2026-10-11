@@ -277,12 +277,35 @@ QCheckBox#chk_sorter_show_columns::indicator:checked {
 #detail_view QLineEdit, 
 #detail_view QComboBox,
 #detail_view QTextEdit,
+#detail_view QTextBrowser,
 #detail_view QListView {
     background-color: #ffffff;
     color: #000000;
     border: 1px solid #888888;
     padding: 4px 8px;
     border-radius: 2px;
+}
+
+#btn_zoom {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 0px;
+    margin: 0px;
+}
+
+#btn_zoom:hover {
+    background-color: rgba(215, 166, 75, 0.18);
+    border: 1px solid #D7A64B;
+    padding: 0px;
+    margin: 0px;
+}
+
+#btn_zoom:pressed {
+    background-color: rgba(215, 166, 75, 0.35);
+    border: 1px solid #D7A64B;
+    padding: 0px;
+    margin: 0px;
 }
 
 #detail_view QTreeView {

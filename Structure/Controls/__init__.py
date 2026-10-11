@@ -23,6 +23,9 @@ from Structure.Controls.LOH_Control_TileView import (
 from Structure.Controls.LOH_Control_WindowDocking import (
     LOH_Control_WindowDocking
 )
+from Structure.Controls.LOH_Control_MarkdownView import (
+    LOH_Control_MarkdownView
+)
 
 __all__ = [
     "LOH_Control_CollapsibleSection",
@@ -32,5 +35,6 @@ __all__ = [
     "LOH_Control_HeaderView",
     "LOH_Control_SectionResizeGrip",
     "LOH_Control_TileView",
-    "LOH_Control_WindowDocking"
+    "LOH_Control_WindowDocking",
+    "LOH_Control_MarkdownView"
 ]

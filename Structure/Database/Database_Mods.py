@@ -55,6 +55,7 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             p.Name AS Platform_Name,
             m.Platform AS Platform_ID,
             m.Name_Online,
+            m.Description,
             c.Name AS Category_Name,
             m.Category_LOH AS Category_ID,
             m.Category_LOH_Classifier AS Category_Classifier_ID,

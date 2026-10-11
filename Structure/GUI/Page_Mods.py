@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime
-from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QFrame, QScrollArea,
+from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QFrame, QScrollArea,
                                QLineEdit, QComboBox, QTextEdit, QLabel, QPushButton, QListView, QTreeView)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QDesktopServices, QColor, QPixmap
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal
@@ -9,7 +9,8 @@ from PySide6.QtUiTools import QUiLoader
 
 from Structure.Database import (get_mods_by_state, get_lookup_data, 
                                 update_mod_details, get_component_details_for_ui,
-                                get_creation_categories_for_ui, get_mod_image)
+                                get_mod_image)
+from Structure.Controls import LOH_Control_MarkdownView
 from Structure.Paths import APP_ROOT
 
 class Page_Mods(QWidget):
@@ -98,12 +99,17 @@ class Page_Mods(QWidget):
         if self.list_components:
             self.list_components.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             
-        self.tree_categories_creations = ui.findChild(QTreeView, "tree_categories_creations")
-        
+        container_desc = ui.findChild(QWidget, "container_description")
+        if container_desc:
+            layout_desc = QVBoxLayout(container_desc)
+            layout_desc.setContentsMargins(0, 0, 0, 0)
+            layout_desc.setSpacing(0)
+            self.ctrl_description = LOH_Control_MarkdownView(parent=container_desc)
+            layout_desc.addWidget(self.ctrl_description)
+        else:
+            self.ctrl_description = None
+            
         self.lbl_preview_image = ui.findChild(QLabel, "lbl_preview_image")
-        
-        if self.tree_categories_creations:
-            self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             
         # Zusätzliche Tabellen-Konfiguration, die im UI-Designer nicht abbildbar ist
         self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -260,8 +266,8 @@ class Page_Mods(QWidget):
         if hasattr(self, 'list_components') and self.list_components:
             self.list_components.setModel(QStandardItemModel())
             
-        if hasattr(self, 'tree_categories_creations') and self.tree_categories_creations:
-            self.tree_categories_creations.setModel(QStandardItemModel())
+        if hasattr(self, 'ctrl_description') and self.ctrl_description:
+            self.ctrl_description.clear()
             
         if hasattr(self, 'lbl_preview_image') and self.lbl_preview_image:
             self.lbl_preview_image.setText("Kein Bild vorhanden")
@@ -318,6 +324,11 @@ class Page_Mods(QWidget):
         if self.inp_note:
             self.inp_note.setPlainText(mod_data.get("Note") or "")
         self.inp_author.setText(mod_data.get("Author") or "")
+        if hasattr(self, 'ctrl_description') and self.ctrl_description:
+            desc_text = mod_data.get("Description") or ""
+            mod_title = mod_data.get("Name_Online") or mod_data.get("Name_ContentCatalog") or "Mod-Beschreibung"
+            self.ctrl_description.set_title(mod_title)
+            self.ctrl_description.set_markdown(desc_text)
         self.inp_ver_inst.setText(mod_data.get("Version_installed") or "")
         self.inp_ver_avail.setText(mod_data.get("Version_available") or "")
 
@@ -385,29 +396,6 @@ class Page_Mods(QWidget):
             header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
             header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
             self.list_components.setColumnWidth(1, 60)
-            
-        # Creation Kategorien laden und in TreeView anzeigen
-        if hasattr(self, 'tree_categories_creations') and self.tree_categories_creations:
-            cat_model = QStandardItemModel()
-            cat_model.setHorizontalHeaderLabels(["LOH Kategorie", "Creation Kategorie"])
-            
-            categories = get_creation_categories_for_ui(int(self.current_mod_id))
-            
-            for cat in categories:
-                creation_cat = cat.get('Creation_Category', '')
-                loh_cat = cat.get('LOH_Category') or '---'
-                
-                item_creation = QStandardItem(creation_cat)
-                item_loh = QStandardItem(loh_cat)
-                
-                cat_model.appendRow([item_loh, item_creation])
-                
-            self.tree_categories_creations.setModel(cat_model)
-            
-            # Header-Spalten anpassen für Creation Kategorien
-            cat_header = self.tree_categories_creations.header()
-            cat_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            cat_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
             
         # Bild laden
         if hasattr(self, 'lbl_preview_image') and self.lbl_preview_image:

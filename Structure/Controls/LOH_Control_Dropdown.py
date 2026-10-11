@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QComboBox, QScrollArea, QApplication
+from PySide6.QtWidgets import QComboBox, QScrollArea, QApplication, QProxyStyle, QStyle
 from PySide6.QtCore import QObject, QEvent
 from PySide6.QtGui import QWheelEvent
 import logging
@@ -6,6 +6,18 @@ import logging
 logger = logging.getLogger("LOH_Control_Dropdown")
 
 _global_wheel_filter = None
+
+
+class LOH_Dropdown_Style(QProxyStyle):
+    """
+    Proxy-Style zur Durchsetzung des klassischen Drop-Down-Verhaltens in Starfield LOH:
+    - SH_ComboBox_Popup = 0 zwingt Qt, die Auswahlliste immer bündig unterhalb der ComboBox
+      zu öffnen (anstatt die ComboBox überlagernd zu verdecken).
+    """
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.StyleHint.SH_ComboBox_Popup:
+            return 0
+        return super().styleHint(hint, option, widget, returnData)
 
 
 class DropdownWheelFilter(QObject):
@@ -49,20 +61,27 @@ class LOH_Control_Dropdown(QComboBox):
 
 def setup_dropdown_wheel_guard(app=None):
     """
-    Aktiviert den anwendungsweiten Mausrad-Schutz für alle QComboBox-Instanzen über
-    einen globalen QApplication-EventFilter.
+    Aktiviert die anwendungsweite Dropdown-Steuerung für alle QComboBox-Instanzen:
+    1. Installiert den LOH_Dropdown_Style (SH_ComboBox_Popup = 0) für klassisches Aufklappen unterhalb.
+    2. Installiert den globalen EventFilter zur Deaktivierung des versehentlichen Scrollens per Mausrad.
     Wird beim Start der Anwendung (Starfield_LOH.pyw) einmalig aufgerufen.
     Greift garantiert auch für alle über Qt Designer (.ui) und QUiLoader geladenen C++-Widgets.
     """
     global _global_wheel_filter
-    if _global_wheel_filter is not None:
-        return
 
     target_app = app or QApplication.instance()
     if target_app is None:
         logger.warning("LOH_Control_Dropdown: QApplication.instance() ist noch nicht vorhanden.")
         return
 
-    _global_wheel_filter = DropdownWheelFilter()
-    target_app.installEventFilter(_global_wheel_filter)
-    logger.info("LOH_Control_Dropdown: Globaler EventFilter fuer Dropdown-Mausradschutz erfolgreich installiert.")
+    # 1. Klassisches Drop-Down-Verhalten via QProxyStyle erzwingen
+    current_style = target_app.style()
+    if not isinstance(current_style, LOH_Dropdown_Style):
+        target_app.setStyle(LOH_Dropdown_Style(current_style))
+        logger.info("LOH_Control_Dropdown: LOH_Dropdown_Style fuer klassisches Drop-Down erfolgreich installiert.")
+
+    # 2. Mausrad-Schutz via EventFilter aktivieren
+    if _global_wheel_filter is None:
+        _global_wheel_filter = DropdownWheelFilter()
+        target_app.installEventFilter(_global_wheel_filter)
+        logger.info("LOH_Control_Dropdown: Globaler EventFilter fuer Dropdown-Mausradschutz erfolgreich installiert.")

@@ -239,7 +239,7 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0" colspan="2">
+         <item row="6" column="1">
           <layout class="QHBoxLayout" name="layout_profile_buttons">
            <property name="spacing">
             <number>6</number>
@@ -256,19 +256,6 @@
            <property name="bottomMargin">
             <number>10</number>
            </property>
-           <item>
-            <spacer name="spacer_profile_buttons">
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
            <item>
             <widget class="QPushButton" name="btn_activate_profile">
              <property name="minimumSize">
@@ -591,13 +578,13 @@
             <widget class="QPushButton" name="btn_analysis">
              <property name="minimumSize">
               <size>
-               <width>90</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>110</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -686,13 +673,13 @@
             <widget class="QPushButton" name="btn_apply_classifier_mod">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -705,13 +692,13 @@
             <widget class="QPushButton" name="btn_apply_classifier_all">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -814,13 +801,13 @@
             <widget class="QPushButton" name="btn_add_requirement">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -843,13 +830,13 @@
             <widget class="QPushButton" name="btn_remove_requirement">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -971,13 +958,13 @@
             <widget class="QPushButton" name="btn_discard_detail">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -1000,13 +987,13 @@
             <widget class="QPushButton" name="btn_save_detail">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -1143,13 +1130,13 @@
             <widget class="QPushButton" name="btn_apply_sorter_profile">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -1162,13 +1149,13 @@
             <widget class="QPushButton" name="btn_apply_sorter_all">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>

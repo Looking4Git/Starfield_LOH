@@ -536,8 +536,8 @@ if __name__ == "__main__":
     logging.info("Starfield Load Order Helper gestartet.")
 
     app = QApplication(sys.argv)
-    setup_dropdown_wheel_guard(app)
     app.setStyle("Fusion")
+    setup_dropdown_wheel_guard(app)
 
     # Dunkle Basisfarbe setzen (#0D0D0D), um Aufflackern der hellen Systempalette zu verhindern
     palette = QPalette()

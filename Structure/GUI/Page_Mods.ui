@@ -285,9 +285,9 @@
           </layout>
          </item>
          <item row="9" column="0">
-          <widget class="QLabel" name="lbl_creation_categories_label">
+          <widget class="QLabel" name="lbl_description_label">
            <property name="text">
-            <string>Creation Kat.:</string>
+            <string>Beschreibung:</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
@@ -298,7 +298,7 @@
           </widget>
          </item>
          <item row="9" column="1">
-          <widget class="QTreeView" name="tree_categories_creations">
+          <widget class="QWidget" name="container_description">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -316,15 +316,6 @@
              <width>16777215</width>
              <height>140</height>
             </size>
-           </property>
-           <property name="editTriggers">
-            <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-           </property>
-           <property name="indentation">
-            <number>0</number>
-           </property>
-           <property name="rootIsDecorated">
-            <bool>false</bool>
            </property>
           </widget>
          </item>
@@ -637,13 +628,13 @@
             <widget class="QPushButton" name="btn_discard_detail">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
@@ -666,13 +657,13 @@
             <widget class="QPushButton" name="btn_save_detail">
              <property name="minimumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>130</width>
+               <width>120</width>
                <height>32</height>
               </size>
              </property>

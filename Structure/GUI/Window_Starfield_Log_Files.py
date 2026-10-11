@@ -88,6 +88,7 @@ class Window_Starfield_Log_Files(QDialog):
             self.combo_log_files.currentIndexChanged.connect(self.on_log_file_selected)
         if self.chk_word_wrap:
             self.chk_word_wrap.toggled.connect(self.on_word_wrap_toggled)
+            self.chk_word_wrap.setChecked(True)
         if self.btn_open_explorer:
             self.btn_open_explorer.clicked.connect(self.open_explorer)
         if self.btn_delete_logs:
@@ -103,7 +104,7 @@ class Window_Starfield_Log_Files(QDialog):
             QLabel {{
                 color: #e0e0e0;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
             }}
             QComboBox {{
                 background-color: #ffffff;
@@ -112,7 +113,7 @@ class Window_Starfield_Log_Files(QDialog):
                 border-radius: 2px;
                 padding: 4px 8px;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
             }}
             QComboBox:disabled {{
                 background-color: #2b2b2b;
@@ -141,12 +142,12 @@ class Window_Starfield_Log_Files(QDialog):
                 selection-color: #ffffff;
                 border: 1px solid #304C7A;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
             }}
             QCheckBox {{
                 color: #e0e0e0;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
                 spacing: 8px;
                 background: transparent;
             }}
@@ -172,7 +173,7 @@ class Window_Starfield_Log_Files(QDialog):
                 border-radius: 2px;
                 padding: 4px 8px;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
             }}
             QPlainTextEdit:disabled {{
                 background-color: #2b2b2b;
@@ -186,7 +187,7 @@ class Window_Starfield_Log_Files(QDialog):
                 padding: 6px 16px;
                 border-radius: 2px;
                 font-family: "Segoe UI", Arial;
-                font-size: 13px;
+                font-size: 11pt;
                 font-weight: bold;
             }}
             QPushButton:hover {{

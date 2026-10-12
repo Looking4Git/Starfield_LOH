@@ -15,6 +15,7 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Structure.Paths import LOADORDER_GET_DATA_LOG_FILE, STARFIELD_PLUGINS_PATH, BACKUPS_LOADORDER_GET_DATA_DIR
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.Database import get_db_connection
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 
@@ -28,7 +29,7 @@ def get_load_order_get_data_logger():
     logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(LOADORDER_GET_DATA_LOG_FILE, encoding='utf-8')
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
@@ -46,6 +47,7 @@ def run_load_order_get_data(log_signal=None):
     4. Hängt neu installierte aktive Komponenten am Ende an.
     5. Legt nur im Notfall (0 Profile vorhanden) das Standard-Profil initial an.
     """
+    write_log_header(LOADORDER_GET_DATA_LOG_FILE, "Starfield_LoadOrder_Get_Data")
     def log_msg(msg):
         if log_signal:
             if hasattr(log_signal, "emit"):

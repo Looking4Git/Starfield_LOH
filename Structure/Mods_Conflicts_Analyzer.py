@@ -16,10 +16,43 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime
-from Structure.Paths import DB_FILE, LOGS_DIR
+from Structure.Paths import DB_FILE, LOGS_DIR, MOD_CONFLICT_ANALYZER_LOG_FILE
 from Structure.Database import record_script_start, record_script_end
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 
-logger = logging.getLogger("Starfield_LOH")
+def get_conflict_analyzer_logger() -> logging.Logger:
+    """Initialisiert und liefert den dedizierten Logger für Mods_Conflicts_Analyzer."""
+    os.makedirs(os.path.dirname(MOD_CONFLICT_ANALYZER_LOG_FILE), exist_ok=True)
+    if not os.path.exists(MOD_CONFLICT_ANALYZER_LOG_FILE):
+        open(MOD_CONFLICT_ANALYZER_LOG_FILE, 'w', encoding='utf-8').close()
+    _logger = logging.getLogger("Mods_Conflicts_Analyzer")
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
+    if not _logger.handlers:
+        fh = logging.FileHandler(MOD_CONFLICT_ANALYZER_LOG_FILE, encoding='utf-8')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
+        fh.setFormatter(formatter)
+        _logger.addHandler(fh)
+    return _logger
+
+logger = logging.getLogger("Mods_Conflicts_Analyzer")
+
+
+def _log(msg: str, reporter=None):
+    """Schreibt in den dedizierten Logger für Mods_Conflicts_Analyzer und leitet an Reporter/Konsole weiter."""
+    logger.info(msg)
+    if reporter and hasattr(reporter, 'print'):
+        try:
+            reporter.print(msg)
+        except Exception:
+            pass
+    else:
+        try:
+            print(msg)
+        except UnicodeEncodeError:
+            enc = sys.stdout.encoding or 'cp1252'
+            print(msg.encode(enc, errors='replace').decode(enc))
+
 
 CONFLICT_TYPES = {
     3: "Kritisch",
@@ -186,7 +219,7 @@ def _step_baseline_typification(cur, step_id, step_desc, reporter=None):
         """, (step_id, step_desc, c_type, reason, sig))
         total_modified += cur.rowcount
 
-    print(f"      - {total_modified} Datensätze über {len(sigs)} Signaturen initial typisiert.")
+    _log(f"      - {total_modified} Datensätze über {len(sigs)} Signaturen initial typisiert.", reporter)
     return total_modified
 
 
@@ -209,7 +242,7 @@ def _step_direct_requirements(cur, step_id, step_desc, reporter=None):
     """)
     rows = cur.fetchall()
     count = _update_conflicts_batch(cur, step_id, step_desc, 0, rows)
-    print(f"      - Regel 1: {count} Datensätze als direkte Voraussetzungs-Overrides (Typ 0) eingestuft.")
+    _log(f"      - Regel 1: {count} Datensätze als direkte Voraussetzungs-Overrides (Typ 0) eingestuft.", reporter)
     return count
 
 
@@ -240,7 +273,7 @@ def _step_triangular_patches(cur, step_id, step_desc, reporter=None):
     """)
     rows = cur.fetchall()
     count = _update_conflicts_batch(cur, step_id, step_desc, 0, rows)
-    print(f"      - Regel 2: {count} Konflikte durch Schiedsrichter-Patches als gelöst (Typ 0) eingestuft.")
+    _log(f"      - Regel 2: {count} Konflikte durch Schiedsrichter-Patches als gelöst (Typ 0) eingestuft.", reporter)
     return count
 
 
@@ -324,7 +357,7 @@ def _step_wrld_containers(cur, step_id, step_desc, reporter=None):
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    print(f"      - Schritt 4: {cnt_0} WRLD-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
+    _log(f"      - Schritt 4: {cnt_0} WRLD-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.", reporter)
     return cnt_0 + cnt_2
 
 
@@ -610,7 +643,7 @@ def _step_cell_containers(cur, step_id, step_desc, reporter=None):
 
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    print(f"      - Schritt 5: {cnt_0} CELL-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.")
+    _log(f"      - Schritt 5: {cnt_0} CELL-Container als identische Mitläufer (Typ 0) erkannt, {cnt_2} als reale Kollisionen qualifiziert.", reporter)
     return cnt_0 + cnt_2
 
 
@@ -773,7 +806,7 @@ def _step_lctn_resaves(cur, step_id, step_desc, reporter=None):
     cnt_0 = _update_conflicts_batch(cur, step_id, step_desc, 0, demoted_type_0)
     cnt_1 = _update_conflicts_batch(cur, step_id, step_desc, 1, demoted_type_1)
     cnt_2 = _update_conflicts_batch(cur, step_id, step_desc, 2, qualified_type_2)
-    print(f"      - Schritt 6: {cnt_0} LCTN-Datensätze als identische Mitläufer (Typ 0), {cnt_1} als harmlose Rollen-Zuweisungen (Typ 1) und {cnt_2} als reale Kollisionen (Typ 2) qualifiziert.")
+    _log(f"      - Schritt 6: {cnt_0} LCTN-Datensätze als identische Mitläufer (Typ 0), {cnt_1} als harmlose Rollen-Zuweisungen (Typ 1) und {cnt_2} als reale Kollisionen (Typ 2) qualifiziert.", reporter)
     return cnt_0 + cnt_1 + cnt_2
 
 
@@ -1020,19 +1053,19 @@ def _step_navm_containers(cur, step_id, step_desc, reporter=None):
     cnt_7_6 = _update_conflicts_batch(cur, f"{step_id}.6", "Wegfindung: Weltzelle Optimierung", 2, branch_7_6)
 
     total_navm = cnt_7_1 + cnt_7_2 + cnt_7_3 + cnt_7_4 + cnt_7_5a + cnt_7_5b + cnt_7_6
-    print(f"      - Schritt {step_id} ({total_navm} NAVM über Teilschritte {step_id}.1–{step_id}.6 qualifiziert):")
+    _log(f"      - Schritt {step_id} ({total_navm} NAVM über Teilschritte {step_id}.1–{step_id}.6 qualifiziert):", reporter)
     if cnt_7_1:
-        print(f"        * {step_id}.1 Identität: {cnt_7_1} (Typ 0)")
+        _log(f"        * {step_id}.1 Identität: {cnt_7_1} (Typ 0)", reporter)
     if cnt_7_2:
-        print(f"        * {step_id}.2 Pack-In Resave: {cnt_7_2} (Typ 0)")
+        _log(f"        * {step_id}.2 Pack-In Resave: {cnt_7_2} (Typ 0)", reporter)
     if cnt_7_3:
-        print(f"        * {step_id}.3 Pack-In Layout: {cnt_7_3} (Typ 2)")
+        _log(f"        * {step_id}.3 Pack-In Layout: {cnt_7_3} (Typ 2)", reporter)
     if cnt_7_4:
-        print(f"        * {step_id}.4 Weltzelle Clash: {cnt_7_4} (Typ 3)")
+        _log(f"        * {step_id}.4 Weltzelle Clash: {cnt_7_4} (Typ 3)", reporter)
     if cnt_7_5a or cnt_7_5b:
-        print(f"        * {step_id}.5 Weltzelle Asymmetrisch: {cnt_7_5a + cnt_7_5b} (Typ 0: {cnt_7_5a}, Typ 3: {cnt_7_5b})")
+        _log(f"        * {step_id}.5 Weltzelle Asymmetrisch: {cnt_7_5a + cnt_7_5b} (Typ 0: {cnt_7_5a}, Typ 3: {cnt_7_5b})", reporter)
     if cnt_7_6:
-        print(f"        * {step_id}.6 Weltzelle Optimierung: {cnt_7_6} (Typ 2)")
+        _log(f"        * {step_id}.6 Weltzelle Optimierung: {cnt_7_6} (Typ 2)", reporter)
     return total_navm
 
 
@@ -1372,9 +1405,9 @@ def _step_refr_placements(cur, step_id, step_desc, reporter=None):
     cnt_8_2_2 = _update_conflicts_batch(cur, f"{step_id}.2", "Platzierung: Allgemeine REFR-Prüfung", 2, branch_8_2_2)
 
     total_8 = cnt_8_1_0 + cnt_8_1_2 + cnt_8_2_0 + cnt_8_2_2
-    print(f"      - Schritt {step_id} ({total_8} REFR über Teilschritte {step_id}.1–{step_id}.2 qualifiziert):")
-    print(f"        * {step_id}.1 NavMeshSplines: {cnt_8_1_0 + cnt_8_1_2} (Typ 0: {cnt_8_1_0}, Typ 2: {cnt_8_1_2})")
-    print(f"        * {step_id}.2 Allgemeine REFR: {cnt_8_2_0 + cnt_8_2_2} (Typ 0: {cnt_8_2_0}, Typ 2: {cnt_8_2_2}, davon {arbiter_refr_count} mit Ladereihenfolge-Zuteilung)")
+    _log(f"      - Schritt {step_id} ({total_8} REFR über Teilschritte {step_id}.1–{step_id}.2 qualifiziert):", reporter)
+    _log(f"        * {step_id}.1 NavMeshSplines: {cnt_8_1_0 + cnt_8_1_2} (Typ 0: {cnt_8_1_0}, Typ 2: {cnt_8_1_2})", reporter)
+    _log(f"        * {step_id}.2 Allgemeine REFR: {cnt_8_2_0 + cnt_8_2_2} (Typ 0: {cnt_8_2_0}, Typ 2: {cnt_8_2_2}, davon {arbiter_refr_count} mit Ladereihenfolge-Zuteilung)", reporter)
     return total_8
 
 
@@ -1506,10 +1539,7 @@ def enrich_conflicts_missing_edids(cur, reporter=None):
 
     total_enriched = cnt_base + cnt_cell + cnt_ref
     msg = f"   -> EDID-Anreicherung: {cnt_base} Basis-Objekte, {cnt_cell} Raumzellen und {cnt_ref} Referenzen mit Klarnamen ergänzt."
-    if reporter and hasattr(reporter, 'print'):
-        reporter.print(msg)
-    else:
-        print(msg)
+    _log(msg, reporter)
 
     return total_enriched
 
@@ -1539,16 +1569,20 @@ def analyze_conflicts(db_path=None, reporter=None):
     target_db = db_path if db_path else DB_FILE
     if not os.path.exists(target_db):
         msg = f"Fehler: Datenbankdatei '{target_db}' nicht gefunden."
-        logger.error(msg)
-        print(msg)
+        _log(msg, reporter)
         return False, 0, 0
 
     start_time = time.time()
     start_dt = datetime.now()
     record_script_start("Mods_Conflicts_Analyzer.py", start_dt)
+
+    write_log_header(MOD_CONFLICT_ANALYZER_LOG_FILE, "Starfield_LOH_Mod_Conflict_Analyzer")
+    get_conflict_analyzer_logger()
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Mods Conflicts Analyzer' gestartet. Detailliertes Protokoll: {MOD_CONFLICT_ANALYZER_LOG_FILE}")
+
     msg_start = "Starte Mods_Conflicts_Analyzer: Pipeline-basierte Konfliktanalyse..."
-    logger.info(msg_start)
-    print(msg_start)
+    _log(msg_start, reporter)
 
     conn = sqlite3.connect(target_db)
     cur = conn.cursor()
@@ -1675,7 +1709,7 @@ def analyze_conflicts(db_path=None, reporter=None):
         """)
 
         # 3. Daten aus dem Basis-View materialisieren
-        print("   -> Lese Datensätze aus View_Mods_Conflicts_FormID_Base ein...")
+        _log("   -> Lese Datensätze aus View_Mods_Conflicts_FormID_Base ein...", reporter)
         cur.execute("""
         INSERT INTO Mods_Conflicts (
             Mod_ID_A, Mod_Name_A, Component_ID_A, Component_File_A,
@@ -1716,21 +1750,18 @@ def analyze_conflicts(db_path=None, reporter=None):
         for step_id, step_desc, step_func in CONFLICT_PIPELINE_STEPS:
             step_start = time.time()
             msg_step = f"   -> Schritt {step_id}: {step_desc}..."
-            logger.info(msg_step)
-            print(msg_step)
+            _log(msg_step, reporter)
             affected = step_func(cur, step_id, step_desc, reporter)
             step_dur = time.time() - step_start
-            print(f"      [Schritt {step_id} abgeschlossen in {step_dur:.2f}s | {affected} Datensätze modifiziert]")
+            _log(f"      [Schritt {step_id} abgeschlossen in {step_dur:.2f}s | {affected} Datensätze modifiziert]", reporter)
 
         # 5. Indizes zur Beschleunigung von UI- und Lookup-Abfragen anlegen
-        print("   -> Erstelle Indizes auf Mods_Conflicts...")
+        _log("   -> Erstelle Indizes auf Mods_Conflicts...", reporter)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_pair ON Mods_Conflicts (Mod_ID_A, Mod_ID_B);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_comp ON Mods_Conflicts (Component_ID_A, Component_ID_B);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_formid ON Mods_Conflicts (FormID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sig ON Mods_Conflicts (Sig);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_type ON Mods_Conflicts (Conflict_Type);")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sort_deps ON Mods_Conflicts (ID_Mod_Requirement, ID_Mod_Dependent);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_step ON Mods_Conflicts (Step_ID);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mods_conflicts_sort_deps ON Mods_Conflicts (ID_Mod_Requirement, ID_Mod_Dependent);")
 
@@ -1753,17 +1784,18 @@ def analyze_conflicts(db_path=None, reporter=None):
             f"{total_records} Datensätze materialisiert ({active_conflicts} aktiv, {total_typ0} Typ 0) "
             f"über {active_pairs} aktive Mod-Paare in {duration:.2f} Sekunden."
         )
-        logger.info(msg_finish)
-        print(f"   -> {msg_finish}")
+        _log(f"   -> {msg_finish}", reporter)
 
         record_script_end("Mods_Conflicts_Analyzer.py", datetime.now())
+        main_log.info(f"Prozess 'Mods Conflicts Analyzer' erfolgreich abgeschlossen: {total_records} Datensätze materialisiert ({active_conflicts} aktiv, {total_typ0} Typ 0) über {active_pairs} aktive Mod-Paare.")
         return True, active_conflicts, active_pairs
 
     except Exception as e:
         conn.rollback()
         msg_err = f"Fehler in Mods_Conflicts_Analyzer: {e}"
         logger.error(msg_err, exc_info=True)
-        print(msg_err)
+        main_log.error(f"Prozess 'Mods Conflicts Analyzer' mit Fehlern beendet: {e}")
+        _log(msg_err, reporter)
         return False, 0, 0
     finally:
         conn.close()

@@ -19,6 +19,23 @@ import sqlite3
 import logging
 from datetime import datetime
 from Structure.Database import get_db_connection, record_script_start, record_script_end
+from Structure.Paths import CATEGORY_CLASSIFIER_LOG_FILE
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
+
+def get_category_classifier_logger() -> logging.Logger:
+    """Initialisiert und liefert den dedizierten Logger für Category_LOH_Classifier."""
+    os.makedirs(os.path.dirname(CATEGORY_CLASSIFIER_LOG_FILE), exist_ok=True)
+    if not os.path.exists(CATEGORY_CLASSIFIER_LOG_FILE):
+        open(CATEGORY_CLASSIFIER_LOG_FILE, 'w', encoding='utf-8').close()
+    logger = logging.getLogger("Category_LOH_Classifier")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if not logger.handlers:
+        fh = logging.FileHandler(CATEGORY_CLASSIFIER_LOG_FILE, encoding='utf-8')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    return logger
 
 
 def _log_result(cursor, step_id, mod_id, component_id, looser_id, winner_id, type_id, reason, step_description=None):
@@ -4086,7 +4103,14 @@ def run_classifier(log_signal=None):
     """
     Führt die vollständige modulare Klassifizierungs-Pipeline aus.
     """
+    file_logger = get_category_classifier_logger()
+    write_log_header(CATEGORY_CLASSIFIER_LOG_FILE, "Starfield_LOH_Category_Classifier")
+
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Category LOH Classifier' gestartet. Detailliertes Protokoll: {CATEGORY_CLASSIFIER_LOG_FILE}")
+
     def log_msg(msg):
+        file_logger.info(msg)
         if log_signal and hasattr(log_signal, "emit"):
             log_signal.emit(msg)
         elif callable(log_signal):
@@ -4281,6 +4305,7 @@ def run_classifier(log_signal=None):
         log_msg(f"- {unresolved_count} Mods unbestimmt (NULL gesetzt, Matrix in DB gespeichert).")
         log_msg("--- Category LOH Classifier Durchlauf erfolgreich beendet ---\n")
         record_script_end("Category_LOH_Classifier.py", datetime.now())
+        main_log.info(f"Prozess 'Category LOH Classifier' erfolgreich abgeschlossen ({success_count} Mods klassifiziert, {unresolved_count} unbestimmt).")
         return True
         
     except Exception as e:
@@ -4289,6 +4314,7 @@ def run_classifier(log_signal=None):
         import traceback
         log_msg(f"KRITISCHER FEHLER beim Klassifizierungsdurchlauf: {str(e)}")
         log_msg(traceback.format_exc())
+        main_log.error(f"Prozess 'Category LOH Classifier' mit Fehlern beendet: {str(e)}")
         return False
     finally:
         if conn:

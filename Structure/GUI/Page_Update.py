@@ -242,6 +242,10 @@ class Page_Update(QWidget):
         vsb.style().unpolish(vsb)
         vsb.style().polish(vsb)
 
+    def log(self, msg: str):
+        """Callback für die Update-Pipeline (Logging erfolgt dezentral in Starfield_LOH_Mod_Update_Creations.log)."""
+        pass
+
     def format_date_display(self, raw_date: str) -> str:
         """Formatiert ein beliebiges Eingabedatum (YYYY-MM-DD oder DD.MM.YYYY) als DD.MM.YYYY."""
         if not raw_date:

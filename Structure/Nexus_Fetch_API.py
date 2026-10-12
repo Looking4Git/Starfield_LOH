@@ -25,6 +25,7 @@ from Structure.Paths import (
     MOD_IMAGES_DIR,
     get_nexus_api_key
 )
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.Database import (
     get_db_connection,
     record_script_start,
@@ -49,7 +50,7 @@ def get_nexus_api_logger():
     logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(NEXUS_API_LOG_FILE, encoding='utf-8')
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
@@ -694,6 +695,7 @@ def run_nexus_fetch_api(log_signal=None) -> bool:
         if not msg.startswith("[INLINE]"):
             logger.info(msg.strip())
 
+    write_log_header(NEXUS_API_LOG_FILE, "Starfield_LOH_Nexus_API")
     start_dt = datetime.now()
     record_script_start("Nexus_Fetch_API.py", start_dt)
 

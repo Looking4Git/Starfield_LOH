@@ -18,6 +18,7 @@ from Structure.GUI.Window_Splash_Screen import Window_SplashScreen
 from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
+from Structure.LOH_Logging import write_log_header
 from Structure.Database import ensure_default_database_mode
 
 DEFAULT_SETTINGS = {
@@ -551,6 +552,7 @@ def setup_main_logging():
     """Initialisiert das zentrale Logging für das Hauptprogramm."""
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
+        write_log_header(MAIN_LOG_FILE, "Starfield_LOH_Main")
         logging.basicConfig(
             filename=MAIN_LOG_FILE,
             filemode="a",

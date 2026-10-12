@@ -29,7 +29,12 @@ LOADORDER_GET_DATA_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_LoadOrder_Ge
 LOADORDER_CHECK_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_LoadOrder_Check.log")
 NEXUS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus.log")
 NEXUS_API_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Nexus_API.log")
-MOD_UPDATE_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Update.log")
+BETHESDA_FETCH_LOG_FILE = os.path.join(LOGS_DIR, "Bethesda_Fetch.log")
+MOD_UPDATE_CREATIONS_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Update_Creations.log")
+MOD_UPDATE_LOG_FILE = MOD_UPDATE_CREATIONS_LOG_FILE
+CATEGORY_CLASSIFIER_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Category_Classifier.log")
+MOD_CONFLICT_ANALYZER_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_Mod_Conflict_Analyzer.log")
+LOADORDER_SORTER_LOG_FILE = os.path.join(LOGS_DIR, "Starfield_LOH_LoadOrder_Sorter.log")
 DB_FILE = os.path.join(DATABASE_DIR, "Starfield_LOH.db")
 DATABASE_FILE = DB_FILE
 

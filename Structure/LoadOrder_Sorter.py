@@ -34,10 +34,26 @@ from Structure.Database import (
     record_script_end,
     check_sorter_prerequisites
 )
-from Structure.Paths import get_setting
+from Structure.Paths import get_setting, LOADORDER_SORTER_LOG_FILE
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.File_ESM_Parser import get_masters_list
 
-logger = logging.getLogger("Starfield_LOH")
+def get_loadorder_sorter_logger() -> logging.Logger:
+    """Initialisiert und liefert den dedizierten Logger für LoadOrder_Sorter."""
+    os.makedirs(os.path.dirname(LOADORDER_SORTER_LOG_FILE), exist_ok=True)
+    if not os.path.exists(LOADORDER_SORTER_LOG_FILE):
+        open(LOADORDER_SORTER_LOG_FILE, 'w', encoding='utf-8').close()
+    _logger = logging.getLogger("LoadOrder_Sorter")
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
+    if not _logger.handlers:
+        fh = logging.FileHandler(LOADORDER_SORTER_LOG_FILE, encoding='utf-8')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
+        fh.setFormatter(formatter)
+        _logger.addHandler(fh)
+    return _logger
+
+logger = logging.getLogger("LoadOrder_Sorter")
 
 
 # =============================================================================
@@ -1170,6 +1186,11 @@ def run_load_order_sorter(log_signal=None) -> bool:
     Führt die Sortierlogik des LoadOrder Sorters aus.
     Wird asynchron über einen TaskWorker aufgerufen.
     """
+    write_log_header(LOADORDER_SORTER_LOG_FILE, "Starfield_LOH_LoadOrder_Sorter")
+    get_loadorder_sorter_logger()
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'LoadOrder Sorter' gestartet. Detailliertes Protokoll: {LOADORDER_SORTER_LOG_FILE}")
+
     def log_msg(msg: str):
         if log_signal and hasattr(log_signal, "emit"):
             log_signal.emit(msg)
@@ -1184,8 +1205,6 @@ def run_load_order_sorter(log_signal=None) -> bool:
         logger.info(msg)
 
     start_dt = datetime.now()
-    log_msg("=== LoadOrder Sorter Durchlauf gestartet ===")
-    log_msg(f"Startzeitpunkt: {start_dt.strftime('%d.%m.%Y %H:%M:%S')}")
 
     conn = None
     try:
@@ -1223,6 +1242,7 @@ def run_load_order_sorter(log_signal=None) -> bool:
 
         # Erst bei erfolgreichem Abschluss wird Time_End gesetzt!
         record_script_end("LoadOrder_Sorter.py", end_dt)
+        main_log.info(f"Prozess 'LoadOrder Sorter' erfolgreich abgeschlossen in {duration:.2f} Sekunden.")
         return True
 
     except Exception as e:
@@ -1233,6 +1253,7 @@ def run_load_order_sorter(log_signal=None) -> bool:
         log_msg(err_msg)
         log_msg(traceback.format_exc())
         logger.error(err_msg, exc_info=True)
+        main_log.error(f"Prozess 'LoadOrder Sorter' mit Fehlern beendet: {e}")
         return False
     finally:
         if conn:

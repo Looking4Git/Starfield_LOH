@@ -31,8 +31,10 @@ from Structure.Paths import (
     STARFIELD_PLUGINS_PATH,
     STARFIELD_CONTENT_CATALOG_PATH,
     STARFIELD_GAME_DATA_PATH,
+    MOD_UPDATE_CREATIONS_LOG_FILE,
     MOD_UPDATE_LOG_FILE,
 )
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.Database import (
     db_cursor,
     record_script_start,
@@ -68,16 +70,16 @@ def _set_dark_title_bar(widget):
 
 def get_update_logger() -> logging.Logger:
     """Initialisiert und liefert den dedizierten Logger für Starfield_Mod_Update."""
-    os.makedirs(os.path.dirname(MOD_UPDATE_LOG_FILE), exist_ok=True)
-    if not os.path.exists(MOD_UPDATE_LOG_FILE):
-        open(MOD_UPDATE_LOG_FILE, 'w', encoding='utf-8').close()
+    os.makedirs(os.path.dirname(MOD_UPDATE_CREATIONS_LOG_FILE), exist_ok=True)
+    if not os.path.exists(MOD_UPDATE_CREATIONS_LOG_FILE):
+        open(MOD_UPDATE_CREATIONS_LOG_FILE, 'w', encoding='utf-8').close()
 
-    logger = logging.getLogger("Starfield_Mod_Update")
+    logger = logging.getLogger("Starfield_LOH_Mod_Update_Creations")
     logger.setLevel(logging.INFO)
     logger.propagate = False
     if not logger.handlers:
-        fh = logging.FileHandler(MOD_UPDATE_LOG_FILE, encoding='utf-8')
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        fh = logging.FileHandler(MOD_UPDATE_CREATIONS_LOG_FILE, encoding='utf-8')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
@@ -107,8 +109,13 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
     Falls nicht und Zeilen mit Status in Mods_Updates existieren, wird ein modaler
     Sicherheitsdialog im Dark Mode angezeigt.
     """
+    write_log_header(MOD_UPDATE_CREATIONS_LOG_FILE, "Starfield_LOH_Mod_Update_Creations")
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Mod Update (Creations)' gestartet. Detailliertes Protokoll: {MOD_UPDATE_CREATIONS_LOG_FILE}")
+
     last_exec = get_script_last_execution("Starfield_Mod_Update.py")
     if not last_exec:
+        log_message("Schritt 1: Vorherige Update-Läufe geprüft (Status: OK / Keine Einträge in LOH_Executions).", log_callback)
         return True
 
     time_end = last_exec.get("Time_End")
@@ -117,11 +124,13 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
     is_success = bool(time_end and (state_id in (4, 10, 13) or reason in ("Update erfolgreich", "Rollback erfolgreich", "Update / Rollback erfolgreich", "successful")))
 
     if is_success:
+        log_message(f"Schritt 1: Vorheriger Update-Lauf geprüft (Status: OK / Letzter Lauf State {state_id} '{reason}').", log_callback)
         return True
 
     # Wenn nicht erfolgreich: Prüfen, ob Zeilen mit Status in Mods_Updates existieren
     incomplete_mods = get_incomplete_mods_updates()
     if not incomplete_mods:
+        log_message("Schritt 1: Vorherige Update-Läufe geprüft (Status: OK / Keine unvollständigen Mods in Bearbeitung).", log_callback)
         return True
 
     # Startdatum und Reason formatieren
@@ -168,6 +177,9 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
     confirmed = (msg_box.clickedButton() == btn_continue)
     if not confirmed:
         log_message("Schritt 1: Neuer Update-Prozess durch Benutzer wegen unvollständigem Vorupdate abgebrochen.", log_callback)
+        main_log.info("Prozess 'Mod Update (Creations)' durch Benutzer abgebrochen.")
+    else:
+        log_message("Schritt 1: Unvollständiger Vorlauf durch Benutzer bestätigt und überschrieben.", log_callback)
     return confirmed
 
 
@@ -487,7 +499,8 @@ class ModUpdateScanner(QObject):
                         update_script_execution_state("Starfield_Mod_Update.py", 2)
                     if self.overlay_window:
                         self.overlay_window.update_mod_card_status(mod_id, 4)
-                    log_message(f"Mod ID {mod_id}: Update im Creation Store gestartet (Status: 4).")
+                    mod_title = mod.get("Name_Online") or mod.get("Name_ContentCatalog") or mod.get("Name") or f"Mod {mod_id}"
+                    log_message(f"Mod '{mod_title}' (ID {mod_id}): Update im Creation Store gestartet (Status: 4).")
                     if self.parent_page and hasattr(self.parent_page, "load_data"):
                         self.parent_page.load_data()
 
@@ -502,7 +515,8 @@ class ModUpdateScanner(QObject):
                     set_mod_update_state(mod_id, 5)
                     if self.overlay_window:
                         self.overlay_window.update_mod_card_status(mod_id, 5)
-                    log_message(f"Mod ID {mod_id}: Update erfolgreich aktiviert in Plugins.txt (Status: 5).")
+                    mod_title = mod.get("Name_Online") or mod.get("Name_ContentCatalog") or mod.get("Name") or f"Mod {mod_id}"
+                    log_message(f"Mod '{mod_title}' (ID {mod_id}): Update erfolgreich aktiviert in Plugins.txt (Status: 5).")
                     if self.parent_page and hasattr(self.parent_page, "load_data"):
                         self.parent_page.load_data()
 
@@ -516,7 +530,8 @@ class ModUpdateScanner(QObject):
                 self.overlay_window.show_completion_view()
             # Schritt 7 & 8: Validierung & DB-Übertrag ausführen
             try:
-                step_complete_update(self.backup_dir, log_callback=log_message, parent_widget=self.parent_page)
+                cb = self.parent_page.log if (self.parent_page and hasattr(self.parent_page, "log")) else None
+                step_complete_update(self.backup_dir, log_callback=cb, parent_widget=self.parent_page)
             except Exception as e:
                 logging.error(f"Fehler in step_complete_update: {e}", exc_info=True)
                 log_message(f"FEHLER beim Abschluss des Updates: {e}")
@@ -1122,6 +1137,7 @@ def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None
 
     record_script_end("Starfield_Mod_Update.py", state=final_state, reason=final_reason)
     log_message(f"=== Starfield_Mod_Update: Prozess beendet (State: {final_state} '{final_reason}') ===\n", log_callback)
+    logging.getLogger("Starfield_LOH").info(f"Prozess 'Mod Update (Creations)' beendet (State: {final_state} '{final_reason}').")
     return final_state, final_reason
 
 

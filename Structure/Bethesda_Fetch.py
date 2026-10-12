@@ -19,7 +19,8 @@ import urllib.request
 import urllib.error
 import urllib.parse
 from Structure.Database import record_script_start, record_script_end, get_db_connection
-from Structure.Paths import DB_FILE, LOGS_DIR
+from Structure.Paths import DB_FILE, LOGS_DIR, BETHESDA_FETCH_LOG_FILE
+from Structure.LOH_Logging import write_log_header
 
 def setup_logging():
     log_file = os.path.join(LOGS_DIR, "Bethesda_Fetch.log")
@@ -188,7 +189,8 @@ def run_fetch(log_signal=None):
         else:
             logger.info(message)
             
-    log_file = os.path.join(LOGS_DIR, "Bethesda_Fetch.log")
+    log_file = BETHESDA_FETCH_LOG_FILE
+    write_log_header(log_file, "Bethesda_Fetch")
     main_log = logging.getLogger("Starfield_LOH")
     main_log.info(f"Prozess 'Bethesda Fetch' gestartet. Detailliertes Protokoll: {log_file}")
     log_msg("Starte Abruf der Creation Updates und Metadaten über native Bethesda REST-API...")

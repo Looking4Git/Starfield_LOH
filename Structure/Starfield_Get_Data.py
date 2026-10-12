@@ -19,6 +19,7 @@ from Structure.Paths import (
     STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT,
     BACKUPS_DIR, BACKUPS_GET_DATA_DIR, LOGS_DIR, STARFIELD_GAME_DATA_PATH, GET_DATA_LOG_FILE, CHECK_LOG_FILE
 )
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.Database import (
     check_component_exists,
     get_mod_by_id,
@@ -547,7 +548,7 @@ def get_check_logger():
     logger.propagate = False
     if not logger.handlers:
         fh = logging.FileHandler(GET_DATA_LOG_FILE, encoding='utf-8')
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
@@ -710,6 +711,7 @@ def assign_header_requirements(log_msg):
             conn.close()
 
 def run_local_check(log_signal):
+    write_log_header(GET_DATA_LOG_FILE, "Starfield_Get_Data")
     def log_msg(msg):
         log_signal.emit(msg)
         write_to_log(msg)

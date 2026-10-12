@@ -5,7 +5,7 @@ anschließend den lokalen Mod-Bilderordner (MOD_IMAGES_DIR).
 """
 
 import os
-from Structure.Paths import MOD_IMAGES_DIR, BACKUPS_DIR
+from Structure.Paths import MOD_IMAGES_DIR, BACKUPS_DIR, LOGS_DIR
 from Structure.Database.LOH_Database_Reset import reset_database_tables
 
 
@@ -73,6 +73,28 @@ def reset_project_data(log_signal=None) -> bool:
                 except Exception as e:
                     pass
         log(f"-> Backup-Verzeichnisse geleert ({cleaned_backup_files} Dateien und {cleaned_backup_dirs} Zeitstempel-Ordner entfernt).")
+
+    # 4. Log-Dateien leeren / bereinigen (Dateien entfernen bzw. bei offenen File-Handles leeren, .gitkeep behalten)
+    if os.path.exists(LOGS_DIR):
+        log(f"-> Bereinige Log-Dateien in '{LOGS_DIR}'...")
+        cleaned_logs = 0
+        for fname in os.listdir(LOGS_DIR):
+            if fname == ".gitkeep":
+                continue
+            if fname.lower().endswith(".log"):
+                fpath = os.path.join(LOGS_DIR, fname)
+                try:
+                    os.unlink(fpath)
+                    cleaned_logs += 1
+                except Exception:
+                    # Bei geöffnetem File-Handle (z. B. aktives Main-Logging): Datei auf 0 Bytes leeren
+                    try:
+                        with open(fpath, "w", encoding="utf-8"):
+                            pass
+                        cleaned_logs += 1
+                    except Exception as log_e:
+                        log(f"WARNUNG: Logdatei '{fname}' konnte nicht zurückgesetzt werden: {log_e}")
+        log(f"-> Verzeichnis '{LOGS_DIR}' bereinigt ({cleaned_logs} Logdateien geleert/entfernt).")
 
     log("=== Starfield LOH Gesamt-Reset erfolgreich abgeschlossen ===")
     return True

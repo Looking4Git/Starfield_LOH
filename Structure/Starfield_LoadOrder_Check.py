@@ -14,7 +14,15 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Structure.Paths import STARFIELD_PLUGINS_PATH, BACKUPS_LOADORDER_CHECK_DIR, LOADORDER_CHECK_LOG_FILE
+from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 from Structure.Database import get_profiles, get_load_order
+
+_SESSION_HEADER_WRITTEN = False
+
+def reset_session_header_flag():
+    """Setzt das Session-Flag für Testzwecke oder Sitzungsneustart zurück."""
+    global _SESSION_HEADER_WRITTEN
+    _SESSION_HEADER_WRITTEN = False
 
 def get_load_order_check_logger():
     os.makedirs(os.path.dirname(LOADORDER_CHECK_LOG_FILE), exist_ok=True)
@@ -25,7 +33,7 @@ def get_load_order_check_logger():
     logger.setLevel(logging.INFO)
     if not logger.handlers:
         fh = logging.FileHandler(LOADORDER_CHECK_LOG_FILE, encoding='utf-8')
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter(LOH_LOG_FORMAT, datefmt=LOH_LOG_DATEFMT)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
     return logger
@@ -83,6 +91,11 @@ def check_active_profiles(create_backup: bool = True, log_signal=None) -> list[i
     2. Vergleicht die Plugin-Sequenz und den Aktivierungsstatus gegen jedes Profil.
     3. Gibt die IDs aller übereinstimmenden Profile als Liste zurück.
     """
+    global _SESSION_HEADER_WRITTEN
+    if not _SESSION_HEADER_WRITTEN:
+        write_log_header(LOADORDER_CHECK_LOG_FILE, "Starfield_LoadOrder_Check")
+        _SESSION_HEADER_WRITTEN = True
+
     def log_msg(msg: str):
         if log_signal:
             if hasattr(log_signal, "emit"):

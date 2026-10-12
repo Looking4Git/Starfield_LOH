@@ -45,13 +45,13 @@
       <widget class="QComboBox" name="combo_log_files">
        <property name="minimumSize">
         <size>
-         <width>280</width>
+         <width>330</width>
          <height>32</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>280</width>
+         <width>330</width>
          <height>32</height>
         </size>
        </property>

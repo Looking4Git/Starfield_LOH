@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="64"
+   height="64"
+   version="1.1"
+   viewBox="0 0 16.9 16.9"
+   id="svg3"
+   sodipodi:docname="Icon_Help.svg"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="true"
+     inkscape:zoom="5.136719"
+     inkscape:cx="-4.9642583"
+     inkscape:cy="24.431938"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3">
+    <inkscape:grid
+       id="grid3"
+       units="px"
+       originx="0"
+       originy="0"
+       spacingx="0.2640625"
+       spacingy="0.2640625"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="5"
+       enabled="true"
+       visible="true" />
+  </sodipodi:namedview>
+  <circle
+     style="fill:#d7a64b;stroke-width:1.05625"
+     id="path3"
+     cx="8.450881"
+     cy="8.4168043"
+     r="7.87889" />
+  <circle
+     style="fill:#1f7343;fill-opacity:1;stroke-width:0.836959"
+     id="path3-9"
+     cx="8.450881"
+     cy="8.4168043"
+     r="6.243134" />
+  <path
+     style="fill:none;stroke:#d7a64b;stroke-width:1.35136;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+     d="m 6.1579388,5.962186 c 0,0 0.011384,0.1023439 0.010945,-0.026549 -0.00497,-1.4597473 0.9858919,-2.3507709 2.3754279,-2.3598173 1.4670823,-0.00956 2.3683493,0.8966695 2.3863663,2.3863662 0.0099,0.8126436 -0.716683,1.5498702 -1.3337047,2.2389416 -0.5391207,0.6020739 -1.0391047,1.4270055 -1.029493,2.2192755 0.00828,0.682753 0.00562,0.878588 0.00562,0.878588"
+     id="path1"
+     sodipodi:nodetypes="csssssc" />
+  <circle
+     style="fill:#d7a64b;fill-opacity:1;stroke:none;stroke-width:1.81109;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+     id="path2"
+     cx="8.5755701"
+     cy="13.303852"
+     r="0.9135114" />
+</svg>

@@ -1153,7 +1153,7 @@
              </property>
              <property name="icon">
               <iconset>
-               <normaloff>Graphics/Icon_Delete.svg</normaloff>Graphics/Icon_Delete.svg</iconset>
+               <normaloff>Graphics/Icon_Discard.svg</normaloff>Graphics/Icon_Discard.svg</iconset>
              </property>
              <property name="iconSize">
               <size>

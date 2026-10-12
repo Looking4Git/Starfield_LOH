@@ -113,6 +113,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Pfeil- und Symbolbuttons (z. B. `btn_pos_up`, `btn_pos_down`):**
   * Feste Größe `56x32 px`, Inhalt zentriert (`text-align: center`), Padding `0px`.
 * **Spezifische Icon-Standards:**
+  * **Verwerfen-Aktionen (z. B. `btn_discard_detail` auf `Page_Mods`, `Page_Update`, `Page_LoadOrder`):** Nutzt verbindlich `Graphics/Icon_Discard.svg`.
   * **Webseiten-Aufruf (z. B. `btn_open_url` auf `Page_Mods` und `Page_Update`):** Nutzt verbindlich `Graphics/Icon_Downstream.svg`.
   * **Fetch- und Synchronisations-Aktionen (z. B. `btn_fetch`, `btn_nexus_fetch`, `btn_loot_fetch` auf `Page_Tools`):** Nutzen verbindlich `Graphics/Icon_Cloud.svg`.
 
@@ -242,7 +243,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
     * Rechtsbündige Standard-Schaltfläche *Schließen* (120 × 32 px, Starfield-Blau `#304C7A`).
 
 ### 3.1 Menüstruktur & Navigation (Sidebar)
-Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht und einer erweiterten Ansicht mit Icons und Text umgeschaltet werden:
+Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht (**64 px**) und einer erweiterten Ansicht mit Icons und Text (**175 px**) umgeschaltet werden:
 * **`/Mods`:** Hauptmaske zur Verwaltung der installierten Mods (Master-Detail).
 * **`/Ladereihenfolge`:** Hauptmaske zur Verwaltung der Profile und Sortierung der Ladereihenfolge (`Plugins.txt`).
 * **`/Updates`:** Hauptmaske zur Anzeige, Vorbereitung und Durchführung von Mod-Aktualisierungen.
@@ -339,6 +340,7 @@ Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mo
 2. **Standardisierte Vorlagenbreiten im Datenbereich (Spalte 2):**
    * **Vollflächige Felder (518 px):** Mod-Name, Katalog-Name, ID, Autor, URLs, Beschreibungen, Notizen, Tabellen/Bäume (`tree_profile`, `tree_requirements`, `tree_dependencies`, `list_components`), Progress-Bars. Füllen exakt 518 px aus (`min-width: 518px; max-width: 518px;`).
    * **Kurze Textfelder (210 px):** Feste Breite **210 px** (`min-width: 210px; max-width: 210px;`, z. B. `inp_sorter_last_update`, `inp_classifier_category`, `inp_date_inst`, `inp_date_avail`, `inp_ver_inst`, `inp_ver_avail`, `inp_last_update_date`). In zweispaltigen Zeilen (wie Datum und Version) sind beide Felder exakt 210 px breit und symmetrisch ausgerichtet.
+   * **Vorschaubilder (210 × 118 px):** Feste Abmessungen **210 × 118 px** (`min-width: 210px; max-width: 210px; min-height: 118px; max-height: 118px;`, 16:9-Verhältnis) auf `Page_Mods` und `Page_Update`. Ausrichtung strikt linksbündig (`AlignLeft | AlignTop`), schließt exakt bündig an der linken 105-px-Fluchtlinie sowie an der rechten 315-px-Fluchtlinie der kurzen Textfelder ab.
    * **Positionszeile (210 px Abschluss):** `inp_position` mit **88 px** Breite; zusammen mit Spacing und den beiden Pfeiltasten à 56 px ($88 + 5 + 56 + 5 + 56 = \mathbf{210\,\text{px}}$) schließt `btn_pos_down` exakt bündig an der 210-px-Fluchtlinie ab.
    * **Kurze Dropdown-Felder (242 px):** Der weiße Textbereich erhält die standardisierten 210 px; der blaue Pfeil-Button verlängert um 32 px nach rechts $\rightarrow$ feste Gesamtbreite **242 px** (`min-width: 242px; max-width: 242px;`, z. B. `cmb_dynamic_mode`, `cmb_category`, `cmb_state_filter`, `cmb_mode_filter`, `cmb_platform`, `cmb_assessment`).
    * **Rechtsbündige Aktionsschaltflächen (125 px):** Standardbreite **125 px** (`min-width: 125px; max-width: 125px; height: 32px;`), Zwischenabstand **6 px**. Maximal 4 Buttons je Zeile:

@@ -142,7 +142,7 @@ class StarfieldLOH(QMainWindow):
         self.sidebar.setObjectName("sidebar")
         ui_cfg = self.settings.get("ui", {})
         self.sidebar_collapsed = ui_cfg.get("sidebar_collapsed", False)
-        start_width = 64 if self.sidebar_collapsed else 200
+        start_width = 64 if self.sidebar_collapsed else 175
         self.sidebar.setFixedWidth(start_width)
         
         self.sidebar_layout = QVBoxLayout(self.sidebar)
@@ -505,7 +505,7 @@ class StarfieldLOH(QMainWindow):
 
     def toggle_sidebar(self):
         width = self.sidebar.width()
-        new_width = 64 if width == 200 else 200
+        new_width = 64 if not self.sidebar_collapsed else 175
         self.sidebar_collapsed = (new_width == 64)
         self.animation = QPropertyAnimation(self.sidebar, b"minimumWidth")
         self.animation.setDuration(200)

@@ -184,7 +184,7 @@ class Page_Update(QWidget):
 
         self.btn_discard = ui.findChild(QPushButton, "btn_discard_detail")
         if self.btn_discard:
-            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
+            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Discard.svg"), "Verwerfen")
             self.btn_discard.clicked.connect(self.discard_detail_data)
 
         self.btn_start_update = ui.findChild(QPushButton, "btn_start_update")
@@ -581,7 +581,7 @@ class Page_Update(QWidget):
             if img_data:
                 pixmap = QPixmap()
                 if pixmap.loadFromData(img_data):
-                    scaled_pixmap = pixmap.scaled(320, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    scaled_pixmap = pixmap.scaled(210, 118, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                     self.lbl_preview_image.setPixmap(scaled_pixmap)
                 else:
                     self.lbl_preview_image.setText("Kein Bild vorhanden")

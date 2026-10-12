@@ -374,7 +374,7 @@ class Page_LoadOrder(QWidget):
             
         self.btn_discard = ui.findChild(QPushButton, "btn_discard_detail")
         if self.btn_discard:
-            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"), "Verwerfen")
+            make_button_premium(self.btn_discard, os.path.join(APP_ROOT, "Graphics", "Icon_Discard.svg"), "Verwerfen")
             self.btn_discard.clicked.connect(self.discard_detail_data)
 
         self.btn_add_requirement = ui.findChild(QPushButton, "btn_add_requirement")

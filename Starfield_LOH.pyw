@@ -300,8 +300,11 @@ class StarfieldLOH(QMainWindow):
         if hasattr(self, 'page_lo') and self.page_lo:
             self.page_lo.refresh_profile_highlights()
 
-        if hasattr(self, 'dock_statistics') and self.dock_statistics and self.dock_statistics.isVisible():
-            self.dock_statistics.refresh_data()
+        if hasattr(self, 'dock_statistics') and self.dock_statistics:
+            if hasattr(self.dock_statistics, 'sec_content') and hasattr(self.dock_statistics.sec_content, '_load_category_maxes'):
+                self.dock_statistics.sec_content._load_category_maxes()
+            if self.dock_statistics.isVisible():
+                self.dock_statistics.refresh_data()
         elif hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
             self.window_mod_statistics.refresh_data()
 

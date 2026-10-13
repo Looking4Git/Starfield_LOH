@@ -168,13 +168,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -217,13 +217,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -269,13 +269,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -318,13 +318,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -364,13 +364,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -407,13 +407,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -453,13 +453,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -496,13 +496,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM Components_ESM_CELL_LCTN AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -528,13 +528,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM View_Components_ESM_CELL_Ship AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )
@@ -557,13 +557,13 @@ SELECT
               OR EXISTS (
                   SELECT 1 
                   FROM View_Components_ESM_CELL_Ship AS Master_Cells
-                  JOIN Components AS Master_Components 
-                      ON Master_Cells.Component_ID = Master_Components.ID
                   JOIN Mods_Components AS Current_Mod_Comp 
                       ON Current_Mod_Comp.Component_ID = cc.Component_ID
-                  JOIN Mods_Requirements_Masterfile_List AS Requirements 
-                      ON Current_Mod_Comp.Mod_ID = Requirements.ID_Mod 
-                     AND Requirements.Masterfile = Master_Components.File
+                  JOIN Mods_Requirements AS Requirements 
+                      ON Requirements.ID_Mod = Current_Mod_Comp.Mod_ID
+                  JOIN Mods_Components AS Master_Mod_Comp 
+                      ON Master_Mod_Comp.Mod_ID = Requirements.ID_Mod_Requirement 
+                     AND Master_Mod_Comp.Component_ID = Master_Cells.Component_ID
                   WHERE Master_Cells.Cell_FormID = cc.Cell_FormID
               )
           )

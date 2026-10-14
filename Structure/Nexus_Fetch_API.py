@@ -350,13 +350,14 @@ class NexusGraphQLClient:
 
         return None
 
-    def find_mod_by_filename(self, filename: str, timeout: int = 8, max_attempts: int = 3, log_func=None) -> list[int]:
+    def find_mod_by_filename(self, filename: str, timeout: int = 8, max_attempts: int = 3, log_func=None) -> tuple[list[int], dict[int, set[int]]]:
         """
-        Stufe 1: Sucht über modFileContents direkt nach dem Vorhandensein der ESM-Datei im gepackten Mod-Archiv.
-        Gibt eine absteigend sortierte Liste eindeutiger Mod-IDs zurück (neueste Mods / Redux-Versionen zuerst).
+        Sucht über modFileContents nach dem Vorkommen des Dateinamens in Nexus-Archiven.
+        Liefert (candidate_ids, cand_file_map), wobei cand_file_map jeden modId auf das Set von fileIds abbildet.
+        Sortiert Kandidaten NICHT nach numerischer ID um.
         """
         if not filename:
-            return []
+            return [], {}
 
         query = """
         query SearchByFilename($gameId: [IntFilterValue!], $filename: [BaseFilterValueEqualsWildcard!]) {
@@ -365,7 +366,7 @@ class NexusGraphQLClient:
               gameId: $gameId
               fileNameWildcard: $filename
             }
-            count: 20
+            count: 50
           ) {
             nodes {
               modId
@@ -387,21 +388,82 @@ class NexusGraphQLClient:
         if data and "modFileContents" in data:
             nodes = data["modFileContents"].get("nodes", [])
             candidate_ids = []
+            cand_file_map = {}
             for n in nodes:
                 mid = n.get("modId")
+                fid = n.get("fileId")
                 if mid:
                     mid_int = int(mid)
                     if mid_int not in candidate_ids:
                         candidate_ids.append(mid_int)
-            # Höchste Mod-ID zuerst (neuere Mod-Einträge / Redux haben höhere IDs)
-            candidate_ids.sort(reverse=True)
-            return candidate_ids
+                    if fid:
+                        cand_file_map.setdefault(mid_int, set()).add(int(fid))
+            return candidate_ids, cand_file_map
 
+        return [], {}
+
+    def get_mod_archive_files(self, mod_id: int, timeout: int = 8, max_attempts: int = 3, log_func=None) -> set[str]:
+        """
+        Ruft alle in den Archiven eines Mods enthaltenen Dateinamen ab (für Komponenten-Fingerabdruck).
+        """
+        query = """
+        query GetArchiveFiles($gameId: [IntFilterValue!], $modId: [IntFilterValue!]) {
+          modFileContents(
+            filter: {
+              gameId: $gameId
+              modId: $modId
+            }
+            count: 200
+          ) {
+            nodes {
+              fileName
+            }
+          }
+        }
+        """
+        variables = {
+            "gameId": [{"value": self.STARFIELD_GAME_ID, "op": "EQUALS"}],
+            "modId": [{"value": mod_id, "op": "EQUALS"}]
+        }
+        base_prefix = f"  -> [GraphQL] Prüfe Archivdateien für Mod-ID {mod_id}"
+        data = self.execute_graphql(query, variables, timeout=timeout, max_attempts=max_attempts, log_func=log_func, base_prefix=base_prefix)
+
+        if data and "modFileContents" in data:
+            nodes = data["modFileContents"].get("nodes", [])
+            return set(n.get("fileName", "").strip().lower() for n in nodes if n.get("fileName"))
+        return set()
+
+    def get_mod_files(self, mod_id: int, timeout: int = 8, max_attempts: int = 3, log_func=None) -> list[dict]:
+        """
+        Ruft die Dateiliste eines Mods inklusive Kategorien ab (modFiles).
+        """
+        query = """
+        query GetModFiles($modId: ID!, $gameId: ID!) {
+          modFiles(modId: $modId, gameId: $gameId) {
+            fileId
+            name
+            version
+            category
+            categoryId
+            primary
+            date
+          }
+        }
+        """
+        variables = {
+            "modId": str(mod_id),
+            "gameId": str(self.STARFIELD_GAME_ID)
+        }
+        base_prefix = f"  -> [GraphQL] Abruf Dateikategorien für Mod-ID {mod_id}"
+        data = self.execute_graphql(query, variables, timeout=timeout, max_attempts=max_attempts, log_func=log_func, base_prefix=base_prefix)
+
+        if data and "modFiles" in data:
+            return data["modFiles"] or []
         return []
 
     def find_mods_by_author(self, author: str, timeout: int = 8, max_attempts: int = 3, log_func=None) -> list:
         """
-        Stufe 2: Sucht alle Starfield-Mods eines Autors.
+        Sucht alle Starfield-Mods eines Autors.
         """
         if not author:
             return []
@@ -441,7 +503,7 @@ class NexusGraphQLClient:
 
     def get_mod_details(self, mod_id: int, timeout: int = 8, max_attempts: int = 3, log_func=None) -> dict | None:
         """
-        Stufe 3: Ruft die vollständigen Metadaten eines Mods ab.
+        Ruft die vollständigen Metadaten eines Mods ab (inklusive modRequirements).
         """
         query = """
         query GetMod($modId: ID!, $gameId: ID!) {
@@ -462,6 +524,14 @@ class NexusGraphQLClient:
             thumbnailUrl
             modCategory {
               name
+            }
+            modRequirements {
+              nexusRequirements {
+                nodes {
+                  modId
+                  modName
+                }
+              }
             }
           }
         }
@@ -491,6 +561,12 @@ class NexusGraphQLClient:
                     except Exception:
                         date_available = str(raw_updated)[:10]
 
+                req_nodes = []
+                if isinstance(m.get("modRequirements"), dict):
+                    nexus_reqs = m["modRequirements"].get("nexusRequirements")
+                    if isinstance(nexus_reqs, dict):
+                        req_nodes = nexus_reqs.get("nodes", []) or []
+
                 return {
                     "mod_id": int(m.get("modId", mod_id)),
                     "name": m.get("name", "").strip(),
@@ -502,7 +578,8 @@ class NexusGraphQLClient:
                     "date_available": date_available,
                     "picture_url": m.get("pictureUrl", "") or m.get("thumbnailUrl", "") or "",
                     "category": m.get("modCategory", {}).get("name", "") if isinstance(m.get("modCategory"), dict) else "",
-                    "url": f"https://www.nexusmods.com/starfield/mods/{mod_id}"
+                    "url": f"https://www.nexusmods.com/starfield/mods/{mod_id}",
+                    "nexus_requirements": req_nodes
                 }
 
         return None
@@ -515,8 +592,21 @@ def validate_nexus_api_key(api_key: str, timeout: int = 8) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Mod-Identifikationskaskade (resolve_nexus_mod_id)
+# Deterministische 4-Stufen-Mod-Identifikation (resolve_nexus_mod_id)
 # ---------------------------------------------------------------------------
+
+NON_DE_EN_MARKERS = {
+    'russian', 'rus', 'pt-br', 'portuguese', 'português', 'portugues',
+    'italiano', 'italian', 'traduzione', 'traduction', 'francaise', 'french',
+    'chinese', 'chs', 'czech', 'polski', 'polish', 'spanish', 'espanol', 'español',
+    'loc'
+}
+
+def _clean_words(text: str) -> set[str]:
+    """Extrahiert eine Menge bereinigter Kleinwort-Tokens."""
+    if not text:
+        return set()
+    return set(re.findall(r'[a-zA-Z0-9]+', text.lower()))
 
 def _clean_title(text: str) -> str:
     """Bereinigt einen Mod-Titel für Textvergleiche."""
@@ -529,49 +619,42 @@ def _generate_name_candidates(filename: str) -> list[str]:
     """Erzeugt Namenskandidaten aus dem Dateinamen (z. B. PascalCase-Splits)."""
     base = os.path.splitext(filename)[0].strip()
     candidates = [base]
-    # PascalCase trennen (z. B. NorthernLights -> Northern Lights)
     split_pascal = re.sub(r'([a-z])([A-Z])', r'\1 \2', base)
     if split_pascal != base:
         candidates.append(split_pascal)
-    # Unterstriche und Bindestriche ersetzen
     spaced = base.replace('_', ' ').replace('-', ' ')
     if spaced not in candidates:
         candidates.append(spaced)
     return candidates
 
-def resolve_nexus_mod_id(mod: dict, client: NexusGraphQLClient, author_mods_cache: dict, log_func) -> tuple[int | None, str, dict | None]:
+def _extract_phrases_from_filename(filename: str) -> list[str]:
     """
-    Ermittelt die Nexus-Mod-ID über eine präzise 3-Stufen-Kaskade:
-    1. Pfad A: Existiert bereits eine ID_Nexus oder Nexus-URL?
-    2. Pfad B: Stufe 1 GraphQL-Archivinhalt-Suche (modFileContents) nach dem Masterfile-Namen (Multi-Kandidaten-Prüfung)
-    3. Pfad C: Stufe 2 GraphQL-Autorensuche mit Namensabgleich
-    Gibt (nexus_id, name, cached_details) zurück.
+    Erzeugt signifikante Phrasen aus einem Dateinamen:
+    - Basis-Dateiname
+    - PascalCase-Trennung (z. B. 'RoyalCombatOverhaul' -> 'royal combat overhaul')
+    - Präfix-Abtrennung nach Unterstrich (z. B. 'Aurie_StayPut' -> 'stay put')
     """
-    # 1. Pfad A: Existierende ID oder URL prüfen
-    db_nexus_id = mod.get("ID_Nexus")
-    if db_nexus_id and int(db_nexus_id) > 0:
-        return int(db_nexus_id), mod.get("Name_Online") or "", None
+    base = os.path.splitext(filename)[0]
+    phrases = [base.lower()]
 
-    db_url = mod.get("URL") or ""
-    if db_url:
-        match = re.search(r"nexusmods\.com/starfield/mods/(\d+)", db_url, re.IGNORECASE)
-        if match:
-            return int(match.group(1)), mod.get("Name_Online") or "", None
+    split_pascal = re.sub(r'([a-z])([A-Z])', r'\1 \2', base).strip().lower()
+    if split_pascal != base.lower():
+        phrases.append(split_pascal)
 
-    filename = mod.get("File") or mod.get("Name_ContentCatalog") or ""
-    if not filename:
-        return None, "", None
+    if '_' in base:
+        parts = base.split('_')
+        after_prefix = ' '.join(parts[1:]).strip()
+        phrases.append(after_prefix.lower())
+        split_prefix_pascal = re.sub(r'([a-z])([A-Z])', r'\1 \2', after_prefix).strip().lower()
+        if split_prefix_pascal != after_prefix.lower():
+            phrases.append(split_prefix_pascal)
 
-    # 2. Pfad B: Stufe 1 - Exakte Suche im Archivinhalt (modFileContents)
-    candidate_ids = client.find_mod_by_filename(filename, log_func=log_func)
-    if candidate_ids:
-        # Kandidaten prüfen: der erste aktive Mod (nicht gelöscht / depubliziert)
-        for cand_id in candidate_ids:
-            cand_details = client.get_mod_details(cand_id, log_func=None)
-            if cand_details and cand_details.get("name"):
-                return cand_id, cand_details.get("name", ""), cand_details
+    clean = base.replace('-', ' ').replace('_', ' ')
+    phrases.append(' '.join(clean.split()).lower())
+    return sorted(list(set(p for p in phrases if len(p) > 2)), key=len, reverse=True)
 
-    # 3. Pfad C: Stufe 2 - Suche über Autor und Namenskandidaten
+def _resolve_via_author_fallback(mod: dict, filename: str, client: NexusGraphQLClient, author_mods_cache: dict, log_func) -> tuple[int | None, str, dict | None]:
+    """Fallback-Suche über Autor und Namenskandidaten, falls der Dateiname im Archiv nicht gefunden wird."""
     author_to_search = (mod.get("Author") or "").strip()
     if not author_to_search or author_to_search.lower() == 'default':
         filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
@@ -596,6 +679,187 @@ def resolve_nexus_mod_id(mod: dict, client: NexusGraphQLClient, author_mods_cach
                 if cand and (cand in m_title_clean or m_title_clean in cand):
                     found_id = int(m.get("modId"))
                     return found_id, m.get("name", ""), None
+
+    return None, "", None
+
+def resolve_nexus_mod_id(mod: dict, client: NexusGraphQLClient, author_mods_cache: dict, log_func) -> tuple[int | None, str, dict | None]:
+    """
+    Ermittelt die Nexus-Mod-ID über eine deterministische 4-Stufen-Entscheidung:
+    - Vorab-Prüfung: ID_Nexus / URL in DB vorhanden?
+    - Stufe 1: GraphQL-Archivinhalt-Suche (modFileContents) + Header-Autor-Vorfilter (Sofortabschluss bei 1 Treffer)
+    - Stufe 2: Komponenten-Fingerabdruck (Abgleich gegen installierte .esm / .ba2 Komponenten)
+    - Stufe 3: Duell-Entscheidung bei Mehrfachtreffern:
+      - 3.0: Übersetzungs-Filterung (Ausschluss von Fremdsprachen/Patches via nexusRequirements & Titel)
+      - 3.1: Dateikategorien (Fall 1: Einziger MAIN | Fall 2: Einziger OLD/ARCHIVE)
+      - 3.2: Namensprüfung (Phrasen-Treffer & Wort-Überlappung)
+      - 3.3: Fallback bei Unentschieden (MAIN gewinnt vor Archiv, sonst max(date))
+    Gibt (nexus_id, name, cached_details) zurück.
+    """
+    # 1. Vorab-Prüfung: Existierende ID oder URL in DB
+    db_nexus_id = mod.get("ID_Nexus")
+    if db_nexus_id and int(db_nexus_id) > 0:
+        return int(db_nexus_id), mod.get("Name_Online") or "", None
+
+    db_url = mod.get("URL") or ""
+    if db_url:
+        match = re.search(r"nexusmods\.com/starfield/mods/(\d+)", db_url, re.IGNORECASE)
+        if match:
+            return int(match.group(1)), mod.get("Name_Online") or "", None
+
+    filename = mod.get("File") or mod.get("Name_ContentCatalog") or ""
+    if not filename:
+        return None, "", None
+
+    # Stufe 1.1: GraphQL-Suche im Archivinhalt (modFileContents)
+    candidate_ids, cand_file_map = client.find_mod_by_filename(filename, log_func=log_func)
+    if not candidate_ids:
+        # Fallback auf Autoren-Suche falls über Dateinamen gar nichts gefunden wurde
+        return _resolve_via_author_fallback(mod, filename, client, author_mods_cache, log_func)
+
+    # Details für gefundene Kandidaten laden (nur aktive Mods berücksichtigen)
+    cand_details = {}
+    valid_candidates = []
+    for cid in candidate_ids:
+        details = client.get_mod_details(cid, log_func=None)
+        if details and details.get("name"):
+            cand_details[cid] = details
+            valid_candidates.append(cid)
+
+    if not valid_candidates:
+        log_func(f"  ⚠ Keine aktiven Nexus-Mods für Datei '{filename}' gefunden.")
+        return None, "", None
+
+    candidate_ids = valid_candidates
+    if len(candidate_ids) == 1:
+        win_id = candidate_ids[0]
+        log_func(f"  -> Stufe 1: Eindeutiger Archivtreffer für '{filename}' -> Mod-ID {win_id}")
+        return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    # Stufe 1.2: Autoren-Vorfilter via TES4-Header
+    local_author = ""
+    filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
+    if os.path.exists(filepath):
+        hdr_author, _ = parse_tes4_header(filepath)
+        if hdr_author and hdr_author.strip() and hdr_author.strip().lower() != 'default':
+            local_author = hdr_author.strip().lower()
+
+    if local_author:
+        filtered_by_author = []
+        for cid in candidate_ids:
+            m_info = cand_details[cid]
+            c_auth = (m_info.get("author") or "").lower().strip()
+            u_name = (m_info.get("uploader") or "").lower().strip()
+            if (c_auth and (local_author in c_auth or c_auth in local_author)) or (u_name and (local_author in u_name or u_name in local_author)):
+                filtered_by_author.append(cid)
+
+        if len(filtered_by_author) == 1:
+            win_id = filtered_by_author[0]
+            log_func(f"  -> Stufe 1: Eindeutig identifiziert durch Header-Autor '{local_author}' -> Mod-ID {win_id}")
+            return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+        elif len(filtered_by_author) > 1:
+            candidate_ids = filtered_by_author
+
+    # Stufe 2: Komponenten-Fingerabdruck
+    components = mod.get("Components", [])
+    if len(components) > 1 and len(candidate_ids) > 1:
+        needed_files = set(c.lower().strip() for c in components)
+        filtered_by_comp = []
+        for cid in candidate_ids:
+            archive_files = client.get_mod_archive_files(cid, log_func=None)
+            if needed_files.issubset(archive_files):
+                filtered_by_comp.append(cid)
+
+        if len(filtered_by_comp) == 1:
+            win_id = filtered_by_comp[0]
+            log_func(f"  -> Stufe 2: Eindeutig identifiziert durch Komponenten-Fingerabdruck ({len(components)} Dateien) -> Mod-ID {win_id}")
+            return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+        elif len(filtered_by_comp) > 1:
+            candidate_ids = filtered_by_comp
+
+    # Stufe 3.0: Übersetzungs- & Patch-Filterung (nexusRequirements & Fremdsprachenmarker)
+    if len(candidate_ids) > 1:
+        clean_candidates = []
+        for cid in candidate_ids:
+            m_info = cand_details[cid]
+            req_nodes = m_info.get("nexus_requirements") or []
+            points_to_other = any(int(rn.get("modId", 0)) in candidate_ids and int(rn.get("modId", 0)) != cid for rn in req_nodes)
+            mod_name_words = _clean_words(m_info.get("name", ""))
+            is_foreign = bool(mod_name_words.intersection(NON_DE_EN_MARKERS))
+            if not points_to_other and not is_foreign:
+                clean_candidates.append(cid)
+
+        if clean_candidates:
+            candidate_ids = clean_candidates
+            if len(candidate_ids) == 1:
+                win_id = candidate_ids[0]
+                log_func(f"  -> Stufe 3: Eindeutig identifiziert nach Übersetzungs-Filterung -> Mod-ID {win_id}")
+                return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    # Stufe 3.1: Dateikategorien (modFiles)
+    cand_categories = {}
+    for cid in candidate_ids:
+        files = client.get_mod_files(cid, log_func=None)
+        matching_file_ids = cand_file_map.get(cid, set())
+        matching_files = [f for f in files if f.get("fileId") in matching_file_ids]
+        cand_categories[cid] = matching_files
+
+    has_main = [cid for cid, mfiles in cand_categories.items() if any(f.get("categoryId") == 1 for f in mfiles)]
+    has_old_arch = [cid for cid, mfiles in cand_categories.items() if any(f.get("categoryId") in (4, 7) for f in mfiles)]
+    has_optional = [cid for cid, mfiles in cand_categories.items() if any(f.get("categoryId") == 3 for f in mfiles)]
+
+    # Fall 1: Genau 1 Kandidat hat MAIN (und keine anderen Kandidaten konkurrieren mit MAIN)
+    if len(has_main) == 1 and not (set(candidate_ids) - set(has_main) & set(has_optional)):
+        win_id = has_main[0]
+        log_func(f"  -> Stufe 3.1: Eindeutig identifiziert als einzige aktive MAIN-Datei -> Mod-ID {win_id}")
+        return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    # Fall 2: Kein MAIN, genau 1 Kandidat hat OLD/ARCHIVE (und keine OPTIONAL Konkurrenz)
+    if not has_main and len(has_old_arch) == 1 and not (set(candidate_ids) - set(has_old_arch) & set(has_optional)):
+        win_id = has_old_arch[0]
+        log_func(f"  -> Stufe 3.1: Eindeutig identifiziert als einziger Archiv-/Vorversion-Eintrag -> Mod-ID {win_id}")
+        return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    # Fall 3 & 4 -> Stufe 3.2: Namensprüfung (Titelnähe)
+    phrases = _extract_phrases_from_filename(filename)
+    scored = []
+    for cid in candidate_ids:
+        m_name = (cand_details[cid].get("name") or "").lower()
+        score = 0
+        for p in phrases:
+            if p in m_name:
+                score += len(p) * 2
+        filename_words = _clean_words(filename)
+        mod_words = _clean_words(m_name)
+        overlap = filename_words.intersection(mod_words)
+        score += len(overlap)
+        scored.append((score, cid))
+
+    scored.sort(reverse=True, key=lambda x: x[0])
+    if len(scored) > 1 and scored[0][0] > scored[1][0]:
+        win_id = scored[0][1]
+        log_func(f"  -> Stufe 3.2: Eindeutig identifiziert über Namensprüfung (Score {scored[0][0]} vs {scored[1][0]}) -> Mod-ID {win_id}")
+        return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    # Stufe 3.3: Fallback bei Unentschieden (MAIN gewinnt vor Archiv, sonst max(date))
+    main_candidates = [cid for cid in candidate_ids if cid in has_main]
+    if len(main_candidates) == 1:
+        win_id = main_candidates[0]
+        log_func(f"  -> Stufe 3.3: Fallback-Entscheidung (MAIN-Projekt sticht Nebenprojekte aus) -> Mod-ID {win_id}")
+        return win_id, cand_details[win_id].get("name", ""), cand_details[win_id]
+
+    best_cid = None
+    best_date = -1
+    for cid in candidate_ids:
+        mfiles = cand_categories.get(cid, [])
+        dates = [f.get("date", 0) for f in mfiles if isinstance(f.get("date"), (int, float))]
+        m_date = max(dates) if dates else 0
+        if m_date > best_date:
+            best_date = m_date
+            best_cid = cid
+
+    if best_cid:
+        log_func(f"  -> Stufe 3.3: Fallback-Entscheidung (Neueste Version / Upload max(date) gewinnt) -> Mod-ID {best_cid}")
+        return best_cid, cand_details[best_cid].get("name", ""), cand_details[best_cid]
 
     return None, "", None
 
@@ -740,16 +1004,17 @@ def run_nexus_fetch_api(log_signal=None) -> bool:
                 c.File
             FROM Mods m
             LEFT JOIN Mods_Components mc ON m.ID = mc.Mod_ID
-            LEFT JOIN Components c ON mc.Component_ID = c.ID AND LOWER(c.File) LIKE '%.esm'
+            LEFT JOIN Components c ON mc.Component_ID = c.ID
             WHERE m.Platform IN (2, 3) AND m.State = 1
             ORDER BY m.ID ASC
         """)
         raw_rows = cursor.fetchall()
 
-        # Gruppierung nach Mod-ID (da ein Mod mehrere Komponenten haben kann)
+        # Gruppierung nach Mod-ID (Komponenten-Aggregation)
         mods_dict = {}
         for row in raw_rows:
             m_id = row[0]
+            comp_file = (row[11] or "").strip()
             if m_id not in mods_dict:
                 mods_dict[m_id] = {
                     "ID": row[0],
@@ -763,8 +1028,20 @@ def run_nexus_fetch_api(log_signal=None) -> bool:
                     "Description": row[8],
                     "Version_installed": row[9],
                     "Date_installed": row[10],
-                    "File": row[11] or ""
+                    "File": "",
+                    "Components": []
                 }
+            if comp_file:
+                mods_dict[m_id]["Components"].append(comp_file)
+                if comp_file.lower().endswith(".esm") and not mods_dict[m_id]["File"]:
+                    mods_dict[m_id]["File"] = comp_file
+
+        # Fallback falls keine ESM in den Komponenten gefunden wurde
+        for m_id, m_data in mods_dict.items():
+            if not m_data["File"]:
+                cat_name = m_data["Name_ContentCatalog"] or ""
+                if cat_name.lower().endswith(".esm"):
+                    m_data["File"] = cat_name
 
         mods_list = list(mods_dict.values())
         total_mods = len(mods_list)

@@ -69,44 +69,91 @@ Das Modul setzt auf eine **reine API-Architektur** basierend auf der offiziellen
 
 ### 3.1 Dateiinhalts-Suche (`modFileContents`)
 ```graphql
-query SearchByFileName($gameId: Int!, $fileContents: [String!]!) {
-  modFileContents(gameId: $gameId, fileContents: $fileContents) {
-    modId
-    fileContent
+query SearchByFilename($gameId: [IntFilterValue!], $filename: [BaseFilterValueEqualsWildcard!]) {
+  modFileContents(
+    filter: {
+      gameId: $gameId
+      fileNameWildcard: $filename
+    }
+    count: 50
+  ) {
+    nodes {
+      modId
+      fileId
+      fileName
+      filePath
+    }
+    totalCount
   }
 }
 ```
 
 ### 3.2 Mod-Details Abruf (`mod`)
 ```graphql
-query GetModDetails($gameId: Int!, $modId: Int!) {
-  mod(gameId: $gameId, modId: $modId) {
+query GetMod($modId: ID!, $gameId: ID!) {
+  mod(modId: $modId, gameId: $gameId) {
     modId
     name
     summary
     description
-    version
     author
-    updatedAt
+    uploader {
+      name
+      memberId
+    }
+    version
     createdAt
+    updatedAt
     pictureUrl
-    user {
+    thumbnailUrl
+    modCategory {
       name
     }
+    modRequirements {
+      nexusRequirements {
+        nodes {
+          modId
+          modName
+        }
+      }
+    }
+  }
+}
+```
+
+### 3.3 Dateilisten & Kategorien (`modFiles`)
+```graphql
+query GetModFiles($modId: ID!, $gameId: ID!) {
+  modFiles(modId: $modId, gameId: $gameId) {
+    fileId
+    name
+    version
+    category
+    categoryId
+    primary
+    date
   }
 }
 ```
 
 ---
 
-## 4. Multi-Kandidaten-Kaskade (Resilienz gegen Alt-Mods)
+## 4. Deterministische 4-Stufen-Entscheidungskaskade
 
-Wenn mehrere Nexus-Mods dieselbe Datei enthalten (z. B. ein Original-Mod-Release und ein späteres Redux/Portierung oder Patch-Paket), liefert `modFileContents` mehrere `modId`-Einträge zurück.
+Liefert die Suche über `modFileContents` mehrere Treffer (z. B. wenn Übersetzungen, fremde Modlists oder Archiv-Altlasten dieselbe ESM-Datei enthalten), entscheidet eine streng hierarchische 4-Stufen-Pipeline anstelle fehleranfälliger numerischer ID-Sortierungen:
 
-1. **Sortierung:** Die Kandidaten werden absteigend nach ihrer numerischen Mod-ID sortiert (`sorted(candidates, reverse=True)`). Neuere Mods haben stets höhere IDs.
-2. **Kaskadierende Validierung:** Der Fetcher ruft `get_mod_details(cand_id)` für den ersten Kandidaten auf.
-3. **Gelöschte Mods (NOT_FOUND):** Wurde eine alte Original-Mod vom Autor archiviert oder gelöscht, liefert GraphQL `{"errors": [{"message": "Cannot return null for non-nullable field Mod.name", ...}], "data": null}`. Der Fetcher erkennt `data is None`, loggt dies transparent und prüft nahtlos den nächsten Kandidaten.
-4. **Ergebnis:** Das System wählt treffsicher die aktive, neuere Version aus und wird niemals durch Altlasten blockiert.
+1. **Stufe 1 (Header-Autor & Sofort-Abschluss):**  
+   Auslesen des Autors aus dem lokalen Masterfile-Header (`parse_tes4_header`). Passen Name oder Uploader genau eines Kandidaten zum lokalen Header-Autor, ist die Mod bereits zu 100 % eindeutig identifiziert und wird sofort übernommen (greift fehlerfrei bei über 70 % aller Mods).
+2. **Stufe 2 (Komponenten-Dateilisten-Fingerabdruck):**  
+   Bei mehrteiligen Mods (`Mods_Components` mit `.esm` und `.ba2`-Archiven) wird über `modFileContents(filter: { modId: ... })` abgeglichen, welche Kandidaten **alle** lokal installierten Komponenten im Archiv führen. Fremde Patches und Übersetzungen scheiden hierbei sofort aus.
+3. **Stufe 3 (Duell-Entscheidung & Dateikategorien):**  
+   - **3.0 Übersetzungs-Filterung:** Kandidaten, die fremdsprachige Namensmarker tragen (`russian`, `loc`, `traduzione`, `pt-br` etc.) oder über `nexusRequirements` formal auf ein übergeordnetes Projekt verweisen, scheiden zugunsten der Original-Mod aus.
+   - **3.1 Dateikategorien (`modFiles`):**  
+     - *Fall 1:* Führt nur ein Kandidat die Datei als aktive `MAIN`-Datei (`categoryId == 1`), gewinnt er sofort.  
+     - *Fall 2:* Führt kein Kandidat ein `MAIN`, aber genau einer die Datei als `OLD_VERSION` (`4`) oder `ARCHIVED` (`7`), gewinnt dieser.  
+     - *Fall 3 & 4:* Konkurrieren `MAIN`/`OLD` und `OPTIONAL` miteinander, folgt die Namensprüfung.
+   - **3.2 Namensprüfung (Titelnähe):** Phrasen- und Wort-Matching zwischen bereinigtem Dateinamen (PascalCase-Splits, Präfix-Abtrennung) und dem Nexus-Titel.
+   - **3.3 Fallback bei Gleichstand:** Ein Kandidat mit Hauptdatei (`MAIN`) sticht optionale Nebenprojekte aus; ansonsten gewinnt die neueste Upload-Version (`max(date)`).
 
 ---
 

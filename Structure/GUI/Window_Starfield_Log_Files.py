@@ -107,7 +107,7 @@ class Window_Starfield_Log_Files(QDialog):
                 font-size: 11pt;
             }}
             QComboBox {{
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 border: 1px solid #888888;
                 border-radius: 2px;
@@ -136,7 +136,7 @@ class Window_Starfield_Log_Files(QDialog):
                 height: 14px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 selection-background-color: #304C7A;
                 selection-color: #ffffff;
@@ -167,7 +167,7 @@ class Window_Starfield_Log_Files(QDialog):
                 border: 1px solid #5b7a9e;
             }}
             QPlainTextEdit {{
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 border: 1px solid #888888;
                 border-radius: 2px;

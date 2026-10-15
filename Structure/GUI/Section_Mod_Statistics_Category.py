@@ -12,6 +12,7 @@ from Structure.Database import (
     update_mod_category,
     get_lookup_data,
 )
+from Structure.Controls import LOH_Control_EmbeddedScrollTree
 
 
 class Section_Mod_Statistics_Category(QWidget):
@@ -41,8 +42,7 @@ class Section_Mod_Statistics_Category(QWidget):
         # 2. Widgets referenzieren
         self.tree_categories_creations = self.ui.findChild(QTreeView, "tree_categories_creations")
         if self.tree_categories_creations:
-            self.tree_categories_creations.setFixedHeight(126)
-            self.tree_categories_creations.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            self.frame_categories_creations = LOH_Control_EmbeddedScrollTree.wrap(self.tree_categories_creations)
 
         self.inp_loot = self.ui.findChild(QLineEdit, "inp_loot")
         self.inp_classifier = self.ui.findChild(QLineEdit, "inp_classifier")
@@ -71,7 +71,7 @@ class Section_Mod_Statistics_Category(QWidget):
         if self.cmb_category:
             self.cmb_category.setStyleSheet("""
                 QComboBox {
-                    background-color: #ffffff;
+                    background-color: #ECECEC;
                     color: #000000;
                     font-family: "Segoe UI", Arial;
                     font-size: 13px;
@@ -95,7 +95,7 @@ class Section_Mod_Statistics_Category(QWidget):
                     background-color: #5b7a9e;
                 }
                 QComboBox QAbstractItemView {
-                    background-color: #ffffff;
+                    background-color: #ECECEC;
                     color: #000000;
                     selection-background-color: #304C7A;
                     selection-color: #ECECEC;

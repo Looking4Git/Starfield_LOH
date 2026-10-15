@@ -118,7 +118,7 @@ class Window_MarkdownView(QDialog):
                 border: 1px solid #5b7a9e;
             }}
             QTextBrowser {{
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 border: 1px solid #888888;
                 border-radius: 2px;

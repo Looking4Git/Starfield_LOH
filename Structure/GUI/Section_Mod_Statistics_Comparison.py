@@ -80,7 +80,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
                 
         style_active_field = """
             QLineEdit {
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 font-family: "Segoe UI", Arial;
                 font-size: 13px;

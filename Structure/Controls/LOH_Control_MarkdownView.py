@@ -172,7 +172,7 @@ class LOH_Control_MarkdownView(QWidget):
 
         sb = self.text_browser.verticalScrollBar()
         has_scrollbar = sb is not None and sb.isVisible() and sb.maximum() > 0
-        margin_right = 10 if has_scrollbar else 2
+        margin_right = 4 if has_scrollbar else 2
 
         x = vp.x() + vp.width() - btn_w - margin_right
         y = vp.y()

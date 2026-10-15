@@ -49,7 +49,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 ### B. Einzeilige Eingabe- & Anzeigefelder (`QLineEdit`)
 * **Typografie:** `"Segoe UI", Arial`, Schriftgröße `13px`, normale Schriftstärke (`font-weight: normal`), linksbündig ausgerichtet (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
 * **Zustand Editierbar:**
-  * Hintergrund: Weiß (`#FFFFFF`).
+  * Hintergrund: Starfield-Weiß (`#ECECEC`).
   * Schriftfarbe: Schwarz (`#000000`).
   * Rahmen: `1px solid #888888`, `border-radius: 2px`.
   * Innenabstand (Padding): `4px 8px`.
@@ -68,14 +68,14 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### C. Mehrzeilige Textfelder (`QTextEdit`)
 * **Einsatz:** URLs, Notizen, Kurzbeschreibungen.
-* **Hintergrund:** Weiß (`#FFFFFF`), Schriftfarbe Schwarz (`#000000`).
-* **Rahmen & Padding:** `1px solid #888888`, `border-radius: 2px`, `padding: 4px 8px`.
+* **Hintergrund:** Starfield-Weiß (`#ECECEC`), Schriftfarbe Schwarz (`#000000`).
+* **Rahmen & Padding:** `1px solid #888888`, `border-radius: 2px`, `padding: 4px 4px 4px 8px`.
 * **Geometrie:** Standardhöhe `78px`, `sizePolicy: Expanding, Fixed`, `acceptRichText: False`.
 
 ---
 
 ### D. Auswahllisten (`QComboBox`)
-* **Eingabebereich:** Weißer Hintergrund (`#FFFFFF`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
+* **Eingabebereich:** Starfield-Weißer Hintergrund (`#ECECEC`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
 * **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund Starfield-Blau (`#304C7A`), Hover `#5B7A9E`, Rahmen `none`.
 * **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), zentriert. Das Pfeilsymbol wird exklusiv im rechten blauen Drop-Down-Button (`::drop-down`) geführt; das weiße Eingabefeld (Grundfeld) bleibt vollständig rein textbasiert ohne Pfeilsymbole.
 * **Klassisches Drop-Down-Verhalten (Anzeige unterhalb):**
@@ -83,11 +83,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Die ComboBox (weißes Textfeld + blauer Pfeilbutton) bleibt während der gesamten Auswahl zu 100 % sichtbar an ihrer festen Position im Formular stehen.
   * Reicht der verfügbare Bildschirmplatz nach unten nicht aus, klappt Qt die Liste automatisch bündig nach oben auf (*Pull-up*).
 * **Aufklappliste / Popup-Ansicht (`QComboBox QAbstractItemView`):**
-  * Hintergrund: Reinweiß (`#FFFFFF`).
+  * Hintergrund: Starfield-Weiß (`#ECECEC`).
   * Textfarbe der Einträge: Tiefschwarz (`#000000`).
-  * Selektion (`selection-background-color`): Starfield-Blau (`#304C7A`), Textfarbe Weiß (`#FFFFFF`).
+  * Selektion (`selection-background-color`): Starfield-Blau (`#304C7A`), Textfarbe Starfield-Weiß (`#ECECEC`).
   * Mausberührung (`item:hover`): Helles Blau (`#5B7A9E`), Textfarbe Weiß (`#FFFFFF`).
-  * Rahmen: `1px solid #304C7A`.
+  * Rahmen: `1px solid #888888`.
   * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Pages.qss` für alle Hauptseiten sowie alle angedockten Diagnose- und Statistikfenster. Lokale Widget-Stylesheets müssen diese View-Eigenschaften zwingend mitführen.
 * **Mindest- & Standardbreite:** Im Formularbereich für kurze Dropdown-Felder verbindlich **242 px** (210 px weißes Textfeld + 32 px rechter blauer Aufklapp-Button; `min-width: 242px; max-width: 242px;`).
 * **Mausrad-Schutz:** Globaler Schutz vor versehentlichem Verstellen über `setup_dropdown_wheel_guard` (`LOH_Control_Dropdown.py`).
@@ -171,6 +171,10 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
     * **Zwingend neu zu aktivierende Mods (Einstiegs-Mod & Voraussetzungen):** Fest angehakt (`Checked`), gesperrt; Kasten **Starfield-Orange (`#E06236`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E`.
     * **Optionale Folge-Mods (Vorschläge):** Frei editierbar; Kasten **Starfield-Gold (`#D7A64B`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E` (bzw. Weiß `#FFFFFF` bei Unchecked).
     * **Interaktion:** Anhaken einer Mod aktiviert deren Voraussetzungen und erfüllt nachfolgende Abhängigkeiten; Abwählen deaktiviert abhängige Folge-Mods.
+* **Engine-Limit-Balkenanzeigen (`LimitBar` auf `Page_LoadOrder`):**
+  * Grundhintergrund (unbefüllter Balkenbereich): **Starfield-Weiß (`#ECECEC`)** einheitlich zum Standard-Tabellenhintergrund.
+  * Segmente: Core/System = Starfield-Orange (`#E06236`), Mods = Starfield-Gelb (`#D7A64B`), Kritisch (>= 90 %) = Starfield-Rot (`#C72138`).
+  * Feste Höhe: `14px`, Rahmen: keiner (`Qt.PenStyle.NoPen`).
 
 ---
 

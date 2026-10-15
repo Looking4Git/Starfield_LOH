@@ -10,7 +10,7 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Database import (get_mods_by_state, get_lookup_data, 
                                 update_mod_details, get_component_details_for_ui,
                                 get_mod_image)
-from Structure.Controls import LOH_Control_MarkdownView
+from Structure.Controls import LOH_Control_MarkdownView, LOH_Control_EmbeddedScrollTree
 from Structure.Paths import APP_ROOT
 from Structure.GUI.UI_Utils import load_mod_preview_pixmap, format_date_display, format_date_sort
 
@@ -101,7 +101,7 @@ class Page_Mods(QWidget):
         
         self.list_components = ui.findChild(QTreeView, "list_components")
         if self.list_components:
-            self.list_components.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            self.frame_components = LOH_Control_EmbeddedScrollTree.wrap(self.list_components)
             
         container_desc = ui.findChild(QWidget, "container_description")
         if container_desc:

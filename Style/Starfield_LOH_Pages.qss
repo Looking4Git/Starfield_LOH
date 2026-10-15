@@ -301,13 +301,20 @@ QCheckBox#chk_force_full_images::indicator:disabled {
    ========================================================= */
 #detail_view QLineEdit, 
 #detail_view QComboBox,
-#detail_view QTextEdit,
-#detail_view QTextBrowser,
 #detail_view QListView {
-    background-color: #ffffff;
+    background-color: #ECECEC;
     color: #000000;
     border: 1px solid #888888;
     padding: 4px 8px;
+    border-radius: 2px;
+}
+
+#detail_view QTextEdit,
+#detail_view QTextBrowser {
+    background-color: #ECECEC;
+    color: #000000;
+    border: 1px solid #888888;
+    padding: 4px 4px 4px 8px;
     border-radius: 2px;
 }
 
@@ -333,8 +340,18 @@ QCheckBox#chk_force_full_images::indicator:disabled {
     margin: 0px;
 }
 
-#detail_view QTreeView {
+#detail_view QTreeView,
+#embedded_tree_frame QTreeView {
     border: none;
+    background-color: #ECECEC;
+    alternate-background-color: #F2F2F2;
+    color: #1E1E1E;
+}
+
+#embedded_tree_frame {
+    background-color: #ECECEC;
+    border: 1px solid #888888;
+    border-radius: 2px;
 }
 
 #detail_view QLineEdit:read-only,
@@ -346,7 +363,7 @@ QCheckBox#chk_force_full_images::indicator:disabled {
 
 #Page_Update #detail_view QLineEdit:read-only,
 #Page_Update #detail_view QTextEdit:read-only {
-    background-color: #ffffff;
+    background-color: #ECECEC;
     color: #000000;
 }
 
@@ -386,7 +403,7 @@ QComboBox::drop-down:hover {
 }
 
 QComboBox QAbstractItemView {
-    background-color: #ffffff;
+    background-color: #ECECEC;
     color: #000000;
     selection-background-color: #304C7A;
     selection-color: #ECECEC;

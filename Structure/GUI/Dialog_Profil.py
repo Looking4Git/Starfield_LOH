@@ -37,7 +37,7 @@ class ProfileDialog(QDialog):
                 font-size: 13px;
             }
             QLineEdit, QTextEdit {
-                background-color: #ffffff;
+                background-color: #ECECEC;
                 color: #000000;
                 border: 1px solid #888888;
                 padding: 4px 8px;

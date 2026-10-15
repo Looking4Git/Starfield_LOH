@@ -27,6 +27,7 @@ from Structure.GUI.Dialog_Mod_Selection import ModSelectionDialog
 from Structure.GUI.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Cascade
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
+from Structure.Controls import LOH_Control_EmbeddedScrollTree
 
 class LimitBar(QWidget):
     def __init__(self, parent=None):
@@ -39,7 +40,7 @@ class LimitBar(QWidget):
         self.color_core = QColor("#E06236")     # Starfield Orange
         self.color_mod = QColor("#D7A64B")      # Starfield Gelb
         self.color_critical = QColor("#C72138") # Starfield Rot
-        self.color_bg = QColor("#FFFFFF")       # Starfield Weiß (leere Bar)
+        self.color_bg = QColor("#ECECEC")       # Starfield Weiß (leere Bar)
 
     def set_values(self, core, mod, limit):
         self.core_val = core
@@ -330,13 +331,14 @@ class Page_LoadOrder(QWidget):
         self.update_scrollbar_visibility(vsb.minimum(), vsb.maximum())
         
         self.tree_profile = ui.findChild(QTreeView, "tree_profile")
+        if self.tree_profile:
+            self.frame_profile = LOH_Control_EmbeddedScrollTree.wrap(self.tree_profile)
         self.inp_profile_desc = ui.findChild(QTextEdit, "inp_profile_desc")
         if self.inp_profile_desc:
             self.inp_profile_desc.setReadOnly(False)
         
         self.profile_model = QStandardItemModel()
         self.tree_profile.setModel(self.profile_model)
-        self.tree_profile.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.tree_profile.setIconSize(QSize(16, 16))
         self.icon_activation = QIcon(os.path.join(APP_ROOT, "Graphics", "Icon_Activation.svg"))
         self.tree_profile.selectionModel().selectionChanged.connect(self.on_profile_selected)
@@ -419,7 +421,11 @@ class Page_LoadOrder(QWidget):
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.tree_requirements = ui.findChild(QTreeView, "tree_requirements")
+        if self.tree_requirements:
+            self.frame_requirements = LOH_Control_EmbeddedScrollTree.wrap(self.tree_requirements)
         self.tree_dependencies = ui.findChild(QTreeView, "tree_dependencies")
+        if self.tree_dependencies:
+            self.frame_dependencies = LOH_Control_EmbeddedScrollTree.wrap(self.tree_dependencies)
         
         # Position-Eingabefeld und Tasten aus der UI referenzieren und einrichten
         self.inp_position = ui.findChild(QLineEdit, "inp_position")
@@ -437,11 +443,6 @@ class Page_LoadOrder(QWidget):
         self.btn_analysis = ui.findChild(QPushButton, "btn_analysis")
         if self.btn_analysis:
             self.btn_analysis.clicked.connect(self.on_analysis_clicked)
-        
-        if self.tree_requirements:
-            self.tree_requirements.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        if self.tree_dependencies:
-            self.tree_dependencies.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
         if self.btn_save:

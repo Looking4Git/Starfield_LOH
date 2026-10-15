@@ -1220,6 +1220,16 @@ def run_load_order_sorter(log_signal=None) -> bool:
             log_msg("[ABBRUCH] Keine aktiven Mods vorhanden.")
             return False
 
+        if prereqs.get("inactive_mods_in_load_order", 0) > 0:
+            abort_msg = (
+                "[ABBRUCH] In der Ladereihenfolge befinden sich deinstallierte oder inaktive Mods.\n"
+                "Bitte führen Sie zuerst das Modul 'Starfield LoadOrder' aus, um die Profile zu synchronisieren."
+            )
+            log_msg(abort_msg)
+            logger.warning(abort_msg)
+            main_log.warning("Prozess 'LoadOrder Sorter' abgebrochen: Deinstallierte oder inaktive Mods in LoadOrder vorhanden.")
+            return False
+
         # Hauptpipeline-Definition (gemäß Regel 7 ai-manifest.md direkt in der Funktionsdefinition)
         SORTER_PIPELINE_STEPS = [
             (1, "Multi-Mod-Blockbildung", _step_build_mod_blocks),

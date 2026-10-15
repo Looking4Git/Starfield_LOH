@@ -735,8 +735,12 @@ class Page_Update(QWidget):
             )
             return
 
+        mode_text = self.cmb_mode_filter.currentText() if self.cmb_mode_filter else "Updates"
+        mode_key = getattr(self, "current_mode", "updates")
+        mode_info = (mode_text, mode_key)
+
         # Schritt 1: Prüfen des vorherigen Updates (Sicherheitsdialog falls unvollständig)
-        proceed = step_check_previous_update(parent_widget=self, log_callback=self.log)
+        proceed = step_check_previous_update(parent_widget=self, log_callback=self.log, mode_info=mode_info)
         if not proceed:
             return
 
@@ -748,7 +752,7 @@ class Page_Update(QWidget):
                 self.btn_resolve_update_status.setEnabled(False)
 
             # Schritt 2: Vorbereiten des Updates (LOH_Executions & Mods_Updates initialisieren)
-            step_prepare_update(selected_mods, log_callback=self.log)
+            step_prepare_update(selected_mods, log_callback=self.log, mode_info=mode_info)
 
             # Schritt 3: Sicherung erstellen
             backup_path = step_create_backup(selected_mods, log_callback=self.log)

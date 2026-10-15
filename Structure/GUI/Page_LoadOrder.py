@@ -16,6 +16,7 @@ from Structure.Database import (get_profiles, get_load_order, update_load_order_
                                  delete_mod_requirement, add_mod_requirement, get_mod_dependencies_for_ui,
                                  apply_all_classifier_categories, has_classifier_categories, get_script_last_execution,
                                  apply_sorter_to_profile, apply_sorter_to_all_profiles,
+                                 check_sorter_prerequisites,
                                  has_sorter_results, get_mod_conflicts_for_ui,
                                  get_mod_conflict_avoidance_for_ui,
                                  get_cascade_for_mod, get_cascade_for_deactivation)
@@ -2125,6 +2126,16 @@ class Page_LoadOrder(QWidget):
 
     def on_apply_sorter_all_clicked(self):
         """Überträgt die berechneten Sorter-Positionen nach Bestätigung auf alle Profile."""
+        prereqs = check_sorter_prerequisites()
+        if prereqs.get("inactive_mods_in_load_order", 0) > 0:
+            self.show_message_box(
+                "Fehler",
+                "In der Ladereihenfolge befinden sich deinstallierte oder inaktive Mods.\n\n"
+                "Bitte führen Sie zuerst das Modul 'Starfield LoadOrder' aus, um die Profile zu synchronisieren.",
+                QMessageBox.Icon.Critical
+            )
+            return
+
         reply = self.show_message_box(
             "Sortierung auf alle Profile anwenden",
             "Möchten Sie die neu berechneten Positionen wirklich auf alle Profile übertragen?\n\n"

@@ -103,7 +103,7 @@ def log_message(msg: str, log_callback=None):
 # SCHRITT 1: Prüfen des vorherigen Updates
 # =============================================================================
 
-def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
+def step_check_previous_update(parent_widget=None, log_callback=None, mode_info=None) -> bool:
     """
     Schritt 1: Prüft, ob der vorherige Update-Lauf vollständig abgeschlossen wurde.
     Falls nicht und Zeilen mit Status in Mods_Updates existieren, wird ein modaler
@@ -112,6 +112,10 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
     write_log_header(MOD_UPDATE_CREATIONS_LOG_FILE, "Starfield_LOH_Mod_Update_Creations")
     main_log = logging.getLogger("Starfield_LOH")
     main_log.info(f"Prozess 'Mod Update (Creations)' gestartet. Detailliertes Protokoll: {MOD_UPDATE_CREATIONS_LOG_FILE}")
+
+    if mode_info:
+        mode_text, mode_key = mode_info
+        log_message(f"Modus / Anzeigeoption: {mode_text} ({mode_key})", log_callback)
 
     last_exec = get_script_last_execution("Starfield_Mod_Update.py")
     if not last_exec:
@@ -187,13 +191,16 @@ def step_check_previous_update(parent_widget=None, log_callback=None) -> bool:
 # SCHRITT 2: Vorbereiten des Updates
 # =============================================================================
 
-def step_prepare_update(selected_mods: list[dict], log_callback=None) -> bool:
+def step_prepare_update(selected_mods: list[dict], log_callback=None, mode_info=None) -> bool:
     """
     Schritt 2: Protokolliert den Start in LOH_Executions, leert Mods_Updates und
     initialisiert die markierten Mods mit dem aktuellen Systemdatum (DD.MM.YYYY).
     """
     record_script_start("Starfield_Mod_Update.py")
     log_message("=== Starfield_Mod_Update: Schritt 2 - Vorbereitung gestartet ===", log_callback)
+    if mode_info:
+        mode_text, mode_key = mode_info
+        log_message(f"Modus / Anzeigeoption: {mode_text} ({mode_key})", log_callback)
 
     today_str = datetime.now().strftime("%d.%m.%Y")
     ok = init_mods_updates(selected_mods, today_str)
@@ -528,18 +535,6 @@ class ModUpdateScanner(QObject):
             update_script_execution_state("Starfield_Mod_Update.py", 3, reason="Updates vollständig")
             if self.overlay_window:
                 self.overlay_window.show_completion_view()
-            # Schritt 7 & 8: Validierung & DB-Übertrag ausführen
-            try:
-                cb = self.parent_page.log if (self.parent_page and hasattr(self.parent_page, "log")) else None
-                step_complete_update(self.backup_dir, log_callback=cb, parent_widget=self.parent_page)
-            except Exception as e:
-                logging.error(f"Fehler in step_complete_update: {e}", exc_info=True)
-                log_message(f"FEHLER beim Abschluss des Updates: {e}")
-
-            if self.parent_page and hasattr(self.parent_page, "load_data"):
-                self.parent_page.load_data()
-            if self.parent_page and hasattr(self.parent_page, "data_updated"):
-                self.parent_page.data_updated.emit()
             self.scan_finished.emit()
 
 
@@ -668,12 +663,14 @@ def create_backup_snapshots(backup_dir: str, log_callback=None) -> tuple[str, st
     return catalog_new_path, plugins_new_path
 
 
-def step_validate_content_catalog(backup_dir: str, log_callback=None) -> tuple[bool, list[str]]:
+def step_validate_content_catalog(backup_dir: str, log_callback=None, selected_mods: list[dict] = None) -> tuple[bool, list[str]]:
     """
     Schritt 6: Validiert den aktuellen ContentCatalog.txt gegen die Sicherung vor dem Update.
     Erstellt Snapshots ContentCatalog_Neu.txt und Plugins_Neu.txt im Backup-Verzeichnis.
     Führt einen einseitigen Teilmengen-Vergleich durch:
     Keine Mod aus dem Backup darf im neuen ContentCatalog fehlen (neue Mods sind explizit erlaubt).
+    Wurde eine Mod im aktuellen Lauf durch eine neue Creation-Variante ersetzt, wird dies
+    anhand der Mod-Komponentendateien intelligent erkannt und nicht als Fehler gewertet.
     Liefert (True, []) bei Erfolg (State 12) oder (False, [Fehlende_Titel]) bei Diskrepanzen (State 11).
     """
     log_message("=== Starfield_Mod_Update: Schritt 6 - Validierung ContentCatalog.txt gestartet ===", log_callback)
@@ -714,6 +711,62 @@ def step_validate_content_catalog(backup_dir: str, log_callback=None) -> tuple[b
     new_ids = {k for k in new_data.keys() if k != "ContentCatalog"}
 
     missing_keys = set(orig_ids.keys()) - new_ids
+    if missing_keys:
+        # Falls selected_mods nicht übergeben wurde, aus Mods_Updates laden
+        if selected_mods is None:
+            updates = get_all_mods_updates()
+            selected_mods = []
+            for u in updates:
+                m_id = u.get("Mod_ID")
+                m_data = get_mod_by_id(m_id)
+                if m_data:
+                    m_data["Version_update"] = u.get("Version_update")
+                    selected_mods.append(m_data)
+
+        # Intelligente Prüfung: Wurde ein fehlender Schlüssel durch eine andere Variante ersetzt?
+        resolved_keys = set()
+        for missing_k in missing_keys:
+            orig_entry = orig_ids.get(missing_k, {})
+            orig_files = [cf.lower() for cf in orig_entry.get("Files", [])]
+            orig_title = (orig_entry.get("Title") or "").strip().lower()
+
+            # Prüfen, ob dieser Schlüssel zu einer Mod aus selected_mods gehört
+            matching_mod = None
+            mod_comp_files_lower = []
+            for mod in (selected_mods or []):
+                m_id = mod.get("ID")
+                m_creation_id = (mod.get("ID_ContentCatalog") or "").strip()
+                m_cat_name = (mod.get("Name_ContentCatalog") or "").strip().lower()
+                components = _get_mod_components(m_id)
+                comp_files = [c["File"].lower() for c in components if c.get("File")]
+
+                if m_creation_id == missing_k or (m_cat_name and m_cat_name == orig_title) or any(f in comp_files for f in orig_files):
+                    matching_mod = mod
+                    mod_comp_files_lower = comp_files
+                    break
+
+            if matching_mod:
+                # Prüfen, ob die Komponenten dieser Mod in einem anderen Eintrag des neuen Katalogs auftauchen
+                for new_k, new_v in new_data.items():
+                    if new_k == "ContentCatalog" or not isinstance(new_v, dict):
+                        continue
+                    new_files = [cf.lower() for cf in new_v.get("Files", [])]
+                    has_matching_file = any(f in new_files for f in mod_comp_files_lower) if mod_comp_files_lower else any(f in new_files for f in orig_files)
+                    if has_matching_file:
+                        new_title = new_v.get("Title") or new_k
+                        old_title = orig_entry.get("Title") or missing_k
+                        mod_id = matching_mod.get("ID")
+                        mod_name = matching_mod.get("Name_Online") or matching_mod.get("Name_ContentCatalog") or old_title
+                        log_message(
+                            f"ℹ Variantenwechsel erkannt: Mod '{mod_name}' (ID {mod_id}) wechselte von Creation-ID "
+                            f"'{missing_k}' ('{old_title}') zu '{new_k}' ('{new_title}').",
+                            log_callback
+                        )
+                        resolved_keys.add(missing_k)
+                        break
+
+        missing_keys = missing_keys - resolved_keys
+
     if missing_keys:
         missing_titles = []
         for k in missing_keys:

@@ -303,6 +303,20 @@ def apply_sorter_to_profile(profile_id: int) -> tuple[bool, int, str]:
             
         sorter_pos_map = {row["Component_ID"]: row["Position"] for row in sorter_rows}
         
+        # 1b. Sicherheitsprüfung: Befinden sich im Zielprofil deinstallierte/inaktive Mods?
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM LoadOrder lo
+            LEFT JOIN Mods_Components mc ON lo.ID_Component = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE lo.ID_Profile = ? AND (m.State != 1 OR m.ID IS NULL)
+        """, (profile_id,))
+        if cursor.fetchone()[0] > 0:
+            return False, 0, (
+                "In der Ladereihenfolge befinden sich deinstallierte oder inaktive Mods.\n"
+                "Bitte führen Sie zuerst das Modul 'Starfield LoadOrder' aus, um die Profile zu synchronisieren."
+            )
+        
         # 2. Komponenten des Profils abrufen
         cursor.execute("""
             SELECT lo.ID_Component, lo.Position 
@@ -371,6 +385,20 @@ def apply_sorter_to_all_profiles() -> tuple[bool, int, int, str]:
             return False, 0, 0, "Keine Sortierergebnisse in 'LoadOrder_Sorter_Results' vorhanden. Bitte führen Sie zuerst den Sorter aus."
             
         sorter_pos_map = {row["Component_ID"]: row["Position"] for row in sorter_rows}
+        
+        # 1b. Sicherheitsprüfung: Befinden sich in den Profilen deinstallierte/inaktive Mods?
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM LoadOrder lo
+            LEFT JOIN Mods_Components mc ON lo.ID_Component = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE m.State != 1 OR m.ID IS NULL
+        """)
+        if cursor.fetchone()[0] > 0:
+            return False, 0, 0, (
+                "In der Ladereihenfolge befinden sich deinstallierte oder inaktive Mods.\n"
+                "Bitte führen Sie zuerst das Modul 'Starfield LoadOrder' aus, um die Profile zu synchronisieren."
+            )
         
         # 2. Alle Profile abrufen
         cursor.execute("SELECT ID, Name FROM Profiles ORDER BY ID ASC")
@@ -444,6 +472,16 @@ def check_sorter_prerequisites() -> dict:
         # 1. Installierte Mods (State = 1)
         cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1")
         installed_mods_count = cursor.fetchone()[0]
+
+        # 1b. Deinstallierte/inaktive Mods in LoadOrder prüfen
+        cursor.execute("""
+            SELECT COUNT(DISTINCT lo.ID_Component)
+            FROM LoadOrder lo
+            LEFT JOIN Mods_Components mc ON lo.ID_Component = mc.Component_ID
+            LEFT JOIN Mods m ON mc.Mod_ID = m.ID
+            WHERE m.State != 1 OR m.ID IS NULL
+        """)
+        inactive_mods_in_load_order = cursor.fetchone()[0]
         
         # 2. Unvollständige Category_LOH
         cursor.execute("SELECT COUNT(*) FROM Mods WHERE State = 1 AND (Category_LOH IS NULL OR Category_LOH = 0)")
@@ -524,7 +562,8 @@ def check_sorter_prerequisites() -> dict:
             "conflicts_last_execution": conflicts_exec,
             "newer_mods_classifier": newer_mods_classifier,
             "newer_mods_conflicts": newer_mods_conflicts,
-            "has_newer_mods": has_newer_mods
+            "has_newer_mods": has_newer_mods,
+            "inactive_mods_in_load_order": inactive_mods_in_load_order
         }
     except sqlite3.Error as e:
         logging.error(f"Fehler bei check_sorter_prerequisites: {e}")
@@ -537,7 +576,8 @@ def check_sorter_prerequisites() -> dict:
             "conflicts_last_execution": None,
             "newer_mods_classifier": [],
             "newer_mods_conflicts": [],
-            "has_newer_mods": False
+            "has_newer_mods": False,
+            "inactive_mods_in_load_order": 0
         }
     finally:
         if conn:

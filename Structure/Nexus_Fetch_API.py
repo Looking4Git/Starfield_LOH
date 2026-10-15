@@ -868,7 +868,7 @@ def resolve_nexus_mod_id(mod: dict, client: NexusGraphQLClient, author_mods_cach
 # Datenbank-Aktualisierung
 # ---------------------------------------------------------------------------
 
-def apply_api_database_update(cursor, mod_id: int, details: dict, log_func) -> bool:
+def apply_api_database_update(cursor, mod_id: int, details: dict, log_func, force_full_images: bool = False) -> bool:
     """
     Führt das transaktionale Datenbank-Update für die Tabelle Mods aus und
     lädt bei Bedarf das Vorschaubild in Data/Mod_Images/{id}.png herunter.
@@ -890,11 +890,14 @@ def apply_api_database_update(cursor, mod_id: int, details: dict, log_func) -> b
         img_filename = f"{mod_id}.png"
         img_full_path = os.path.join(MOD_IMAGES_DIR, img_filename)
 
-        if os.path.exists(img_full_path) and os.path.getsize(img_full_path) > 0:
+        if not force_full_images and os.path.exists(img_full_path) and os.path.getsize(img_full_path) > 0:
             image_rel_path = img_filename
             log_func("  -> Bild bereits im Cache vorhanden.")
         else:
-            log_func(f"  -> Lade Vorschaubild herunter...")
+            if force_full_images and os.path.exists(img_full_path) and os.path.getsize(img_full_path) > 0:
+                log_func("  -> Vollständige Bild-Aktualisierung erzwungen: Lade Vorschaubild neu herunter...")
+            else:
+                log_func(f"  -> Lade Vorschaubild herunter...")
             img_bytes = download_image(picture_url)
             if img_bytes:
                 saved_name = save_mod_image_file(mod_id, img_bytes)
@@ -940,7 +943,7 @@ def apply_api_database_update(cursor, mod_id: int, details: dict, log_func) -> b
 # Hauptprozess: run_nexus_fetch_api
 # ---------------------------------------------------------------------------
 
-def run_nexus_fetch_api(log_signal=None) -> bool:
+def run_nexus_fetch_api(log_signal=None, force_full_images: bool = False) -> bool:
     """
     Hauptprozess für den Nexus Mods API Fetch.
     Thread-sicher für die Ausführung über den TaskWorker in Page_Tools.
@@ -967,6 +970,8 @@ def run_nexus_fetch_api(log_signal=None) -> bool:
     main_log.info(f"Prozess 'Nexus Fetch API' gestartet. Detailliertes Protokoll: {NEXUS_API_LOG_FILE}")
 
     log_msg("--- Starfield LOH - Nexus Mods API Fetcher (GraphQL v2) gestartet ---")
+    if force_full_images:
+        log_msg("-> [HINWEIS] Vollständige Bild-Aktualisierung erzwungen: Vorhandene Bilder werden überschrieben.")
 
     # 1. API-Client initialisieren & validieren
     client = NexusGraphQLClient()
@@ -1101,7 +1106,7 @@ def run_nexus_fetch_api(log_signal=None) -> bool:
                 continue
 
             # 3. Datenbank & Bilder aktualisieren
-            apply_ok = apply_api_database_update(cursor, mod_id, details, log_msg)
+            apply_ok = apply_api_database_update(cursor, mod_id, details, log_msg, force_full_images=force_full_images)
             if apply_ok:
                 conn.commit()
                 success_count += 1

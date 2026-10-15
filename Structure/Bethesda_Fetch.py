@@ -170,7 +170,7 @@ def build_session_headers(bnet_key: str) -> dict:
     return headers
 
 
-def run_fetch(log_signal=None):
+def run_fetch(log_signal=None, force_full_images: bool = False):
     db_path = DB_FILE
     logger = setup_logging()
     
@@ -193,6 +193,8 @@ def run_fetch(log_signal=None):
     main_log = logging.getLogger("Starfield_LOH")
     main_log.info(f"Prozess 'Bethesda Fetch' gestartet. Detailliertes Protokoll: {log_file}")
     log_msg("Starte Abruf der Creation Updates und Metadaten über native Bethesda REST-API...")
+    if force_full_images:
+        log_msg("-> [HINWEIS] Vollständige Bild-Aktualisierung erzwungen: Vorhandene Bilder werden überschrieben.")
     
     success_count = 0
     error_count = 0
@@ -303,18 +305,21 @@ def run_fetch(log_signal=None):
                     cursor.execute("SELECT Image FROM Mods WHERE ID = ?", (mod_id,))
                     img_row = cursor.fetchone()
                     has_img = False
-                    if img_row and img_row[0]:
-                        img_val = img_row[0]
-                        if isinstance(img_val, str) and img_val.strip():
-                            from Structure.Paths import MOD_IMAGES_DIR
-                            if os.path.exists(os.path.join(MOD_IMAGES_DIR, img_val)):
-                                has_img = True
-                        else:
-                            has_img = True  # Legacy byte data
+                    if not force_full_images:
+                        if img_row and img_row[0]:
+                            img_val = img_row[0]
+                            if isinstance(img_val, str) and img_val.strip():
+                                from Structure.Paths import MOD_IMAGES_DIR
+                                if os.path.exists(os.path.join(MOD_IMAGES_DIR, img_val)):
+                                    has_img = True
+                            else:
+                                has_img = True  # Legacy byte data
                             
                     if has_img:
                         log_msg("  -> Vorschaubild existiert bereits (Download übersprungen).")
                     else:
+                        if force_full_images and img_row and img_row[0]:
+                            log_msg("  -> Vollständige Bild-Aktualisierung erzwungen: Bild wird neu heruntergeladen...")
                         s3bucket = preview_image.get("s3bucket")
                         s3key = preview_image.get("s3key")
                         s3key_encoded = urllib.parse.quote(s3key.lstrip('/'))

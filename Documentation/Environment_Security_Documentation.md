@@ -59,7 +59,8 @@ Auf Fremdsystemen oder bei nicht vollständig vorhandenen Spieldateien greift ei
 | **Page_Tools** | `Starfield Check Deleted` (`btn_deleted_check`) | ❌ Gesperrt | Greift auf lokale Spieldateien zu |
 | **Page_Tools** | `Starfield LoadOrder` (`btn_load_order_check`) | ❌ Gesperrt | Liest fremde `Plugins.txt` ein |
 | **Page_Tools** | `Konflikt Analyse` (`btn_conflict_check`) | ❌ Gesperrt | Analysiert lokale ESM-Dateien |
-| **Page_Tools** | `Reset Filedate` (`btn_reset_filedate`) | ❌ Gesperrt | Modifiziert Dateizeitstempel lokaler Dateien |
+| **Page_Tools** | `Get Data erzwingen` (`chk_force_full_get_data`) | ❌ Gesperrt | Greift auf lokale Spieldateien zu |
+| **Page_Tools** | `Bilder erzwingen` (`chk_force_full_images`) | ❌ Gesperrt | Aktualisiert lokale Mod-Bilder |
 | **Page_Tools** | `Bethesda Fetch` (`btn_fetch`) | ✅ Aktiv | Reines Online-Metadaten-Scraping |
 | **Page_Tools** | `Nexus Fetch` (`btn_nexus_fetch`) | ✅ Aktiv | Reines Online-Metadaten-Scraping |
 | **Page_Tools** | `LOOT Fetch` (`btn_loot_fetch`) | ✅ Aktiv | Reines Online-Metadaten-Scraping |

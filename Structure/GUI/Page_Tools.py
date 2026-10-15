@@ -1,5 +1,5 @@
 import os
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QCheckBox
 from PySide6.QtCore import Qt, Signal
 
 from Structure.Paths import GRAPHICS_DIR
@@ -15,7 +15,6 @@ from Structure.Category_LOH_Classifier import run_classifier
 from Structure.LoadOrder_Sorter import run_load_order_sorter, start_sorter_pre_checks
 from Structure.GUI.Widget_LogConsole import Widget_LogConsole
 from Structure.GUI.Widget_TileIconButton import Widget_TileIconButton
-from Tools.Reset_Filedate_Last_Check import reset_filedate_last_check
 
 
 class Page_Tools(QWidget):
@@ -139,6 +138,18 @@ class Page_Tools(QWidget):
         layout_modules.addStretch()
         self.layout.addLayout(layout_modules)
 
+        # Checkbox 1: Vollständiges Einlesen der Starfield Daten erzwingen
+        self.chk_force_full_get_data = QCheckBox("Vollständiges Einlesen der Starfield Daten (Get Data) erzwingen")
+        self.chk_force_full_get_data.setObjectName("chk_force_full_get_data")
+        self.chk_force_full_get_data.setChecked(False)
+        self.layout.addWidget(self.chk_force_full_get_data)
+
+        # Checkbox 2: Vollständige Aktualisierung aller vorhandenen Bilddaten erzwingen
+        self.chk_force_full_images = QCheckBox("Vollständige Aktualisierung aller vorhandenen Bilddaten erzwingen")
+        self.chk_force_full_images.setObjectName("chk_force_full_images")
+        self.chk_force_full_images.setChecked(False)
+        self.layout.addWidget(self.chk_force_full_images)
+
         # -------------------------------------------------------------
         # Abschnitt 2: Tools
         # -------------------------------------------------------------
@@ -156,16 +167,6 @@ class Page_Tools(QWidget):
         layout_tools = QHBoxLayout()
         layout_tools.setSpacing(8)
         layout_tools.setContentsMargins(0, 4, 0, 6)
-
-        # Full Get Data erzwingen (ehemals Reset Filedate)
-        self.btn_reset_filedate = Widget_TileIconButton(
-            icon_path=os.path.join(GRAPHICS_DIR, "Icon_Gear.svg"),
-            text="Full Get Data\nerzwingen",
-            variant="red",
-        )
-        self.btn_reset_filedate.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
-        self.btn_reset_filedate.clicked.connect(self.start_reset_filedate)
-        layout_tools.addWidget(self.btn_reset_filedate)
 
         # Log Files
         self.btn_log_files = Widget_TileIconButton(
@@ -211,7 +212,6 @@ class Page_Tools(QWidget):
             self.btn_deleted_check,
             self.btn_load_order_check,
             self.btn_conflict_check,
-            self.btn_reset_filedate,
         ]
 
         for btn in foreign_blocked:
@@ -220,10 +220,10 @@ class Page_Tools(QWidget):
                 btn.setToolTip(reason if reason else "Auf diesem System gesperrt")
             else:
                 btn.setEnabled(True)
-                if btn == self.btn_reset_filedate:
-                    btn.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
-                else:
-                    btn.setToolTip("")
+                btn.setToolTip("")
+
+        self.chk_force_full_get_data.setEnabled(env_ready)
+        self.chk_force_full_images.setEnabled(env_ready)
 
         # Nexus API-Key & Hardware-Bindung prüfen
         from Structure.Paths import get_nexus_api_key, is_dpapi_hardware_mismatch
@@ -242,7 +242,9 @@ class Page_Tools(QWidget):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(run_local_check, start_message="Thread gestartet: Lokaler Starfield Check...")
+        force_full = self.chk_force_full_get_data.isChecked()
+        start_msg = "Thread gestartet: Lokaler Starfield Check (Vollständiger Scan)..." if force_full else "Thread gestartet: Lokaler Starfield Check..."
+        self.worker = TaskWorker(run_local_check, force_full_scan=force_full, start_message=start_msg)
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
@@ -273,7 +275,9 @@ class Page_Tools(QWidget):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(run_fetch, start_message="Thread gestartet: Bethesda Fetch...")
+        force_imgs = self.chk_force_full_images.isChecked()
+        start_msg = "Thread gestartet: Bethesda Fetch (Bilder-Aktualisierung erzwungen)..." if force_imgs else "Thread gestartet: Bethesda Fetch..."
+        self.worker = TaskWorker(run_fetch, force_full_images=force_imgs, start_message=start_msg)
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
@@ -282,7 +286,9 @@ class Page_Tools(QWidget):
         self.set_buttons_enabled(False)
         self.log_console.clear()
         
-        self.worker = TaskWorker(run_nexus_fetch_api, start_message="Thread gestartet: Nexus Mods API Fetch...")
+        force_imgs = self.chk_force_full_images.isChecked()
+        start_msg = "Thread gestartet: Nexus Mods API Fetch (Bilder-Aktualisierung erzwungen)..." if force_imgs else "Thread gestartet: Nexus Mods API Fetch..."
+        self.worker = TaskWorker(run_nexus_fetch_api, force_full_images=force_imgs, start_message=start_msg)
         self.worker.log_signal.connect(self.log_console.append_log)
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
@@ -358,45 +364,6 @@ class Page_Tools(QWidget):
         self.worker.finished_signal.connect(self.process_finished)
         self.worker.start()
 
-    def start_reset_filedate(self):
-        self.set_buttons_enabled(False)
-        self.log_console.clear()
-
-        def run_reset_task(log_signal):
-            import io
-            import sys
-
-            class StreamRedirector(io.StringIO):
-                def __init__(self, sig):
-                    super().__init__()
-                    self.sig = sig
-                def write(self, s):
-                    text = s.strip()
-                    if text and self.sig:
-                        self.sig.emit(text)
-                def flush(self):
-                    pass
-
-            old_stdout = sys.stdout
-            sys.stdout = StreamRedirector(log_signal)
-            try:
-                reset_filedate_last_check()
-                return True
-            except Exception as e:
-                if log_signal:
-                    log_signal.emit(f"\n[FEHLER] Beim Zurücksetzen ist ein Fehler aufgetreten: {e}")
-                return False
-            finally:
-                sys.stdout = old_stdout
-
-        self.worker = TaskWorker(
-            run_reset_task,
-            start_message="Thread gestartet: Reset Filedate (Filedate_Last_Check zurücksetzen)..."
-        )
-        self.worker.log_signal.connect(self.log_console.append_log)
-        self.worker.finished_signal.connect(self.process_finished)
-        self.worker.start()
-
     def set_buttons_enabled(self, enabled):
         from Structure.Environment_Controller import get_game_environment_status
         env_ready, reason = get_game_environment_status()
@@ -406,7 +373,6 @@ class Page_Tools(QWidget):
             self.btn_deleted_check,
             self.btn_load_order_check,
             self.btn_conflict_check,
-            self.btn_reset_filedate,
         }
 
         all_buttons = [
@@ -419,7 +385,6 @@ class Page_Tools(QWidget):
             self.btn_classifier,
             self.btn_conflict_check,
             self.btn_load_order_sorter,
-            self.btn_reset_filedate,
             self.btn_log_files,
         ]
         from Structure.Paths import get_nexus_api_key, is_dpapi_hardware_mismatch
@@ -445,10 +410,11 @@ class Page_Tools(QWidget):
                     btn.setToolTip(nexus_tooltip)
                 else:
                     btn.setEnabled(True)
-                    if btn == self.btn_reset_filedate:
-                        btn.setToolTip("Setzt den Datumsstempel des letzten Einlesens zurück, sodass bei der nächsten Ausführung von ‚Starfield Get Data‘ alle Mods vollständig neu eingelesen werden.")
-                    elif btn in foreign_blocked:
+                    if btn in foreign_blocked:
                         btn.setToolTip("")
+
+        self.chk_force_full_get_data.setEnabled(enabled and env_ready)
+        self.chk_force_full_images.setEnabled(enabled and env_ready)
 
     def open_log_files_window(self):
         """Öffnet das Fenster zur Ansicht und Verwaltung der Starfield LOH Log-Dateien."""

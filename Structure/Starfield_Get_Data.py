@@ -180,7 +180,7 @@ OFFICIAL_DLC_NAMES = {
     "oldmars.esm": "DLC: Old Mars Skin Pack",
 }
 
-def scan_and_update_system_components(log_msg, log_signal=None):
+def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan: bool = False):
     """
     Scans the Starfield/Data directory for official Bethesda .esm files that are NOT mods
     (i.e. not registered in Plugins.txt / Components table), gets their modification date,
@@ -238,7 +238,7 @@ def scan_and_update_system_components(log_msg, log_signal=None):
             
             needs_scan = True
             
-            if row:
+            if row and not force_full_scan:
                 if row['Filedate_Last_Check'] == mtime_str:
                     needs_scan = False
                     log_msg(f"  -> [SYSTEM COMPONENT] '{esm}' ist unverändert (Überspringe binären Scan). Handles: REFR: {row['REFR']}, ACHR: {row['ACHR']}")
@@ -352,7 +352,7 @@ def scan_and_update_system_components(log_msg, log_signal=None):
         if conn:
             conn.close()
 
-def scan_and_update_mod_components(log_msg, log_signal=None):
+def scan_and_update_mod_components(log_msg, log_signal=None, force_full_scan: bool = False):
     """
     Iteriert über alle in der Tabelle 'Components' registrierten Masterfiles,
     prüft deren Modifikationsdatum und aktualisiert ggf. die Pointer-Zähler.
@@ -396,7 +396,7 @@ def scan_and_update_mod_components(log_msg, log_signal=None):
             
             needs_scan = True
             
-            if db_mtime == mtime_str:
+            if not force_full_scan and db_mtime == mtime_str:
                 needs_scan = False
                 log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
             
@@ -710,7 +710,7 @@ def assign_header_requirements(log_msg):
         if conn:
             conn.close()
 
-def run_local_check(log_signal):
+def run_local_check(log_signal, force_full_scan: bool = False):
     write_log_header(GET_DATA_LOG_FILE, "Starfield_Get_Data")
     def log_msg(msg):
         log_signal.emit(msg)
@@ -723,6 +723,8 @@ def run_local_check(log_signal):
     conn = None
     try:
         log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
+        if force_full_scan:
+            log_msg("-> [HINWEIS] Vollständiges Einlesen erzwungen: Filterung auf unveränderte Dateien deaktiviert.")
         backup_dir = BACKUPS_GET_DATA_DIR
         os.makedirs(backup_dir, exist_ok=True)
 
@@ -1096,8 +1098,8 @@ def run_local_check(log_signal):
 
         # Zählen der Pointer Handles und Scannen der offiziellen Bethesda Masterfiles
         try:
-            scan_and_update_system_components(log_msg, log_signal)
-            scan_and_update_mod_components(log_msg, log_signal)
+            scan_and_update_system_components(log_msg, log_signal, force_full_scan=force_full_scan)
+            scan_and_update_mod_components(log_msg, log_signal, force_full_scan=force_full_scan)
             assign_header_requirements(log_msg)
         except Exception as e:
             log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung oder Requirements-Zuweisung: {str(e)}")

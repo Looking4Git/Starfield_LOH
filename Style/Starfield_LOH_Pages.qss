@@ -237,9 +237,11 @@ QFrame#sep_install_process {
     border: none;
 }
 
-/* Checkboxen im Detail-View */
+/* Checkboxen im Detail-View und Pages */
 #detail_view QCheckBox,
-QCheckBox#chk_sorter_show_columns {
+QCheckBox#chk_sorter_show_columns,
+QCheckBox#chk_force_full_get_data,
+QCheckBox#chk_force_full_images {
     color: #ECECEC;
     font-size: 13px;
     spacing: 8px;
@@ -247,7 +249,9 @@ QCheckBox#chk_sorter_show_columns {
 }
 
 #detail_view QCheckBox::indicator,
-QCheckBox#chk_sorter_show_columns::indicator {
+QCheckBox#chk_sorter_show_columns::indicator,
+QCheckBox#chk_force_full_get_data::indicator,
+QCheckBox#chk_force_full_images::indicator {
     width: 16px;
     height: 16px;
     background-color: #ffffff;
@@ -256,15 +260,34 @@ QCheckBox#chk_sorter_show_columns::indicator {
 }
 
 #detail_view QCheckBox::indicator:hover,
-QCheckBox#chk_sorter_show_columns::indicator:hover {
+QCheckBox#chk_sorter_show_columns::indicator:hover,
+QCheckBox#chk_force_full_get_data::indicator:hover,
+QCheckBox#chk_force_full_images::indicator:hover {
     border: 1px solid #D7A64B;
 }
 
 #detail_view QCheckBox::indicator:checked,
-QCheckBox#chk_sorter_show_columns::indicator:checked {
+QCheckBox#chk_sorter_show_columns::indicator:checked,
+QCheckBox#chk_force_full_get_data::indicator:checked,
+QCheckBox#chk_force_full_images::indicator:checked {
     background-color: #D7A64B;
     image: url(Graphics/Icon_Check.svg);
     border: 1px solid #5b7a9e;
+}
+
+#detail_view QCheckBox:disabled,
+QCheckBox#chk_sorter_show_columns:disabled,
+QCheckBox#chk_force_full_get_data:disabled,
+QCheckBox#chk_force_full_images:disabled {
+    color: #666666;
+}
+
+#detail_view QCheckBox::indicator:disabled,
+QCheckBox#chk_sorter_show_columns::indicator:disabled,
+QCheckBox#chk_force_full_get_data::indicator:disabled,
+QCheckBox#chk_force_full_images::indicator:disabled {
+    background-color: #333333;
+    border: 1px solid #555555;
 }
 
 #lbl_components_label, #lbl_creation_categories_label, #lbl_requirements_label, #lbl_dependencies_label {

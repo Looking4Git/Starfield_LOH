@@ -117,7 +117,7 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
 - [X] **Phase 10: Diagnose-Zentrale & Dashboard (Page_Tools)**
   - [X] Kachel-Dashboard ([Structure/GUI/Page_Tools.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Tools.py)) mit Kachel-Buttons (`Widget_TileIconButton.py`)
   - [X] Live-Protokollkonsole ([Structure/GUI/Widget_LogConsole.py](file:///d:/Starfield_LOH/Structure/GUI/Widget_LogConsole.py)) mit ANSI- und In-Place-Block-Updates
-  - [X] Diagnose-Kachel »Full Get Data erzwingen« ([Tools/Reset_Filedate_Last_Check.py](file:///d:/Starfield_LOH/Tools/Reset_Filedate_Last_Check.py))
+  - [X] Optionen »Vollständiges Einlesen erzwingen« und »Bilddaten-Aktualisierung erzwingen« ([Structure/GUI/Page_Tools.py](file:///d:/Starfield_LOH/Structure/GUI/Page_Tools.py))
   - [X] Integriertes Log-Viewer-Fenster ([Structure/GUI/Window_Starfield_Log_Files.py](file:///d:/Starfield_LOH/Structure/GUI/Window_Starfield_Log_Files.py))
   - [X] Fremdsystem-Sperrmatrix ([Structure/Environment_Controller.py](file:///d:/Starfield_LOH/Structure/Environment_Controller.py))
 

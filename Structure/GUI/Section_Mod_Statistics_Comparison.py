@@ -9,6 +9,7 @@ from PySide6.QtUiTools import QUiLoader
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
 from Structure.Database import get_mod_image, get_masterfiles_by_mod_id, get_db_connection
 from Structure.GUI.Dialog_Mod_Selection import ModSelectionDialog
+from Structure.GUI.UI_Utils import load_mod_preview_pixmap
 
 class Section_Mod_Statistics_Comparison(QWidget):
     """
@@ -237,20 +238,15 @@ class Section_Mod_Statistics_Comparison(QWidget):
         return name, comp_file
 
     def _load_image_into_label(self, mod_id: int, label: QLabel, empty_text: str):
-        """Lädt das Bild aus der Datenbank und skaliert es 16:9 proportional."""
+        """Lädt das Bild aus der Datenbank und skaliert es 16:9 proportional (bzw. Fallback)."""
         if not label:
             return
             
         img_data = get_mod_image(mod_id)
-        if img_data:
-            pixmap = QPixmap()
-            if pixmap.loadFromData(img_data):
-                scaled = pixmap.scaled(240, 135, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                label.setPixmap(scaled)
-                label.setText("")
-            else:
-                label.setText("Bild fehlerhaft")
-                label.setPixmap(QPixmap())
+        scaled = load_mod_preview_pixmap(img_data, 240, 135)
+        if scaled:
+            label.setPixmap(scaled)
+            label.setText("")
         else:
             label.setText(empty_text)
             label.setPixmap(QPixmap())

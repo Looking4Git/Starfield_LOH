@@ -163,3 +163,30 @@ def make_button_premium(
 
     # Initial style apply
     update_style()
+
+
+def load_mod_preview_pixmap(
+    img_data: bytes | None,
+    width: int = 210,
+    height: int = 118,
+    aspect_mode=Qt.AspectRatioMode.KeepAspectRatio
+) -> QPixmap | None:
+    """
+    Lädt ein Mod-Vorschaubild aus Bytes.
+    Liegt kein Bild vor, wird automatisch die offizielle Ersatzgrafik (Graphics/Image_Mod_Default.jpg) geladen.
+    Gibt die skalierte QPixmap zurück oder None, falls keine Bilddaten geladen werden konnten.
+    """
+    from Structure.Paths import GRAPHICS_DIR
+    pixmap = QPixmap()
+    loaded = False
+    if img_data:
+        loaded = pixmap.loadFromData(img_data)
+
+    if not loaded:
+        fallback_path = os.path.join(GRAPHICS_DIR, "Image_Mod_Default.jpg")
+        if os.path.exists(fallback_path):
+            loaded = pixmap.load(fallback_path)
+
+    if loaded and not pixmap.isNull():
+        return pixmap.scaled(width, height, aspect_mode, Qt.TransformationMode.SmoothTransformation)
+    return None

@@ -838,8 +838,17 @@ def run_local_check(log_signal):
                     if catalog_data and "Creation_ID" in catalog_data:
                         creation_id = catalog_data["Creation_ID"]
                         if db_creation_id != creation_id:
-                            cursor.execute("UPDATE Mods SET ID_ContentCatalog = ? WHERE ID = ?", (creation_id, mod_id))
-                            log_msg(f"    -> [UPDATE] Creation_ID von '{db_creation_id}' auf '{creation_id}' geändert.")
+                            cursor.execute("""
+                                UPDATE Mods 
+                                SET ID_ContentCatalog = ?,
+                                    URL = NULL,
+                                    Name_Online = NULL,
+                                    Image = NULL,
+                                    Date_available = NULL,
+                                    Version_available = NULL
+                                WHERE ID = ?
+                            """, (creation_id, mod_id))
+                            log_msg(f"    -> [UPDATE] Creation_ID von '{db_creation_id}' auf '{creation_id}' geändert (Metadaten-Reset für Neuabruf).")
                             
                         catalog_title = catalog_data.get("Title")
                         if db_name_catalog != catalog_title:

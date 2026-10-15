@@ -21,8 +21,9 @@ from Tools.Reset_Filedate_Last_Check import reset_filedate_last_check
 class Page_Tools(QWidget):
     data_updated = Signal()
 
-    def __init__(self):
+    def __init__(self, splash_callback=None):
         super().__init__()
+        self.splash_callback = splash_callback
         self.window_log_files = None
         self.setup_ui()
 
@@ -39,6 +40,9 @@ class Page_Tools(QWidget):
         # -------------------------------------------------------------
         # Abschnitt 1: Starfield LOH Module
         # -------------------------------------------------------------
+        if self.splash_callback:
+            self.splash_callback("Initialisiere Diagnose-Werkzeuge: Starfield LOH Module (1/3) ...")
+
         sep_modules = QFrame()
         sep_modules.setObjectName("sep_modules_section")
         self.layout.addWidget(sep_modules)
@@ -138,6 +142,9 @@ class Page_Tools(QWidget):
         # -------------------------------------------------------------
         # Abschnitt 2: Tools
         # -------------------------------------------------------------
+        if self.splash_callback:
+            self.splash_callback("Initialisiere Diagnose-Werkzeuge: Wartungs-Tools (2/3) ...")
+
         sep_tools = QFrame()
         sep_tools.setObjectName("sep_tools_section")
         self.layout.addWidget(sep_tools)
@@ -176,6 +183,9 @@ class Page_Tools(QWidget):
         # -------------------------------------------------------------
         # Abschnitt 3: Protokoll-Ausgabe
         # -------------------------------------------------------------
+        if self.splash_callback:
+            self.splash_callback("Initialisiere Diagnose-Werkzeuge: Umgebung & Protokoll-Konsole (3/3) ...")
+
         log_label = QLabel("Protokoll-Ausgabe:")
         log_label.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold; margin-top: 4px;")
         self.layout.addWidget(log_label)

@@ -15,7 +15,7 @@ from Structure.Database import (
     update_mod_note,
 )
 from Structure.Paths import APP_ROOT
-from Structure.GUI.UI_Utils import make_button_premium
+from Structure.GUI.UI_Utils import make_button_premium, load_mod_preview_pixmap
 from Structure.Starfield_Mod_Update import (
     step_check_previous_update,
     step_prepare_update,
@@ -121,6 +121,72 @@ class Page_Update(QWidget):
         if not hasattr(self, "_first_show_done"):
             self._first_show_done = True
             self.load_data()
+        self.apply_environment_security()
+
+    def apply_environment_security(self):
+        """
+        Wendet die hierarchische Sperrmatrix auf Update-Aktionen an:
+        1. Laufendes Update (is_update_running oder time_end is None in aktiven States) -> Gesperrt
+        2. Warte-/Fehlerzustand (State 5 = Abgebrochen, State 11 = Validierung fehlerhaft) -> 'Update prüfen' aktiv, 'Update starten' gesperrt
+        3. Umgebungs-Schutz (Fremdsystem oder fehlende Spieldateien) -> Gesperrt mit exaktem Sperrgrund
+        4. Checkbox-Auswahl (Keine Mod in Tabelle ausgewählt) -> Gesperrt mit Hinweis
+        5. Normalzustand -> 'Update starten' aktiv
+        """
+        is_running = getattr(self, "is_update_running", False)
+        last_exec = get_script_last_execution("Starfield_Mod_Update.py")
+        state_id = last_exec.get("State") if last_exec else None
+        time_end = last_exec.get("Time_End") if last_exec else None
+
+        # 1. Laufendes Update
+        if is_running or (last_exec and not time_end and state_id in (1, 2, 3, 6, 7, 8, 9)):
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(False)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip("Update läuft bereits")
+            return
+
+        # 2. Warteposition / Validierungsfehler
+        if state_id in (5, 11):
+            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+                self.btn_resolve_update_status.setEnabled(True)
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip("Update-Prüfung erforderlich")
+            return
+
+        # In allen regulären Zuständen ist 'Update prüfen' deaktiviert
+        if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
+            self.btn_resolve_update_status.setEnabled(False)
+
+        # 3. Umgebungs-Schutz (Fremdsystem / Pfade)
+        from Structure.Environment_Controller import get_game_environment_status
+        env_ready, reason = get_game_environment_status()
+        if not env_ready:
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip(reason if reason else "Auf diesem System gesperrt")
+            return
+
+        # 4. Checkbox-Auswahl prüfen
+        has_checked_mods = False
+        if hasattr(self, "model") and self.model is not None:
+            for r in range(self.model.rowCount()):
+                it = self.model.item(r, 1)
+                if it and it.checkState() == Qt.CheckState.Checked:
+                    has_checked_mods = True
+                    break
+
+        if not has_checked_mods:
+            if hasattr(self, "btn_start_update") and self.btn_start_update:
+                self.btn_start_update.setEnabled(False)
+                self.btn_start_update.setToolTip("Keine Mods für das Update ausgewählt")
+            return
+
+        # 5. Normalzustand / Bereit
+        if hasattr(self, "btn_start_update") and self.btn_start_update:
+            self.btn_start_update.setEnabled(True)
+            self.btn_start_update.setToolTip("")
 
     def setup_ui(self):
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Page_Update.ui")
@@ -197,11 +263,7 @@ class Page_Update(QWidget):
                 variant="blue"
             )
             self.btn_start_update.clicked.connect(self.on_start_update_clicked)
-            from Structure.Environment_Controller import get_game_environment_status
-            env_ready, reason = get_game_environment_status()
-            if not env_ready:
-                self.btn_start_update.setEnabled(False)
-                self.btn_start_update.setToolTip(reason if reason else "Auf diesem System gesperrt")
+            self.apply_environment_security()
 
         self.btn_resolve_update_status = ui.findChild(QPushButton, "btn_resolve_update_status")
         if self.btn_resolve_update_status:
@@ -327,10 +389,7 @@ class Page_Update(QWidget):
         if not last_exec or not last_exec.get("Date"):
             self.inp_last_update_date.clear()
             self.lbl_last_update_reason.clear()
-            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
-                self.btn_resolve_update_status.setEnabled(False)
-            if hasattr(self, "btn_start_update") and self.btn_start_update:
-                self.btn_start_update.setEnabled(True)
+            self.apply_environment_security()
             return
 
         date_val = last_exec.get("Date") or ""
@@ -359,36 +418,8 @@ class Page_Update(QWidget):
             self.lbl_last_update_reason.setText(fail_reason)
             self.lbl_last_update_reason.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; margin-left: 4px;")
 
-        # Steuerung der Schaltflächen:
-        # 1. Wenn ein Updatelauf aktiv ist: 'Update starten' und 'Update prüfen' deaktivieren
-        if getattr(self, "is_update_running", False) or (not time_end and state_id in (1, 2, 3, 6, 7, 8, 9)):
-            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
-                self.btn_resolve_update_status.setEnabled(False)
-            if hasattr(self, "btn_start_update") and self.btn_start_update:
-                self.btn_start_update.setEnabled(False)
-        # 2. In Warteposition (Zustand 5 = Abgebrochen, Zustand 11 = Validierung fehlerhaft):
-        # 'Update prüfen' aktivieren, 'Update starten' deaktivieren.
-        elif state_id in (5, 11):
-            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
-                self.btn_resolve_update_status.setEnabled(True)
-            if hasattr(self, "btn_start_update") and self.btn_start_update:
-                self.btn_start_update.setEnabled(False)
-        # 3. Normalzustand / Abgeschlossen:
-        else:
-            if hasattr(self, "btn_resolve_update_status") and self.btn_resolve_update_status:
-                self.btn_resolve_update_status.setEnabled(False)
-            if hasattr(self, "btn_start_update") and self.btn_start_update:
-                self.btn_start_update.setEnabled(True)
-
-        # 4. Umgebungs-Schutz: 'Update starten' bei Fremdsystem oder fehlenden Spieldateien sperren
-        from Structure.Environment_Controller import get_game_environment_status
-        env_ready, reason = get_game_environment_status()
-        if not env_ready:
-            if hasattr(self, "btn_start_update") and self.btn_start_update:
-                self.btn_start_update.setEnabled(False)
-                self.btn_start_update.setToolTip(reason if reason else "Auf diesem System gesperrt")
-        elif hasattr(self, "btn_start_update") and self.btn_start_update and self.btn_start_update.isEnabled():
-            self.btn_start_update.setToolTip("")
+        # Schaltflächenzustände hierarchisch anwenden
+        self.apply_environment_security()
 
     def load_data(self):
         """Lädt alle Mods basierend auf dem gewählten Anzeigemodus ('updates', 'reinstall', 'restore')."""
@@ -494,6 +525,7 @@ class Page_Update(QWidget):
 
             self.header.set_checked(is_default_checked)
             self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
+            self.apply_environment_security()
 
             if prev_mod_id:
                 if not self.select_mod_by_id(prev_mod_id):
@@ -522,6 +554,7 @@ class Page_Update(QWidget):
 
         self.header.set_checked(checked)
         self.table_view.viewport().update()
+        self.apply_environment_security()
 
     def on_item_changed(self, item):
         """Prüft, ob alle Checkboxen an/aus sind und passt die Header-Checkbox an."""
@@ -534,6 +567,7 @@ class Page_Update(QWidget):
                 all_checked = False
                 break
         self.header.set_checked(all_checked)
+        self.apply_environment_security()
 
     def on_row_selected(self, selected, deselected):
         from Structure.Paths import get_setting
@@ -582,14 +616,10 @@ class Page_Update(QWidget):
         # Vorschaubild laden
         if self.lbl_preview_image:
             img_data = get_mod_image(int(self.current_mod_id)) if self.current_mod_id else None
-            if img_data:
-                pixmap = QPixmap()
-                if pixmap.loadFromData(img_data):
-                    scaled_pixmap = pixmap.scaled(210, 118, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.lbl_preview_image.setPixmap(scaled_pixmap)
-                else:
-                    self.lbl_preview_image.setText("Kein Bild vorhanden")
-                    self.lbl_preview_image.setPixmap(QPixmap())
+            scaled_pixmap = load_mod_preview_pixmap(img_data, 210, 118)
+            if scaled_pixmap:
+                self.lbl_preview_image.setPixmap(scaled_pixmap)
+                self.lbl_preview_image.setText("")
             else:
                 self.lbl_preview_image.setText("Kein Bild vorhanden")
                 self.lbl_preview_image.setPixmap(QPixmap())
@@ -738,8 +768,8 @@ class Page_Update(QWidget):
                 )
                 return
 
-            # Nach Deinstallation: Tabelle und Ausführungsanzeige aktualisieren
-            self.load_data()
+            # Nach Deinstallation: Nur Ausführungsanzeige aktualisieren; Tabelle bleibt bis zum Abschluss unverändert
+            self.update_last_execution_display()
 
             # Schritt 5: Overlay & Scanner starten
             if self.overlay_window is not None:

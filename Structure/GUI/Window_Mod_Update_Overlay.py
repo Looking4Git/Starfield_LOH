@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt, QPoint, Signal, QEvent
 
 from Structure.Paths import APP_ROOT
 from Structure.Database import get_mod_image
+from Structure.GUI.UI_Utils import load_mod_preview_pixmap
 
 
 class ModUpdateCard(QFrame):
@@ -89,13 +90,12 @@ class ModUpdateCard(QFrame):
 
         try:
             img_data = get_mod_image(int(self.mod_id))
-            if img_data:
-                pix = QPixmap()
-                if pix.loadFromData(img_data):
-                    scaled = pix.scaled(85, 48, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-                    cropped = scaled.copy(0, 0, 85, 48)
-                    self.lbl_thumbnail.setPixmap(cropped)
-                    return
+            scaled = load_mod_preview_pixmap(img_data, 85, 48, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+            if scaled:
+                cropped = scaled.copy(0, 0, 85, 48)
+                self.lbl_thumbnail.setPixmap(cropped)
+                self.lbl_thumbnail.setText("")
+                return
         except Exception:
             pass
         self.lbl_thumbnail.setText("Kein Bild")

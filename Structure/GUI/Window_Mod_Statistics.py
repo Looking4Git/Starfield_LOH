@@ -22,10 +22,11 @@ class Window_Mod_Statistics(QDockWidget):
     und stufenlos in der Breite anpassbar.
     """
     category_changed = Signal(int, int, str)
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, splash_callback=None):
         super().__init__("Mod-Analyse & Statistiken", parent)
         self.setObjectName("Window_Mod_Statistics")
         self.current_mod_id = None
+        self.splash_callback = splash_callback
 
         # Dock-Eigenschaften
         self.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -50,6 +51,9 @@ class Window_Mod_Statistics(QDockWidget):
         self.setWidget(self.content_widget)
 
         # 2. Sections instanziieren und einbetten
+        if self.splash_callback:
+            self.splash_callback("Bereite Diagnosezentrum vor: Mod-Vergleich & Kategorien (1/2) ...")
+
         self.sections_layout = self.content_widget.findChild(QVBoxLayout, "sections_layout")
         if self.sections_layout:
             self.sections_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -58,6 +62,10 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_comparison = Section_Mod_Statistics_Comparison(self)
         self.sec_category = Section_Mod_Statistics_Category(self)
         self.sec_category.category_changed.connect(self.category_changed.emit)
+
+        if self.splash_callback:
+            self.splash_callback("Bereite Diagnosezentrum vor: Klassifikation, Inhalte & Konflikte (2/2) ...")
+
         self.sec_classification = Section_Mod_Statistics_Classification(self)
         self.sec_content = Section_Mod_Statistics_Content(self)
         self.sec_conflicts = Section_Mod_Statistics_Conflicts(self)

@@ -12,6 +12,7 @@ from Structure.Database import (get_mods_by_state, get_lookup_data,
                                 get_mod_image)
 from Structure.Controls import LOH_Control_MarkdownView
 from Structure.Paths import APP_ROOT
+from Structure.GUI.UI_Utils import load_mod_preview_pixmap
 
 class Page_Mods(QWidget):
     data_updated = Signal()
@@ -408,14 +409,10 @@ class Page_Mods(QWidget):
         # Bild laden
         if hasattr(self, 'lbl_preview_image') and self.lbl_preview_image:
             img_data = get_mod_image(int(self.current_mod_id))
-            if img_data:
-                pixmap = QPixmap()
-                if pixmap.loadFromData(img_data):
-                    # Bild skalieren, behält das Seitenverhältnis bei, maximal 210x118 (Kurzfeld-Norm)
-                    scaled_pixmap = pixmap.scaled(210, 118, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.lbl_preview_image.setPixmap(scaled_pixmap)
-                else:
-                    self.lbl_preview_image.setText("Bild fehlerhaft")
+            scaled_pixmap = load_mod_preview_pixmap(img_data, 210, 118)
+            if scaled_pixmap:
+                self.lbl_preview_image.setPixmap(scaled_pixmap)
+                self.lbl_preview_image.setText("")
             else:
                 self.lbl_preview_image.setText("Kein Bild vorhanden")
                 self.lbl_preview_image.setPixmap(QPixmap())
@@ -424,13 +421,10 @@ class Page_Mods(QWidget):
         """Lädt das Vorschaubild für die aktuell ausgewählte Mod neu (z. B. nach dynamischem Pfadwechsel)."""
         if hasattr(self, 'lbl_preview_image') and self.lbl_preview_image and hasattr(self, 'current_mod_id') and self.current_mod_id:
             img_data = get_mod_image(int(self.current_mod_id))
-            if img_data:
-                pixmap = QPixmap()
-                if pixmap.loadFromData(img_data):
-                    scaled_pixmap = pixmap.scaled(210, 118, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.lbl_preview_image.setPixmap(scaled_pixmap)
-                else:
-                    self.lbl_preview_image.setText("Bild fehlerhaft")
+            scaled_pixmap = load_mod_preview_pixmap(img_data, 210, 118)
+            if scaled_pixmap:
+                self.lbl_preview_image.setPixmap(scaled_pixmap)
+                self.lbl_preview_image.setText("")
             else:
                 self.lbl_preview_image.setText("Kein Bild vorhanden")
                 self.lbl_preview_image.setPixmap(QPixmap())

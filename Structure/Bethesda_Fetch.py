@@ -114,19 +114,18 @@ def save_mod_categories(cursor, mod_id, categories_data):
 
 
 
-def get_URL(catalog_id, db_url=None, force_short=False):
-    """Ermittelt die URL und UUID für die Mod-Detailseite."""
+def get_URL(catalog_id: str, title: str = "") -> tuple[str, str]:
+    """Ermittelt die URL und UUID für die Mod-Detailseite auf Basis von Creation-ID und Mod-Titel."""
     if catalog_id.startswith("TM_"):
         uuid = catalog_id.replace("TM_", "")
     else:
         uuid = catalog_id
         
-    if db_url and str(db_url).strip() and not force_short:
-        url = db_url
-    else:
-        url = f"https://creations.bethesda.net/de/starfield/details/{uuid}"
-        
-    return url, uuid
+    short_url_base = f"https://creations.bethesda.net/de/starfield/details/{uuid}"
+    if title:
+        slug = re.sub(r'[^a-zA-Z0-9]', '_', title)
+        return f"{short_url_base}/{slug}", uuid
+    return short_url_base, uuid
 
 
 def fetch_bnet_session_key(timeout: int = 8, log_fn=None) -> str:
@@ -205,7 +204,7 @@ def run_fetch(log_signal=None):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT ID, ID_ContentCatalog, URL FROM Mods WHERE Platform = 1 AND ID_ContentCatalog IS NOT NULL")
+        cursor.execute("SELECT ID, ID_ContentCatalog FROM Mods WHERE Platform = 1 AND ID_ContentCatalog IS NOT NULL")
         mods = cursor.fetchall()
         
         if not mods:
@@ -230,9 +229,8 @@ def run_fetch(log_signal=None):
         for index, mod in enumerate(mods, start=1):
             mod_id = mod[0]
             catalog_id = mod[1]
-            db_url = mod[2]
             
-            url, uuid = get_URL(catalog_id, db_url)
+            url, uuid = get_URL(catalog_id)
             
             log_msg(f"\n[{index}/{total_mods}] (DB-ID {mod_id}) Prüfe Creation...")
             
@@ -292,13 +290,7 @@ def run_fetch(log_signal=None):
                 author = html.unescape(captured_json.get("author_displayname", ""))
                 
                 # URL Generieren basierend auf Title
-                final_url = url
-                _, short_uuid = get_URL(catalog_id, force_short=True)
-                short_url_base = f"https://creations.bethesda.net/de/starfield/details/{short_uuid}"
-                if title and url == short_url_base:
-                    slug = re.sub(r'[^a-zA-Z0-9]', '_', title)
-                    final_url = f"{short_url_base}/{slug}"
-                    
+                final_url, _ = get_URL(catalog_id, title=title)
                 save_mod_master_data(cursor, mod_id, title, description, author, final_url)
                 
                 # Kategorien verarbeiten
@@ -307,7 +299,7 @@ def run_fetch(log_signal=None):
                 
                 # Vorschaubild verarbeiten
                 preview_image = captured_json.get("preview_image", {})
-                if preview_image:
+                if preview_image and isinstance(preview_image, dict) and preview_image.get("s3bucket") and preview_image.get("s3key"):
                     cursor.execute("SELECT Image FROM Mods WHERE ID = ?", (mod_id,))
                     img_row = cursor.fetchone()
                     has_img = False
@@ -325,22 +317,23 @@ def run_fetch(log_signal=None):
                     else:
                         s3bucket = preview_image.get("s3bucket")
                         s3key = preview_image.get("s3key")
-                        if s3bucket and s3key:
-                            s3key_encoded = urllib.parse.quote(s3key.lstrip('/'))
-                            img_url = f"https://{s3bucket}/{s3key_encoded}"
-                            try:
-                                req = urllib.request.Request(img_url, headers={
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                                    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-                                    'Referer': 'https://creations.bethesda.net/'
-                                })
-                                with urllib.request.urlopen(req, timeout=10, context=ssl_ctx) as response:
-                                    if response.status == 200:
-                                        img_data = response.read()
-                                        save_mod_image(cursor, mod_id, img_data)
-                                        log_msg(f"  -> Bild erfolgreich geladen.")
-                            except Exception as e:
-                                log_msg(f"  -> Fehler beim Bild-Download: {e}")
+                        s3key_encoded = urllib.parse.quote(s3key.lstrip('/'))
+                        img_url = f"https://{s3bucket}/{s3key_encoded}"
+                        try:
+                            req = urllib.request.Request(img_url, headers={
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                                'Referer': 'https://creations.bethesda.net/'
+                            })
+                            with urllib.request.urlopen(req, timeout=10, context=ssl_ctx) as response:
+                                if response.status == 200:
+                                    img_data = response.read()
+                                    save_mod_image(cursor, mod_id, img_data)
+                                    log_msg("  ✅ Vorschaubild erfolgreich geladen.")
+                        except Exception as e:
+                            log_msg(f"  ❌ Fehler beim Bild-Download: {e}")
+                else:
+                    log_msg("  ❌ Kein Vorschaubild auf Bethesda.net vorhanden (Ersatzgrafik aktiv).")
 
                 
                 # Versionsdaten extrahieren

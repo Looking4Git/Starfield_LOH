@@ -14,7 +14,7 @@ from Structure.GUI.Page_Update import Page_Update
 from Structure.GUI.Page_Tools import Page_Tools
 from Structure.GUI.Page_Settings import Page_Settings
 from Structure.GUI.Window_Mod_Statistics import Window_Mod_Statistics
-from Structure.GUI.Window_Splash_Screen import Window_SplashScreen
+from Structure.GUI.Window_Splash_Screen import Window_SplashScreen, start_splash_screen
 from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
@@ -209,7 +209,7 @@ class StarfieldLOH(QMainWindow):
 
         if splash_callback:
             splash_callback("Initialisiere Diagnose-Werkzeuge (Page_Tools) ...")
-        self.page_tools = Page_Tools()
+        self.page_tools = Page_Tools(splash_callback=splash_callback)
         self.page_tools.data_updated.connect(self.mark_data_changed)
         self.content_stack.addWidget(self.page_tools)
         self.btn_tools.clicked.connect(lambda: self.content_stack.setCurrentWidget(self.page_tools))
@@ -231,7 +231,7 @@ class StarfieldLOH(QMainWindow):
         if splash_callback:
             splash_callback("Bereite Diagnosezentrum & Mod-Statistiken vor ...")
         self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
-        self.dock_statistics = Window_Mod_Statistics(self)
+        self.dock_statistics = Window_Mod_Statistics(self, splash_callback=splash_callback)
         stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
         self.dock_statistics.load_geometry_settings(stat_cfg)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
@@ -297,6 +297,8 @@ class StarfieldLOH(QMainWindow):
 
         if hasattr(self, 'page_tools') and self.page_tools:
             self.page_tools.apply_environment_security()
+        if hasattr(self, 'page_update') and self.page_update:
+            self.page_update.apply_environment_security()
         if hasattr(self, 'page_lo') and self.page_lo:
             self.page_lo.refresh_profile_highlights()
 
@@ -592,7 +594,7 @@ if __name__ == "__main__":
         app.setWindowIcon(QIcon(ico_path))
 
     # 1. Animiertes Ladefenster (Splash Screen) direkt für sofortiges visuelles Feedback anzeigen
-    splash = Window_SplashScreen()
+    splash = start_splash_screen()
     splash.show()
     app.processEvents()
 

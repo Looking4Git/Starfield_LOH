@@ -6,6 +6,7 @@ und granularer Subprozess-Statusanzeige.
 
 import os
 import sys
+import subprocess
 
 # Projekt-Wurzelverzeichnis für Standalone-Ausführung sicherstellen
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -14,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
 
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                                QLabel, QSpacerItem, QSizePolicy)
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QPixmap, QIcon, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
@@ -247,47 +248,165 @@ class Window_SplashScreen(QWidget):
             main_window.activateWindow()
 
 
+class StdinReaderThread(QThread):
+    """Liest Statuszeilen aus stdin im Slave-Subprozess ohne Blockierung der Qt-GUI."""
+    status_received = Signal(str)
+    finish_received = Signal()
+
+    def run(self):
+        try:
+            while True:
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                line_str = line.strip()
+                if line_str == "FINISH":
+                    self.finish_received.emit()
+                    return
+                elif line_str:
+                    self.status_received.emit(line_str)
+        except Exception:
+            pass
+        self.finish_received.emit()
+
+
+class SplashScreenController:
+    """
+    Steuert ein entkoppeltes Splash-Screen-Fenster, welches in einem eigenständigen
+    Python-Subprozess mit eigener Qt-Ereignisschleife läuft.
+    """
+    def __init__(self, process: subprocess.Popen):
+        self.proc = process
+
+    def show(self):
+        """Kompatibilitätsmethode (wird im Subprozess automatisch ausgeführt)."""
+        pass
+
+    def set_status(self, text: str):
+        """Sendet eine neue Statuszeile über stdin an den Subprozess."""
+        if self.proc and self.proc.poll() is None:
+            try:
+                clean_text = str(text).replace("\r", " ").replace("\n", " ").strip()
+                self.proc.stdin.write((clean_text + "\n").encode("utf-8"))
+                self.proc.stdin.flush()
+            except Exception:
+                pass
+
+    def finish(self, main_window=None):
+        """Signalisiert dem Subprozess das Beenden und bringt das Hauptfenster in den Vordergrund."""
+        if self.proc and self.proc.poll() is None:
+            try:
+                self.proc.stdin.write(b"FINISH\n")
+                self.proc.stdin.flush()
+                self.proc.wait(timeout=1.5)
+            except Exception:
+                pass
+            if self.proc.poll() is None:
+                try:
+                    self.proc.terminate()
+                except Exception:
+                    pass
+        if main_window:
+            main_window.raise_()
+            main_window.activateWindow()
+
+
+def start_splash_screen():
+    """
+    Startet den animierten Splash Screen in einem unabhängigen Subprozess mit eigenem Qt-Event-Loop.
+    Liefert einen SplashScreenController oder als Fallback die synchrone Window_SplashScreen-Instanz.
+    """
+    script_path = os.path.abspath(__file__)
+
+    # Bevorzuge pythonw falls vorhanden, um Konsolenfenster-Flackern auszuschließen
+    exe = sys.executable
+    if exe.lower().endswith("python.exe"):
+        w_candidate = exe[:-10] + "pythonw.exe"
+        if os.path.exists(w_candidate):
+            exe = w_candidate
+
+    startupinfo = None
+    creationflags = 0
+    if os.name == "nt":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        if hasattr(subprocess, "CREATE_NO_WINDOW"):
+            creationflags = subprocess.CREATE_NO_WINDOW
+
+    cmd = [exe, script_path, "--slave"]
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            startupinfo=startupinfo,
+            creationflags=creationflags
+        )
+        return SplashScreenController(proc)
+    except Exception:
+        # Fallback auf synchrone In-Process-Instanz
+        splash = Window_SplashScreen()
+        splash.show()
+        return splash
+
+
 # ==============================================================================
 # Standalone-Vorschau & Testmodus
 # ==============================================================================
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    if "--slave" in sys.argv:
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
+        splash = Window_SplashScreen()
+        splash.show()
 
-    splash = Window_SplashScreen()
-    splash.show()
+        reader = StdinReaderThread()
+        reader.status_received.connect(splash.set_status)
+        reader.finish_received.connect(splash.finish)
+        reader.finish_received.connect(app.quit)
+        reader.start()
 
-    # Simulations-Statusmeldungen zur visuellen Beurteilung
-    demo_steps = [
-        "Prüfe Systemumgebung & Rechner-Autorisierung ...",
-        "Prüfe Starfield-Spieleverzeichnis & Konfigurationsdateien ...",
-        "Prüfe Datenbank-Integrität & WAL-Modus ...",
-        "Lade Programmeinstellungen & Konfiguration ...",
-        "Initialisiere Mod-Verwaltung (Page_Mods) ...",
-        "Initialisiere Ladereihenfolge (Page_LoadOrder) ...",
-        "Initialisiere Update-Modul (Page_Update) ...",
-        "Initialisiere Diagnose-Werkzeuge (Page_Tools) ...",
-        "Bereite Diagnosezentrum & Mod-Statistiken vor ...",
-        "Lade Starfield Sci-Fi Stylesheets ...",
-        "Lade installierte Mods aus Datenbasis ...",
-        "Starfield LOH bereit ..."
-    ]
+        sys.exit(app.exec())
+    else:
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
 
-    current_step = [0]
+        splash = Window_SplashScreen()
+        splash.show()
 
-    def advance_demo():
-        step_idx = current_step[0] % len(demo_steps)
-        splash.set_status(demo_steps[step_idx])
-        current_step[0] += 1
+        # Simulations-Statusmeldungen zur visuellen Beurteilung
+        demo_steps = [
+            "Prüfe Systemumgebung & Rechner-Autorisierung ...",
+            "Prüfe Starfield-Spieleverzeichnis & Konfigurationsdateien ...",
+            "Prüfe Datenbank-Integrität & WAL-Modus ...",
+            "Lade Programmeinstellungen & Konfiguration ...",
+            "Initialisiere Mod-Verwaltung (Page_Mods) ...",
+            "Initialisiere Ladereihenfolge (Page_LoadOrder) ...",
+            "Initialisiere Update-Modul (Page_Update) ...",
+            "Initialisiere Diagnose-Werkzeuge (Page_Tools) ...",
+            "Bereite Diagnosezentrum & Mod-Statistiken vor ...",
+            "Lade Starfield Sci-Fi Stylesheets ...",
+            "Lade installierte Mods aus Datenbasis ...",
+            "Starfield LOH bereit ..."
+        ]
 
-    # Status alle 1.2 Sekunden wechseln
-    demo_timer = QTimer()
-    demo_timer.timeout.connect(advance_demo)
-    demo_timer.start(1200)
+        current_step = [0]
 
-    # Initialen Text setzen
-    advance_demo()
+        def advance_demo():
+            step_idx = current_step[0] % len(demo_steps)
+            splash.set_status(demo_steps[step_idx])
+            current_step[0] += 1
 
-    print("[INFO] Standalone-Splash-Screen gestartet.")
-    print("       Drücke Alt+F4 oder schließe den Prozess im Terminal, um zu beenden.")
-    sys.exit(app.exec())
+        # Status alle 1.2 Sekunden wechseln
+        demo_timer = QTimer()
+        demo_timer.timeout.connect(advance_demo)
+        demo_timer.start(1200)
+
+        # Initialen Text setzen
+        advance_demo()
+
+        print("[INFO] Standalone-Splash-Screen gestartet.")
+        print("       Drücke Alt+F4 oder schließe den Prozess im Terminal, um zu beenden.")
+        sys.exit(app.exec())

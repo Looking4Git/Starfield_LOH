@@ -3,7 +3,8 @@ import json
 import logging
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QFrame, QScrollArea,
                                QLineEdit, QComboBox, QTextEdit, QLabel, QTreeView, QCheckBox,
-                               QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy)
+                               QPushButton, QMessageBox, QFormLayout, QProxyStyle, QStyle, QSizePolicy,
+                               QStyledItemDelegate, QStyleOptionViewItem)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QPen, QColor, QIcon, QIntValidator, QPalette, QPainter, QBrush
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, Signal, QSize, QItemSelectionModel
 from PySide6.QtUiTools import QUiLoader
@@ -145,6 +146,80 @@ class DragDropStandardItemModel(QStandardItemModel):
     def dropMimeData(self, data, action, row, column, parent):
         # Erzwinge Spalte 0 beim Drop, um das Verschieben von Spalteninhalten zu verhindern
         return super().dropMimeData(data, action, row, 0, parent)
+
+
+class SorterNewPositionDelegate(QStyledItemDelegate):
+    """
+    Spezifischer Delegate für Spalte 'Neu' (COL_NEW):
+    - Neu < Pos: Starfield Grün (#1F7343) mit weißer Schrift (#FFFFFF).
+    - Neu > Pos: Starfield Rot (#C72138) mit weißer Schrift (#FFFFFF).
+    - Neu == Pos oder kein Sorter-Wert: Neutraler Tabellenhintergrund (#ECECEC / #F2F2F2), dunkle Schrift (#1E1E1E).
+    - Entkoppelt vom Zeilenmarker: Unterdrückt State_Selected, sodass die Zelle bei Selektion niemals blau übermalt wird.
+    """
+    def __init__(self, col_pos: int = 1, parent=None):
+        super().__init__(parent)
+        self.col_pos = col_pos
+        self.color_green = QColor("#1F7343")
+        self.color_red = QColor("#C72138")
+        self.color_white = QColor("#FFFFFF")
+        self.color_text_default = QColor("#1E1E1E")
+        self.color_bg_even = QColor("#ECECEC")
+        self.color_bg_odd = QColor("#F2F2F2")
+        self.color_grid = QColor("#D0D0D0")
+
+    def paint(self, painter, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+
+        # Zeilenmarker (Selection Highlight) für Spalte 'Neu' unterbinden
+        opt.state &= ~QStyle.StateFlag.State_Selected
+
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        sorter_pos = None
+        profile_pos = None
+
+        if text:
+            try:
+                sorter_pos = int(text)
+            except (ValueError, TypeError):
+                sorter_pos = None
+
+        pos_index = index.sibling(index.row(), self.col_pos)
+        pos_text = pos_index.data(Qt.ItemDataRole.DisplayRole)
+        if pos_text:
+            try:
+                profile_pos = int(pos_text)
+            except (ValueError, TypeError):
+                profile_pos = None
+
+        bg_color = None
+        fg_color = None
+
+        if sorter_pos is not None and profile_pos is not None:
+            if sorter_pos < profile_pos:
+                bg_color = self.color_green
+                fg_color = self.color_white
+            elif sorter_pos > profile_pos:
+                bg_color = self.color_red
+                fg_color = self.color_white
+
+        if bg_color is None:
+            bg_color = self.color_bg_odd if index.row() % 2 == 1 else self.color_bg_even
+            fg_color = self.color_text_default
+
+        painter.save()
+        painter.fillRect(opt.rect, bg_color)
+
+        # Feine Gitterlinie unten und rechts für nahtlose Einbettung ins Tabellengitter
+        painter.setPen(QPen(self.color_grid, 1))
+        painter.drawLine(opt.rect.bottomLeft(), opt.rect.bottomRight())
+        painter.drawLine(opt.rect.topRight(), opt.rect.bottomRight())
+
+        if text:
+            painter.setPen(fg_color)
+            painter.setFont(opt.font)
+            painter.drawText(opt.rect, Qt.AlignmentFlag.AlignCenter, str(text))
+        painter.restore()
 
 class Page_LoadOrder(QWidget):
     data_updated = Signal()
@@ -455,6 +530,9 @@ class Page_LoadOrder(QWidget):
         palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Highlight, QColor("#304C7A"))
         palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
         self.table_view.setPalette(palette)
+
+        # Dedizierter Delegate für Spalte 'Neu': Individuelle Farbgebung (Grün/Rot) ohne Überlagerung durch Zeilenmarker
+        self.table_view.setItemDelegateForColumn(self.COL_NEW, SorterNewPositionDelegate(self.COL_POS, self.table_view))
 
         # Kopfzeilen-Sortierung selektiv konfigurieren (ausschließlich COL_NEW und COL_POS klickbar/sortierbar)
         header = self.table_view.horizontalHeader()
@@ -1866,6 +1944,8 @@ class Page_LoadOrder(QWidget):
             item_check = self.model.item(r, self.COL_POS) or self.model.item(r, 0)
             if item_check and item_check.data(Qt.ItemDataRole.BackgroundRole) is not None:
                 for c in range(self.model.columnCount()):
+                    if c == self.COL_NEW:
+                        continue
                     cell = self.model.item(r, c)
                     if cell:
                         cell.setData(None, Qt.ItemDataRole.BackgroundRole)
@@ -1876,6 +1956,8 @@ class Page_LoadOrder(QWidget):
         """Färbt alle Zellen einer Tabellenzeile ein und merkt sich die Zeile zur späteren Rücksetzung."""
         self.highlighted_rows.append(row)
         for c in range(self.model.columnCount()):
+            if c == self.COL_NEW:
+                continue
             item = self.model.item(row, c)
             if item:
                 item.setData(bg_color, Qt.ItemDataRole.BackgroundRole)

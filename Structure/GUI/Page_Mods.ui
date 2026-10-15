@@ -330,7 +330,42 @@
            </property>
           </widget>
          </item>
-         <item row="8" column="0">
+          <item row="8" column="0">
+           <widget class="QLabel" name="lbl_id_nexus_label">
+            <property name="text">
+             <string>ID Nexus:</string>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>100</width>
+              <height>16777215</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="1">
+           <widget class="QLineEdit" name="inp_id_nexus">
+            <property name="minimumSize">
+             <size>
+              <width>518</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>518</width>
+              <height>16777215</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         <item row="9" column="0">
           <widget class="QLabel" name="lbl_url_label">
            <property name="text">
             <string>URL:</string>
@@ -349,7 +384,7 @@
            </property>
           </widget>
          </item>
-         <item row="8" column="1">
+         <item row="9" column="1">
           <layout class="QVBoxLayout" name="url_and_button_layout">
            <property name="spacing">
             <number>5</number>
@@ -421,7 +456,7 @@
            </item>
           </layout>
          </item>
-         <item row="9" column="0">
+         <item row="10" column="0">
           <widget class="QLabel" name="lbl_description_label">
            <property name="text">
             <string>Beschreibung:</string>
@@ -446,7 +481,7 @@
            </property>
           </widget>
          </item>
-         <item row="9" column="1">
+         <item row="10" column="1">
           <widget class="QWidget" name="container_description">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -468,7 +503,7 @@
            </property>
           </widget>
          </item>
-         <item row="10" column="0">
+         <item row="11" column="0">
           <widget class="QLabel" name="lbl_platform_label">
            <property name="text">
             <string>Plattform:</string>
@@ -487,7 +522,7 @@
            </property>
           </widget>
          </item>
-         <item row="10" column="1">
+         <item row="11" column="1">
           <widget class="QComboBox" name="cmb_platform">
            <property name="minimumSize">
             <size>
@@ -503,7 +538,7 @@
            </property>
           </widget>
          </item>
-         <item row="11" column="0">
+         <item row="12" column="0">
           <widget class="QLabel" name="lbl_date_inst_label">
            <property name="text">
             <string>installiert:</string>
@@ -522,7 +557,7 @@
            </property>
           </widget>
          </item>
-         <item row="11" column="1">
+         <item row="12" column="1">
           <layout class="QHBoxLayout" name="layout_date_fields">
            <property name="spacing">
             <number>10</number>
@@ -596,7 +631,7 @@
            </item>
           </layout>
          </item>
-         <item row="12" column="0">
+         <item row="13" column="0">
           <widget class="QLabel" name="lbl_ver_inst_label">
            <property name="text">
             <string>Version.:</string>
@@ -615,7 +650,7 @@
            </property>
           </widget>
          </item>
-         <item row="12" column="1">
+         <item row="13" column="1">
           <layout class="QHBoxLayout" name="layout_ver_fields">
            <property name="spacing">
             <number>10</number>
@@ -689,7 +724,7 @@
            </item>
           </layout>
          </item>
-         <item row="13" column="0">
+         <item row="14" column="0">
           <widget class="QLabel" name="lbl_note_label">
            <property name="text">
             <string>Notiz:</string>
@@ -708,7 +743,7 @@
            </property>
           </widget>
          </item>
-         <item row="13" column="1">
+         <item row="14" column="1">
           <widget class="QTextEdit" name="inp_note">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -733,7 +768,7 @@
            </property>
           </widget>
          </item>
-         <item row="14" column="0">
+         <item row="15" column="0">
           <widget class="QLabel" name="lbl_assessment_label">
            <property name="text">
             <string>Bewertung:</string>
@@ -752,7 +787,7 @@
            </property>
           </widget>
          </item>
-         <item row="14" column="1">
+         <item row="15" column="1">
           <layout class="QHBoxLayout" name="layout_assessment">
            <property name="spacing">
             <number>10</number>
@@ -807,7 +842,7 @@
            </item>
           </layout>
          </item>
-         <item row="15" column="0">
+         <item row="16" column="0">
           <widget class="QLabel" name="lbl_category_label">
            <property name="text">
             <string>Kategorie:</string>
@@ -826,7 +861,7 @@
            </property>
           </widget>
          </item>
-         <item row="15" column="1">
+         <item row="16" column="1">
           <widget class="QComboBox" name="cmb_category">
            <property name="minimumSize">
             <size>
@@ -842,7 +877,7 @@
            </property>
           </widget>
          </item>
-         <item row="16" column="1">
+         <item row="17" column="1">
           <layout class="QHBoxLayout" name="detail_button_layout">
            <property name="leftMargin">
             <number>0</number>
@@ -929,7 +964,7 @@
            </item>
           </layout>
          </item>
-         <item row="17" column="0">
+         <item row="18" column="0">
           <widget class="QLabel" name="lbl_components_label">
            <property name="text">
             <string>Komponenten:</string>
@@ -954,7 +989,7 @@
            </property>
           </widget>
          </item>
-         <item row="17" column="1">
+         <item row="18" column="1">
           <widget class="QTreeView" name="list_components">
            <property name="minimumSize">
             <size>
@@ -979,7 +1014,7 @@
            </property>
           </widget>
          </item>
-         <item row="18" column="0">
+         <item row="19" column="0">
           <widget class="QLabel" name="lbl_image_label">
            <property name="text">
             <string>Bild:</string>
@@ -1004,7 +1039,7 @@
            </property>
           </widget>
          </item>
-         <item row="18" column="1">
+         <item row="19" column="1">
           <widget class="QLabel" name="lbl_preview_image">
            <property name="minimumSize">
             <size>

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTableView, QFrame, QScrollArea,
                                QLineEdit, QComboBox, QTextEdit, QLabel, QPushButton, QListView, QTreeView)
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QDesktopServices, QColor, QPixmap
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QDesktopServices, QColor, QPixmap, QIntValidator
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal
 from PySide6.QtUiTools import QUiLoader
 
@@ -12,7 +12,7 @@ from Structure.Database import (get_mods_by_state, get_lookup_data,
                                 get_mod_image)
 from Structure.Controls import LOH_Control_MarkdownView
 from Structure.Paths import APP_ROOT
-from Structure.GUI.UI_Utils import load_mod_preview_pixmap
+from Structure.GUI.UI_Utils import load_mod_preview_pixmap, format_date_display, format_date_sort
 
 class Page_Mods(QWidget):
     data_updated = Signal()
@@ -70,6 +70,9 @@ class Page_Mods(QWidget):
         self.inp_name_catalog = ui.findChild(QLineEdit, "inp_name_catalog")
         self.inp_url = ui.findChild(QTextEdit, "inp_url")
         self.inp_author = ui.findChild(QLineEdit, "inp_author")
+        self.inp_id_nexus = ui.findChild(QLineEdit, "inp_id_nexus")
+        if self.inp_id_nexus:
+            self.inp_id_nexus.setValidator(QIntValidator(1, 999999999, self))
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.cmb_category = ui.findChild(QComboBox, "cmb_category")
         self.cmb_assessment = ui.findChild(QComboBox, "cmb_assessment")
@@ -205,19 +208,9 @@ class Page_Mods(QWidget):
 
             item_date = QStandardItem()
             raw_date = row_data["Date_installed"] or ""
-            
-            if raw_date:
-                try:
-                    date_obj = datetime.strptime(raw_date.strip(), "%Y-%m-%d")
-                    display_date = date_obj.strftime("%d.%m.%Y")
-                    item_date.setData(display_date, Qt.ItemDataRole.DisplayRole)
-                    item_date.setData(raw_date, self.SORT_ROLE)
-                except ValueError:
-                    item_date.setData(raw_date, Qt.ItemDataRole.DisplayRole)
-                    item_date.setData(raw_date, self.SORT_ROLE)
-            else:
-                item_date.setData("", Qt.ItemDataRole.DisplayRole)
-                item_date.setData("", self.SORT_ROLE)
+            display_date = format_date_display(raw_date)
+            item_date.setData(display_date, Qt.ItemDataRole.DisplayRole)
+            item_date.setData(format_date_sort(raw_date), self.SORT_ROLE)
             
             self.model.appendRow([
                 item_id, item_name_online, item_cat, item_stars, item_date, item_ver, item_plat
@@ -259,6 +252,8 @@ class Page_Mods(QWidget):
         self.inp_id_catalog.clear()
         self.inp_url.clear()
         self.inp_author.clear()
+        if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus:
+            self.inp_id_nexus.clear()
         self.inp_note.clear()
         self.inp_ver_inst.clear()
         self.inp_ver_avail.clear()
@@ -331,6 +326,9 @@ class Page_Mods(QWidget):
             self.inp_author.setText(user_nexus)
         else:
             self.inp_author.setText(mod_data.get("Author") or "")
+        if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus:
+            id_nexus_val = mod_data.get("ID_Nexus")
+            self.inp_id_nexus.setText(str(id_nexus_val) if id_nexus_val else "")
         if hasattr(self, 'ctrl_description') and self.ctrl_description:
             desc_text = mod_data.get("Description") or ""
             mod_title = mod_data.get("Name_Online") or mod_data.get("Name_ContentCatalog") or "Mod-Beschreibung"
@@ -342,25 +340,8 @@ class Page_Mods(QWidget):
         self.inp_ver_avail.setText(mod_data.get("Version_available") or "")
 
         # Unabhängige Datumsformatierung direkt aus den Rohdaten
-        raw_inst_date = mod_data.get("Date_installed") or ""
-        if raw_inst_date and "-" in raw_inst_date:
-            try:
-                d_obj = datetime.strptime(raw_inst_date, "%Y-%m-%d")
-                self.inp_date_inst.setText(d_obj.strftime("%d.%m.%Y"))
-            except ValueError:
-                self.inp_date_inst.setText(raw_inst_date)
-        else:
-            self.inp_date_inst.setText(raw_inst_date)
-
-        raw_avail_date = mod_data.get("Date_available") or ""
-        if raw_avail_date and "-" in raw_avail_date:
-            try:
-                d_obj = datetime.strptime(raw_avail_date, "%Y-%m-%d")
-                self.inp_date_avail.setText(d_obj.strftime("%d.%m.%Y"))
-            except ValueError:
-                self.inp_date_avail.setText(raw_avail_date)
-        else:
-            self.inp_date_avail.setText(raw_avail_date)
+        self.inp_date_inst.setText(format_date_display(mod_data.get("Date_installed") or ""))
+        self.inp_date_avail.setText(format_date_display(mod_data.get("Date_available") or ""))
 
         # Komponenten laden und in ListView anzeigen
         if hasattr(self, 'list_components') and self.list_components:
@@ -502,10 +483,14 @@ class Page_Mods(QWidget):
         # Wenn der Autor unverändert blieb, den Original-Author beibehalten (nicht mit User_Nexus überschreiben)
         final_author = author_input if author_changed else (self.current_mod_data.get("Author") or "")
 
+        id_nexus_text = self.inp_id_nexus.text().strip() if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus else ""
+        id_nexus_val = int(id_nexus_text) if id_nexus_text.isdigit() and int(id_nexus_text) > 0 else None
+
         update_data = {
             "Platform": self.cmb_platform.currentData(),
             "Name_Online": self.inp_name_online.text().strip(),
             "Name_ContentCatalog": self.inp_name_catalog.text().strip(),
+            "ID_Nexus": id_nexus_val,
             "URL": self.inp_url.toPlainText().strip(),
             "Author": final_author,
             "Note": self.inp_note.toPlainText().strip() if self.inp_note else "",
@@ -528,6 +513,7 @@ class Page_Mods(QWidget):
                 self.current_mod_data.get("Platform_ID") != update_data["Platform"] or
                 (self.current_mod_data.get("Name_Online") or "").strip() != update_data["Name_Online"] or
                 (self.current_mod_data.get("Name_ContentCatalog") or "").strip() != update_data["Name_ContentCatalog"] or
+                self.current_mod_data.get("ID_Nexus") != update_data["ID_Nexus"] or
                 (self.current_mod_data.get("URL") or "").strip() != update_data["URL"] or
                 author_changed or
                 (self.current_mod_data.get("Note") or "").strip() != update_data["Note"] or
@@ -562,6 +548,7 @@ class Page_Mods(QWidget):
                     original_data["Platform_ID"] = update_data["Platform"]
                     original_data["Name_Online"] = update_data["Name_Online"]
                     original_data["Name_ContentCatalog"] = update_data["Name_ContentCatalog"]
+                    original_data["ID_Nexus"] = update_data["ID_Nexus"]
                     original_data["URL"] = update_data["URL"]
                     original_data["Author"] = update_data["Author"]
                     original_data["Note"] = update_data["Note"]
@@ -593,15 +580,9 @@ class Page_Mods(QWidget):
                     
                     # Update installed date display
                     raw_date = update_data["Date_installed"]
-                    display_date = ""
-                    if raw_date:
-                        try:
-                            date_obj = datetime.strptime(raw_date.strip(), "%Y-%m-%d")
-                            display_date = date_obj.strftime("%d.%m.%Y")
-                        except ValueError:
-                            display_date = raw_date
+                    display_date = format_date_display(raw_date)
                     self.model.item(target_row, 4).setText(display_date)
-                    self.model.item(target_row, 4).setData(raw_date, self.SORT_ROLE)
+                    self.model.item(target_row, 4).setData(format_date_sort(raw_date), self.SORT_ROLE)
                     
                     # Update installed version
                     self.model.item(target_row, 5).setText(update_data["Version_installed"])

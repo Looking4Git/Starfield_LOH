@@ -39,6 +39,7 @@ __all__ = [
     "update_mod_category_and_note",
     "update_mod_category",
     "update_mod_note",
+    "update_mod_nexus_id",
     "get_mod_category_stats",
     "update_mod_classifier_category",
     "apply_all_classifier_categories",
@@ -66,6 +67,7 @@ def get_mods_by_state(state_id: int) -> list[dict]:
             m.ID_ContentCatalog,
             m.URL,
             m.Author,
+            m.ID_Nexus,
             m.User_Nexus,
             m.Note,
             m.Date_available,
@@ -115,6 +117,7 @@ def get_mods_for_update_view(mode: str = "updates") -> list[dict]:
             m.ID_ContentCatalog,
             m.URL,
             m.Author,
+            m.ID_Nexus,
             m.User_Nexus,
             m.Note,
             m.Date_available,
@@ -143,7 +146,8 @@ def get_mods_for_update_view(mode: str = "updates") -> list[dict]:
         where_clause = "WHERE m.Platform = 1 AND LOWER(ms.State) = 'entfernt'"
     else:  # "updates"
         where_clause = """
-        WHERE LOWER(ms.State) = 'installiert'
+        WHERE m.Platform = 1
+          AND LOWER(ms.State) = 'installiert'
           AND (
               (
                   m.Date_available IS NOT NULL AND TRIM(m.Date_available) != ''
@@ -290,6 +294,7 @@ def get_lookup_data(table_name: str, order_by: str = "ID") -> list[dict]:
 def update_mod_details(mod_id: int, update_data: dict) -> bool:
     """Aktualisiert die Details eines Mods in der Datenbank."""
     user_nexus_sql = "User_Nexus = :User_Nexus," if "User_Nexus" in update_data else ""
+    id_nexus_sql = "ID_Nexus = :ID_Nexus," if "ID_Nexus" in update_data else ""
     query = f"""
         UPDATE Mods 
         SET Platform = :Platform,
@@ -298,6 +303,7 @@ def update_mod_details(mod_id: int, update_data: dict) -> bool:
             URL = :URL,
             Author = :Author,
             {user_nexus_sql}
+            {id_nexus_sql}
             Note = :Note,
             Category_LOH = :Category_LOH,
             Category_LOH_Classifier = :Category_LOH_Classifier,
@@ -766,6 +772,24 @@ def update_mod_note(mod_id: int, note: str) -> bool:
         return True
     except sqlite3.Error as e:
         logging.error(f"Fehler beim Update von Note für Mod ID {mod_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
+def update_mod_nexus_id(mod_id: int, nexus_id: int | None) -> bool:
+    """Aktualisiert das ID_Nexus-Feld einer Mod."""
+    query = "UPDATE Mods SET ID_Nexus = ? WHERE ID = ?"
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (nexus_id, mod_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logging.error(f"Fehler beim Update von ID_Nexus für Mod ID {mod_id}: {e}")
         return False
     finally:
         if conn:

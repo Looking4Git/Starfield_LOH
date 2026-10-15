@@ -4,7 +4,7 @@ from datetime import datetime
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QTableView, QScrollArea,
                                QLineEdit, QTextEdit, QLabel, QPushButton, QHeaderView, QMessageBox, QComboBox)
 from PySide6.QtGui import (QStandardItemModel, QStandardItem, QDesktopServices,
-                           QPixmap, QPainter, QColor)
+                           QPixmap, QPainter, QColor, QIntValidator)
 from PySide6.QtCore import Qt, QSortFilterProxyModel, QFile, QUrl, Signal, QRect
 from PySide6.QtUiTools import QUiLoader
 
@@ -13,9 +13,10 @@ from Structure.Database import (
     get_mod_image,
     get_script_last_execution,
     update_mod_note,
+    update_mod_nexus_id,
 )
 from Structure.Paths import APP_ROOT
-from Structure.GUI.UI_Utils import make_button_premium, load_mod_preview_pixmap
+from Structure.GUI.UI_Utils import make_button_premium, load_mod_preview_pixmap, format_date_display, format_date_sort
 from Structure.Starfield_Mod_Update import (
     step_check_previous_update,
     step_prepare_update,
@@ -228,6 +229,9 @@ class Page_Update(QWidget):
         self.inp_name_catalog = ui.findChild(QLineEdit, "inp_name_catalog")
         self.inp_id_catalog = ui.findChild(QLineEdit, "inp_id_catalog")
         self.inp_author = ui.findChild(QLineEdit, "inp_author")
+        self.inp_id_nexus = ui.findChild(QLineEdit, "inp_id_nexus")
+        if self.inp_id_nexus:
+            self.inp_id_nexus.setValidator(QIntValidator(1, 999999999, self))
         self.inp_url = ui.findChild(QTextEdit, "inp_url")
         self.inp_note = ui.findChild(QTextEdit, "inp_note")
         self.inp_date_inst = ui.findChild(QLineEdit, "inp_date_inst")
@@ -309,27 +313,12 @@ class Page_Update(QWidget):
         pass
 
     def format_date_display(self, raw_date: str) -> str:
-        """Formatiert ein beliebiges Eingabedatum (YYYY-MM-DD oder DD.MM.YYYY) als DD.MM.YYYY."""
-        if not raw_date:
-            return ""
-        s = raw_date.strip()
-        if "-" in s:
-            try:
-                return datetime.strptime(s, "%Y-%m-%d").strftime("%d.%m.%Y")
-            except ValueError:
-                return s
-        return s
+        """Formatiert ein beliebiges Eingabedatum (YYYY-MM-DD, YYYY-MM-DD HH:MM:SS oder DD.MM.YYYY) als DD.MM.YYYY."""
+        return format_date_display(raw_date)
 
     def format_date_sort(self, raw_date: str) -> str:
         """Erzeugt einen ISO-Sortierschlüssel (YYYY-MM-DD) für ein Datum."""
-        if not raw_date:
-            return ""
-        s = raw_date.strip()
-        if "." in s and len(s) == 10:
-            parts = s.split(".")
-            if len(parts) == 3:
-                return f"{parts[2]}-{parts[1]}-{parts[0]}"
-        return s
+        return format_date_sort(raw_date)
 
     def on_mode_filter_changed(self, index):
         """Wird aufgerufen, wenn der Benutzer im Filter 'Anzeige' einen anderen Modus wählt."""
@@ -604,6 +593,9 @@ class Page_Update(QWidget):
             self.inp_author.setText(user_nexus)
         else:
             self.inp_author.setText(mod_data.get("Author") or "")
+        if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus:
+            id_nexus_val = mod_data.get("ID_Nexus")
+            self.inp_id_nexus.setText(str(id_nexus_val) if id_nexus_val else "")
         self.inp_url.setPlainText(mod_data.get("URL") or "")
         self.inp_note.setPlainText(mod_data.get("Note") or "")
 
@@ -631,6 +623,8 @@ class Page_Update(QWidget):
         self.inp_name_catalog.clear()
         self.inp_id_catalog.clear()
         self.inp_author.clear()
+        if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus:
+            self.inp_id_nexus.clear()
         self.inp_url.clear()
         self.inp_note.clear()
         self.inp_date_inst.clear()
@@ -647,34 +641,57 @@ class Page_Update(QWidget):
             QDesktopServices.openUrl(QUrl(url_text))
 
     def save_detail_data(self):
-        """Speichert die geänderte Notiz der ausgewählten Mod in die Datenbank und aktualisiert das Model."""
+        """Speichert geänderte Notiz und Nexus-Mod-ID der ausgewählten Mod in die Datenbank und aktualisiert das Model."""
         if not self.current_mod_id or not self.current_mod_data:
             return
         new_note = self.inp_note.toPlainText().strip() if self.inp_note else ""
         orig_note = (self.current_mod_data.get("Note") or "").strip()
-        if new_note == orig_note:
+
+        id_nexus_str = self.inp_id_nexus.text().strip() if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus else ""
+        new_id_nexus = int(id_nexus_str) if id_nexus_str.isdigit() and int(id_nexus_str) > 0 else None
+        orig_id_nexus = self.current_mod_data.get("ID_Nexus")
+
+        note_changed = (new_note != orig_note)
+        id_nexus_changed = (new_id_nexus != orig_id_nexus)
+
+        if not note_changed and not id_nexus_changed:
             return
 
-        if update_mod_note(int(self.current_mod_id), new_note):
-            self.current_mod_data["Note"] = new_note
-            # Auch den im Model-Item zwischengespeicherten Datensatz aktualisieren, damit kein veralteter Stand zurückgeladen wird!
+        any_saved = False
+        if note_changed:
+            if update_mod_note(int(self.current_mod_id), new_note):
+                self.current_mod_data["Note"] = new_note
+                any_saved = True
+
+        if id_nexus_changed:
+            if update_mod_nexus_id(int(self.current_mod_id), new_id_nexus):
+                self.current_mod_data["ID_Nexus"] = new_id_nexus
+                any_saved = True
+
+        if any_saved:
             if hasattr(self, 'model') and self.model:
                 for r in range(self.model.rowCount()):
                     item_id = self.model.item(r, 0)
                     if item_id and item_id.text() == str(self.current_mod_id):
                         row_dict = item_id.data(Qt.ItemDataRole.UserRole)
                         if isinstance(row_dict, dict):
-                            row_dict["Note"] = new_note
+                            if note_changed:
+                                row_dict["Note"] = new_note
+                            if id_nexus_changed:
+                                row_dict["ID_Nexus"] = new_id_nexus
                             item_id.setData(row_dict, Qt.ItemDataRole.UserRole)
                         break
             self.data_updated.emit()
 
     def discard_detail_data(self):
-        """Verwirft Änderungen im Notiz-Feld und lädt den Datenbank-Ausgangszustand."""
+        """Verwirft Änderungen im Notiz- und ID-Nexus-Feld und lädt den Datenbank-Ausgangszustand."""
         if not self.current_mod_data:
             return
         if self.inp_note:
             self.inp_note.setPlainText(self.current_mod_data.get("Note") or "")
+        if hasattr(self, 'inp_id_nexus') and self.inp_id_nexus:
+            val = self.current_mod_data.get("ID_Nexus")
+            self.inp_id_nexus.setText(str(val) if val else "")
 
     def get_selected_row_viewport_offset(self) -> int:
         """Gibt den relativen Zeilenabstand der ausgewählten Zeile zur oberen Kante des sichtbaren Viewports zurück."""

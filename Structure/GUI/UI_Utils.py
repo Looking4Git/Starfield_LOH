@@ -190,3 +190,36 @@ def load_mod_preview_pixmap(
     if loaded and not pixmap.isNull():
         return pixmap.scaled(width, height, aspect_mode, Qt.TransformationMode.SmoothTransformation)
     return None
+
+
+def format_date_display(raw_date: str | None) -> str:
+    """
+    Formatiert ein beliebiges Eingabedatum (YYYY-MM-DD, YYYY-MM-DD HH:MM:SS, ISO) als DD.MM.YYYY.
+    Gibt bei leerem Wert einen leeren String zurück. Bereits als DD.MM.YYYY formatierte Strings bleiben unverändert.
+    """
+    if not raw_date:
+        return ""
+    s = str(raw_date).strip()
+    date_part = s.split(" ")[0].split("T")[0].strip()
+    if "-" in date_part:
+        from datetime import datetime
+        try:
+            return datetime.strptime(date_part, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+    return s
+
+
+def format_date_sort(raw_date: str | None) -> str:
+    """
+    Erzeugt einen standardisierten ISO-Sortierschlüssel (YYYY-MM-DD) für ein Datum.
+    """
+    if not raw_date:
+        return ""
+    s = str(raw_date).strip()
+    if "." in s and len(s) == 10:
+        parts = s.split(".")
+        if len(parts) == 3:
+            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+    date_part = s.split(" ")[0].split("T")[0].strip()
+    return date_part

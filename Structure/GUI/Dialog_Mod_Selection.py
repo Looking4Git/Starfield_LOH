@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QSortFilterProxyModel, QModelIndex
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR, SETTINGS_FILE
 from Structure.Database import get_installed_mods_with_components
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 class ModFilterProxyModel(QSortFilterProxyModel):
     """Proxy-Model für Live-Volltextsuche über Mod-Name und Masterfile."""
@@ -80,73 +81,8 @@ class ModSelectionDialog(QDialog):
         self.resize(dia_cfg.get("width", 800), dia_cfg.get("height", 600))
         self.move(dia_cfg.get("x", 300), dia_cfg.get("y", 300))
         
-        # Dunklen Windows-Titelbalken aktivieren
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
-                
-        # Stylesheet gemäß Design_Rules.md
-        self.setStyleSheet("""
-            QDialog {
-                background-color: rgb(13, 13, 13);
-            }
-            QLabel {
-                color: #e0e0e0;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-            QLineEdit {
-                background-color: #ECECEC;
-                color: #000000;
-                border: 1px solid #888888;
-                padding: 4px 8px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-            QTableView {
-                background-color: #ECECEC;
-                alternate-background-color: #F2F2F2;
-                color: #1e1e1e;
-                gridline-color: #d0d0d0;
-                border: 1px solid #1a1a1a;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-            QTableView::item:selected {
-                background-color: #304C7A;
-                color: #ffffff;
-            }
-            QHeaderView::section {
-                background-color: #2b2b2b;
-                color: #ECECEC;
-                padding: 6px;
-                border: 1px solid #1a1a1a;
-                font-weight: bold;
-            }
-            QPushButton {
-                background-color: #304C7A;
-                color: #ECECEC;
-                border: none;
-                padding: 6px 16px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5b7a9e;
-            }
-            QPushButton:disabled {
-                background-color: #4a4a4a;
-                color: #888888;
-            }
-        """)
+        # Zentrales Theme und Titelleiste aktivieren
+        setup_starfield_theme(window=self)
         
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(16, 16, 16, 16)
@@ -270,6 +206,10 @@ class ModSelectionDialog(QDialog):
 
     def get_selected_component_file(self) -> str | None:
         return self.selected_component_file
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
 
     def closeEvent(self, event):
         self.save_dialog_settings()

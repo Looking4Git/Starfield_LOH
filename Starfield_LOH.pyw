@@ -417,10 +417,8 @@ class StarfieldLOH(QMainWindow):
                 if btn_ok:
                     btn_ok.setText("OK")
                 
-                try:
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(int(box.winId()), 20, ctypes.byref(ctypes.c_int(1)), 4)
-                except Exception:
-                    pass
+                from Structure.GUI.UI_Theme import set_dark_title_bar
+                set_dark_title_bar(box)
                 
                 box.exec()
                 event.ignore()
@@ -525,6 +523,10 @@ class StarfieldLOH(QMainWindow):
         self.animation.start()
         if not self.sidebar_collapsed:
             self.animation.finished.connect(lambda: [btn.set_compact_mode(False) for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_settings, self.btn_toggle]])
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.set_dark_title_bar()
 
     def set_dark_title_bar(self):
         from Structure.GUI.UI_Theme import set_dark_title_bar

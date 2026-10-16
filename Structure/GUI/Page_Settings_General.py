@@ -4,7 +4,7 @@ import ctypes
 import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, 
-    QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFrame, QCheckBox
+    QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFrame, QCheckBox, QComboBox
 )
 
 from PySide6.QtGui import QIcon
@@ -17,18 +17,7 @@ from Structure.Paths import (
 )
 from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
 from Structure.LOH_Reset import reset_database
-
-
-def _set_dark_title_bar(widget):
-    """Aktiviert die immersive dunkle Titelleiste unter Windows für Dialoge."""
-    if sys.platform == "win32":
-        try:
-            widget.winId()
-            hwnd = widget.winId().__int__()
-            policy = ctypes.c_int(1)
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(policy), ctypes.sizeof(policy))
-        except Exception:
-            pass
+from Structure.GUI.UI_Theme import set_dark_title_bar, setup_starfield_theme, get_current_theme_mode
 
 
 class NexusKeyValidatorWorker(QThread):
@@ -348,6 +337,31 @@ class Page_Settings_General(QWidget):
         layout.addWidget(lbl_display_section)
         layout.addSpacing(6)
 
+        # Farbschema / Theme-Modus
+        theme_row = QHBoxLayout()
+        theme_row.setSpacing(10)
+        lbl_theme = QLabel("Farbschema / Theme-Modus:")
+        lbl_theme.setStyleSheet("font-weight: bold;")
+        theme_row.addWidget(lbl_theme)
+
+        self.combo_theme_mode = QComboBox()
+        self.combo_theme_mode.setObjectName("combo_theme_mode")
+        self.combo_theme_mode.addItem("Mixed (Sci-Fi Dark & Helle Tabellen – Standard)", "mixed")
+        self.combo_theme_mode.addItem("Dark Mode (Vollständiger Sci-Fi Dark Mode)", "dark")
+        self.combo_theme_mode.addItem("Light Mode (Klassische helle Oberfläche)", "light")
+        self.combo_theme_mode.setMinimumWidth(380)
+
+        current_theme = get_current_theme_mode()
+        idx = self.combo_theme_mode.findData(current_theme)
+        if idx >= 0:
+            self.combo_theme_mode.setCurrentIndex(idx)
+        self.combo_theme_mode.currentIndexChanged.connect(self.on_theme_mode_changed)
+        theme_row.addWidget(self.combo_theme_mode)
+        theme_row.addStretch()
+
+        layout.addLayout(theme_row)
+        layout.addSpacing(10)
+
         self.chk_replace_author_nexus = QCheckBox("Author durch Nexus Benutzer ersetzen.")
         self.chk_replace_author_nexus.setObjectName("chk_replace_author_nexus")
         replace_author_val = get_setting("Replace_Author_With_Nexus_User", False)
@@ -461,6 +475,14 @@ class Page_Settings_General(QWidget):
         val = (state == Qt.CheckState.Checked.value or state == 2)
         set_setting("settings", "Prefer_Conflict_Tiles", val)
         self.data_updated.emit()
+
+    def on_theme_mode_changed(self, index: int):
+        """Reagiert auf die Umschaltung des Farbschemas und aktiviert das Theme sofort."""
+        mode = self.combo_theme_mode.currentData()
+        if mode:
+            set_setting("ui", "theme_mode", mode)
+            setup_starfield_theme(theme_mode=mode)
+            self.data_updated.emit()
 
 
     def on_nexus_api_key_edited(self):
@@ -839,7 +861,7 @@ class Page_Settings_General(QWidget):
         if btn_no:
             btn_no.setText("Nein")
         msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-        _set_dark_title_bar(msg_box)
+        set_dark_title_bar(msg_box)
 
         ret = msg_box.exec()
         if ret == QMessageBox.StandardButton.Yes:

@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QTimer, QPoint
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QColor, QFont
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 ROLE_LOCKED = Qt.ItemDataRole.UserRole + 2
 
@@ -70,79 +71,21 @@ class Dialog_Mod_Activation_Cascade(QDialog):
                 target_height = min(840, avail_h - 80)
         self.resize(800, target_height)
 
-        # 2. Styling (Starfield Sci-Fi Dark Mode)
+        # 2. Zentrales Theme und Titelleiste aktivieren
+        setup_starfield_theme(window=self, custom_icon_path=icon_path)
+
+        # 3. Kaskadenspezifische Tri-State Checkbox-Indikatoren
         icon_chk = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
         self.setStyleSheet(f"""
-            QDialog {{
-                background-color: #0D0D0D;
-            }}
-            QLabel {{
-                font-family: "Segoe UI", Arial;
-            }}
-            QTableView {{
-                background-color: #ECECEC;
-                border: 1px solid #304C7A;
-                gridline-color: #CCCCCC;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                color: #000000;
-                outline: none;
-            }}
-            QTableView::item:selected {{
-                background-color: #304C7A;
-                color: #ECECEC;
-            }}
-            QTableView::indicator {{
-                width: 14px;
-                height: 14px;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-                background-color: #ffffff;
-            }}
-            QTableView::indicator:checked {{
-                background-color: #D7A64B;
-                border: 1px solid #5b7a9e;
-                image: url("{icon_chk}");
-            }}
             QTableView::indicator:indeterminate {{
                 background-color: #E06236;
                 border: 1px solid #5b7a9e;
                 image: url("{icon_chk}");
             }}
-            QTableView::indicator:unchecked {{
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                image: none;
-            }}
             QTableView::indicator:checked:disabled {{
                 border: 1px solid #444444;
                 background-color: #B8BDC4;
                 image: url("{icon_chk}");
-            }}
-            QHeaderView::section {{
-                background-color: #2b2b2b;
-                color: #ECECEC;
-                padding: 6px;
-                border: 1px solid #1a1a1a;
-                font-weight: bold;
-                font-size: 13px;
-            }}
-            QPushButton {{
-                background-color: #304C7A;
-                color: #ECECEC;
-                border: none;
-                padding: 6px 20px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: #5B7A9E;
-            }}
-            QPushButton:disabled {{
-                background-color: #4A4A4A;
-                color: #888888;
             }}
         """)
 
@@ -554,16 +497,8 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         return self.activated_items
 
     def _apply_dark_title_bar(self):
-        """Erzwingt Windows-11 Dark Mode für die Titelleiste."""
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = int(self.winId())
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-                set_window_attribute(hwnd, 19, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
+        """Erzwingt Windows-11 Dark Mode für die Titelleiste via UI_Theme."""
+        set_dark_title_bar(self)
 
     def _position_dialog(self):
         """

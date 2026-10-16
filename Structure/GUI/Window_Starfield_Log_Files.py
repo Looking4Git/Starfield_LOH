@@ -10,22 +10,7 @@ from PySide6.QtGui import QIcon, QTextCursor
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR, LOGS_DIR
-
-
-def _set_dark_title_bar(widget):
-    """Aktiviert die immersive dunkle Titelleiste unter Windows (DWM-Attribut 20 mit Fallback 19)."""
-    if sys.platform == "win32":
-        try:
-            widget.winId()
-            hwnd = int(widget.winId())
-            policy = ctypes.c_int(1)
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Windows 11 / neuere Windows 10 Builds)
-            # DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19 (ältere Windows 10 Builds)
-            res = ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(policy), ctypes.sizeof(policy))
-            if res != 0:
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(policy), ctypes.sizeof(policy))
-        except Exception:
-            pass
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 
 class Window_Starfield_Log_Files(QDialog):
@@ -48,12 +33,11 @@ class Window_Starfield_Log_Files(QDialog):
         self.setMinimumSize(750, 450)
 
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Folder.svg")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
 
-        _set_dark_title_bar(self)
+        # 1. Zentrales Theme und Titelleiste aktivieren
+        setup_starfield_theme(window=self, custom_icon_path=icon_path)
 
-        # 1. UI dynamisch aus .ui-Datei laden
+        # 2. UI dynamisch aus .ui-Datei laden
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Window_Starfield_Log_Files.ui")
         ui_file = QFile(ui_file_path)
@@ -66,14 +50,14 @@ class Window_Starfield_Log_Files(QDialog):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.addWidget(self.content_widget)
 
-        # 2. Widgets referenzieren
+        # 3. Widgets referenzieren
         self.combo_log_files = self.content_widget.findChild(QComboBox, "combo_log_files")
         self.chk_word_wrap = self.content_widget.findChild(QCheckBox, "chk_word_wrap")
         self.txt_log_content = self.content_widget.findChild(QPlainTextEdit, "txt_log_content")
         self.btn_open_explorer = self.content_widget.findChild(QPushButton, "btn_open_explorer")
         self.btn_delete_logs = self.content_widget.findChild(QPushButton, "btn_delete_logs")
 
-        # 3. Icons und Eigenschaften konfigurieren
+        # 4. Icons und Eigenschaften konfigurieren
         if self.btn_open_explorer and os.path.exists(icon_path):
             self.btn_open_explorer.setIcon(QIcon(icon_path))
             self.btn_open_explorer.setIconSize(QSize(18, 18))
@@ -83,7 +67,7 @@ class Window_Starfield_Log_Files(QDialog):
             self.btn_delete_logs.setIcon(QIcon(trash_icon_path))
             self.btn_delete_logs.setIconSize(QSize(18, 18))
 
-        # 4. Signale verbinden
+        # 5. Signale verbinden
         if self.combo_log_files:
             self.combo_log_files.currentIndexChanged.connect(self.on_log_file_selected)
         if self.chk_word_wrap:
@@ -94,121 +78,13 @@ class Window_Starfield_Log_Files(QDialog):
         if self.btn_delete_logs:
             self.btn_delete_logs.clicked.connect(self.confirm_delete_logs)
 
-        # 5. Stylesheet setzen (Starfield Design Rules)
-        arrow_icon_path = os.path.join(GRAPHICS_DIR, "Icon_Arrow_Down.svg").replace("\\", "/")
-        check_icon_path = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
-        self.setStyleSheet(f"""
-            QDialog, QWidget#Window_Starfield_Log_Files {{
-                background-color: rgb(13, 13, 13);
-            }}
-            QLabel {{
-                color: #e0e0e0;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-            }}
-            QComboBox {{
-                background-color: #ECECEC;
-                color: #000000;
-                border: 1px solid #888888;
-                border-radius: 2px;
-                padding: 4px 8px;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-            }}
-            QComboBox:disabled {{
-                background-color: #2b2b2b;
-                color: #888888;
-                border: 1px solid #444444;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 32px;
-                background-color: #304C7A;
-                border: none;
-            }}
-            QComboBox::drop-down:disabled {{
-                background-color: #222D3D;
-            }}
-            QComboBox::down-arrow {{
-                image: url({arrow_icon_path});
-                width: 14px;
-                height: 14px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: #ECECEC;
-                color: #000000;
-                selection-background-color: #304C7A;
-                selection-color: #ffffff;
-                border: 1px solid #304C7A;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-            }}
-            QCheckBox {{
-                color: #e0e0e0;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-                spacing: 8px;
-                background: transparent;
-            }}
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-            }}
-            QCheckBox::indicator:hover {{
-                border: 1px solid #D7A64B;
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: #D7A64B;
-                image: url({check_icon_path});
-                border: 1px solid #5b7a9e;
-            }}
-            QPlainTextEdit {{
-                background-color: #ECECEC;
-                color: #000000;
-                border: 1px solid #888888;
-                border-radius: 2px;
-                padding: 4px 8px;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-            }}
-            QPlainTextEdit:disabled {{
-                background-color: #2b2b2b;
-                color: #888888;
-                border: 1px solid #444444;
-            }}
-            QPushButton {{
-                background-color: #304C7A;
-                color: #ECECEC;
-                border: none;
-                padding: 6px 16px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: #5B7A9E;
-            }}
-            QPushButton:pressed {{
-                background-color: #1F3354;
-            }}
-            QPushButton:disabled {{
-                background-color: #222D3D;
-                color: #888888;
-            }}
-        """)
-
         # 6. Initiale Daten laden
         self.refresh_log_files()
 
     def showEvent(self, event):
         """Stellt sicher, dass die immersive Windows-Titelleiste bei jeder Fensteranzeige zuverlässig aktiv ist."""
         super().showEvent(event)
-        _set_dark_title_bar(self)
+        set_dark_title_bar(self)
 
     def refresh_log_files(self):
         """Liest das Logs-Verzeichnis ein, befüllt das Dropdown und steuert den Aktivierungsstatus."""

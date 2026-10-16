@@ -15,20 +15,7 @@ from PySide6.QtGui import QIcon, QTextOption
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-
-
-def _set_dark_title_bar(widget):
-    """Aktiviert die immersive dunkle Titelleiste unter Windows (DWM-Attribut 20 mit Fallback 19)."""
-    if sys.platform == "win32":
-        try:
-            widget.winId()
-            hwnd = int(widget.winId())
-            policy = ctypes.c_int(1)
-            res = ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(policy), ctypes.sizeof(policy))
-            if res != 0:
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(policy), ctypes.sizeof(policy))
-        except Exception:
-            pass
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 
 class Window_MarkdownView(QDialog):
@@ -53,12 +40,11 @@ class Window_MarkdownView(QDialog):
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Magnifier_Hover.svg")
         if not os.path.exists(icon_path):
             icon_path = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
 
-        _set_dark_title_bar(self)
+        # 1. Zentrales Theme und Titelleiste aktivieren
+        setup_starfield_theme(window=self, custom_icon_path=icon_path)
 
-        # 1. UI dynamisch aus .ui-Datei laden
+        # 2. UI dynamisch aus .ui-Datei laden
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Window_MarkdownView.ui")
         ui_file = QFile(ui_file_path)
@@ -71,78 +57,21 @@ class Window_MarkdownView(QDialog):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.addWidget(self.content_widget)
 
-        # 2. Widgets referenzieren
+        # 3. Widgets referenzieren
         self.lbl_title = self.content_widget.findChild(QLabel, "lbl_title")
         self.chk_word_wrap = self.content_widget.findChild(QCheckBox, "chk_word_wrap")
         self.txt_markdown_content = self.content_widget.findChild(QTextBrowser, "txt_markdown_content")
         self.btn_close = self.content_widget.findChild(QPushButton, "btn_close")
 
-        # 3. Signale verbinden
+        # 4. Signale verbinden
         if self.chk_word_wrap:
             self.chk_word_wrap.toggled.connect(self.on_word_wrap_toggled)
         if self.btn_close:
             self.btn_close.clicked.connect(self.close)
 
-        # 4. Stylesheet setzen (Starfield Design Rules)
-        check_icon_path = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
-        self.setStyleSheet(f"""
-            QDialog, QWidget#Window_MarkdownView {{
-                background-color: rgb(13, 13, 13);
-            }}
-            QLabel#lbl_title {{
-                color: #D7A64B;
-                font-family: "Segoe UI", Arial;
-                font-size: 15px;
-                font-weight: bold;
-            }}
-            QCheckBox {{
-                color: #e0e0e0;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-                spacing: 8px;
-                background: transparent;
-            }}
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-            }}
-            QCheckBox::indicator:hover {{
-                border: 1px solid #D7A64B;
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: #D7A64B;
-                image: url({check_icon_path});
-                border: 1px solid #5b7a9e;
-            }}
-            QTextBrowser {{
-                background-color: #ECECEC;
-                color: #000000;
-                border: 1px solid #888888;
-                border-radius: 2px;
-                padding: 8px 12px;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-            }}
-            QPushButton {{
-                background-color: #304C7A;
-                color: #ECECEC;
-                border: none;
-                padding: 6px 16px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 11pt;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: #5B7A9E;
-            }}
-            QPushButton:pressed {{
-                background-color: #1F3354;
-            }}
-        """)
+        # 5. Fensterspezifischer Titel-Akzent
+        if self.lbl_title:
+            self.lbl_title.setStyleSheet("color: #D7A64B; font-size: 15px; font-weight: bold;")
 
         # 5. Inhalte setzen
         if self.txt_markdown_content:
@@ -165,7 +94,7 @@ class Window_MarkdownView(QDialog):
     def showEvent(self, event):
         """Stellt sicher, dass die immersive Windows-Titelleiste bei jeder Fensteranzeige zuverlässig aktiv ist."""
         super().showEvent(event)
-        _set_dark_title_bar(self)
+        set_dark_title_bar(self)
 
     def set_title(self, title: str):
         """Setzt den Mod-/Dokumentennamen im Kopfbereich."""

@@ -1,211 +1,322 @@
-/* =========================================================
-   Generelle Tabellen (Master-View)
-   ========================================================= */
+/* =========================================================================
+   Starfield LOH – Seiten, Tabellen, Formulare & Dialoge (Pages QSS)
+   Strukturierte Single Source of Truth mit semantischen Design-Tokens
+   ========================================================================= */
+
+
+/* =========================================================================
+   Abschnitt 1 – Basis & Typografie
+   ========================================================================= */
+QLabel {
+    color: {{ TEXT_ON_DARK }};
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+
+/* =========================================================================
+   Abschnitt 2 – Tabellen & Bäume (Master-View)
+   ========================================================================= */
 QTableView, QTreeView {
-    background-color: #ECECEC; /* Heller Hintergrund nach Vorgabe [cite: 1, 2] */
-    alternate-background-color: #F2F2F2;
-    color: #1e1e1e;
-    gridline-color: #d0d0d0;
+    background-color: {{ SURFACE_PRIMARY }};
+    alternate-background-color: {{ SURFACE_SECONDARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    gridline-color: {{ BORDER_TABLE }};
     border: none;
-    outline: none; /* Entfernt den Fokus-Rahmen um Text  */
+    outline: none;
+    font-size: {{ FONT_SIZE_BASE }};
 }
 
 /* Direkte Formatierung der Tabellenzellen bei Auswahl */
-QTableView::item:selected, QListView::item:selected, QTreeView::item:selected {
-    background-color: #304C7A; /* Starfield Blau  */
-    color: #ffffff;            /* Weißer Text bei Selektion  */
-}
-
-/* Optional: Korrektur für den Fokus-Zustand, damit Blau erhalten bleibt */
-QTableView::item:selected:active, QListView::item:selected:active, QTreeView::item:selected:active {
-    background-color: #304C7A;
-}
-
+QTableView::item:selected, QListView::item:selected, QTreeView::item:selected,
+QTableView::item:selected:active, QListView::item:selected:active, QTreeView::item:selected:active,
 QTableView::item:selected:!active, QListView::item:selected:!active, QTreeView::item:selected:!active {
-    background-color: #304C7A;
+    background-color: {{ ACCENT_ACTION }};
+    color: #ffffff;
+}
+
+QTableView::item:hover, QListView::item:hover, QTreeView::item:hover {
+    background-color: transparent;
+}
+
+QTableView::item:selected:hover, QListView::item:selected:hover, QTreeView::item:selected:hover {
+    background-color: {{ ACCENT_ACTION }};
     color: #ffffff;
 }
 
 /* Header im Dark Mode Design */
 QHeaderView::section {
-    background-color: #2b2b2b;
-    color: #ECECEC; /* Starfield Weiß */
+    background-color: {{ PANEL_HEADER }};
+    color: {{ TEXT_ON_DARK }};
     padding: 6px;
-    border: 1px solid #1a1a1a;
+    border: 1px solid {{ BORDER_DARK }};
     font-weight: bold;
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+QHeaderView::section:horizontal:pressed {
+    color: {{ ACCENT_BRAND }};
 }
 
 /* Markierung bei Spaltensortierung */
 QHeaderView::up-arrow {
     image: url(Graphics/Icon_Arrow_Up.svg);
-    width: 14px; height: 14px;
+    width: 14px;
+    height: 14px;
     padding-right: 5px;
 }
 
 QHeaderView::down-arrow {
     image: url(Graphics/Icon_Arrow_Down.svg);
-    width: 14px; height: 14px;
+    width: 14px;
+    height: 14px;
     padding-right: 5px;
 }
 
-QHeaderView::section:horizontal:pressed {
-    color: #D7A64B; /* Starfield Gelb beim Klicken */
+/* Tabellen Checkbox-Indikatoren */
+QTableView::indicator, QTreeView::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
+    background-color: #ffffff;
+    border-radius: 0px;
 }
 
-
-/* =========================================================
-   Scrollbars (Dark Mode Style)
-   ========================================================= */
-/* Vertikale Scrollbar */
-QScrollBar:vertical {
-    border: none;
-    background: #2b2b2b;
-    width: 16px;
-    margin: 16px 0px 16px 0px;
+QTableView::indicator:checked, QTreeView::indicator:checked {
+    image: url(Graphics/Icon_Check.svg);
+    background-color: {{ ACCENT_BRAND }};
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
 }
 
-QTableView QScrollBar:vertical, QTreeView QScrollBar:vertical {
-    background: #2b2b2b; /* Fester Hintergrund für Tabellen, da deren Scrollbars bei Nichtbedarf ohnehin komplett verschwinden */
-}
-
-QScrollBar::handle:vertical {
-    background: #304C7A;
-    min-height: 20px;
-    border-radius: 4px;
-    margin: 2px;
-}
-
-QScrollBar::handle:vertical:hover {
-    background: #5b7a9e;
-}
-
-QScrollBar::add-page:vertical,
-QScrollBar::sub-page:vertical {
-    background: #2b2b2b;
-    border: none;
-}
-
-QScrollBar::sub-line:vertical {
-    background: #2b2b2b; /* Square dark container perfectly covers corners */
-    border: none;
-    height: 16px;
-    subcontrol-position: top;
-    subcontrol-origin: margin;
-}
-
-QScrollBar::up-arrow:vertical {
-    background: #304C7A; /* Rounded inner button */
-    border-radius: 4px;
-    margin: 2px;
-    image: none; /* Verhindert das Standard-Pfeilsymbol */
-}
-
-QScrollBar::up-arrow:vertical:hover {
-    background: #5b7a9e;
-}
-
-QScrollBar::add-line:vertical {
-    background: #2b2b2b; /* Square dark container */
-    border: none;
-    height: 16px;
-    subcontrol-position: bottom;
-    subcontrol-origin: margin;
-}
-
-QScrollBar::down-arrow:vertical {
-    background: #304C7A;
-    border-radius: 4px;
-    margin: 2px;
+QTableView::indicator:unchecked, QTreeView::indicator:unchecked {
     image: none;
+    background-color: #ffffff;
 }
 
-QScrollBar::down-arrow:vertical:hover {
-    background: #5b7a9e;
+QTableView::indicator:selected, QTreeView::indicator:selected {
+    border: 1px solid #ffffff;
 }
 
-/* Horizontale Scrollbar */
-QScrollBar:horizontal {
+
+/* =========================================================================
+   Abschnitt 3 – Standard-Steuerelemente & Formulare (Inputs, Dropdowns, Checkboxen)
+   ========================================================================= */
+
+/* Text- und Eingabefelder */
+QLineEdit, QTextEdit, QTextBrowser, QPlainTextEdit {
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    border: 1px solid {{ BORDER_INPUT }};
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+/* Komboboxen */
+QComboBox {
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    border: 1px solid {{ BORDER_INPUT }};
+    border-radius: 2px;
+    padding: 4px 8px;
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+QComboBox:disabled {
+    background-color: {{ SURFACE_DISABLED }};
+    color: {{ TEXT_MUTED }};
+    border: 1px solid {{ BORDER_DARK }};
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 32px;
+    background-color: {{ ACCENT_ACTION }};
     border: none;
-    background: #2b2b2b;
+}
+
+QComboBox::drop-down:disabled {
+    background-color: {{ SURFACE_DISABLED }};
+}
+
+QComboBox::drop-down:hover {
+    background-color: {{ ACCENT_ACTION_HOVER }};
+}
+
+QComboBox::down-arrow {
+    image: url(Graphics/Icon_Arrow_Down.svg);
+    width: 14px;
+    height: 14px;
+    subcontrol-origin: content;
+    subcontrol-position: center;
+}
+
+QComboBox QAbstractItemView {
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    selection-background-color: {{ ACCENT_ACTION }};
+    selection-color: #ffffff;
+    border: 1px solid {{ ACCENT_ACTION }};
+    padding: 2px 0px;
+    outline: none;
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 24px;
+    padding: 2px 8px;
+    color: {{ TEXT_ON_SURFACE }};
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: {{ ACCENT_ACTION }};
+    color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: {{ ACCENT_ACTION_HOVER }};
+    color: #ffffff;
+}
+
+/* Globale Checkboxen */
+QCheckBox {
+    color: {{ TEXT_ON_DARK }};
+    font-size: {{ FONT_SIZE_BASE }};
+    spacing: 8px;
+    background: transparent;
+}
+
+QCheckBox::indicator {
+    width: 16px;
     height: 16px;
-    min-height: 16px;
-    max-height: 16px;
-    margin: 0px 16px 0px 16px;
+    background-color: #ffffff;
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
+    border-radius: 0px;
 }
 
-QScrollBar::handle:horizontal {
-    background: #304C7A;
-    min-width: 20px;
-    border-radius: 4px;
-    margin: 2px;
+QCheckBox::indicator:hover {
+    border: 1px solid {{ ACCENT_BRAND }};
 }
 
-QScrollBar::handle:horizontal:hover {
-    background: #5b7a9e;
+QCheckBox::indicator:checked {
+    background-color: {{ ACCENT_BRAND }};
+    image: url(Graphics/Icon_Check.svg);
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
 }
 
-QScrollBar::sub-line:horizontal {
-    background: #2b2b2b; /* Square dark container */
+QCheckBox:disabled {
+    color: {{ TEXT_MUTED }};
+}
+
+QCheckBox::indicator:disabled {
+    background-color: {{ SURFACE_DISABLED }};
+    border: 1px solid {{ BORDER_DARK }};
+}
+
+
+/* =========================================================================
+   Abschnitt 4 – Buttons & Aktions-Schaltflächen
+   ========================================================================= */
+QPushButton {
+    background-color: {{ ACCENT_ACTION }};
+    color: {{ TEXT_ON_DARK }};
     border: none;
-    width: 16px;
-    subcontrol-position: left;
-    subcontrol-origin: margin;
+    padding: 6px 14px;
+    border-radius: 2px;
+    font-size: {{ FONT_SIZE_BASE }};
+    font-weight: bold;
+    text-align: left;
 }
 
-QScrollBar::left-arrow:horizontal {
-    background: #304C7A;
-    border-radius: 4px;
-    margin: 2px;
-    image: none;
+QPushButton:hover {
+    background-color: {{ ACCENT_ACTION_HOVER }};
 }
 
-QScrollBar::left-arrow:horizontal:hover {
-    background: #5b7a9e;
+QPushButton:pressed {
+    background-color: {{ ACCENT_ACTION_PRESSED }};
 }
 
-QScrollBar::add-line:horizontal {
-    background: #2b2b2b; /* Square dark container */
-    border: none;
-    width: 16px;
-    subcontrol-position: right;
-    subcontrol-origin: margin;
+QPushButton:disabled {
+    background-color: {{ SURFACE_DISABLED }};
+    color: {{ TEXT_MUTED }};
 }
 
-QScrollBar::right-arrow:horizontal {
-    background: #304C7A;
-    border-radius: 4px;
-    margin: 2px;
-    image: none;
+/* Spezifische Pfeiltasten */
+QPushButton#btn_pos_up, QPushButton#btn_pos_down {
+    padding: 0px;
+    text-align: center;
 }
 
-QScrollBar::right-arrow:horizontal:hover {
-    background: #5b7a9e;
-}
-
-QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
-    background: #2b2b2b;
-    border: none;
-}
-
-/* =========================================================
-   Detail-View Container
-   ========================================================= */
-#detail_view,
-#scroll_area_detail,
-#scroll_area_detail > QWidget {
+/* Zoom-Button */
+#btn_zoom {
     background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 0px;
+    margin: 0px;
 }
 
-#detail_view QLabel,
-#Window_Mod_Statistics QLabel,
-QDockWidget QLabel,
-#scroll_content QLabel {
-    color: #ECECEC; 
+#btn_zoom:hover {
+    background-color: rgba(215, 166, 75, 0.18);
+    border: 1px solid {{ ACCENT_BRAND }};
 }
 
-/* =========================================================
-   Überschriften und Trennlinien im Detail-View (NEU)
-   ========================================================= */
+#btn_zoom:pressed {
+    background-color: rgba(215, 166, 75, 0.35);
+    border: 1px solid {{ ACCENT_BRAND }};
+}
+
+/* Gefahrenbutton (Rot) */
+QPushButton#btn_danger, QPushButton[variant="red"] {
+    background-color: {{ STATUS_CRITICAL }};
+    color: #ECECEC;
+    border: none;
+    border-radius: 2px;
+    min-height: 40px;
+    padding: 4px 8px;
+    text-align: left;
+}
+
+QPushButton#btn_danger:hover, QPushButton[variant="red"]:hover {
+    background-color: #E03048;
+}
+
+QPushButton#btn_danger:pressed, QPushButton[variant="red"]:pressed {
+    background-color: #A0182B;
+}
+
+QPushButton#btn_danger:disabled, QPushButton[variant="red"]:disabled {
+    background-color: #422226;
+    color: {{ TEXT_MUTED }};
+}
+
+/* Grüner Aktionsbutton */
+QPushButton#btn_success, QPushButton#btn_activate_profile, QPushButton[variant="green"] {
+    background-color: #1F7343;
+    color: #ECECEC;
+    border: none;
+    border-radius: 2px;
+    padding: 4px 8px;
+    text-align: left;
+}
+
+QPushButton#btn_success:hover, QPushButton#btn_activate_profile:hover, QPushButton[variant="green"]:hover {
+    background-color: #2EA44F;
+}
+
+QPushButton#btn_success:pressed, QPushButton#btn_activate_profile:pressed, QPushButton[variant="green"]:pressed {
+    background-color: #165A33;
+}
+
+QPushButton#btn_success:disabled, QPushButton#btn_activate_profile:disabled, QPushButton[variant="green"]:disabled {
+    background-color: #1E5232;
+    color: {{ TEXT_MUTED }};
+}
+
+
+/* =========================================================================
+   Abschnitt 5 – Detail-Views & Layout-Komponenten
+   ========================================================================= */
 #detail_view QLabel#lbl_filter,
 #detail_view QLabel#lbl_details,
 #detail_view QLabel#lbl_sorter_section,
@@ -217,9 +328,10 @@ QLabel#lbl_sorter_section,
 QLabel#lbl_display_section,
 QLabel#lbl_modules_section,
 QLabel#lbl_tools_section,
-QLabel#lbl_install_process {
-    color: #D7A64B; /* Starfield Gelb als Akzentfarbe für Überschriften */
-    font-size: 16px;
+QLabel#lbl_install_process,
+#detail_view QLabel#lbl_assessment_stars {
+    color: {{ TEXT_TITLE }};
+    font-size: {{ FONT_SIZE_TITLE }};
     font-weight: bold;
 }
 
@@ -230,247 +342,224 @@ QFrame#display_separator,
 QFrame#sep_modules_section,
 QFrame#sep_tools_section,
 QFrame#sep_install_process {
-    background-color: #304C7A;
+    background-color: {{ ACCENT_ACTION }};
     min-height: 4px;
     max-height: 4px;
     height: 4px;
     border: none;
 }
 
-/* Checkboxen im Detail-View und Pages */
-#detail_view QCheckBox,
-QCheckBox#chk_sorter_show_columns,
-QCheckBox#chk_force_full_get_data,
-QCheckBox#chk_force_full_images {
-    color: #ECECEC;
-    font-size: 13px;
-    spacing: 8px;
-    background: transparent;
-}
-
-#detail_view QCheckBox::indicator,
-QCheckBox#chk_sorter_show_columns::indicator,
-QCheckBox#chk_force_full_get_data::indicator,
-QCheckBox#chk_force_full_images::indicator {
-    width: 16px;
-    height: 16px;
-    background-color: #ffffff;
-    border: 1px solid #5b7a9e;
-    border-radius: 0px;
-}
-
-#detail_view QCheckBox::indicator:hover,
-QCheckBox#chk_sorter_show_columns::indicator:hover,
-QCheckBox#chk_force_full_get_data::indicator:hover,
-QCheckBox#chk_force_full_images::indicator:hover {
-    border: 1px solid #D7A64B;
-}
-
-#detail_view QCheckBox::indicator:checked,
-QCheckBox#chk_sorter_show_columns::indicator:checked,
-QCheckBox#chk_force_full_get_data::indicator:checked,
-QCheckBox#chk_force_full_images::indicator:checked {
-    background-color: #D7A64B;
-    image: url(Graphics/Icon_Check.svg);
-    border: 1px solid #5b7a9e;
-}
-
-#detail_view QCheckBox:disabled,
-QCheckBox#chk_sorter_show_columns:disabled,
-QCheckBox#chk_force_full_get_data:disabled,
-QCheckBox#chk_force_full_images:disabled {
-    color: #666666;
-}
-
-#detail_view QCheckBox::indicator:disabled,
-QCheckBox#chk_sorter_show_columns::indicator:disabled,
-QCheckBox#chk_force_full_get_data::indicator:disabled,
-QCheckBox#chk_force_full_images::indicator:disabled {
-    background-color: #333333;
-    border: 1px solid #555555;
-}
-
-#lbl_components_label, #lbl_creation_categories_label, #lbl_requirements_label, #lbl_dependencies_label {
-    margin: 6px 0px 0px 0px;
-    padding: 0px;
-    border: none;
-}
-
-/* =========================================================
-   Eingabefelder im Detail-View
-   ========================================================= */
-#detail_view QLineEdit, 
-#detail_view QComboBox,
-#detail_view QListView {
-    background-color: #ECECEC;
-    color: #000000;
-    border: 1px solid #888888;
-    padding: 4px 8px;
-    border-radius: 2px;
-}
-
-#detail_view QTextEdit,
-#detail_view QTextBrowser {
-    background-color: #ECECEC;
-    color: #000000;
-    border: 1px solid #888888;
-    padding: 4px 4px 4px 8px;
-    border-radius: 2px;
-}
-
-#btn_zoom {
-    background-color: transparent;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 0px;
-    margin: 0px;
-}
-
-#btn_zoom:hover {
-    background-color: rgba(215, 166, 75, 0.18);
-    border: 1px solid #D7A64B;
-    padding: 0px;
-    margin: 0px;
-}
-
-#btn_zoom:pressed {
-    background-color: rgba(215, 166, 75, 0.35);
-    border: 1px solid #D7A64B;
-    padding: 0px;
-    margin: 0px;
-}
-
-#detail_view QTreeView,
-#embedded_tree_frame QTreeView {
-    border: none;
-    background-color: #ECECEC;
-    alternate-background-color: #F2F2F2;
-    color: #1E1E1E;
-}
-
 #embedded_tree_frame {
-    background-color: #ECECEC;
-    border: 1px solid #888888;
+    background-color: {{ SURFACE_PRIMARY }};
+    border: 1px solid {{ BORDER_INPUT }};
     border-radius: 2px;
 }
 
+#embedded_tree_frame QTreeView, #detail_view QTreeView {
+    border: none;
+    background-color: {{ SURFACE_PRIMARY }};
+    alternate-background-color: {{ SURFACE_SECONDARY }};
+    color: {{ TEXT_ON_SURFACE }};
+}
+
+/* Spezifische Read-Only Markierungen */
 #detail_view QLineEdit:read-only,
 #Window_Mod_Statistics QLineEdit:read-only,
-#Section_Mod_Statistics_Category QLineEdit:read-only {
-    background-color: #D7A64B; 
+#Section_Mod_Statistics_Category QLineEdit:read-only,
+#Page_Update #detail_view QLineEdit#inp_name_catalog,
+#Page_Update #detail_view QLineEdit#inp_id_catalog,
+#Page_Update #detail_view QLineEdit#inp_author {
+    background-color: {{ SURFACE_READONLY }};
     color: #000000;
 }
 
 #Page_Update #detail_view QLineEdit:read-only,
 #Page_Update #detail_view QTextEdit:read-only {
-    background-color: #ECECEC;
-    color: #000000;
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
 }
 
-#Page_Update #detail_view QLineEdit#inp_name_catalog,
-#Page_Update #detail_view QLineEdit#inp_id_catalog,
-#Page_Update #detail_view QLineEdit#inp_author {
-    background-color: #D7A64B; 
-    color: #000000;
+#Window_Mod_Statistics QLabel,
+QDockWidget QLabel,
+#scroll_content QLabel {
+    color: {{ TEXT_ON_DARK }}; 
 }
 
-/* =========================================================
-   Komboboxen im Detail-View
-   ========================================================= */
-QComboBox {
-    border: 1px solid #888888;
-    border-radius: 2px;
+
+/* =========================================================================
+   Abschnitt 6 – Dialoge & Modale Fenster
+   ========================================================================= */
+QDialog, QMessageBox {
+    background-color: {{ WINDOW_BG }};
+    color: {{ TEXT_ON_DARK }};
 }
 
-QComboBox::drop-down {
-    subcontrol-origin: border;
-    subcontrol-position: top right;
-    width: 32px;
-    background-color: #304C7A;
+QDialog QLabel, QMessageBox QLabel {
+    color: {{ TEXT_ON_DARK }};
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+QDialog QPushButton, QMessageBox QPushButton {
+    background-color: {{ ACCENT_ACTION }};
+    color: {{ TEXT_ON_DARK }};
     border: none;
-}
-
-QComboBox::down-arrow {
-    image: url(Graphics/Icon_Arrow_Down.svg);
-    width: 14px;
-    height: 14px;
-    subcontrol-origin: content;
-    subcontrol-position: center;
-}
-
-QComboBox::drop-down:hover {
-    background-color: #5b7a9e;
-}
-
-QComboBox QAbstractItemView {
-    background-color: #ECECEC;
-    color: #000000;
-    selection-background-color: #304C7A;
-    selection-color: #ECECEC;
-    border: 1px solid #888888;
-    padding: 2px 0px;
-    outline: none;
-}
-
-QComboBox QAbstractItemView::item {
-    min-height: 24px;
-    padding: 2px 8px;
-    color: #000000;
-}
-
-QComboBox QAbstractItemView::item:selected {
-    background-color: #304C7A;
-    color: #ECECEC;
-}
-
-QComboBox QAbstractItemView::item:hover {
-    background-color: #5b7a9e;
-    color: #FFFFFF;
-}
-
-/* =========================================================
-   Assessment Sterne
-   ========================================================= */
-#detail_view QLabel#lbl_assessment_stars {
-    color: #D7A64B;
-    font-size: 16px;
-}
-
-/* =========================================================
-   Buttons in Pages
-   ========================================================= */
-QPushButton {
-    background-color: #304C7A;
-    color: #ECECEC;
-    border: none;
-    padding: 4px 8px 4px 8px; /* Symmetrisches Padding */
+    padding: 6px 16px;
     border-radius: 2px;
-    text-align: left; /* Linksbündig ausrichten, damit alle Icons unabhängig von der Textlänge auf gleicher Höhe liegen */
-}
-
-QPushButton:hover {
-    background-color: #5b7a9e;
-}
-
-QPushButton:pressed {
-    background-color: #1F3354;
-}
-
-QPushButton:disabled {
-    background-color: #222D3D;
-    color: #888888;
-}
-
-/* Spezifische Styles für Pfeiltasten zur perfekten Zentrierung und korrekten Höhe */
-QPushButton#btn_pos_up, QPushButton#btn_pos_down {
-    padding: 0px;
+    font-size: {{ FONT_SIZE_BASE }};
+    min-width: 75px;
     text-align: center;
 }
 
+QDialog QPushButton:hover, QMessageBox QPushButton:hover {
+    background-color: {{ ACCENT_ACTION_HOVER }};
+}
 
-/* =========================================================
-   Unsichtbarer Rollbalken (wenn nicht benötigt, aber reserviert)
-   ========================================================= */
+QDialog QLineEdit, QDialog QTextEdit, QDialog QPlainTextEdit, QDialog QTextBrowser {
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    border: 1px solid {{ BORDER_INPUT }};
+    border-radius: 2px;
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+
+/* =========================================================================
+   Abschnitt 7 – Rollbalken (Dark Mode Scrollbars)
+   ========================================================================= */
+
+/* Vertikale Scrollbar */
+QScrollBar:vertical {
+    border: none;
+    background: {{ SCROLLBAR_TRACK }};
+    width: 16px;
+    margin: 16px 0px 16px 0px;
+}
+
+QTableView QScrollBar:vertical, QTreeView QScrollBar:vertical {
+    background: {{ SCROLLBAR_TRACK }};
+}
+
+QScrollBar::handle:vertical {
+    background: {{ SCROLLBAR_HANDLE }};
+    min-height: 20px;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+}
+
+QScrollBar::sub-line:vertical {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+    height: 16px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:vertical {
+    background: {{ SCROLLBAR_HANDLE }};
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::up-arrow:vertical:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+QScrollBar::add-line:vertical {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+    height: 16px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::down-arrow:vertical {
+    background: {{ SCROLLBAR_HANDLE }};
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::down-arrow:vertical:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+/* Horizontale Scrollbar */
+QScrollBar:horizontal {
+    border: none;
+    background: {{ SCROLLBAR_TRACK }};
+    height: 16px;
+    min-height: 16px;
+    max-height: 16px;
+    margin: 0px 16px 0px 16px;
+}
+
+QScrollBar::handle:horizontal {
+    background: {{ SCROLLBAR_HANDLE }};
+    min-width: 20px;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+}
+
+QScrollBar::sub-line:horizontal {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+    width: 16px;
+    subcontrol-position: left;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::left-arrow:horizontal {
+    background: {{ SCROLLBAR_HANDLE }};
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::left-arrow:horizontal:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+QScrollBar::add-line:horizontal {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+    width: 16px;
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::right-arrow:horizontal {
+    background: {{ SCROLLBAR_HANDLE }};
+    border-radius: 4px;
+    margin: 2px;
+    image: none;
+}
+
+QScrollBar::right-arrow:horizontal:hover {
+    background: {{ SCROLLBAR_HANDLE_HOVER }};
+}
+
+/* Weichzeichnung bei Nichtbedarf (needed="false") */
 QScrollBar:vertical[needed="false"] {
     background-color: transparent;
     background: transparent;
@@ -496,110 +585,26 @@ QScrollBar::handle:vertical[needed="false"] {
     background: transparent;
 }
 
-/* =========================================================
-   Dialoge und MessageBoxen (Dark Mode)
-   ========================================================= */
-QDialog, QMessageBox {
-    background-color: rgb(13, 13, 13);
-    color: #ECECEC;
-}
 
-QDialog QLabel, QMessageBox QLabel {
-    color: #ECECEC;
-    font-size: 13px;
-}
-
-/* Sicherstellen, dass Buttons in QMessageBoxen dem Design entsprechen */
-QDialog QPushButton, QMessageBox QPushButton {
-    background-color: #304C7A;
-    color: #ECECEC;
-    border: none;
-    padding: 6px 16px;
-    border-radius: 2px;
-    font-size: 13px;
-    min-width: 75px;
-}
-
-QDialog QPushButton:hover, QMessageBox QPushButton:hover {
-    background-color: #5b7a9e;
-}
-
-/* =========================================================
-   Tabellen Checkbox-Indikatoren (High Contrast & Custom Checkmark)
-   ========================================================= */
-QTableView::indicator, QTreeView::indicator {
-    width: 14px;
-    height: 14px;
-    border: 1px solid #5b7a9e;
-    background-color: #ffffff;
-    border-radius: 0px;
-}
-
-/* Wenn markiert, blenden wir unser schönes Starfield-Blaues SVG ein */
-QTableView::indicator:checked, QTreeView::indicator:checked {
-    image: url(Graphics/Icon_Check.svg);
-    background-color: #D7A64B;
-    border: 1px solid #5b7a9e;
-}
-
-/* Wenn unmarkiert, stellen wir sicher, dass es ein leerer weißer Kasten bleibt */
-QTableView::indicator:unchecked, QTreeView::indicator:unchecked {
-    image: none;
-    background-color: #ffffff;
-}
-
-/* Selektions-Status: Etwas kräftigerer Rahmen bei ausgewählter Zeile */
-QTableView::indicator:selected, QTreeView::indicator:selected {
-    border: 1px solid #ffffff;
-}
-
-/* Checkbox Typ 0 im Konfliktbereich (LOH Tabellen-Standard) */
-QCheckBox#chk_show_type_0 {
-    color: #ECECEC;
-    font-family: "Segoe UI", Arial;
-    font-size: 13px;
-    spacing: 8px;
-    background: transparent;
-}
-QCheckBox#chk_show_type_0::indicator {
-    width: 14px;
-    height: 14px;
-    background-color: #ffffff;
-    border: 1px solid #5b7a9e;
-    border-radius: 0px;
-}
-QCheckBox#chk_show_type_0::indicator:hover {
-    border: 1px solid #D7A64B;
-}
-QCheckBox#chk_show_type_0::indicator:checked {
-    background-color: #D7A64B;
-    image: url(Graphics/Icon_Check.svg);
-    border: 1px solid #5b7a9e;
-}
-QCheckBox#chk_show_type_0::indicator:unchecked {
-    background-color: #ffffff;
-    image: none;
-}
-
-/* =========================================================
-   Einstellungen Seite (Page_Settings)
-   ========================================================= */
+/* =========================================================================
+   Abschnitt 8 – Seiten-Spezifische Ergänzungen (Page_Settings, Page_LoadOrder)
+   ========================================================================= */
 #Page_Settings QLabel#lbl_setting_title {
-    color: #ECECEC;
-    font-size: 22px;
+    color: {{ TEXT_ON_DARK }};
+    font-size: 20px;
     font-weight: bold;
     margin: 0px;
     padding: 0px;
 }
 
 #Page_Settings #detail_view QLineEdit {
-    font-size: 14px;
+    font-size: {{ FONT_SIZE_BASE }};
 }
 
 #Page_Settings #detail_view QLineEdit:read-only {
-    background-color: #D7A64B;
+    background-color: {{ SURFACE_READONLY }};
     color: #000000;
-    font-size: 14px;
+    font-size: {{ FONT_SIZE_BASE }};
 }
 
 #Page_Settings QTreeView#settings_tree {
@@ -607,9 +612,9 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
     alternate-background-color: #1e1e1e;
     color: #cccccc;
     border: none;
-    border-right: 1px solid #2b2b2b;
+    border-right: 1px solid {{ BORDER_DARK }};
     outline: none;
-    font-size: 14px;
+    font-size: {{ FONT_SIZE_BASE }};
     padding: 6px 0px;
 }
 
@@ -628,12 +633,11 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
 #Page_Settings QTreeView#settings_tree::item:selected,
 #Page_Settings QTreeView#settings_tree::item:selected:active,
 #Page_Settings QTreeView#settings_tree::item:selected:!active {
-    background-color: #304C7A;
+    background-color: {{ ACCENT_ACTION }};
     color: #ffffff;
     font-weight: bold;
 }
 
-/* Kompakte Icon-Only Buttons für Einstellungen */
 #Page_Settings QPushButton#btn_browse,
 #Page_Settings QPushButton#btn_browse_data,
 #Page_Settings QPushButton#btn_reset_data_path,
@@ -643,58 +647,7 @@ QCheckBox#chk_show_type_0::indicator:unchecked {
     text-align: center;
 }
 
-/* Gefahrenbutton (Starfield-Rot, formatiert wie Tools-Seite) */
-QPushButton#btn_danger {
-    background-color: #C72138;
-    color: #ECECEC;
-    border: none;
-    border-radius: 2px;
-    min-height: 40px;
-    padding: 4px 8px;
-    text-align: left;
-}
-
-QPushButton#btn_danger:hover {
-    background-color: #E03048;
-}
-
-QPushButton#btn_danger:pressed {
-    background-color: #A0182B;
-}
-
-QPushButton#btn_danger:disabled, QPushButton[variant="red"]:disabled {
-    background-color: #422226;
-    color: #888888;
-}
-
-/* Grüner Aktionsbutton (Starfield-Grün, z. B. Profil aktivieren) */
-QPushButton#btn_success, QPushButton#btn_activate_profile, QPushButton[variant="green"] {
-    background-color: #1F7343;
-    color: #ECECEC;
-    border: none;
-    border-radius: 2px;
-    padding: 4px 8px;
-    text-align: left;
-}
-
-QPushButton#btn_success:hover, QPushButton#btn_activate_profile:hover, QPushButton[variant="green"]:hover {
-    background-color: #2EA44F;
-}
-
-QPushButton#btn_success:pressed, QPushButton#btn_activate_profile:pressed, QPushButton[variant="green"]:pressed {
-    background-color: #165A33;
-}
-
-QPushButton#btn_success:disabled, QPushButton#btn_activate_profile:disabled, QPushButton[variant="green"]:disabled {
-    background-color: #1E5232;
-    color: #888888;
-}
-
-/* Profilauswahl in Page_LoadOrder mit ergonomischer Zeilenhöhe */
 #tree_profile::item {
     height: 26px;
     padding: 0px;
 }
-
-
-

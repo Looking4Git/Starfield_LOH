@@ -105,32 +105,8 @@ class BuildReleaseWindow(QWidget):
         if os.path.exists(update_icon):
             self.ui.btn_suggest_title.setIcon(QIcon(update_icon))
 
-        # Checkbox Styling für Beta (Design_Rules konform)
-        check_icon = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
-        self.ui.chk_beta.setStyleSheet(f"""
-            QCheckBox {{
-                color: #e0e0e0;
-                font-size: 13px;
-                spacing: 6px;
-            }}
-            QCheckBox::indicator {{
-                width: 14px;
-                height: 14px;
-                border: 1px solid #5b7a9e;
-                border-radius: 2px;
-                background-color: #ffffff;
-            }}
-            QCheckBox::indicator:hover {{
-                border-color: #d7a64b;
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: #d7a64b;
-                image: url({check_icon});
-            }}
-            QCheckBox::indicator:unchecked {{
-                background-color: #ffffff;
-            }}
-        """)
+        # Checkbox für Beta
+        pass
 
         # Validatoren für Versionierung (Neu / Ziel)
         int_val = QIntValidator(0, 999, self)
@@ -717,7 +693,8 @@ class BuildReleaseWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    setup_starfield_theme(app)
     win = BuildReleaseWindow()
+    setup_starfield_theme(app, win)
     win.show()
     sys.exit(app.exec())

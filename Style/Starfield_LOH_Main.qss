@@ -1,61 +1,63 @@
+/* =========================================================
+   Starfield LOH – Hauptfenster & Navigation (Main QSS)
+   ========================================================= */
+
 /* Hauptfenster Hintergrund */
 QMainWindow, QStackedWidget#content_area {
-    background-color: rgb(13, 13, 13);
-    color: #eeeeee;
+    background-color: {{ WINDOW_BG }};
+    color: {{ TEXT_ON_DARK }};
 }
 
 /* Sidebar Bereich */
 QFrame#sidebar {
-    background-color: rgb(33, 33, 33);
-    border-right: 1px solid #444444;
+    background-color: {{ PANEL_BG }};
+    border-right: 1px solid {{ BORDER_SUBTLE }};
 }
 
 /* Unsere Custom Menü-Buttons */
 QPushButton#menu_button {
     background-color: transparent;
-    color: #bbbbbb;
+    color: {{ TEXT_ON_DARK_MUTED }};
     border: none;
     font-size: 16px;
-    font-family: "Segoe UI", Arial;
+    font-family: {{ FONT_FAMILY }};
 
     /* --- ZENTRALE DEFINITION DER ABSTÄNDE --- */
-    /* Abstand vom linken Rand zum Icon */
     qproperty-padding_left: 16;
-    
-    /* Abstand vom Icon zum Text */
     qproperty-spacing_text: 16; 
-}
-
-QPushButton#menu_button:hover {
-    background-color: #444444;
-    color: white;
 }
 
 QPushButton#menu_button QLabel {
     background: transparent;
+    color: {{ TEXT_ON_DARK_MUTED }};
+}
+
+QPushButton#menu_button:hover {
+    background-color: {{ BORDER_SUBTLE }};
+    color: white;
 }
 
 QLabel {
-    color: #888888;
+    color: {{ TEXT_ON_DARK_MUTED }};
 }
 
 /* Aktiver Menü-Button */
 QPushButton#menu_button[active="true"] {
-    background-color: #304C7A; /* Starfield Blau */
+    background-color: {{ ACCENT_ACTION }};
 }
 
 QPushButton#menu_button[active="true"] QLabel {
-    color: #ECECEC;
+    color: {{ TEXT_ON_DARK }};
 }
 
 /* Trennkante zwischen Hauptfenster und angedockten Fenstern */
 QMainWindow::separator {
-    background-color: #1a1a1a;
+    background-color: {{ BORDER_DARK }};
     width: 4px;
     margin: 0px;
     padding: 0px;
 }
 
 QMainWindow::separator:hover {
-    background-color: #304C7A; /* Starfield Blau als klarer visueller Anker */
-}
+    background-color: {{ ACCENT_ACTION }};
+}

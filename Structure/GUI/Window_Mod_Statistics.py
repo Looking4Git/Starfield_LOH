@@ -8,6 +8,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
+from Structure.GUI.UI_Theme import set_dark_title_bar
 from Structure.Controls.LOH_Control_CollapsibleSection import LOH_Control_CollapsibleSection
 from Structure.GUI.Section_Mod_Statistics_Comparison import Section_Mod_Statistics_Comparison
 from Structure.GUI.Section_Mod_Statistics_Category import Section_Mod_Statistics_Category
@@ -205,17 +206,8 @@ class Window_Mod_Statistics(QDockWidget):
 
     def _apply_dark_title_bar(self):
         """Erzwingt Windows-11 Dark Mode für die native Titelleiste im Schwebemodus."""
-        if self.isFloating() and sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = int(self.winId())
-                rendering_policy = ctypes.c_int(1)
-                # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Windows 11 & neuere Windows 10)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-                # DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19 (Windows 10 ältere Builds)
-                set_window_attribute(hwnd, 19, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
+        if self.isFloating():
+            set_dark_title_bar(self)
 
     def showEvent(self, event):
         super().showEvent(event)

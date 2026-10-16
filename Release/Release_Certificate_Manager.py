@@ -15,6 +15,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Structure.Paths import APP_ROOT, RELEASE_DIR, GRAPHICS_DIR
+from Structure.GUI.UI_Theme import set_dark_title_bar
 
 CERTS_DIR = os.path.join(RELEASE_DIR, "certs")
 DEFAULT_PFX_PATH = os.path.join(CERTS_DIR, "Starfield_LOH_CodeSign.pfx")
@@ -334,14 +335,7 @@ try:
             """)
 
             # Windows 11 Dark Mode Titelleiste aktivieren
-            if sys.platform == "win32":
-                try:
-                    import ctypes
-                    hwnd = self.winId().__int__()
-                    policy = ctypes.c_int(1)
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(policy), ctypes.sizeof(policy))
-                except Exception:
-                    pass
+            set_dark_title_bar(self)
 
             app_icon = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
             if os.path.exists(app_icon):
@@ -484,6 +478,10 @@ try:
                 self.lbl_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
                 self.btn_create.setEnabled(True)
 
+        def showEvent(self, event):
+            super().showEvent(event)
+            set_dark_title_bar(self)
+
     def open_certificate_dialog(parent=None, pfx_path=DEFAULT_PFX_PATH) -> bool:
         """Öffnet den grafischen PySide6-Dialog zur Zertifikatserstellung."""
         app = QApplication.instance()
@@ -493,6 +491,8 @@ try:
             owns_app = True
 
         dlg = CertificatePasswordDialog(parent=parent, pfx_path=pfx_path)
+        from Structure.GUI.UI_Theme import setup_starfield_theme
+        setup_starfield_theme(app, dlg)
         res = dlg.exec()
         return res == QDialog.DialogCode.Accepted
 

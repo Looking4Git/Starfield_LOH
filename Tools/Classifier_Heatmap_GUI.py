@@ -16,6 +16,7 @@ if PROJECT_ROOT not in sys.path:
 
 from Structure.Database import get_db_connection
 from Structure.Starfield_Get_Data import MOD_POINTER_COLS
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 KEY_COLS = [
     "QUST", "CELL", "FURN", "SPEL", "NPC_", "LIGH", "INNR", 
@@ -288,9 +289,14 @@ class HeatmapWindow(QMainWindow):
             if search_term and cluster_visible:
                 cluster_item.setExpanded(True)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
+
 def main():
     app = QApplication(sys.argv)
     window = HeatmapWindow()
+    setup_starfield_theme(app, window)
     window.show()
     sys.exit(app.exec())
 

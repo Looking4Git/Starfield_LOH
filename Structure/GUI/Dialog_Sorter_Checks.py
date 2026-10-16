@@ -8,19 +8,7 @@ from PySide6.QtWidgets import QMessageBox, QWidget
 from PySide6.QtGui import QIcon
 
 from Structure.Database import check_sorter_prerequisites, apply_all_classifier_categories
-
-
-def _apply_dark_title_bar(widget: QWidget):
-    """Aktiviert die dunkle Windows 11 Titelleiste für Dialogfenster."""
-    if sys.platform == "win32":
-        try:
-            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-            hwnd = widget.winId().__int__()
-            rendering_policy = ctypes.c_int(1)
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-        except Exception:
-            pass
+from Structure.GUI.UI_Theme import set_dark_title_bar
 
 
 def _show_custom_message_box(
@@ -42,7 +30,7 @@ def _show_custom_message_box(
     if parent and parent.windowIcon():
         msg_box.setWindowIcon(parent.windowIcon())
 
-    _apply_dark_title_bar(msg_box)
+    set_dark_title_bar(msg_box)
 
     btn_map = {}
     default_btn = None

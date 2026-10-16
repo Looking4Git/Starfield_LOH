@@ -6,59 +6,18 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel,
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 class ProfileDialog(QDialog):
     def __init__(self, parent=None, title_text="Neues Profil", name_val="", desc_val=""):
         super().__init__(parent)
         self.setWindowTitle(title_text)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowCloseButtonHint)
-        self.setWindowIcon(QIcon(os.path.join(GRAPHICS_DIR, "Icon_App.svg")))
         self.setModal(True)
         self.setFixedWidth(600)
         
-        # Dunklen Windows-Titelbalken aktivieren
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
-        
-        # Dunkler Hintergrund wie das Hauptfenster
-        self.setStyleSheet("""
-            QDialog {
-                background-color: rgb(13, 13, 13);
-            }
-            QLabel {
-                color: #e0e0e0;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-            QLineEdit, QTextEdit {
-                background-color: #ECECEC;
-                color: #000000;
-                border: 1px solid #888888;
-                padding: 4px 8px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-            QPushButton {
-                background-color: #304C7A;
-                color: #ECECEC;
-                border: none;
-                padding: 6px 16px;
-                border-radius: 2px;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5b7a9e;
-            }
-        """)
+        # Zentrales Theme und Titelleiste aktivieren
+        setup_starfield_theme(window=self)
 
         # Hauptlayout - Exakt abgestimmt auf den Detail-View
         self.main_layout = QVBoxLayout(self)
@@ -126,6 +85,10 @@ class ProfileDialog(QDialog):
 
         # Auto-Größenanpassung
         self.adjustSize()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
 
     def get_values(self):
         return self.inp_name.text().strip(), self.inp_desc.toPlainText().strip()

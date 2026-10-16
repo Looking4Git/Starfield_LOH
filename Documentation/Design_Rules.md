@@ -439,15 +439,19 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
 
 ---
 
-## 10. Immersive Windows Dark Title Bar (DWM-Vorgaben)
+## 10. Immersive Windows Dark Title Bar (DWM- & Qt-Farbschema-Vorgaben)
 
-1. **DWM-Attribut-Standards (`DwmSetWindowAttribute`):**
-   * Zur Aktivierung der nativen dunklen Titelleiste unter Windows wird die Desktop Window Manager (DWM) API verwendet:
+1. **Zentrales Qt-Farbschema (`QStyleHints.setColorScheme`):**
+   * Ab Qt 6.5 steuert Qt unter Windows die Titelleisten aller Fenster (`DWMWA_USE_IMMERSIVE_DARK_MODE`) nativ anhand des eingestellten Farbschemas.
+   * In `UI_Theme.py` wird das Schema über `QGuiApplication.styleHints().setColorScheme(Qt.ColorScheme.Dark)` (Modi `mixed` und `dark`) bzw. `Qt.ColorScheme.Light` (Modus `light`) als Single Source of Truth geführt.
+2. **DWM-Fallback (`DwmSetWindowAttribute`):**
+   * Für maximale Kompatibilität mit früheren Builds bleibt `set_dark_title_bar(window)` als Fallback aktiv:
      * Primärattribut: `DWMWA_USE_IMMERSIVE_DARK_MODE = 20` (Windows 11 sowie Windows 10 ab Build 18985 / 19041+).
      * Fallback-Attribut: `DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19` (frühere Windows 10 Builds).
-2. **Verbindliche Re-Aktivierung in `showEvent`:**
-   * **Problem:** Wird `_set_dark_title_bar(widget)` ausschließlich im Konstruktor `__init__` aufgerufen, ist das native Windows-Fenster-Handle (`HWND`) zum Zeitpunkt des Aufrufs häufig noch nicht final vom Fenstermanager gemappt. Zudem setzt das Windows DWM die Non-Client-Attribute bei bestimmten Fenstereignissen (Minimieren/Wiederherstellen, Aktivierungswechsel oder verzögertes Rendering bei `QDialog.show()` / `exec()`) auf den Systemstandard (hell) zurück.
-   * **Architektur-Regel:** Jedes Dialog- oder Toolfenster **muss zwingend die Methode `showEvent(self, event)` überschreiben** und darin `_set_dark_title_bar(self)` aufrufen. Dies garantiert, dass die Titelleiste bei jedem Anzeigen, Wiederherstellen und Aktivieren des Fensters dauerhaft im Dark Mode verbleibt.
+     * Sofortiges Neuzeichnen der Non-Client-Bereiche über `SetWindowPos` mit `SWP_FRAMECHANGED`.
+3. **Verbindliche Re-Aktivierung in `showEvent`:**
+   * **Problem:** Wird `_set_dark_title_bar(widget)` ausschließlich im Konstruktor `__init__` aufgerufen, ist das native Windows-Fenster-Handle (`HWND`) zum Zeitpunkt des Aufrufs häufig noch nicht final vom Fenstermanager gemappt. Zudem setzt das Windows DWM die Non-Client-Attribute bei bestimmten Fenstereignissen auf den Systemstandard zurück.
+   * **Architektur-Regel:** Jedes Dialog- oder Toolfenster **muss zwingend die Methode `showEvent(self, event)` überschreiben** und darin `set_dark_title_bar(self)` aufrufen. Dies garantiert, dass die Titelleiste bei jedem Anzeigen, Wiederherstellen und Aktivieren des Fensters dauerhaft im korrekten Modus verbleibt.
 
 ---
 
@@ -478,18 +482,37 @@ Für den Anwendungsstart von `Starfield_LOH.pyw` ist ein eigenständiges, animie
 
 ---
 
-## 12. Zentrales UI-Theme & Standalone-Tool-Standard (`Structure/GUI/UI_Theme.py`)
+## 12. Zentrales UI-Theme, Design-Token-Engine & Standalone-Tool-Standard (`Structure/GUI/UI_Theme.py`)
 
-Um eine einheitliche Optik und fehlerfreie Rollbalken-Kaskadierung über alle Fenster des Projekts hinweg sicherzustellen, gilt ein verbindlicher Theme-Standard:
+Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umschaltbarkeit über alle Fenster des Projekts hinweg sicherzustellen, gilt ein verbindlicher Theme-Standard:
 
 1. **Single Source of Truth (`setup_starfield_theme`):**
    * Jedes Hauptfenster, jeder Dialog und jedes Standalone-Tool (z. B. `Build_Release.py`, `Classifier_Heatmap_GUI.py`) bindet verbindlich [Structure/GUI/UI_Theme.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme.py) ein und ruft bei der Initialisierung `setup_starfield_theme(app=None, window=self)` auf.
-2. **Die 5 Kernbausteine von `UI_Theme`:**
+2. **Design-Token-Engine & QSS-Compiler:**
+   * Da Qt QSS keine nativen CSS-Variablen unterstützt, stellt `UI_Theme.py` einen semantischen Token-Compiler bereit (`render_theme_stylesheet`).
+   * Alle Stylesheets (`Starfield_LOH_Main.qss`, `Starfield_LOH_Pages.qss`) verwenden semantische Tokens (`{{ WINDOW_BG }}`, `{{ SURFACE_PRIMARY }}`, `{{ ACCENT_ACTION }}`, `{{ FONT_BASE }}`).
+   * **3 unterstützte Design-Modi:**
+     * **`Mixed` (Standard / 1:1 Ist-Zustand):** Dunkles Fenster (`#0D0D0D`), helle Inhaltsflächen/Tabellen (`#ECECEC`), Starfield Gold & Navy Akzente.
+     * **`Dark Mode`:** Vollständiger Sci-Fi Dark Mode mit abgedunkelten Inhaltsflächen (`#161B22`).
+     * **`Light Mode`:** Klassische helle Oberfläche (`#F5F6F8`) mit angepassten Kontrasten.
+   * Umschaltbar zur Laufzeit in `Page_Settings_General` und persistent in `Starfield_LOH_Settings.json` unter `"ui": {"theme_mode": "..."}`.
+3. **Die Kernbausteine von `UI_Theme`:**
    * **Fusion-Render-Engine:** `app.setStyle("Fusion")` stellt sicher, dass Qt plattformunabhängig alle QSS-Regeln fehlerfrei interpretiert und nicht in das native Windows-Fallback (`windowsvista`) zurückfällt.
-   * **Starfield Dark-Palette:** `get_starfield_dark_palette()` setzt `#0D0D0D` als globale Basisfarbe und verhindert weißes Aufflackern beim Laden.
-   * **Kaskadierendes Stylesheet auf `QApplication`-Ebene:** `get_starfield_stylesheet()` kombiniert `Starfield_LOH_Main.qss` und `Starfield_LOH_Pages.qss` und übergibt es direkt an `QApplication.instance().setStyleSheet(...)`. Dadurch erben alle Kind- und Sub-Controls (insbesondere `QScrollBar` in `QPlainTextEdit` und `QTreeView`) nahtlos das Sci-Fi-Dark-Design.
+   * **Dynamische System-Palette:** `get_starfield_palette(theme_mode)` setzt die globale Basisfarbe und verhindert weißes Aufflackern beim Laden.
+   * **Kaskadierendes Stylesheet auf `QApplication`-Ebene:** `get_starfield_stylesheet(theme_mode)` kompiliert `Starfield_LOH_Main.qss` und `Starfield_LOH_Pages.qss` und übergibt das Ergebnis direkt an `QApplication.instance().setStyleSheet(...)`. Dadurch erben alle Kind- und Sub-Controls (insbesondere `QScrollBar` in `QPlainTextEdit` und `QTreeView`) nahtlos das Sci-Fi-Dark-Design.
    * **Mausrad-Schutz:** Automatische Registrierung des Dropdown-Mausradschutzes (`setup_dropdown_wheel_guard`).
-   * **Fenster-Attribute:** Automatische DWM-Aktivierung der dunklen Titelleiste (`set_dark_title_bar(window)`) und Zuweisung des Standard-Fenster-Icons (`Starfield_LOH.ico`).
-3. **Verbot von unselektierten Container-Stylesheets:**
+   * **Fenster-Attribute:** Automatische DWM-Aktivierung der Titelleiste (`set_dark_title_bar(window)`) mit Fallback 19 und Zuweisung des Standard-Fenster-Icons (`Starfield_LOH.ico`).
+4. **Strukturierung von `Starfield_LOH_Pages.qss`:**
+   * Das zentrale Stylesheet ist strikt in 8 logische Abschnitte gegliedert:
+     1. Basis & Typografie
+     2. Tabellen & Bäume (Master-View)
+     3. Standard-Steuerelemente & Formulare (Inputs, Dropdowns, Checkboxen)
+     4. Buttons & Aktions-Schaltflächen
+     5. Detail-Views & Layout-Komponenten
+     6. Dialoge & Modale Fenster
+     7. Rollbalken (Dark Mode Scrollbars)
+     8. Seiten-Spezifische Ergänzungen
+5. **Verbot von unselektierten Container-Stylesheets:**
    * In `.ui`-Dateien und im Python-Code dürfen Container-Widgets (wie das Root-Widget) niemals unselektierte Stylesheet-Deklarationen wie `background-color: #ffffff;` oder `background-color: #141414;` ohne konkreten Typ- oder Objekt-Selektor erhalten, da Qt diese Eigenschaften sonst auf interne Scrollbar-Komponenten vererbt.
+
 

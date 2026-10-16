@@ -12,7 +12,8 @@
     "y": 100
   },
   "ui": {
-    "sidebar_collapsed": false
+    "sidebar_collapsed": false,
+    "theme_mode": "mixed"
   },
   "paths": {
     "starfield_data": "",

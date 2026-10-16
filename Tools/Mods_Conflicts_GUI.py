@@ -17,6 +17,7 @@ if PROJECT_ROOT not in sys.path:
 
 from Structure.Paths import DB_FILE
 from Structure.Mods_Conflicts_Analyzer import analyze_conflicts, CONFLICT_TYPES
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 
 class HexNumericStandardItem(QStandardItem):
@@ -745,10 +746,15 @@ class ModsConflictsInspectorWindow(QMainWindow):
         else:
             QMessageBox.critical(self, "Fehler", "Die Konfliktanalyse ist fehlgeschlagen. Details im Logfile.")
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
+
 
 def main():
     app = QApplication(sys.argv)
     window = ModsConflictsInspectorWindow()
+    setup_starfield_theme(app, window)
     window.show()
     sys.exit(app.exec())
 

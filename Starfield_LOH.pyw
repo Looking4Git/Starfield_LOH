@@ -570,6 +570,12 @@ def setup_main_logging():
         print(f"Konnte Haupt-Logging nicht initialisieren: {e}")
 
 if __name__ == "__main__":
+    # Slave-Modus für ausgelagerten Splash Screen abfangen (verhindert Fork Bomb in kompilierter EXE)
+    if "--splash-slave" in sys.argv or "--slave" in sys.argv:
+        from Structure.GUI.Window_Splash_Screen import run_splash_slave
+        run_splash_slave()
+        sys.exit(0)
+
     setup_main_logging()
     logging.info("Starfield Load Order Helper gestartet.")
 

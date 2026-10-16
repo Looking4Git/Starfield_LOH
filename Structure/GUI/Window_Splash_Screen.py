@@ -311,19 +311,44 @@ class SplashScreenController:
             main_window.activateWindow()
 
 
+def run_splash_slave():
+    """Startet die isolierte Splash-Screen-GUI im Slave-Subprozess und lauscht auf stdin."""
+    app = QApplication.instance()
+    if not app:
+        app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    splash = Window_SplashScreen()
+    splash.show()
+
+    reader = StdinReaderThread()
+    reader.status_received.connect(splash.set_status)
+    reader.finish_received.connect(splash.finish)
+    reader.finish_received.connect(app.quit)
+    reader.start()
+
+    sys.exit(app.exec())
+
+
 def start_splash_screen():
     """
     Startet den animierten Splash Screen in einem unabhängigen Subprozess mit eigenem Qt-Event-Loop.
     Liefert einen SplashScreenController oder als Fallback die synchrone Window_SplashScreen-Instanz.
     """
     script_path = os.path.abspath(__file__)
+    is_frozen = getattr(sys, "frozen", False)
 
-    # Bevorzuge pythonw falls vorhanden, um Konsolenfenster-Flackern auszuschließen
-    exe = sys.executable
-    if exe.lower().endswith("python.exe"):
-        w_candidate = exe[:-10] + "pythonw.exe"
-        if os.path.exists(w_candidate):
-            exe = w_candidate
+    if is_frozen:
+        # In PyInstaller-Distribution ist sys.executable die kompilierte Starfield_LOH.exe.
+        # Es darf kein Skriptpfad übergeben werden; stattdessen Flag direkt an die EXE übergeben.
+        cmd = [sys.executable, "--splash-slave"]
+    else:
+        # Im Python-Entwicklungsmodus bevorzugen wir pythonw falls vorhanden
+        exe = sys.executable
+        if exe.lower().endswith("python.exe"):
+            w_candidate = exe[:-10] + "pythonw.exe"
+            if os.path.exists(w_candidate):
+                exe = w_candidate
+        cmd = [exe, script_path, "--slave"]
 
     startupinfo = None
     creationflags = 0
@@ -334,7 +359,6 @@ def start_splash_screen():
         if hasattr(subprocess, "CREATE_NO_WINDOW"):
             creationflags = subprocess.CREATE_NO_WINDOW
 
-    cmd = [exe, script_path, "--slave"]
     try:
         proc = subprocess.Popen(
             cmd,
@@ -356,19 +380,8 @@ def start_splash_screen():
 # Standalone-Vorschau & Testmodus
 # ==============================================================================
 if __name__ == "__main__":
-    if "--slave" in sys.argv:
-        app = QApplication(sys.argv)
-        app.setStyle("Fusion")
-        splash = Window_SplashScreen()
-        splash.show()
-
-        reader = StdinReaderThread()
-        reader.status_received.connect(splash.set_status)
-        reader.finish_received.connect(splash.finish)
-        reader.finish_received.connect(app.quit)
-        reader.start()
-
-        sys.exit(app.exec())
+    if "--slave" in sys.argv or "--splash-slave" in sys.argv:
+        run_splash_slave()
     else:
         app = QApplication(sys.argv)
         app.setStyle("Fusion")

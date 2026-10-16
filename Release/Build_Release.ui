@@ -14,7 +14,7 @@
    <string>Starfield LOH - Release &amp; Version Manager</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color: #141414; color: #ECECEC;</string>
+   <string notr="true">QWidget#BuildReleaseWindow { background-color: #141414; color: #ECECEC; }</string>
   </property>
   <layout class="QVBoxLayout" name="main_layout">
    <property name="spacing">
@@ -133,7 +133,7 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
+        <string notr="true">QPlainTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px; }</string>
        </property>
       </widget>
      </item>
@@ -1287,7 +1287,7 @@
           </sizepolicy>
          </property>
          <property name="styleSheet">
-          <string notr="true">background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px;</string>
+          <string notr="true">QPlainTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px; }</string>
          </property>
         </widget>
        </item>

@@ -527,29 +527,12 @@ class StarfieldLOH(QMainWindow):
             self.animation.finished.connect(lambda: [btn.set_compact_mode(False) for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_settings, self.btn_toggle]])
 
     def set_dark_title_bar(self):
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception: pass
+        from Structure.GUI.UI_Theme import set_dark_title_bar
+        set_dark_title_bar(self)
 
     def load_stylesheet(self):
-        combined_qss = ""
-        main_qss = os.path.join(self.style_path, "Starfield_LOH_Main.qss")
-        pages_qss = os.path.join(self.style_path, "Starfield_LOH_Pages.qss")
-        
-        # Main-Stylesheet laden
-        if os.path.exists(main_qss):
-            with open(main_qss, "r", encoding="utf-8") as f:
-                combined_qss += f.read() + "\n"
-                
-        # Pages-Stylesheet anhängen
-        if os.path.exists(pages_qss):
-            with open(pages_qss, "r", encoding="utf-8") as f:
-                combined_qss += f.read()
-                
+        from Structure.GUI.UI_Theme import get_starfield_stylesheet
+        combined_qss = get_starfield_stylesheet()
         if combined_qss:
             QApplication.instance().setStyleSheet(combined_qss)
 
@@ -580,24 +563,8 @@ if __name__ == "__main__":
     logging.info("Starfield Load Order Helper gestartet.")
 
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    setup_dropdown_wheel_guard(app)
-
-    # Dunkle Basisfarbe setzen (#0D0D0D), um Aufflackern der hellen Systempalette zu verhindern
-    palette = QPalette()
-    dark_bg = QColor("#0D0D0D")
-    palette.setColor(QPalette.ColorRole.Window, dark_bg)
-    palette.setColor(QPalette.ColorRole.Base, dark_bg)
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#141414"))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor("#E0E0E0"))
-    palette.setColor(QPalette.ColorRole.Text, QColor("#E0E0E0"))
-    palette.setColor(QPalette.ColorRole.Button, QColor("#1A1A1A"))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#E0E0E0"))
-    app.setPalette(palette)
-
-    ico_path = os.path.join(os.path.dirname(__file__), "Graphics", "Starfield_LOH.ico")
-    if os.path.exists(ico_path):
-        app.setWindowIcon(QIcon(ico_path))
+    from Structure.GUI.UI_Theme import setup_starfield_theme
+    setup_starfield_theme(app)
 
     # 1. Animiertes Ladefenster (Splash Screen) direkt für sofortiges visuelles Feedback anzeigen
     splash = start_splash_screen()

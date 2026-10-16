@@ -476,3 +476,20 @@ Für den Anwendungsstart von `Starfield_LOH.pyw` ist ein eigenständiges, animie
      4. Submodul-Aufbau (`Page_Mods`, `Page_LoadOrder`, `Page_Update`, `Page_Tools`, `Page_Settings`, `Window_Mod_Statistics`)
    * Sobald das Hauptfenster fertig konstruiert und gerendert ist: `window.show()`, `splash.finish(window)`.
 
+---
+
+## 12. Zentrales UI-Theme & Standalone-Tool-Standard (`Structure/GUI/UI_Theme.py`)
+
+Um eine einheitliche Optik und fehlerfreie Rollbalken-Kaskadierung über alle Fenster des Projekts hinweg sicherzustellen, gilt ein verbindlicher Theme-Standard:
+
+1. **Single Source of Truth (`setup_starfield_theme`):**
+   * Jedes Hauptfenster, jeder Dialog und jedes Standalone-Tool (z. B. `Build_Release.py`, `Classifier_Heatmap_GUI.py`) bindet verbindlich [Structure/GUI/UI_Theme.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme.py) ein und ruft bei der Initialisierung `setup_starfield_theme(app=None, window=self)` auf.
+2. **Die 5 Kernbausteine von `UI_Theme`:**
+   * **Fusion-Render-Engine:** `app.setStyle("Fusion")` stellt sicher, dass Qt plattformunabhängig alle QSS-Regeln fehlerfrei interpretiert und nicht in das native Windows-Fallback (`windowsvista`) zurückfällt.
+   * **Starfield Dark-Palette:** `get_starfield_dark_palette()` setzt `#0D0D0D` als globale Basisfarbe und verhindert weißes Aufflackern beim Laden.
+   * **Kaskadierendes Stylesheet auf `QApplication`-Ebene:** `get_starfield_stylesheet()` kombiniert `Starfield_LOH_Main.qss` und `Starfield_LOH_Pages.qss` und übergibt es direkt an `QApplication.instance().setStyleSheet(...)`. Dadurch erben alle Kind- und Sub-Controls (insbesondere `QScrollBar` in `QPlainTextEdit` und `QTreeView`) nahtlos das Sci-Fi-Dark-Design.
+   * **Mausrad-Schutz:** Automatische Registrierung des Dropdown-Mausradschutzes (`setup_dropdown_wheel_guard`).
+   * **Fenster-Attribute:** Automatische DWM-Aktivierung der dunklen Titelleiste (`set_dark_title_bar(window)`) und Zuweisung des Standard-Fenster-Icons (`Starfield_LOH.ico`).
+3. **Verbot von unselektierten Container-Stylesheets:**
+   * In `.ui`-Dateien und im Python-Code dürfen Container-Widgets (wie das Root-Widget) niemals unselektierte Stylesheet-Deklarationen wie `background-color: #ffffff;` oder `background-color: #141414;` ohne konkreten Typ- oder Objekt-Selektor erhalten, da Qt diese Eigenschaften sonst auf interne Scrollbar-Komponenten vererbt.
+

@@ -27,7 +27,7 @@ from PySide6.QtCore import Qt, QFile, QUrl
 from PySide6.QtGui import QIcon, QIntValidator, QDesktopServices
 from PySide6.QtUiTools import QUiLoader
 
-from Structure.Paths import GRAPHICS_DIR, APP_ROOT, RELEASE_DIR, RELEASE_BUILD_DIR
+from Structure.Paths import GRAPHICS_DIR, APP_ROOT, RELEASE_DIR, RELEASE_BUILD_DIR, STYLE_DIR
 from Structure.Version import (
     load_version_info, save_version_info, get_git_info, format_version_string
 )
@@ -37,6 +37,9 @@ from Release.Release_GitHub_Manager import (
     load_release_config, save_release_config, publish_github_release
 )
 from Release.Release_Notes_Builder import generate_release_notes, create_html_preview_page
+
+
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
 
 
 def _format_date(date_str: str) -> str:
@@ -57,7 +60,7 @@ class BuildReleaseWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.load_ui()
-        self.set_dark_title_bar()
+        setup_starfield_theme(window=self, custom_icon_path=os.path.join(GRAPHICS_DIR, "Icon_Tools.svg"))
         self.setup_logic()
         self.load_data()
 
@@ -75,7 +78,6 @@ class BuildReleaseWindow(QWidget):
         # Fenstereigenschaften
         self.setWindowTitle(self.ui.windowTitle())
         self.resize(760, 840)
-        self.setStyleSheet(self.ui.styleSheet())
 
         # Layout übernehmen
         from PySide6.QtWidgets import QVBoxLayout
@@ -83,21 +85,9 @@ class BuildReleaseWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.ui)
 
-        # Icon zuweisen
-        icon_path = os.path.join(GRAPHICS_DIR, "Icon_Tools.svg")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-
     def set_dark_title_bar(self):
-        """Aktiviert die dunkle Windows 11 Titelleiste."""
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = self.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
+        """Aktiviert die dunkle Windows 11 Titelleiste via zentralem UI_Theme."""
+        set_dark_title_bar(self)
 
     def setup_logic(self):
         """Verknüpft Signale und Widgets aus der geladenen UI."""

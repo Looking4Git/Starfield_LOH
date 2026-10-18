@@ -852,3 +852,86 @@ QLabel#tile_text {
 QLabel#tile_text:disabled {
     color: {{ TILE_TEXT_DISABLED }};
 }
+
+/* =========================================================================
+   Abschnitt 13 – Haupt-Splitter & Begleitpanel (Dock & Floating)
+   ========================================================================= */
+QSplitter#main_splitter::handle {
+    background-color: #2b303c;
+    width: 4px;
+}
+
+QSplitter#main_splitter::handle:hover {
+    background-color: {{ ACCENT_BRAND }};
+}
+
+QWidget#dock_container {
+    background-color: #14171d;
+    border-left: 1px solid #2b303c;
+}
+
+QWidget#dock_header {
+    background-color: #1c212b;
+    border-bottom: 1px solid #2b303c;
+    min-height: 32px;
+    max-height: 32px;
+}
+
+QLabel#lbl_dock_title {
+    color: {{ TEXT_ON_DARK }};
+    font-size: 13px;
+    font-weight: bold;
+}
+
+QPushButton#btn_dock_float,
+QPushButton#btn_dock_close {
+    background-color: transparent;
+    border: none;
+    border-radius: 3px;
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QPushButton#btn_dock_float:hover {
+    background-color: #2b303c;
+    color: {{ ACCENT_BRAND }};
+}
+
+QPushButton#btn_dock_close:hover {
+    background-color: {{ STATUS_CRITICAL }};
+    color: #ffffff;
+}
+
+QWidget#floating_dock_header {
+    background-color: #1c212b;
+    border-bottom: 1px solid #2b303c;
+    min-height: 28px;
+    max-height: 28px;
+}
+
+QLabel#lbl_floating_title {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: 12px;
+    font-weight: bold;
+}
+
+QPushButton#btn_floating_redock {
+    background-color: transparent;
+    border: none;
+    border-radius: 3px;
+    min-width: 22px;
+    max-width: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    color: {{ TEXT_ON_DARK_MUTED }};
+}
+
+QPushButton#btn_floating_redock:hover {
+    background-color: #2b303c;
+    color: {{ ACCENT_BRAND }};
+}

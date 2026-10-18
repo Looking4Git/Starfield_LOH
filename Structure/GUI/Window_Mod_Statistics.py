@@ -1,7 +1,8 @@
 import os
 import sys
 import ctypes
-from PySide6.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QScrollArea, 
+from ctypes import wintypes
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QScrollArea, 
                                QSpacerItem, QSizePolicy, QApplication)
 from PySide6.QtCore import Qt, QFile, Signal, QTimer
 from PySide6.QtGui import QIcon
@@ -16,32 +17,41 @@ from Structure.GUI.Section_Mod_Statistics_Classification import Section_Mod_Stat
 from Structure.GUI.Section_Mod_Statistics_Content import Section_Mod_Statistics_Content
 from Structure.GUI.Section_Mod_Statistics_Conflicts import Section_Mod_Statistics_Conflicts
 
-class Window_Mod_Statistics(QDockWidget):
+
+class Window_Mod_Statistics(QWidget):
     """
     Hauptfenster für Mod-Analyse, Statistiken und Vergleiche.
-    Als QDockWidget nativ an das Hauptfenster andockbar, abdockbar (Floating),
-    und stufenlos in der Breite anpassbar.
+    Als eigenständiges Top-Level-Fenster mit nativer Windows-Titelleiste (Minimieren, Maximieren, Schließen)
+    und intelligentem Begleitfenster-Docking an das Hauptfenster.
     """
     category_changed = Signal(int, int, str)
+    closed = Signal()
+
     def __init__(self, parent=None, splash_callback=None):
-        super().__init__("Mod-Analyse & Statistiken", parent)
+        super().__init__(parent)
         self.setObjectName("Window_Mod_Statistics")
+        self.setWindowTitle("Mod-Analyse & Statistiken")
         self.current_mod_id = None
         self.splash_callback = splash_callback
 
-        # Dock-Eigenschaften
-        self.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea)
-        self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
-                         QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
-                         QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.min_width = 1000
-        self.setMinimumWidth(self.min_width)
+        # Standard-Geometrie & Mindestmaße
+        self.min_width = 700
+        self.min_height = 400
+        self.setMinimumSize(self.min_width, self.min_height)
         
+        # Geometrie-Variablen
+        self.target_width = 1000
+        self.target_height = 850
+        self.target_x = -1
+        self.target_y = -1
+        self.is_docked = True
+        self.docked_width = 1000  # Abwärtskompatibilität
+
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Diagram.svg")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # 1. UI dynamisch laden
+        # 1. UI dynamisch laden und in Root-Layout einbetten
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Window_Mod_Statistics.ui")
         ui_file = QFile(ui_file_path)
@@ -49,7 +59,10 @@ class Window_Mod_Statistics(QDockWidget):
         self.content_widget = loader.load(ui_file, self)
         ui_file.close()
 
-        self.setWidget(self.content_widget)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.addWidget(self.content_widget)
 
         # 2. Sections instanziieren und einbetten
         if self.splash_callback:
@@ -96,57 +109,6 @@ class Window_Mod_Statistics(QDockWidget):
             vsb.rangeChanged.connect(self.update_scrollbar_visibility)
             self.update_scrollbar_visibility(vsb.minimum(), vsb.maximum())
 
-        # Geometrie-Verwaltung (Default-Werte, überschreibbar durch Settings)
-        self.min_width = 1000
-        self.docked_width = 1000
-
-        # Dunklen Titelbalken für Floating-Modus vorbereiten
-        self.topLevelChanged.connect(self.on_top_level_changed)
-
-        # Styling für das Dock
-        self.setStyleSheet("""
-            QDockWidget {
-                color: #D7A64B;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                background-color: #0D0D0D;
-            }
-            QDockWidget::title {
-                color: #D7A64B;
-                font-weight: bold;
-                background-color: #1e1e1e;
-                text-align: left;
-                padding: 6px 10px;
-                border-bottom: 2px solid #304C7A;
-            }
-            QDockWidget::close-button, QDockWidget::float-button {
-                background-color: transparent;
-                padding: 2px;
-                border: none;
-            }
-            QDockWidget::close-button:hover, QDockWidget::float-button:hover {
-                background-color: #444444;
-                border-radius: 2px;
-            }
-            QScrollArea {
-                background-color: transparent;
-                border: none;
-            }
-            QWidget#scroll_content {
-                background-color: #0D0D0D;
-            }
-            QLabel {
-                color: #ECECEC;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-            }
-        """)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if not self.isFloating() and self.width() >= 300:
-            self.docked_width = self.width()
-
     def update_scrollbar_visibility(self, min_val, max_val):
         if not hasattr(self, 'scroll_area') or not self.scroll_area:
             return
@@ -159,20 +121,29 @@ class Window_Mod_Statistics(QDockWidget):
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.min_width = max(1000, cfg.get("min_width", 1000))
+        self.min_width = max(600, cfg.get("min_width", 800))
         self.setMinimumWidth(self.min_width)
-        self.docked_width = max(self.min_width, cfg.get("docked_width", 1000))
-        floating = cfg.get("floating", {})
-        if isinstance(floating, dict):
-            self.floating_width = floating.get("width", 640)
-            self.floating_height = floating.get("height", 760)
-            self.floating_x = floating.get("x", 300)
-            self.floating_y = floating.get("y", 200)
+        
+        self.target_width = cfg.get("width", cfg.get("docked_width", 1000))
+        self.target_height = cfg.get("height", 850)
+        self.target_x = cfg.get("x", -1)
+        self.target_y = cfg.get("y", -1)
+        self.is_docked = cfg.get("is_docked", True)
+        self.is_maximized = cfg.get("is_maximized", False)
+        self.docked_width = self.target_width
 
     def get_geometry_settings(self) -> dict:
+        is_max = self.isMaximized()
+        normal_geo = self.normalGeometry() if is_max else self.geometry()
         return {
             "min_width": self.min_width,
-            "docked_width": self.docked_width
+            "docked_width": normal_geo.width(),
+            "width": normal_geo.width(),
+            "height": normal_geo.height(),
+            "x": normal_geo.x(),
+            "y": normal_geo.y(),
+            "is_docked": getattr(self, "is_docked", True),
+            "is_maximized": is_max
         }
 
     def update_mod(self, mod_id: int):
@@ -204,19 +175,9 @@ class Window_Mod_Statistics(QDockWidget):
         self.sec_content.clear()
         self.sec_conflicts.clear()
 
-    def _apply_dark_title_bar(self):
-        """Erzwingt Windows-11 Dark Mode für die native Titelleiste im Schwebemodus."""
-        if self.isFloating():
-            set_dark_title_bar(self)
+    def closeEvent(self, event):
+        self.closed.emit()
+        super().closeEvent(event)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if self.isFloating():
-            self._apply_dark_title_bar()
-            QTimer.singleShot(0, self._apply_dark_title_bar)
 
-    def on_top_level_changed(self, is_floating: bool):
-        """Aktiviert Windows-11 Dark Mode Titelleiste beim Herausschweben."""
-        if is_floating:
-            self._apply_dark_title_bar()
-            QTimer.singleShot(0, self._apply_dark_title_bar)
+

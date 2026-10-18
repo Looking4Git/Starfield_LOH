@@ -1,41 +1,46 @@
 # Dokumentation: LOH_Control_WindowDocking
 
-Diese Dokumentation beschreibt die universelle Fenster-Docking-Steuerung [Structure/LOH_Control_WindowDocking.py](file:///d:/Starfield_LOH/Structure/LOH_Control_WindowDocking.py) im Projekt **Starfield Load Order Helper (LOH)**.
+Diese Dokumentation beschreibt die universelle Begleitpanel- und Docking-Steuerung [Structure/Controls/LOH_Control_WindowDocking.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_WindowDocking.py) im Projekt **Starfield Load Order Helper (LOH)** nach dem Industrie-Standard (VS Code / Blender Pattern).
 
 ---
 
-## 1. Zweck & Motivation
+## 1. Zweck & Architektur-Entscheidung
 
-### 1.1 Technische Problemstellung im nativen Qt
-Qt's Standard-Docking-System (`QDockWidget` in `QMainWindow`) führt bei komplexen Applikationen häufig zu unerwünschten Geometrieeffekten:
-* **Unerwünschte Schrumpfung beim Abdocken:** Wird ein angedocktes Fenster in den Schwebestatus (Floating) überführt, verkleinert Qt das Hauptfenster oft abrupt oder belässt es in verzerrten Proportionen.
-* **Verfälschte Einstellungs-Speicherung:** Speichert die Anwendung `window.width()` ab, während ein 600–1000 px breites Dockfenster angedockt ist, startet die App beim nächsten Mal mit einer überdimensionierten Gesamtbreite.
-* **Flackern beim Schließen:** Das synchrone Schließen von Dockfenstern erzeugt ohne Kapselung sichtbare Bildstörungen und verzögertes Layout-Reflow.
+### 1.1 Verworfene Ansätze
+* **Qt QDockWidget:** Führte unter Windows zu `Qt.Tool`-Fenstern mit blockiertem Maximieren, winzigen Icons und verzerrtem Hauptfenster-Layout.
+* **Getrennte OS-Fenster mit Live-Kanten-Kopplung:** Führte unter Windows reproduzierbar zu Ghosting-Artefakten (durch die modale `WM_SIZING`-Schleife von Windows) und verdeckten Resize-Grips an der Nahtstelle.
 
-### 1.2 Die Lösung: `LOH_Control_WindowDocking`
-`LOH_Control_WindowDocking` (vormals `LOH_DockManager`) entkoppelt die Basisgeometrie des Hauptfensters von der temporären Dockbreite:
-1. **Dynamische Basisbreiten-Führung (`base_main_width`):** Manuelle Breitenänderungen des Hauptfensters durch den Anwender werden kontinuierlich erfasst:  
-   $$\text{base\_main\_width} = \max(1280, \text{main\_window.width()} - (\text{dock\_width} + \text{SEPARATOR\_WIDTH}))$$
-2. **Reiner Qt-Standard beim Abdocken (Floating):** Beim Herauslösen in ein schwebendes Fenster bleibt die Hauptfensterbreite unverändert stabil.
-3. **Flackerfreies Schließen:** Dock-Schließen erfolgt unter Kapselung von `main_window.setUpdatesEnabled(False)` und Vorab-Aktivierung des Layouts (`main_window.layout().activate()`).
-4. **Persistente Einstellungs-Sauberkeit (`get_clean_window_width()`):** Garantiert, dass in den Benutzer-Einstellungen stets die bereinigte Hauptfensterbreite ohne angedockte Zusatzbreite hinterlegt wird.
+### 1.2 Die Lösung: Splitter-Panel + Floating-Window (Konzept A)
+`LOH_Control_WindowDocking` vereint das Beste aus zwei Welten:
+1. **Angedockter Zustand (QSplitter):**
+   - Das Statistik-Widget sitzt eingebettet im nativen `QSplitter` (`main_splitter`) des Hauptfensters rechts neben `content_stack`.
+   - Nahtloser Splitter-Griff (4px, Starfield-Gold Hover) mit 100% synchronen Renderzyklen im Qt-Grafikbaum – völlig frei von Ghosting oder Flackern.
+   - Header-Leiste mit Titel, Popout-Button (`btn_dock_float`, Icon `Icon_Export.svg`) und Schließen-Button (`btn_dock_close`).
+2. **Abgedockter Zustand (FloatingCompanionWindow):**
+   - Auf Klick auf den Popout-Button löst sich das Statistik-Widget in ein eigenständiges Windows-Top-Level-Fenster (`FloatingCompanionWindow`).
+   - Volle OS-Integration: Echtes Maximieren/Vollbild, Minimieren, Windows-11 DWM-Titelleiste (Dark Mode), nativer Taskleisten-Eintrag und Multi-Monitor-Freiheit.
+   - Re-Dock-Button im Header (`btn_floating_redock`, Icon `Icon_Import.svg`), der das Panel direkt wieder in den Splitter des Hauptfensters einhängt.
+3. **Automatisches Synchronisieren:**
+   - Minimieren des Hauptfensters blendet das Schwebefenster synchron aus und stellt es beim Wiederherstellen wieder her.
+   - Schließen des Hauptfensters speichert alle Splitter- und Schwebefenster-Geometrien in `settings.json`.
 
 ---
 
-## 2. Architektur & Event-Handling
+## 2. Komponenten-Übersicht
 
 ```mermaid
 graph TD
-    A[QMainWindow] -->|installEventFilter| M[LOH_Control_WindowDocking]
-    B[QDockWidget] -->|installEventFilter| M
-    M -->|visibilityChanged| C[Synchronisation: Anheften / Ausblenden]
-    M -->|topLevelChanged| D[Floating-Behandlung: Geometrieerhalt]
-    M -->|Manual Window Resize| E[Aktualisierung base_main_width]
-    M -->|Settings Save| F[get_clean_window_width: Bereinigte Breite]
+    A[StarfieldLOH Main Window] -->|Enthält| S[QSplitter: main_splitter]
+    S -->|Links| CS[content_stack]
+    S -->|Rechts| DC[dock_container]
+    DC -->|Header| DH[dock_header: Float + Close]
+    DC -->|Inhalt im Dock-Modus| WMS[Window_Mod_Statistics]
+    
+    M[LOH_Control_WindowDocking] -->|Steuert Transition| DC
+    M -->|Erzeugt bei Popout| FW[FloatingCompanionWindow]
+    FW -->|Inhalt im Float-Modus| WMS
+    FW -->|Header| FH[floating_dock_header: Re-Dock]
 ```
-
-* **Event-Filter-Architektur:** Installiert Event-Filter auf `main_window` und `dock_widget`, um `Resize`-, `Move`- und `Show`-Events in Echtzeit abzufangen.
-* **Abwärtskompatibilität:** Die Klasse stellt die Aliase `LOH_Control_DockManager` und `LOH_DockManager` bereit.
 
 ---
 
@@ -43,57 +48,30 @@ graph TD
 
 ### 3.1 Konstruktor
 ```python
-LOH_Control_WindowDocking(main_window: QMainWindow, dock_widget: QDockWidget)
+LOH_Control_WindowDocking(
+    main_window: QMainWindow,
+    dock_statistics: QWidget,
+    dock_container: QWidget = None,
+    main_splitter: QSplitter = None
+)
 ```
-
-| Parameter | Typ | Beschreibung |
-| :--- | :--- | :--- |
-| `main_window` | `QMainWindow` | Das Hauptfenster der Anwendung. |
-| `dock_widget` | `QDockWidget` | Das zu verwaltende Dock-Widget (z. B. `Window_Mod_Statistics`). |
-
----
 
 ### 3.2 Methoden
-* **`toggle()`:**  
-  Schaltet die Sichtbarkeit des Dock-Widgets um (öffnet oder schließt es flackerfrei).
-* **`show()`:**  
-  Öffnet das Dockfenster und erweitert das Hauptfenster um die Dockbreite + Trennlinie.
-* **`hide()`:**  
-  Schließt das Dockfenster und stellt die ursprüngliche Basisbreite wieder her.
+* **`toggle(mod_id: int = None)`:**  
+  Schaltet die Sichtbarkeit des Begleitpanels um (öffnet im letzten Modus oder schließt es).
+* **`open(mod_id: int = None)`:**  
+  Öffnet das Panel im gespeicherten Modus (angedockt im Splitter oder als Schwebefenster) und aktualisiert optional die Mod-Daten.
+* **`close()`:**  
+  Schließt bzw. verbirgt das Begleitpanel in beiden Zuständen.
+* **`dock_window()`:**  
+  Hängt das Statistik-Widget aus dem Schwebefenster aus und bettet es im QSplitter-Container des Hauptfensters ein.
+* **`float_window()`:**  
+  Löst das Statistik-Widget aus dem QSplitter und öffnet es als vollwertiges Windows-Top-Level-Fenster.
+* **`is_visible() -> bool`:**  
+  Prüft, ob das Panel aktuell sichtbar ist (entweder im Splitter oder als Schwebefenster).
+* **`load_settings(cfg: dict)`:**  
+  Lädt gespeicherte Splitter-Breiten, Schwebefenster-Positionen und den Status `is_floating`.
+* **`get_geometry_settings() -> dict`:**  
+  Liefert alle aktuellen Maße und Zustände zur Persistierung in `settings.json`.
 * **`get_clean_window_width() -> int`:**  
-  Liefert die bereinigte Basisbreite für die persistenten Einstellungen (`settings['window']['width']`), unabhängig davon, ob das Dock aktuell geöffnet oder angedockt ist.
-
----
-
-## 4. Anwendungsbeispiel
-
-```python
-from Structure.Pages.Window_Mod_Statistics import Window_Mod_Statistics
-from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
-
-# 1. Dock-Fenster initialisieren und anheften
-self.dock_statistics = Window_Mod_Statistics(self)
-self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
-self.dock_statistics.setVisible(False)
-
-# 2. Docking-Steuerung verbinden
-self.dock_manager = LOH_Control_WindowDocking(self, self.dock_statistics)
-
-# 3. Umschaltung per Schaltfläche oder Signal
-self.btn_toggle_stats.clicked.connect(self.dock_manager.toggle)
-
-# 4. Sauberes Schließen und Speichern in closeEvent
-def closeEvent(self, event):
-    self.settings["window"]["width"] = self.dock_manager.get_clean_window_width()
-    self.settings["window"]["height"] = self.height()
-    super().closeEvent(event)
-```
-
----
-
-## 5. Konformität mit Design-Rules
-
-`LOH_Control_WindowDocking` setzt alle Vorgaben aus [Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md) (Abschnitt 5) um:
-* Basisbreiten-Führung bei manuellem Resize
-* Flackerfreies, atomares Schließen
-* Persistente Speicherung via `get_clean_window_width()`.
+  Gibt die unmodifizierte Breite des Hauptfensters zurück.

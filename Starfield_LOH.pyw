@@ -5,7 +5,7 @@ import ctypes
 import logging
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QFrame, QStackedWidget, 
-                               QLabel, QSizePolicy)
+                               QLabel, QSizePolicy, QSplitter)
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer
 from PySide6.QtGui import QIcon, QPixmap, QColor, QPalette
 from Structure.GUI.Page_Mods import Page_Mods
@@ -47,8 +47,14 @@ DEFAULT_SETTINGS = {
         "Limit_PointerHandles": 2097152
     },
     "window_mod_statistics": {
-        "min_width": 1000,
-        "docked_width": 1000
+        "min_width": 700,
+        "docked_width": 850,
+        "is_floating": False,
+        "float_width": 950,
+        "float_height": 850,
+        "float_x": -1,
+        "float_y": -1,
+        "is_maximized": False
     },
     "system": {
         "system_machine_guid": "",
@@ -225,21 +231,73 @@ class StarfieldLOH(QMainWindow):
         # Signal für Seitenwechsel verbinden
         self.content_stack.currentChanged.connect(self.on_page_changed)
 
-        self.main_layout.addWidget(self.sidebar)
-        self.main_layout.addWidget(self.content_stack)
+        # Haupt-Splitter für Content-Bereich und angedocktes Begleitpanel
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        self.main_splitter.setObjectName("main_splitter")
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.addWidget(self.content_stack)
+        self.main_splitter.setStretchFactor(0, 1)
+        self.main_splitter.setCollapsible(0, False)
 
-        # Mod-Analyse Dock-Fenster & Dock-Manager initialisieren
+        # Container für das angedockte Diagnose-/Statistik-Panel
+        self.dock_container = QWidget(self)
+        self.dock_container.setObjectName("dock_container")
+        self.dock_layout = QVBoxLayout(self.dock_container)
+        self.dock_layout.setContentsMargins(0, 0, 0, 0)
+        self.dock_layout.setSpacing(0)
+
+        # Header-Leiste des angedockten Panels
+        self.dock_header = QWidget(self.dock_container)
+        self.dock_header.setObjectName("dock_header")
+        dock_header_layout = QHBoxLayout(self.dock_header)
+        dock_header_layout.setContentsMargins(12, 6, 8, 6)
+        dock_header_layout.setSpacing(6)
+
+        self.lbl_dock_title = QLabel("Mod-Analyse & Statistiken", self.dock_header)
+        self.lbl_dock_title.setObjectName("lbl_dock_title")
+        dock_header_layout.addWidget(self.lbl_dock_title, 1)
+
+        self.btn_dock_float = QPushButton(self.dock_header)
+        self.btn_dock_float.setObjectName("btn_dock_float")
+        self.btn_dock_float.setToolTip("In eigenständiges Fenster abdocken")
+        icon_float_path = os.path.join(self.graphics_path, "Icon_Export.svg")
+        if os.path.exists(icon_float_path):
+            self.btn_dock_float.setIcon(QIcon(icon_float_path))
+        dock_header_layout.addWidget(self.btn_dock_float)
+
+        self.btn_dock_close = QPushButton("✕", self.dock_header)
+        self.btn_dock_close.setObjectName("btn_dock_close")
+        self.btn_dock_close.setToolTip("Schließen")
+        dock_header_layout.addWidget(self.btn_dock_close)
+
+        self.dock_layout.addWidget(self.dock_header)
+
+        # Mod-Analyse Begleitfenster & Dock-Manager initialisieren
         if splash_callback:
             splash_callback("Bereite Diagnosezentrum & Mod-Statistiken vor ...")
-        self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
         self.dock_statistics = Window_Mod_Statistics(self, splash_callback=splash_callback)
+        self.dock_layout.addWidget(self.dock_statistics)
+
+        self.main_splitter.addWidget(self.dock_container)
+        self.main_splitter.setStretchFactor(1, 0)
+        self.main_splitter.setCollapsible(1, False)
+        self.dock_container.setVisible(False)
+
+        self.main_layout.addWidget(self.sidebar)
+        self.main_layout.addWidget(self.main_splitter)
+
+        self.dock_manager = LOH_Control_WindowDocking(
+            main_window=self,
+            dock_statistics=self.dock_statistics,
+            dock_container=self.dock_container,
+            main_splitter=self.main_splitter
+        )
+
         stat_cfg = self.settings.get("window_mod_statistics", DEFAULT_SETTINGS["window_mod_statistics"])
-        self.dock_statistics.load_geometry_settings(stat_cfg)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_statistics)
-        self.dock_statistics.setVisible(False)
+        self.dock_manager.load_settings(stat_cfg)
 
-        self.dock_manager = LOH_Control_WindowDocking(self, self.dock_statistics)
-
+        self.btn_dock_float.clicked.connect(self.dock_manager.float_window)
+        self.btn_dock_close.clicked.connect(self.dock_manager.close)
         self.page_lo.analysis_requested.connect(self.dock_manager.toggle)
         self.page_lo.mod_selected.connect(self.on_loadorder_mod_selected)
         self.dock_statistics.category_changed.connect(self.on_mod_category_changed)
@@ -308,8 +366,6 @@ class StarfieldLOH(QMainWindow):
                 self.dock_statistics.sec_content._load_category_maxes()
             if self.dock_statistics.isVisible():
                 self.dock_statistics.refresh_data()
-        elif hasattr(self, 'window_mod_statistics') and self.window_mod_statistics and self.window_mod_statistics.isVisible():
-            self.window_mod_statistics.refresh_data()
 
     def on_page_changed(self, index):
         """Wird aufgerufen, wenn sich die Seite im QStackedWidget ändert."""
@@ -448,7 +504,9 @@ class StarfieldLOH(QMainWindow):
         self.settings["window"]["x"] = self.x()
         self.settings["window"]["y"] = self.y()
         self.settings["ui"]["sidebar_collapsed"] = self.sidebar_collapsed
-        if hasattr(self, 'dock_statistics'):
+        if hasattr(self, 'dock_manager'):
+            self.settings["window_mod_statistics"] = self.dock_manager.get_geometry_settings()
+        elif hasattr(self, 'dock_statistics'):
             self.settings["window_mod_statistics"] = self.dock_statistics.get_geometry_settings()
         
         self.save_settings()

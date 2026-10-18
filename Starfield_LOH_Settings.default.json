@@ -41,8 +41,14 @@
     "Limit_PointerHandles": 2097152
   },
   "window_mod_statistics": {
-    "min_width": 1000,
-    "docked_width": 1000
+    "min_width": 700,
+    "docked_width": 850,
+    "is_floating": false,
+    "float_width": 950,
+    "float_height": 850,
+    "float_x": -1,
+    "float_y": -1,
+    "is_maximized": false
   },
   "system": {
     "system_machine_guid": "",

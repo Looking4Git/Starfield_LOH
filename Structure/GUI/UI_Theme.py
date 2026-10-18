@@ -30,8 +30,8 @@ THEME_TOKENS = {
         "WINDOW_BG": "#0D0D0D",
         "PANEL_BG": "#212121",
         "PANEL_HEADER": "#2B2B2B",
-        "SURFACE_PRIMARY": "#ECECEC",
-        "SURFACE_SECONDARY": "#F2F2F2",
+        "SURFACE_PRIMARY": "#F2F2F2",
+        "SURFACE_SECONDARY": "#E0E0E0",
         "SURFACE_DARK": "#1A1A1A",
         "SURFACE_READONLY": "#D7A64B",
         "SURFACE_DISABLED": "#2B2B2B",
@@ -40,15 +40,31 @@ THEME_TOKENS = {
         "ACCENT_ACTION_HOVER": "#5B7A9E",
         "ACCENT_ACTION_PRESSED": "#1F3354",
         "ACCENT_CYAN": "#25A4BA",
-        "STATUS_SUCCESS": "#2EA043",
+        "STATUS_SUCCESS": "#1F7343",
         "STATUS_WARNING": "#E06236",
         "STATUS_CRITICAL": "#C72138",
+        "BUTTON_BLUE_NORMAL": "#304C7A",
+        "BUTTON_BLUE_HOVER": "#5B7A9E",
+        "BUTTON_BLUE_PRESSED": "#1F3354",
+        "BUTTON_BLUE_DISABLED": "#222D3D",
+        "BUTTON_RED_NORMAL": "#C72138",
+        "BUTTON_RED_HOVER": "#E03048",
+        "BUTTON_RED_PRESSED": "#A0182B",
+        "BUTTON_RED_DISABLED": "#422226",
+        "BUTTON_GREEN_NORMAL": "#1F7343",
+        "BUTTON_GREEN_HOVER": "#2EA44F",
+        "BUTTON_GREEN_PRESSED": "#165A33",
+        "BUTTON_GREEN_DISABLED": "#1E5232",
+        "BUTTON_TEXT_NORMAL": "#ECECEC",
+        "BUTTON_TEXT_DISABLED": "#888888",
         "TEXT_ON_DARK": "#ECECEC",
         "TEXT_ON_DARK_MUTED": "#888888",
         "TEXT_ON_SURFACE": "#000000",
         "TEXT_ON_SURFACE_MUTED": "#666666",
         "TEXT_MUTED": "#888888",
+        "TEXT_READONLY": "#000000",
         "TEXT_TITLE": "#D7A64B",
+        "TEXT_ON_ACTION_BUTTON": "#FFFFFF",
         "BORDER_SUBTLE": "#444444",
         "BORDER_INPUT": "#888888",
         "BORDER_TABLE": "#D0D0D0",
@@ -59,14 +75,19 @@ THEME_TOKENS = {
         "FONT_FAMILY": '"Segoe UI", Arial',
         "FONT_SIZE_BASE": "15px",
         "FONT_SIZE_TITLE": "18px",
+        "FONT_SIZE_DESC": "14px",
+        "FONT_SIZE_BUTTON": "13px",
         "FONT_SIZE_SMALL": "12px",
+        "TILE_TEXT_COLOR": "#ECECEC",
+        "TILE_TEXT_DISABLED": "#888888",
+        "TILE_TEXT_SIZE": "14px",
     },
     "dark": {
         "WINDOW_BG": "#0D0D0D",
         "PANEL_BG": "#212121",
         "PANEL_HEADER": "#21262D",
         "SURFACE_PRIMARY": "#161B22",
-        "SURFACE_SECONDARY": "#1C2128",
+        "SURFACE_SECONDARY": "#1E232B",
         "SURFACE_DARK": "#0D1117",
         "SURFACE_READONLY": "#3D321D",
         "SURFACE_DISABLED": "#21262D",
@@ -75,15 +96,31 @@ THEME_TOKENS = {
         "ACCENT_ACTION_HOVER": "#416794",
         "ACCENT_ACTION_PRESSED": "#1F3354",
         "ACCENT_CYAN": "#25A4BA",
-        "STATUS_SUCCESS": "#2EA043",
+        "STATUS_SUCCESS": "#1F7343",
         "STATUS_WARNING": "#E06236",
         "STATUS_CRITICAL": "#C72138",
+        "BUTTON_BLUE_NORMAL": "#304C7A",
+        "BUTTON_BLUE_HOVER": "#5B7A9E",
+        "BUTTON_BLUE_PRESSED": "#1F3354",
+        "BUTTON_BLUE_DISABLED": "#222D3D",
+        "BUTTON_RED_NORMAL": "#C72138",
+        "BUTTON_RED_HOVER": "#E03048",
+        "BUTTON_RED_PRESSED": "#A0182B",
+        "BUTTON_RED_DISABLED": "#422226",
+        "BUTTON_GREEN_NORMAL": "#1F7343",
+        "BUTTON_GREEN_HOVER": "#2EA44F",
+        "BUTTON_GREEN_PRESSED": "#165A33",
+        "BUTTON_GREEN_DISABLED": "#1E5232",
+        "BUTTON_TEXT_NORMAL": "#ECECEC",
+        "BUTTON_TEXT_DISABLED": "#888888",
         "TEXT_ON_DARK": "#ECECEC",
         "TEXT_ON_DARK_MUTED": "#888888",
         "TEXT_ON_SURFACE": "#ECECEC",
         "TEXT_ON_SURFACE_MUTED": "#7D8590",
         "TEXT_MUTED": "#7D8590",
+        "TEXT_READONLY": "#ECECEC",
         "TEXT_TITLE": "#D7A64B",
+        "TEXT_ON_ACTION_BUTTON": "#FFFFFF",
         "BORDER_SUBTLE": "#444444",
         "BORDER_INPUT": "#30363D",
         "BORDER_TABLE": "#30363D",
@@ -94,31 +131,52 @@ THEME_TOKENS = {
         "FONT_FAMILY": '"Segoe UI", Arial',
         "FONT_SIZE_BASE": "15px",
         "FONT_SIZE_TITLE": "18px",
+        "FONT_SIZE_DESC": "14px",
+        "FONT_SIZE_BUTTON": "13px",
         "FONT_SIZE_SMALL": "12px",
+        "TILE_TEXT_COLOR": "#ECECEC",
+        "TILE_TEXT_DISABLED": "#888888",
+        "TILE_TEXT_SIZE": "14px",
     },
     "light": {
-        "WINDOW_BG": "#F5F6F8",
-        "PANEL_BG": "#EAECEF",
+        "WINDOW_BG": "#E6E8EC",
+        "PANEL_BG": "#D0D7DE",
         "PANEL_HEADER": "#D0D7DE",
         "SURFACE_PRIMARY": "#FFFFFF",
-        "SURFACE_SECONDARY": "#F6F8FA",
+        "SURFACE_SECONDARY": "#EAECEF",
         "SURFACE_DARK": "#EAECEF",
         "SURFACE_READONLY": "#FFF8E6",
         "SURFACE_DISABLED": "#EAECEF",
-        "ACCENT_BRAND": "#B8860B",
-        "ACCENT_ACTION": "#2A5885",
-        "ACCENT_ACTION_HOVER": "#3B6E9E",
-        "ACCENT_ACTION_PRESSED": "#1B4168",
+        "ACCENT_BRAND": "#D7A64B",
+        "ACCENT_ACTION": "#304C7A",
+        "ACCENT_ACTION_HOVER": "#5B7A9E",
+        "ACCENT_ACTION_PRESSED": "#1F3354",
         "ACCENT_CYAN": "#1B7F91",
-        "STATUS_SUCCESS": "#1A7F37",
-        "STATUS_WARNING": "#BF4B20",
-        "STATUS_CRITICAL": "#CF222E",
+        "STATUS_SUCCESS": "#1F7343",
+        "STATUS_WARNING": "#E06236",
+        "STATUS_CRITICAL": "#C72138",
+        "BUTTON_BLUE_NORMAL": "#304C7A",
+        "BUTTON_BLUE_HOVER": "#5B7A9E",
+        "BUTTON_BLUE_PRESSED": "#1F3354",
+        "BUTTON_BLUE_DISABLED": "#222D3D",
+        "BUTTON_RED_NORMAL": "#C72138",
+        "BUTTON_RED_HOVER": "#E03048",
+        "BUTTON_RED_PRESSED": "#A0182B",
+        "BUTTON_RED_DISABLED": "#422226",
+        "BUTTON_GREEN_NORMAL": "#1F7343",
+        "BUTTON_GREEN_HOVER": "#2EA44F",
+        "BUTTON_GREEN_PRESSED": "#165A33",
+        "BUTTON_GREEN_DISABLED": "#1E5232",
+        "BUTTON_TEXT_NORMAL": "#ECECEC",
+        "BUTTON_TEXT_DISABLED": "#888888",
         "TEXT_ON_DARK": "#24292F",
         "TEXT_ON_DARK_MUTED": "#656D76",
         "TEXT_ON_SURFACE": "#24292F",
         "TEXT_ON_SURFACE_MUTED": "#656D76",
         "TEXT_MUTED": "#656D76",
+        "TEXT_READONLY": "#24292F",
         "TEXT_TITLE": "#B8860B",
+        "TEXT_ON_ACTION_BUTTON": "#FFFFFF",
         "BORDER_SUBTLE": "#D0D7DE",
         "BORDER_INPUT": "#D0D7DE",
         "BORDER_TABLE": "#D0D7DE",
@@ -129,24 +187,52 @@ THEME_TOKENS = {
         "FONT_FAMILY": '"Segoe UI", Arial',
         "FONT_SIZE_BASE": "15px",
         "FONT_SIZE_TITLE": "18px",
+        "FONT_SIZE_DESC": "14px",
+        "FONT_SIZE_BUTTON": "13px",
         "FONT_SIZE_SMALL": "12px",
+        "TILE_TEXT_COLOR": "#000000",
+        "TILE_TEXT_DISABLED": "#888888",
+        "TILE_TEXT_SIZE": "14px",
     }
 }
 
 
 def get_current_theme_mode() -> str:
-    """Liest den konfigurierten Theme-Modus aus settings.json (Fallback: 'mixed')."""
+    """Liest den konfigurierten Theme-Modus aus settings.json (Bereich 'settings', Fallback: 'ui' / 'mixed')."""
     try:
         from Structure.Paths import SETTINGS_FILE
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                mode = data.get("ui", {}).get("theme_mode", "mixed")
+                mode = data.get("settings", {}).get("theme_mode") or data.get("ui", {}).get("theme_mode", "mixed")
                 if mode in THEME_TOKENS:
                     return mode
     except Exception:
         pass
     return "mixed"
+
+
+def get_theme_color(token_name: str, fallback: str = "#FFFFFF", theme_mode: str = None) -> QColor:
+    """
+    Liefert die QColor eines semantischen Tokens fuer den aktiven (oder angegebenen) Theme-Modus.
+    Single Source of Truth fuer programmatische Einfaerbungen (z. B. Tabellen-Highlights).
+    """
+    if theme_mode is None:
+        theme_mode = get_current_theme_mode()
+    mode = theme_mode.lower() if theme_mode in THEME_TOKENS else "mixed"
+    hex_color = THEME_TOKENS.get(mode, {}).get(token_name, fallback)
+    return QColor(hex_color)
+
+
+def get_theme_color_hex(token_name: str, fallback: str = "#FFFFFF", theme_mode: str = None) -> str:
+    """
+    Liefert den Hex-Farbcode eines semantischen Tokens fuer den aktiven (oder angegebenen) Theme-Modus.
+    Single Source of Truth fuer programmatische Stylesheets (z. B. make_button_premium).
+    """
+    if theme_mode is None:
+        theme_mode = get_current_theme_mode()
+    mode = theme_mode.lower() if theme_mode in THEME_TOKENS else "mixed"
+    return THEME_TOKENS.get(mode, {}).get(token_name, fallback)
 
 
 def get_starfield_palette(theme_mode: str = "mixed") -> QPalette:
@@ -296,10 +382,27 @@ def setup_starfield_theme(
             needs_app_restyle = True
 
     if app and needs_app_restyle:
-        # 1. Fusion-Render-Engine als verlaessliche Basis aktivieren
-        app.setStyle("Fusion")
+        # Einmalige Basis-Initialisierung (nur beim ersten Start der Anwendung)
+        if not hasattr(app, "_loh_style_initialized"):
+            # 1. Fusion-Render-Engine als verlässliche Basis aktivieren
+            app.setStyle("Fusion")
 
-        # 2. Farbschema auf Qt-Ebene setzen (steuert Titelleisten ab Qt 6.5+ nativ und dauerhaft stabil)
+            # 2. Globalen Dropdown-Mausradschutz aktivieren
+            try:
+                from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
+                setup_dropdown_wheel_guard(app)
+            except Exception:
+                pass
+
+            # 3. Standard-Icon auf App-Ebene zuweisen falls vorhanden
+            default_ico = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
+            if os.path.exists(default_ico):
+                app.setWindowIcon(QIcon(default_ico))
+
+            app._loh_style_initialized = True
+
+        # Dynamische Theme-Anpassungen (bei Start und jedem Theme-Wechsel)
+        # Farbschema auf Qt-Ebene setzen (steuert Titelleisten ab Qt 6.5+ nativ und dauerhaft stabil)
         is_dark = (theme_mode != "light")
         try:
             scheme = Qt.ColorScheme.Dark if is_dark else Qt.ColorScheme.Light
@@ -307,27 +410,15 @@ def setup_starfield_theme(
         except Exception:
             pass
 
-        # 3. Zur Theme-Wahl passende System-Palette setzen
+        # Zur Theme-Wahl passende System-Palette setzen
         app.setPalette(get_starfield_palette(theme_mode))
 
-        # 4. Globalen Dropdown-Mausradschutz aktivieren
-        try:
-            from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
-            setup_dropdown_wheel_guard(app)
-        except Exception:
-            pass
-
-        # 5. Standard-Icon auf App-Ebene zuweisen falls vorhanden
-        default_ico = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
-        if os.path.exists(default_ico):
-            app.setWindowIcon(QIcon(default_ico))
-
-        # 6. Zentrales Stylesheet kompiliert auf QApplication-Ebene zuweisen
+        # Zentrales Stylesheet kompiliert auf QApplication-Ebene zuweisen
         qss = get_starfield_stylesheet(theme_mode)
         if qss:
             app.setStyleSheet(qss)
 
-        # 7. Alle aktuell offenen Top-Level-Fenster synchron anpassen (DWM-Fallback)
+        # Alle aktuell offenen Top-Level-Fenster synchron anpassen (DWM-Fallback)
         for top_w in app.topLevelWidgets():
             if top_w.isWindow():
                 set_dark_title_bar(top_w, dark_mode=is_dark)

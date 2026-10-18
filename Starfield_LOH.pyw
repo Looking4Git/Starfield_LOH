@@ -31,6 +31,7 @@ DEFAULT_SETTINGS = {
         "Auto_Save": 1,
         "Link_Mod_Selection": 1,
         "Limit_Warning_Percentage": 90,
+        "theme_mode": "mixed",
         "Replace_Author_With_Nexus_User": False,
         "Prefer_Content_BarChart": False,
         "Prefer_Classification_Tiles": True,
@@ -498,7 +499,7 @@ class StarfieldLOH(QMainWindow):
         
         if "ui" not in loaded:
             loaded["ui"] = {}
-        loaded["ui"] = {**loaded["ui"], **self.settings.get("ui", {})}
+        loaded["ui"]["sidebar_collapsed"] = self.sidebar_collapsed
 
         if "window_mod_statistics" not in loaded:
             loaded["window_mod_statistics"] = {}

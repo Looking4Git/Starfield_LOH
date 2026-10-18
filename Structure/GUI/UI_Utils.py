@@ -92,27 +92,28 @@ def make_button_premium(
     def update_style():
         if not button:
             return
+        from Structure.GUI.UI_Theme import get_theme_color_hex
         v = variant.lower()
         if v == "red":
-            bg_normal = "#C72138"
-            bg_hover = "#E03048"
-            bg_pressed = "#A0182B"
-            bg_disabled = "#422226"
+            bg_normal = get_theme_color_hex("BUTTON_RED_NORMAL", "#C72138")
+            bg_hover = get_theme_color_hex("BUTTON_RED_HOVER", "#E03048")
+            bg_pressed = get_theme_color_hex("BUTTON_RED_PRESSED", "#A0182B")
+            bg_disabled = get_theme_color_hex("BUTTON_RED_DISABLED", "#422226")
         elif v == "green":
-            bg_normal = "#1F7343"
-            bg_hover = "#2EA44F"
-            bg_pressed = "#165A33"
-            bg_disabled = "#1E5232"
+            bg_normal = get_theme_color_hex("BUTTON_GREEN_NORMAL", "#1F7343")
+            bg_hover = get_theme_color_hex("BUTTON_GREEN_HOVER", "#2EA44F")
+            bg_pressed = get_theme_color_hex("BUTTON_GREEN_PRESSED", "#165A33")
+            bg_disabled = get_theme_color_hex("BUTTON_GREEN_DISABLED", "#1E5232")
         else:
-            bg_normal = "#304C7A"
-            bg_hover = "#5B7A9E"
-            bg_pressed = "#1F3354"
-            bg_disabled = "#222D3D"
+            bg_normal = get_theme_color_hex("BUTTON_BLUE_NORMAL", "#304C7A")
+            bg_hover = get_theme_color_hex("BUTTON_BLUE_HOVER", "#5B7A9E")
+            bg_pressed = get_theme_color_hex("BUTTON_BLUE_PRESSED", "#1F3354")
+            bg_disabled = get_theme_color_hex("BUTTON_BLUE_DISABLED", "#222D3D")
 
         enabled = button.isEnabled()
 
         if not enabled:
-            text_color = "#888888"
+            text_color = get_theme_color_hex("BUTTON_TEXT_DISABLED", "#888888")
             if not dimmed_pixmap.isNull():
                 icon_label.setPixmap(dimmed_pixmap)
             button.setCursor(Qt.CursorShape.ArrowCursor)
@@ -126,7 +127,7 @@ def make_button_premium(
                 }}
             """)
         else:
-            text_color = "#ECECEC"
+            text_color = get_theme_color_hex("BUTTON_TEXT_NORMAL", "#ECECEC")
             if not normal_pixmap.isNull():
                 icon_label.setPixmap(normal_pixmap)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -223,3 +224,82 @@ def format_date_sort(raw_date: str | None) -> str:
             return f"{parts[2]}-{parts[1]}-{parts[0]}"
     date_part = s.split(" ")[0].split("T")[0].strip()
     return date_part
+
+
+def set_status_label(label: QLabel, text: str, variant: str):
+    """Setzt Text und semantische Statusvariante auf einem QLabel ohne Inline-Styles."""
+    if not label:
+        return
+    label.setText(text)
+    label.setProperty("variant", variant)
+    label.setStyleSheet("")
+    if label.style():
+        label.style().unpolish(label)
+        label.style().polish(label)
+
+
+def show_starfield_message_box(
+    parent,
+    title: str,
+    text: str,
+    icon=None,
+    yes_no: bool = False,
+    buttons: list[tuple[str, any]] | None = None,
+    default_button_index: int = -1,
+) -> bool | str:
+    """
+    Universelle, Theme-konforme Starfield-LOH MessageBox.
+    - Setzt automatisch das App-Icon und die Windows-Titelleiste (Hell/Dunkel via DWM).
+    - Unterstützt 3 Modi:
+      1. yes_no=True: Liefert True bei 'Ja', False bei 'Nein'.
+      2. buttons=[("ButtonText", Role/ID), ...]: Fügt benutzerdefinierte Buttons hinzu und gibt den Text des geklickten Buttons zurück.
+      3. Standard: Einzelner 'OK'-Button, liefert True.
+    """
+    from PySide6.QtWidgets import QMessageBox
+    from Structure.GUI.UI_Theme import set_dark_title_bar
+
+    msg_box = QMessageBox(parent)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(text)
+
+    if icon is not None:
+        msg_box.setIcon(icon)
+    else:
+        msg_box.setIcon(QMessageBox.Icon.Information)
+
+    # Icon vom übergeordneten Fenster oder Standard-Icon übernehmen
+    if parent and hasattr(parent, "windowIcon") and not parent.windowIcon().isNull():
+        msg_box.setWindowIcon(parent.windowIcon())
+    else:
+        from Structure.Paths import GRAPHICS_DIR
+        app_icon_path = os.path.join(GRAPHICS_DIR, "Starfield_LOH.ico")
+        if os.path.exists(app_icon_path):
+            msg_box.setWindowIcon(QIcon(app_icon_path))
+
+    # Windows-Titelleiste dynamisch an das aktive Theme anpassen
+    set_dark_title_bar(msg_box)
+
+    if buttons:
+        btn_objects = []
+        for btn_text, btn_role in buttons:
+            btn = msg_box.addButton(btn_text, btn_role)
+            btn_objects.append((btn, btn_text))
+        if 0 <= default_button_index < len(btn_objects):
+            msg_box.setDefaultButton(btn_objects[default_button_index][0])
+        msg_box.exec()
+        clicked = msg_box.clickedButton()
+        for btn_obj, btn_text in btn_objects:
+            if clicked == btn_obj:
+                return btn_text
+        return ""
+    elif yes_no:
+        btn_yes = msg_box.addButton("Ja", QMessageBox.ButtonRole.YesRole)
+        btn_no = msg_box.addButton("Nein", QMessageBox.ButtonRole.NoRole)
+        msg_box.setDefaultButton(btn_no)
+        msg_box.exec()
+        return msg_box.clickedButton() == btn_yes
+    else:
+        msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
+        msg_box.exec()
+        return True
+

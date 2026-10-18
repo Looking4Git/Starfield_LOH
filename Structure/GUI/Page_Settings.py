@@ -33,15 +33,15 @@ class Page_Settings(QWidget):
         # 1. Master-Bereich: TreeView (links, volle Höhe)
         self.tree_view = QTreeView()
         self.tree_view.setObjectName("settings_tree")
-        self.tree_view.setMinimumWidth(220)
-        self.tree_view.setMaximumWidth(280)
+        self.tree_view.setFixedWidth(180)
         self.tree_view.setHeaderHidden(True)
-        self.tree_view.setRootIsDecorated(True)
+        self.tree_view.setRootIsDecorated(False)
+        self.tree_view.setIndentation(0)
         self.tree_view.setEditTriggers(QTreeView.EditTrigger.NoEditTriggers)
         self.tree_view.setSelectionMode(QTreeView.SelectionMode.SingleSelection)
         self.tree_view.setSelectionBehavior(QTreeView.SelectionBehavior.SelectRows)
         self.tree_view.setIconSize(QSize(20, 20))
-        self.tree_view.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.tree_view.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
         self.tree_model = QStandardItemModel(self)
         self.populate_tree()
@@ -123,7 +123,7 @@ class Page_Settings(QWidget):
 
         # 2. Info
         item_info = QStandardItem(
-            QIcon(os.path.join(GRAPHICS_DIR, "Icon_App.svg")),
+            QIcon(os.path.join(GRAPHICS_DIR, "Icon_Help.svg")),
             "Info"
         )
         item_info.setData(1, Qt.ItemDataRole.UserRole)

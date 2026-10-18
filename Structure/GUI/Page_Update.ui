@@ -854,7 +854,7 @@
          <item row="16" column="0" colspan="2">
            <widget class="QLabel" name="lbl_install_process">
             <property name="text">
-             <string>Installationsprozess</string>
+             <string>Update</string>
             </property>
            </widget>
           </item>
@@ -896,9 +896,6 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background-color: #D7A64B; color: #000000; font-weight: bold;</string>
-             </property>
              <property name="readOnly">
               <bool>true</bool>
              </property>
@@ -911,9 +908,6 @@
                <horstretch>1</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">font-size: 13px; font-weight: bold; margin-left: 6px;</string>
              </property>
              <property name="text">
               <string />

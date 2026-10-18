@@ -22,6 +22,7 @@ class Page_Tools(QWidget):
 
     def __init__(self, splash_callback=None):
         super().__init__()
+        self.setObjectName("Page_Tools")
         self.splash_callback = splash_callback
         self.window_log_files = None
         self.setup_ui()
@@ -33,7 +34,7 @@ class Page_Tools(QWidget):
 
         # Haupttitel
         title = QLabel("Tools & Diagnose-Funktionen")
-        title.setStyleSheet("font-size: 22px; font-weight: bold; color: #ECECEC;")
+        title.setObjectName("lbl_page_title")
         self.layout.addWidget(title)
 
         # -------------------------------------------------------------
@@ -187,11 +188,16 @@ class Page_Tools(QWidget):
         if self.splash_callback:
             self.splash_callback("Initialisiere Diagnose-Werkzeuge: Umgebung & Protokoll-Konsole (3/3) ...")
 
-        log_label = QLabel("Protokoll-Ausgabe:")
-        log_label.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold; margin-top: 4px;")
-        self.layout.addWidget(log_label)
+        sep_log = QFrame()
+        sep_log.setObjectName("sep_log_section")
+        self.layout.addWidget(sep_log)
+
+        lbl_log = QLabel("Protokoll-Ausgabe")
+        lbl_log.setObjectName("lbl_log_section")
+        self.layout.addWidget(lbl_log)
 
         self.log_console = Widget_LogConsole()
+        self.log_console.setObjectName("log_console")
         self.log_output = self.log_console  # Alias für Rückwärtskompatibilität
         self.layout.addWidget(self.log_console, stretch=1)
 

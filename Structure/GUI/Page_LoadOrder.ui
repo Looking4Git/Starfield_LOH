@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <ui version="4.0">
  <class>Page_Mods</class>
  <widget class="QWidget" name="Page_Mods">
@@ -452,9 +452,6 @@
          </item>
          <item row="8" column="1">
           <widget class="QLabel" name="lbl_full_val">
-           <property name="styleSheet">
-            <string>color: #e0e0e0; font-size: 12px; margin-bottom: 0px;</string>
-           </property>
            <property name="text">
             <string>Full: 0 / 254</string>
            </property>
@@ -465,9 +462,6 @@
          </item>
          <item row="10" column="1">
           <widget class="QLabel" name="lbl_medium_val">
-           <property name="styleSheet">
-            <string>color: #e0e0e0; font-size: 12px; margin-bottom: 0px;</string>
-           </property>
            <property name="text">
             <string>Medium: 0 / 1024</string>
            </property>
@@ -478,9 +472,6 @@
          </item>
          <item row="12" column="1">
           <widget class="QLabel" name="lbl_small_val">
-           <property name="styleSheet">
-            <string>color: #e0e0e0; font-size: 12px; margin-bottom: 0px;</string>
-           </property>
            <property name="text">
             <string>Small: 0 / 4096</string>
            </property>
@@ -516,9 +507,6 @@
          </item>
          <item row="14" column="1">
           <widget class="QLabel" name="lbl_pointers_val">
-           <property name="styleSheet">
-            <string>color: #e0e0e0; font-size: 12px; margin-bottom: 0px;</string>
-           </property>
            <property name="text">
             <string>Dynamisch: 1,2M / 2,1M</string>
            </property>

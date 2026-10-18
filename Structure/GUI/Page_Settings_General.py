@@ -18,6 +18,7 @@ from Structure.Paths import (
 from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
 from Structure.LOH_Reset import reset_database
 from Structure.GUI.UI_Theme import set_dark_title_bar, setup_starfield_theme, get_current_theme_mode
+from Structure.GUI.UI_Utils import make_button_premium, set_status_label
 
 
 class NexusKeyValidatorWorker(QThread):
@@ -25,7 +26,7 @@ class NexusKeyValidatorWorker(QThread):
     Asynchroner Hintergrund-Worker zur Validierung des Nexus API-Keys mit bis zu 3 Versuchen bei Timeouts.
     Blockiert niemals den Qt-Haupt-Thread oder den Programmstart.
     """
-    status_signal = Signal(str, str)   # (Text, CSS-Style)
+    status_signal = Signal(str, str)   # (Text, Variant)
     finished_result = Signal(dict)     # Ergebnis-Dictionary
 
     def __init__(self, api_key: str, parent=None):
@@ -49,7 +50,7 @@ class NexusKeyValidatorWorker(QThread):
             if attempt > 1:
                 self.status_signal.emit(
                     f"⏳ Nexus API-Key wird geprüft ... (Versuch {attempt} von {self.max_attempts} nach Timeout)",
-                    "color: #E0E0E0; font-size: 14px;"
+                    "status_neutral"
                 )
                 # Kurze Pause (500 ms) vor dem Neuversuch, unterbrechbar
                 for _ in range(5):
@@ -71,7 +72,7 @@ class NexusKeyValidatorWorker(QThread):
                 daily_lim = res.get("daily_limit", 0)
                 self.status_signal.emit(
                     f"✓ API-Key aktiv: {user_name} (Noch {daily_rem:,} / {daily_lim:,} Aufrufe heute frei).",
-                    "color: #1F7343; font-size: 14px; font-weight: bold;"
+                    "status_success"
                 )
                 self.finished_result.emit(res)
                 return
@@ -83,7 +84,7 @@ class NexusKeyValidatorWorker(QThread):
             if any(term in msg.lower() for term in ["ungültig", "abgelaufen", "rate-limit", "401", "403"]):
                 self.status_signal.emit(
                     f"⚠ {msg}.",
-                    "color: #C72138; font-size: 14px; font-weight: bold;"
+                    "status_critical"
                 )
                 self.finished_result.emit(res)
                 return
@@ -92,7 +93,7 @@ class NexusKeyValidatorWorker(QThread):
         if not self.isInterruptionRequested():
             self.status_signal.emit(
                 f"⚠ Validierung nach {self.max_attempts} Versuchen fehlgeschlagen ({last_error_msg}).",
-                "color: #D7A64B; font-size: 14px; font-weight: bold;"
+                "status_warning"
             )
             self.finished_result.emit({"valid": False, "message": last_error_msg})
 
@@ -339,17 +340,18 @@ class Page_Settings_General(QWidget):
 
         # Farbschema / Theme-Modus
         theme_row = QHBoxLayout()
-        theme_row.setSpacing(10)
-        lbl_theme = QLabel("Farbschema / Theme-Modus:")
-        lbl_theme.setStyleSheet("font-weight: bold;")
+        theme_row.setSpacing(8)
+        lbl_theme = QLabel("Farbschema:")
+        lbl_theme.setObjectName("lbl_theme")
+        lbl_theme.setFixedWidth(lbl_col_width)
         theme_row.addWidget(lbl_theme)
 
         self.combo_theme_mode = QComboBox()
         self.combo_theme_mode.setObjectName("combo_theme_mode")
-        self.combo_theme_mode.addItem("Mixed (Sci-Fi Dark & Helle Tabellen – Standard)", "mixed")
-        self.combo_theme_mode.addItem("Dark Mode (Vollständiger Sci-Fi Dark Mode)", "dark")
-        self.combo_theme_mode.addItem("Light Mode (Klassische helle Oberfläche)", "light")
-        self.combo_theme_mode.setMinimumWidth(380)
+        self.combo_theme_mode.addItem("Light Mode", "light")
+        self.combo_theme_mode.addItem("Mixed Mode", "mixed")
+        self.combo_theme_mode.addItem("Dark Mode", "dark")
+        self.combo_theme_mode.setFixedWidth(242)
 
         current_theme = get_current_theme_mode()
         idx = self.combo_theme_mode.findData(current_theme)
@@ -417,18 +419,32 @@ class Page_Settings_General(QWidget):
             "Profile, Ladereihenfolge und Cache-Dateien) mit allen individuellen Einträgen werden "
             "unwiderruflich gelöscht."
         )
+        lbl_reset_desc.setObjectName("lbl_reset_desc")
+        lbl_reset_desc.setProperty("variant", "description")
         lbl_reset_desc.setWordWrap(True)
-        lbl_reset_desc.setStyleSheet("color: #e0e0e0; font-size: 14px; margin-top: 0px; margin-bottom: 0px;")
         layout.addWidget(lbl_reset_desc)
         layout.addSpacing(10)
 
-        # Button wie auf Tools-Seite: volle Breite, 40px Höhe, zentrierter Text, ohne Icon
-        self.btn_reset = QPushButton("Starfield LOH Zurücksetzen")
+        # Standardisierter Aktionsbutton: 32px Höhe, 242px Breite, linksbündig mit Discard-Icon
+        reset_btn_row = QHBoxLayout()
+        reset_btn_row.setContentsMargins(0, 0, 0, 0)
+        self.btn_reset = QPushButton()
         self.btn_reset.setObjectName("btn_danger")
-        self.btn_reset.setMinimumHeight(40)
-        self.btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reset.setFixedWidth(242)
+        self.btn_reset.setFixedHeight(32)
+        make_button_premium(
+            self.btn_reset,
+            os.path.join(GRAPHICS_DIR, "Icon_Discard.svg"),
+            "Starfield LOH Zurücksetzen",
+            variant="red",
+            icon_size=18,
+            spacing=10,
+            padding_left=8
+        )
         self.btn_reset.clicked.connect(self.on_reset_clicked)
-        layout.addWidget(self.btn_reset)
+        reset_btn_row.addWidget(self.btn_reset)
+        reset_btn_row.addStretch()
+        layout.addLayout(reset_btn_row)
 
 
         # Vertikaler Spacer nach unten
@@ -480,7 +496,7 @@ class Page_Settings_General(QWidget):
         """Reagiert auf die Umschaltung des Farbschemas und aktiviert das Theme sofort."""
         mode = self.combo_theme_mode.currentData()
         if mode:
-            set_setting("ui", "theme_mode", mode)
+            set_setting("settings", "theme_mode", mode)
             setup_starfield_theme(theme_mode=mode)
             self.data_updated.emit()
 
@@ -508,28 +524,32 @@ class Page_Settings_General(QWidget):
 
         from Structure.Paths import is_dpapi_hardware_mismatch
         if is_dpapi_hardware_mismatch():
-            self.lbl_nexus_status.setText("⚠ Hardwarewechsel erkannt: Bitte hinterlegen Sie Ihren Nexus API-Key auf diesem Rechner neu.")
-            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(
+                self.lbl_nexus_status,
+                "⚠ Hardwarewechsel erkannt: Bitte hinterlegen Sie Ihren Nexus API-Key auf diesem Rechner neu.",
+                "status_warning"
+            )
             return
 
         clean_key = (api_key or "").strip()
         if not clean_key:
-            self.lbl_nexus_status.setText("ℹ Kein API-Key hinterlegt (Nexus Fetch ist ohne API-Schlüssel deaktiviert).")
-            self.lbl_nexus_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(
+                self.lbl_nexus_status,
+                "ℹ Kein API-Key hinterlegt (Nexus Fetch ist ohne API-Schlüssel deaktiviert).",
+                "status_warning"
+            )
             return
 
-        self.lbl_nexus_status.setText("⏳ Nexus API-Key wird geprüft...")
-        self.lbl_nexus_status.setStyleSheet("color: #E0E0E0; font-size: 14px;")
+        set_status_label(self.lbl_nexus_status, "⏳ Nexus API-Key wird geprüft...", "status_neutral")
 
         self._validator_thread = NexusKeyValidatorWorker(clean_key, self)
         self._validator_thread.status_signal.connect(self._on_nexus_status_updated)
         self._validator_thread.finished_result.connect(self._on_nexus_validation_finished)
         self._validator_thread.start()
 
-    def _on_nexus_status_updated(self, text: str, style: str):
+    def _on_nexus_status_updated(self, text: str, variant: str):
         """Aktualisiert das Status-Label thread-sicher über Qt-Signale."""
-        self.lbl_nexus_status.setText(text)
-        self.lbl_nexus_status.setStyleSheet(style)
+        set_status_label(self.lbl_nexus_status, text, variant)
 
     def _on_nexus_validation_finished(self, result: dict):
         """Wird ausgelöst, wenn die Hintergrundvalidierung des Nexus API-Keys abgeschlossen ist."""
@@ -560,37 +580,31 @@ class Page_Settings_General(QWidget):
             self.btn_toggle_api_key.setToolTip("API-Key einblenden")
 
     def update_status_display(self, path: str):
-        """Aktualisiert die Statusanzeige mit offiziellem Starfield-Grün (#1F7343) oder Gelb (#D7A64B)."""
+        """Aktualisiert die Statusanzeige mit offiziellen Starfield-Statusfarben."""
         from Structure.Environment_Controller import is_primary_system
         if not is_primary_system():
-            self.lbl_status.setText("⚠ Fremdsystem: Spieleverzeichnis für einen anderen Rechner registriert.")
-            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_status, "⚠ Fremdsystem: Spieleverzeichnis für einen anderen Rechner registriert.", "status_warning")
             return
 
         if not path or not path.strip():
-            self.lbl_status.setText("⚠ Kein Pfad angegeben.")
-            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_status, "⚠ Kein Pfad angegeben.", "status_warning")
             return
 
         clean_path = path.strip()
         if not os.path.isdir(clean_path):
-            self.lbl_status.setText("⚠ Verzeichnis existiert derzeit nicht auf diesem Datenträger.")
-            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_status, "⚠ Verzeichnis existiert derzeit nicht auf diesem Datenträger.", "status_warning")
             return
 
         from Structure.Paths import STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH
         if not os.path.isfile(STARFIELD_PLUGINS_PATH):
-            self.lbl_status.setText("⚠ Verzeichnis erreichbar, aber Plugins.txt fehlt.")
-            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_status, "⚠ Verzeichnis erreichbar, aber Plugins.txt fehlt.", "status_warning")
             return
 
         if not os.path.isfile(STARFIELD_CONTENT_CATALOG_PATH):
-            self.lbl_status.setText("⚠ Verzeichnis erreichbar, aber ContentCatalog.txt fehlt.")
-            self.lbl_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_status, "⚠ Verzeichnis erreichbar, aber ContentCatalog.txt fehlt.", "status_warning")
             return
 
-        self.lbl_status.setText("✓ Verzeichnis und Spieldateien vorhanden und erreichbar.")
-        self.lbl_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
+        set_status_label(self.lbl_status, "✓ Verzeichnis und Spieldateien vorhanden und erreichbar.", "status_success")
 
     def on_reauthorize_system(self):
         """Öffnet den Bestätigungsdialog zur Reautorisierung des aktuellen Rechners als Primärsystem."""
@@ -696,19 +710,16 @@ class Page_Settings_General(QWidget):
     def update_data_status_display(self, path: str):
         """Aktualisiert die Statusanzeige für das Datenverzeichnis."""
         if not path or not path.strip():
-            self.lbl_data_status.setText("⚠ Kein Datenverzeichnis angegeben.")
-            self.lbl_data_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_data_status, "⚠ Kein Datenverzeichnis angegeben.", "status_warning")
             return
 
         resolved = resolve_path(path, "Data")
         if os.path.isdir(resolved):
             is_rel = not os.path.isabs(path) or os.path.normpath(resolved).startswith(os.path.normpath(APP_ROOT))
             mode_str = "Portabel im Programmordner" if is_rel else f"Extern: {resolved}"
-            self.lbl_data_status.setText(f"✓ Datenverzeichnis aktiv ({mode_str}).")
-            self.lbl_data_status.setStyleSheet("color: #1F7343; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_data_status, f"✓ Datenverzeichnis aktiv ({mode_str}).", "status_success")
         else:
-            self.lbl_data_status.setText(f"⚠ Verzeichnis '{resolved}' existiert derzeit nicht.")
-            self.lbl_data_status.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold;")
+            set_status_label(self.lbl_data_status, f"⚠ Verzeichnis '{resolved}' existiert derzeit nicht.", "status_warning")
 
     def on_data_path_text_changed(self, text: str):
         self.update_data_status_display(text)

@@ -16,7 +16,13 @@ from Structure.Database import (
     update_mod_nexus_id,
 )
 from Structure.Paths import APP_ROOT
-from Structure.GUI.UI_Utils import make_button_premium, load_mod_preview_pixmap, format_date_display, format_date_sort
+from Structure.GUI.UI_Utils import (
+    make_button_premium,
+    load_mod_preview_pixmap,
+    format_date_display,
+    format_date_sort,
+    set_status_label,
+)
 from Structure.Starfield_Mod_Update import (
     step_check_previous_update,
     step_prepare_update,
@@ -388,24 +394,20 @@ class Page_Update(QWidget):
 
         self.inp_last_update_date.setText(self.format_date_display(date_val))
 
-        # Farbliche Unterscheidung:
-        # Grün (#4CAF50): State 4 ('Update erfolgreich'), State 10 ('Rollback erfolgreich'), State 13 ('Update / Rollback erfolgreich')
-        # Rot (#C72138): State 5 ('Update manuell abgebrochen'), State 11 ('Validierung fehlerhaft')
-        # Gelb/Amber (#D7A64B): Zwischenstände 1, 2, 3, 6, 7, 8, 9, 12 ('Validierung erfolgreich')
+        # Farbliche Unterscheidung nach semantischen Status-Varianten:
+        # Grün (status_success): State 4 ('Update erfolgreich'), State 10 ('Rollback erfolgreich'), State 13 ('Update / Rollback erfolgreich')
+        # Rot (status_critical): State 5 ('Update manuell abgebrochen'), State 11 ('Validierung fehlerhaft')
+        # Gelb/Amber (status_warning): Zwischenstände 1, 2, 3, 6, 7, 8, 9, 12 ('Validierung erfolgreich')
         if state_id in (4, 10, 13):
-            self.lbl_last_update_reason.setText(reason)
-            self.lbl_last_update_reason.setStyleSheet("color: #4CAF50; font-size: 13px; font-weight: bold; margin-left: 4px;")
+            set_status_label(self.lbl_last_update_reason, reason, "status_success")
         elif state_id in (5, 11):
-            self.lbl_last_update_reason.setText(reason)
-            self.lbl_last_update_reason.setStyleSheet("color: #C72138; font-size: 13px; font-weight: bold; margin-left: 4px;")
+            set_status_label(self.lbl_last_update_reason, reason, "status_critical")
         elif state_id in (1, 2, 3, 6, 7, 8, 9, 12):
-            self.lbl_last_update_reason.setText(reason)
-            self.lbl_last_update_reason.setStyleSheet("color: #D7A64B; font-size: 13px; font-weight: bold; margin-left: 4px;")
+            set_status_label(self.lbl_last_update_reason, reason, "status_warning")
         else:
             fail_reason = reason if reason else "Nicht abgeschlossen"
-            color = "#4CAF50" if time_end else "#C72138"
-            self.lbl_last_update_reason.setText(fail_reason)
-            self.lbl_last_update_reason.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; margin-left: 4px;")
+            variant = "status_success" if time_end else "status_critical"
+            set_status_label(self.lbl_last_update_reason, fail_reason, variant)
 
         # Schaltflächenzustände hierarchisch anwenden
         self.apply_environment_security()

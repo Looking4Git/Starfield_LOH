@@ -12,8 +12,7 @@
     "y": 100
   },
   "ui": {
-    "sidebar_collapsed": false,
-    "theme_mode": "mixed"
+    "sidebar_collapsed": false
   },
   "paths": {
     "starfield_data": "",
@@ -26,6 +25,7 @@
     "Auto_Save": 1,
     "Link_Mod_Selection": 1,
     "Limit_Warning_Percentage": 90,
+    "theme_mode": "mixed",
     "Replace_Author_With_Nexus_User": false,
     "Prefer_Content_BarChart": false,
     "Prefer_Classification_Tiles": true,

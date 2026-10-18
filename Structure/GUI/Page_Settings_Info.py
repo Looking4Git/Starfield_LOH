@@ -8,6 +8,7 @@ from PySide6.QtGui import QPixmap, QIcon, QDesktopServices
 
 from Structure.Paths import GRAPHICS_DIR, APP_ROOT
 from Structure.Version import load_version_info, format_version_string
+from Structure.GUI.UI_Utils import make_button_premium
 
 
 class Page_Settings_Info(QWidget):
@@ -42,10 +43,10 @@ class Page_Settings_Info(QWidget):
 
         def make_field(label_text: str, value_text: str) -> tuple[QLabel, QLineEdit]:
             lbl = QLabel(label_text)
-            lbl.setStyleSheet("color: #e0e0e0; font-size: 14px;")
             inp = QLineEdit(value_text)
             inp.setReadOnly(True)
             inp.setFixedHeight(32)
+            inp.setCursorPosition(0)
             return lbl, inp
 
         info = load_version_info()
@@ -53,38 +54,31 @@ class Page_Settings_Info(QWidget):
         ver_text = format_version_string(info)
 
         lbl_app, self.inp_app = make_field("Anwendungsname:", app_name)
-        form_layout.addRow(lbl_app, self.inp_app)
-
         lbl_version, self.inp_version = make_field("Programmversion:", ver_text)
+
+        lbl_col_width = max(
+            lbl_app.fontMetrics().horizontalAdvance(lbl_app.text()),
+            lbl_version.fontMetrics().horizontalAdvance(lbl_version.text())
+        )
+        lbl_app.setFixedWidth(lbl_col_width)
+        lbl_version.setFixedWidth(lbl_col_width)
+
+        form_layout.addRow(lbl_app, self.inp_app)
         form_layout.addRow(lbl_version, self.inp_version)
 
         # Schaltfläche: Release Notes (linksbündig unter Programmversion)
-        self.btn_release_notes = QPushButton("Release Notes")
+        self.btn_release_notes = QPushButton()
         self.btn_release_notes.setObjectName("btn_release_notes")
-        self.btn_release_notes.setCursor(Qt.CursorShape.PointingHandCursor)
-        icon_path = os.path.join(GRAPHICS_DIR, "Icon_Downstream.svg")
-        if os.path.exists(icon_path):
-            self.btn_release_notes.setIcon(QIcon(icon_path))
-            self.btn_release_notes.setIconSize(QSize(20, 20))
         self.btn_release_notes.setFixedSize(160, 32)
-        self.btn_release_notes.setStyleSheet("""
-            QPushButton#btn_release_notes {
-                background-color: #304C7A;
-                color: #ECECEC;
-                font-size: 13px;
-                font-weight: bold;
-                border: none;
-                border-radius: 2px;
-                padding: 4px 12px;
-                text-align: left;
-            }
-            QPushButton#btn_release_notes:hover {
-                background-color: #5B7A9E;
-            }
-            QPushButton#btn_release_notes:pressed {
-                background-color: #1E3355;
-            }
-        """)
+        make_button_premium(
+            self.btn_release_notes,
+            os.path.join(GRAPHICS_DIR, "Icon_Downstream.svg"),
+            "Release Notes",
+            variant="blue",
+            icon_size=18,
+            spacing=10,
+            padding_left=8
+        )
         self.btn_release_notes.clicked.connect(self.on_open_release_notes)
         form_layout.addRow("", self.btn_release_notes)
 
@@ -135,7 +129,7 @@ class Page_Settings_Info(QWidget):
         text_layout_looking4.setContentsMargins(0, 0, 0, 0)
 
         lbl_title_looking4 = QLabel("Der Starfield Load Order Helper (LOH) wurde von Looking4 entwickelt.")
-        lbl_title_looking4.setStyleSheet("color: #ECECEC; font-size: 14px; font-weight: bold;")
+        lbl_title_looking4.setProperty("variant", "subheading")
         lbl_title_looking4.setWordWrap(True)
         text_layout_looking4.addWidget(lbl_title_looking4)
 
@@ -149,7 +143,7 @@ class Page_Settings_Info(QWidget):
             "eine profilbasierte Mod-Verwaltung und kann so auf Spielstände abgestimmte Ladereihenfolgen "
             "(Plugins.txt) aktivieren."
         )
-        lbl_desc_looking4.setStyleSheet("color: #e0e0e0; font-size: 14px; line-height: 1.4;")
+        lbl_desc_looking4.setProperty("variant", "description")
         lbl_desc_looking4.setWordWrap(True)
         text_layout_looking4.addWidget(lbl_desc_looking4)
 
@@ -182,7 +176,7 @@ class Page_Settings_Info(QWidget):
             "Der Starfield Load Order Helper (LOH) wurde mit der Unterstützung von KI entwickelt. "
             "Zum Einsatz kam die Google Antigravity IDE mit eingebundenen Gemini-Agenten."
         )
-        lbl_title_ai.setStyleSheet("color: #ECECEC; font-size: 14px; font-weight: bold;")
+        lbl_title_ai.setProperty("variant", "subheading")
         lbl_title_ai.setWordWrap(True)
         text_layout_ai.addWidget(lbl_title_ai)
 
@@ -194,7 +188,7 @@ class Page_Settings_Info(QWidget):
             "der Konzeption und dem Entwurf von Looking4. Grafische Elemente wie die Icons wurden durch den "
             "Entwickler per Hand selbst erstellt."
         )
-        lbl_desc_ai.setStyleSheet("color: #e0e0e0; font-size: 14px; line-height: 1.4;")
+        lbl_desc_ai.setProperty("variant", "description")
         lbl_desc_ai.setWordWrap(True)
         text_layout_ai.addWidget(lbl_desc_ai)
 
@@ -232,7 +226,7 @@ class Page_Settings_Info(QWidget):
             "Entwickelt mit Python und PySide6 (Qt für Python – lizenziert unter LGPLv3). "
             "Vollständige Lizenz- und Attributionsangaben aller Drittanbieter-Komponenten siehe Datei NOTICE."
         )
-        lbl_legal.setStyleSheet("color: #a0a0a0; font-size: 13px; line-height: 1.4;")
+        lbl_legal.setProperty("variant", "description")
         lbl_legal.setWordWrap(True)
         layout.addWidget(lbl_legal)
 

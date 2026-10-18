@@ -34,7 +34,6 @@ QPushButton#menu_button QLabel {
 
 QPushButton#menu_button:hover {
     background-color: {{ BORDER_SUBTLE }};
-    color: white;
 }
 
 QLabel {
@@ -47,7 +46,7 @@ QPushButton#menu_button[active="true"] {
 }
 
 QPushButton#menu_button[active="true"] QLabel {
-    color: {{ TEXT_ON_DARK }};
+    color: {{ TEXT_ON_ACTION_BUTTON }};
 }
 
 /* Trennkante zwischen Hauptfenster und angedockten Fenstern */

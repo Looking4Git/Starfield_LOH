@@ -36,18 +36,6 @@ class Widget_TileIconButton(QWidget):
         self._is_hovered = False
         self._is_pressed = False
 
-        # Farbschemata (Starfield UI Design Rules)
-        if self.variant == "red":
-            self._color_normal = "#C72138"   # Starfield Rot
-            self._color_hover = "#E03048"    # Rot Highlight
-            self._color_pressed = "#A0182B"  # Rot Pressed
-            self._color_disabled = "#422226" # Abgedunkeltes Rot
-        else:
-            self._color_normal = "#304C7A"   # Starfield Blau
-            self._color_hover = "#5B7A9E"    # Blau Highlight
-            self._color_pressed = "#1F3354"  # Blau Pressed
-            self._color_disabled = "#222D3D" # Abgedunkeltes Blau
-
         self._setup_ui()
         self._update_style()
 
@@ -92,32 +80,43 @@ class Widget_TileIconButton(QWidget):
 
         # 2. Text Label
         self.text_label = QLabel(self.text)
+        self.text_label.setObjectName("tile_text")
         self.text_label.setWordWrap(True)
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         main_layout.addWidget(self.text_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     def _update_style(self):
+        from Structure.GUI.UI_Theme import get_theme_color_hex
+
         enabled = self.isEnabled()
+        is_red = (self.variant == "red")
+
+        if is_red:
+            col_normal = get_theme_color_hex("BUTTON_RED_NORMAL", "#C72138")
+            col_hover = get_theme_color_hex("BUTTON_RED_HOVER", "#E03048")
+            col_pressed = get_theme_color_hex("BUTTON_RED_PRESSED", "#A0182B")
+            col_disabled = get_theme_color_hex("BUTTON_RED_DISABLED", "#422226")
+        else:
+            col_normal = get_theme_color_hex("BUTTON_BLUE_NORMAL", "#304C7A")
+            col_hover = get_theme_color_hex("BUTTON_BLUE_HOVER", "#5B7A9E")
+            col_pressed = get_theme_color_hex("BUTTON_BLUE_PRESSED", "#1F3354")
+            col_disabled = get_theme_color_hex("BUTTON_BLUE_DISABLED", "#222D3D")
 
         if not enabled:
-            bg_color = self._color_disabled
-            text_color = "#888888"
+            bg_color = col_disabled
             underline = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
         elif self._is_pressed:
-            bg_color = self._color_pressed
-            text_color = "#FFFFFF"
+            bg_color = col_pressed
             underline = True
             self.setCursor(Qt.CursorShape.PointingHandCursor)
         elif self._is_hovered:
-            bg_color = self._color_hover
-            text_color = "#FFFFFF"
+            bg_color = col_hover
             underline = True
             self.setCursor(Qt.CursorShape.PointingHandCursor)
         else:
-            bg_color = self._color_normal
-            text_color = "#ECECEC"
+            bg_color = col_normal
             underline = False
             self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -126,15 +125,16 @@ class Widget_TileIconButton(QWidget):
             f"QFrame {{ background-color: {bg_color}; border-radius: 12px; border: none; }}"
         )
 
-        # Text-Stylesheet und Unterstreichung anwenden
+        # Font-Unterstreichung bei Hover/Pressed anwenden (Schriftgröße und Farbe kommen aus Pages.qss)
         font = self.text_label.font()
         font.setFamily("Segoe UI")
-        font.setPixelSize(13)
         font.setUnderline(underline)
         self.text_label.setFont(font)
-        self.text_label.setStyleSheet(
-            f"color: {text_color}; font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif; background: transparent; border: none; padding: 0px;"
-        )
+        self.text_label.setStyleSheet("")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._update_style()
 
     def enterEvent(self, event):
         if self.isEnabled():
@@ -164,7 +164,12 @@ class Widget_TileIconButton(QWidget):
         super().mouseReleaseEvent(event)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.Type.EnabledChange:
+        if event.type() in (
+            QEvent.Type.EnabledChange,
+            QEvent.Type.StyleChange,
+            QEvent.Type.PaletteChange,
+            QEvent.Type.ApplicationPaletteChange,
+        ):
             if not self.isEnabled():
                 self._is_hovered = False
                 self._is_pressed = False

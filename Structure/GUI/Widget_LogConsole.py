@@ -22,18 +22,10 @@ class Widget_LogConsole(QPlainTextEdit):
         self._setup_ui()
 
     def _setup_ui(self):
-        """Konfiguriert das einheitliche dunkle Konsolen-Design."""
+        """Konfiguriert das einheitliche Konsolen-Widget (Styling über Pages.qss)."""
         self.setReadOnly(True)
-        self.setStyleSheet(
-            "background-color: #1e1e1e; "
-            "color: #d4d4d4; "
-            "font-family: Consolas, 'Courier New', monospace; "
-            "font-size: 13px; "
-            "line-height: 1.4; "
-            "padding: 10px; "
-            "border: 1px solid #333333; "
-            "border-radius: 4px;"
-        )
+        if not self.objectName():
+            self.setObjectName("log_console")
 
     @Slot(str)
     def append_log(self, text: str):

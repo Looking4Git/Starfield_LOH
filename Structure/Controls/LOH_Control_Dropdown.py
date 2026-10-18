@@ -22,11 +22,14 @@ class LOH_Dropdown_Style(QProxyStyle):
 
 class DropdownWheelFilter(QObject):
     """
-    Globaler EventFilter zur vollständigen Deaktivierung des Mausrades auf Dropdown-Menüs (QComboBox):
-    - Fängt alle Mausrad-Events auf QComboBox-Instanzen ausnahmslos ab.
+    Globaler EventFilter zur Steuerung von Dropdown-Menüs (QComboBox):
+    - Fängt alle Mausrad-Events auf QComboBox-Instanzen ausnahmslos ab (Mausrad-Schutz).
     - Befindet sich das Dropdown innerhalb einer QScrollArea, wird das Event
       direkt an diese weitergeleitet, damit die Detailseite flüssig scrollt.
-    - Der Wert des Dropdowns bleibt in jedem Fall unverändert.
+    - Synchronisiert das Popup-Verhalten beim Öffnen (Show):
+      Deaktiviert mouseTracking auf der Popup-Listenansicht (QComboBoxListView),
+      damit die Vorbelegung (:selected) stabil im dezenten Akzentgrau erhalten bleibt,
+      während der Mauszeiger (:hover) flüssig im Aktionsblau geführt wird.
     """
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.Wheel and isinstance(obj, QComboBox):
@@ -37,6 +40,14 @@ class DropdownWheelFilter(QObject):
                     return True
                 parent = parent.parentWidget()
             return True
+
+        if event.type() == QEvent.Type.Show and obj.metaObject().className() == 'QComboBoxPrivateContainer':
+            combo = obj.parentWidget()
+            if isinstance(combo, QComboBox):
+                try:
+                    combo.view().setMouseTracking(False)
+                except Exception:
+                    pass
 
         return super().eventFilter(obj, event)
 

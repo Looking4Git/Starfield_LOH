@@ -28,6 +28,7 @@ from Structure.GUI.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Ca
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
 from Structure.Controls import LOH_Control_EmbeddedScrollTree
+from Structure.GUI.UI_Theme import get_theme_color
 
 class LimitBar(QWidget):
     def __init__(self, parent=None):
@@ -37,10 +38,6 @@ class LimitBar(QWidget):
         self.limit = 100
         self.core_val = 0
         self.mod_val = 0
-        self.color_core = QColor("#E06236")     # Starfield Orange
-        self.color_mod = QColor("#D7A64B")      # Starfield Gelb
-        self.color_critical = QColor("#C72138") # Starfield Rot
-        self.color_bg = QColor("#ECECEC")       # Starfield Weiß (leere Bar)
 
     def set_values(self, core, mod, limit):
         self.core_val = core
@@ -55,18 +52,20 @@ class LimitBar(QWidget):
         w = self.width()
         h = self.height()
         
-        # Hintergrund zeichnen
+        # Hintergrund vollflächig und randlos zeichnen
+        bg_color = get_theme_color("SURFACE_PRIMARY", fallback="#ECECEC")
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(self.color_bg))
+        painter.setBrush(QBrush(bg_color))
         painter.drawRect(0, 0, w, h)
         
         total_val = self.core_val + self.mod_val
         from Structure.Paths import get_setting
         warning_pct = get_setting("Limit_Warning_Percentage", 90) / 100.0
         is_critical = (total_val / self.limit) >= warning_pct
-        mod_color = self.color_critical if is_critical else self.color_mod
         
-        # Proportionale Breiten
+        core_color = get_theme_color("STATUS_WARNING", fallback="#E06236")
+        mod_color = get_theme_color("STATUS_CRITICAL", fallback="#C72138") if is_critical else get_theme_color("ACCENT_BRAND", fallback="#D7A64B")
+        
         core_w = int((self.core_val / self.limit) * w)
         mod_w = int((self.mod_val / self.limit) * w)
         
@@ -78,8 +77,9 @@ class LimitBar(QWidget):
             else:
                 mod_w = w - core_w
                 
+        painter.setPen(Qt.PenStyle.NoPen)
         if core_w > 0:
-            painter.setBrush(QBrush(self.color_core))
+            painter.setBrush(QBrush(core_color))
             painter.drawRect(0, 0, core_w, h)
             
         if mod_w > 0:
@@ -271,37 +271,11 @@ class Page_LoadOrder(QWidget):
 
     def show_message_box(self, title: str, text: str, icon=QMessageBox.Icon.Information, yes_no=False) -> bool:
         """
-        Zeigt eine QMessageBox mit dunkler Titelleiste (Windows 11) und deutschen Button-Texten.
+        Zeigt eine QMessageBox mit Theme-gesteuerter Windows-Titelleiste und deutschen Button-Texten.
         Gibt True bei 'Ja' / 'Ok' zurück, andernfalls False.
         """
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(text)
-        msg_box.setIcon(icon)
-        msg_box.setWindowIcon(self.windowIcon())
-        
-        # Dunklen Windows-Titelbalken aktivieren
-        import sys
-        import ctypes
-        if sys.platform == "win32":
-            try:
-                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-                hwnd = msg_box.winId().__int__()
-                rendering_policy = ctypes.c_int(1)
-                set_window_attribute(hwnd, 20, ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            except Exception:
-                pass
-                
-        if yes_no:
-            btn_yes = msg_box.addButton("Ja", QMessageBox.ButtonRole.YesRole)
-            btn_no = msg_box.addButton("Nein", QMessageBox.ButtonRole.NoRole)
-            msg_box.setDefaultButton(btn_no)
-            msg_box.exec()
-            return msg_box.clickedButton() == btn_yes
-        else:
-            btn_ok = msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
-            msg_box.exec()
-            return True
+        from Structure.GUI.UI_Utils import show_starfield_message_box
+        return show_starfield_message_box(self, title, text, icon=icon, yes_no=yes_no)
 
     def setup_ui(self):
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Page_LoadOrder.ui")
@@ -442,6 +416,7 @@ class Page_LoadOrder(QWidget):
             
         self.btn_analysis = ui.findChild(QPushButton, "btn_analysis")
         if self.btn_analysis:
+            make_button_premium(self.btn_analysis, os.path.join(APP_ROOT, "Graphics", "Icon_Diagram.svg"), "Analyse")
             self.btn_analysis.clicked.connect(self.on_analysis_clicked)
             
         self.btn_save = ui.findChild(QPushButton, "btn_save_detail")
@@ -516,15 +491,6 @@ class Page_LoadOrder(QWidget):
         
         # Custom-Style für eine extrem deutliche Drag & Drop Linie
         self.table_view.setStyle(DropIndicatorStyle(self.table_view.style()))
-        self.table_view.setStyleSheet("""
-            QTableView {
-                background-color: #ECECEC;
-                alternate-background-color: #F2F2F2;
-                color: #1e1e1e;
-                gridline-color: #d0d0d0;
-                border: none;
-            }
-        """)
 
         # Palette anpassen, damit die Markierungsfarbe auch bei Fokusverlust/ProxyStyle immer Starfield-Blau bleibt
         palette = self.table_view.palette()
@@ -766,7 +732,7 @@ class Page_LoadOrder(QWidget):
             logging.warning(f"Fehler bei get_active_profile_ids: {e}")
             active_ids = set()
 
-        color_active_bg = QColor("#1F7343")
+        color_active_bg = get_theme_color("STATUS_SUCCESS", "#1F7343")
         color_active_fg = QColor("#FFFFFF")
 
         for r in range(self.profile_model.rowCount()):
@@ -1889,8 +1855,6 @@ class Page_LoadOrder(QWidget):
                 self.clear_table_highlights()
                 dependencies = get_mod_dependencies_for_ui(int(self.current_mod_id))
                 self.highlight_requirements_and_dependencies(requirements, dependencies)
-                
-                self.show_message_box("Erfolg", "Die Voraussetzung wurde erfolgreich entfernt.", QMessageBox.Icon.Information)
             else:
                 self.show_message_box("Fehler", "Die Voraussetzung konnte nicht entfernt werden.", QMessageBox.Icon.Critical)
 
@@ -1989,13 +1953,13 @@ class Page_LoadOrder(QWidget):
         req_ids = {int(req["ID"]) for req in req_list if "ID" in req}
         dep_ids = {int(dep["ID"]) for dep in dep_list if "ID" in dep}
 
-        color_req = QColor("#C72138")   # Starfield Rot
-        color_dep = QColor("#1F7343")   # Starfield Grün (Deep Sci-Fi)
-        color_conflict_type3 = QColor("#C72138") # Rot (Typ 3)
-        color_conflict_type2 = QColor("#E06236") # Orange (Typ 2)
-        color_conflict_type1 = QColor("#D7A64B") # Gelb (Typ 1 oder Kombiniert)
-        color_conflict_resolved = QColor("#1F7343") # Grün (Empfohlen/Optional/Behoben)
-        color_fg = QColor("#ffffff")    # Weißer Text
+        color_req = get_theme_color("STATUS_CRITICAL", "#C72138")               # Starfield Rot
+        color_dep = get_theme_color("STATUS_SUCCESS", "#1F7343")                # Starfield Grün (Deep Sci-Fi)
+        color_conflict_type3 = get_theme_color("STATUS_CRITICAL", "#C72138")     # Rot (Typ 3)
+        color_conflict_type2 = get_theme_color("STATUS_WARNING", "#E06236")      # Orange (Typ 2)
+        color_conflict_type1 = get_theme_color("ACCENT_BRAND", "#D7A64B")        # Gelb (Typ 1 oder Kombiniert)
+        color_conflict_resolved = get_theme_color("STATUS_SUCCESS", "#1F7343")   # Grün (Empfohlen/Optional/Behoben)
+        color_fg = QColor("#ffffff")                                             # Weißer Text
 
         if mode == "Abhängigkeiten":
             if not req_ids and not dep_ids:

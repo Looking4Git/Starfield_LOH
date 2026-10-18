@@ -12,6 +12,58 @@ QLabel {
     font-size: {{ FONT_SIZE_BASE }};
 }
 
+/* Universelle Inhaltstexte / Beschreibungen */
+QLabel[variant="description"], QLabel#lbl_description, QLabel#lbl_reset_desc, QLabel#lbl_legal {
+    color: {{ TEXT_ON_DARK }};
+    font-size: {{ FONT_SIZE_DESC }};
+    line-height: 1.4;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+/* Teilüberschriften / Subheadings (Option A: 14px bold) */
+QLabel[variant="subheading"], QLabel[variant="description_title"] {
+    color: {{ TEXT_ON_DARK }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+QLabel[variant="muted"] {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: 13px;
+    line-height: 1.4;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+/* Universelle Status-Meldungen unter Feldern */
+QLabel[variant="status_success"] {
+    color: {{ STATUS_SUCCESS }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+}
+
+QLabel[variant="status_warning"] {
+    color: {{ ACCENT_BRAND }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+}
+
+QLabel[variant="status_critical"], QLabel[variant="status_error"] {
+    color: {{ STATUS_CRITICAL }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+}
+
+QLabel[variant="status_neutral"], QLabel[variant="status_info"] {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+}
+
+
 
 /* =========================================================================
    Abschnitt 2 – Tabellen & Bäume (Master-View)
@@ -26,6 +78,14 @@ QTableView, QTreeView {
     font-size: {{ FONT_SIZE_BASE }};
 }
 
+/* Universelle Zeilenhöhe und Padding für Bäume und Listen (z. B. Komponentenfeld auf Page_Mods) */
+QTreeView::item, QListView::item {
+    min-height: 26px;
+    max-height: 26px;
+    height: 26px;
+    padding: 1px 4px;
+}
+
 /* Direkte Formatierung der Tabellenzellen bei Auswahl */
 QTableView::item:selected, QListView::item:selected, QTreeView::item:selected,
 QTableView::item:selected:active, QListView::item:selected:active, QTreeView::item:selected:active,
@@ -34,14 +94,6 @@ QTableView::item:selected:!active, QListView::item:selected:!active, QTreeView::
     color: #ffffff;
 }
 
-QTableView::item:hover, QListView::item:hover, QTreeView::item:hover {
-    background-color: transparent;
-}
-
-QTableView::item:selected:hover, QListView::item:selected:hover, QTreeView::item:selected:hover {
-    background-color: {{ ACCENT_ACTION }};
-    color: #ffffff;
-}
 
 /* Header im Dark Mode Design */
 QHeaderView::section {
@@ -154,9 +206,9 @@ QComboBox::down-arrow {
 QComboBox QAbstractItemView {
     background-color: {{ SURFACE_PRIMARY }};
     color: {{ TEXT_ON_SURFACE }};
-    selection-background-color: {{ ACCENT_ACTION }};
-    selection-color: #ffffff;
-    border: 1px solid {{ ACCENT_ACTION }};
+    selection-background-color: {{ SURFACE_SECONDARY }};
+    selection-color: {{ TEXT_ON_SURFACE }};
+    border: 1px solid {{ BORDER_INPUT }};
     padding: 2px 0px;
     outline: none;
     font-size: {{ FONT_SIZE_BASE }};
@@ -168,12 +220,20 @@ QComboBox QAbstractItemView::item {
     color: {{ TEXT_ON_SURFACE }};
 }
 
-QComboBox QAbstractItemView::item:selected {
-    background-color: {{ ACCENT_ACTION }};
-    color: #ffffff;
+QComboBox QAbstractItemView::item:selected,
+QComboBox QAbstractItemView::item:selected:active,
+QComboBox QAbstractItemView::item:selected:!active,
+QComboBox QListView::item:selected,
+QComboBox QListView::item:selected:active,
+QComboBox QListView::item:selected:!active {
+    background-color: {{ SURFACE_SECONDARY }};
+    color: {{ TEXT_ON_SURFACE }};
 }
 
-QComboBox QAbstractItemView::item:hover {
+QComboBox QAbstractItemView::item:hover,
+QComboBox QListView::item:hover,
+QComboBox QAbstractItemView::item:selected:hover,
+QComboBox QListView::item:selected:hover {
     background-color: {{ ACCENT_ACTION_HOVER }};
     color: #ffffff;
 }
@@ -218,27 +278,37 @@ QCheckBox::indicator:disabled {
    Abschnitt 4 – Buttons & Aktions-Schaltflächen
    ========================================================================= */
 QPushButton {
-    background-color: {{ ACCENT_ACTION }};
-    color: {{ TEXT_ON_DARK }};
+    background-color: {{ BUTTON_BLUE_NORMAL }};
+    color: {{ BUTTON_TEXT_NORMAL }};
     border: none;
-    padding: 6px 14px;
+    padding: 4px 8px;
     border-radius: 2px;
-    font-size: {{ FONT_SIZE_BASE }};
+    font-size: {{ FONT_SIZE_BUTTON }};
     font-weight: bold;
     text-align: left;
 }
 
 QPushButton:hover {
-    background-color: {{ ACCENT_ACTION_HOVER }};
+    background-color: {{ BUTTON_BLUE_HOVER }};
 }
 
 QPushButton:pressed {
-    background-color: {{ ACCENT_ACTION_PRESSED }};
+    background-color: {{ BUTTON_BLUE_PRESSED }};
 }
 
 QPushButton:disabled {
-    background-color: {{ SURFACE_DISABLED }};
-    color: {{ TEXT_MUTED }};
+    background-color: {{ BUTTON_BLUE_DISABLED }};
+    color: {{ BUTTON_TEXT_DISABLED }};
+}
+
+/* Textlabel in zusammengesetzten Premium-Buttons */
+QLabel#btn_text {
+    color: {{ BUTTON_TEXT_NORMAL }};
+    font-size: {{ FONT_SIZE_BUTTON }};
+    font-weight: bold;
+    background: transparent;
+    border: none;
+    padding: 0px;
 }
 
 /* Spezifische Pfeiltasten */
@@ -268,55 +338,71 @@ QPushButton#btn_pos_up, QPushButton#btn_pos_down {
 
 /* Gefahrenbutton (Rot) */
 QPushButton#btn_danger, QPushButton[variant="red"] {
-    background-color: {{ STATUS_CRITICAL }};
-    color: #ECECEC;
+    background-color: {{ BUTTON_RED_NORMAL }};
+    color: {{ BUTTON_TEXT_NORMAL }};
     border: none;
     border-radius: 2px;
-    min-height: 40px;
+    min-height: 32px;
+    max-height: 32px;
     padding: 4px 8px;
     text-align: left;
+    font-size: {{ FONT_SIZE_BUTTON }};
+    font-weight: bold;
 }
 
 QPushButton#btn_danger:hover, QPushButton[variant="red"]:hover {
-    background-color: #E03048;
+    background-color: {{ BUTTON_RED_HOVER }};
 }
 
 QPushButton#btn_danger:pressed, QPushButton[variant="red"]:pressed {
-    background-color: #A0182B;
+    background-color: {{ BUTTON_RED_PRESSED }};
 }
 
 QPushButton#btn_danger:disabled, QPushButton[variant="red"]:disabled {
-    background-color: #422226;
-    color: {{ TEXT_MUTED }};
+    background-color: {{ BUTTON_RED_DISABLED }};
+    color: {{ BUTTON_TEXT_DISABLED }};
 }
 
 /* Grüner Aktionsbutton */
-QPushButton#btn_success, QPushButton#btn_activate_profile, QPushButton[variant="green"] {
-    background-color: #1F7343;
-    color: #ECECEC;
+QPushButton#btn_success, QPushButton[variant="green"] {
+    background-color: {{ BUTTON_GREEN_NORMAL }};
+    color: {{ BUTTON_TEXT_NORMAL }};
     border: none;
     border-radius: 2px;
+    min-height: 32px;
+    max-height: 32px;
     padding: 4px 8px;
     text-align: left;
+    font-size: {{ FONT_SIZE_BUTTON }};
+    font-weight: bold;
 }
 
-QPushButton#btn_success:hover, QPushButton#btn_activate_profile:hover, QPushButton[variant="green"]:hover {
-    background-color: #2EA44F;
+QPushButton#btn_success:hover, QPushButton[variant="green"]:hover {
+    background-color: {{ BUTTON_SUCCESS_HOVER }};
 }
 
-QPushButton#btn_success:pressed, QPushButton#btn_activate_profile:pressed, QPushButton[variant="green"]:pressed {
-    background-color: #165A33;
+QPushButton#btn_success:pressed, QPushButton[variant="green"]:pressed {
+    background-color: {{ BUTTON_SUCCESS_PRESSED }};
 }
 
-QPushButton#btn_success:disabled, QPushButton#btn_activate_profile:disabled, QPushButton[variant="green"]:disabled {
-    background-color: #1E5232;
-    color: {{ TEXT_MUTED }};
+QPushButton#btn_success:disabled, QPushButton[variant="green"]:disabled {
+    background-color: {{ BUTTON_SUCCESS_DISABLED }};
+    color: {{ BUTTON_TEXT_DISABLED }};
 }
 
 
 /* =========================================================================
    Abschnitt 5 – Detail-Views & Layout-Komponenten
    ========================================================================= */
+
+/* Detail-View Container */
+#detail_view,
+#scroll_area_detail,
+#scroll_area_detail > QWidget {
+    background-color: {{ WINDOW_BG }};
+    border: none;
+}
+
 #detail_view QLabel#lbl_filter,
 #detail_view QLabel#lbl_details,
 #detail_view QLabel#lbl_sorter_section,
@@ -328,6 +414,7 @@ QLabel#lbl_sorter_section,
 QLabel#lbl_display_section,
 QLabel#lbl_modules_section,
 QLabel#lbl_tools_section,
+QLabel#lbl_log_section,
 QLabel#lbl_install_process,
 #detail_view QLabel#lbl_assessment_stars {
     color: {{ TEXT_TITLE }};
@@ -341,6 +428,7 @@ QFrame#sorter_separator,
 QFrame#display_separator,
 QFrame#sep_modules_section,
 QFrame#sep_tools_section,
+QFrame#sep_log_section,
 QFrame#sep_install_process {
     background-color: {{ ACCENT_ACTION }};
     min-height: 4px;
@@ -368,9 +456,10 @@ QFrame#sep_install_process {
 #Section_Mod_Statistics_Category QLineEdit:read-only,
 #Page_Update #detail_view QLineEdit#inp_name_catalog,
 #Page_Update #detail_view QLineEdit#inp_id_catalog,
-#Page_Update #detail_view QLineEdit#inp_author {
+#Page_Update #detail_view QLineEdit#inp_author,
+#Page_Update #detail_view QLineEdit#inp_last_update_date {
     background-color: {{ SURFACE_READONLY }};
-    color: #000000;
+    color: {{ TEXT_READONLY }};
 }
 
 #Page_Update #detail_view QLineEdit:read-only,
@@ -400,8 +489,8 @@ QDialog QLabel, QMessageBox QLabel {
 }
 
 QDialog QPushButton, QMessageBox QPushButton {
-    background-color: {{ ACCENT_ACTION }};
-    color: {{ TEXT_ON_DARK }};
+    background-color: {{ BUTTON_BLUE_NORMAL }};
+    color: {{ BUTTON_TEXT }};
     border: none;
     padding: 6px 16px;
     border-radius: 2px;
@@ -411,7 +500,11 @@ QDialog QPushButton, QMessageBox QPushButton {
 }
 
 QDialog QPushButton:hover, QMessageBox QPushButton:hover {
-    background-color: {{ ACCENT_ACTION_HOVER }};
+    background-color: {{ BUTTON_BLUE_HOVER }};
+}
+
+QDialog QPushButton:pressed, QMessageBox QPushButton:pressed {
+    background-color: {{ BUTTON_BLUE_PRESSED }};
 }
 
 QDialog QLineEdit, QDialog QTextEdit, QDialog QPlainTextEdit, QDialog QTextBrowser {
@@ -559,6 +652,12 @@ QScrollBar::right-arrow:horizontal:hover {
     background: {{ SCROLLBAR_HANDLE_HOVER }};
 }
 
+/* Eck-Verbindungsstück zwischen horizontalem und vertikalem Rollbalken */
+QTableView::corner, QTreeView::corner, QAbstractScrollArea::corner {
+    background: {{ SCROLLBAR_TRACK }};
+    border: none;
+}
+
 /* Weichzeichnung bei Nichtbedarf (needed="false") */
 QScrollBar:vertical[needed="false"] {
     background-color: transparent;
@@ -608,33 +707,40 @@ QScrollBar::handle:vertical[needed="false"] {
 }
 
 #Page_Settings QTreeView#settings_tree {
-    background-color: #181818;
-    alternate-background-color: #1e1e1e;
-    color: #cccccc;
+    background-color: {{ PANEL_BG }};
+    alternate-background-color: {{ PANEL_BG }};
+    color: {{ TEXT_ON_DARK }};
     border: none;
-    border-right: 1px solid {{ BORDER_DARK }};
+    border-right: 1px solid {{ BORDER_SUBTLE }};
     outline: none;
     font-size: {{ FONT_SIZE_BASE }};
     padding: 6px 0px;
 }
 
+#Page_Settings QTreeView#settings_tree::branch {
+    background: transparent;
+}
+
 #Page_Settings QTreeView#settings_tree::item {
-    height: 38px;
+    min-height: 42px;
+    max-height: 42px;
+    height: 42px;
     padding-left: 10px;
-    color: #cccccc;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    color: {{ TEXT_ON_DARK_MUTED }};
     border: none;
 }
 
 #Page_Settings QTreeView#settings_tree::item:hover {
-    background-color: #282828;
-    color: #ececec;
+    background-color: {{ BORDER_SUBTLE }};
 }
 
 #Page_Settings QTreeView#settings_tree::item:selected,
 #Page_Settings QTreeView#settings_tree::item:selected:active,
 #Page_Settings QTreeView#settings_tree::item:selected:!active {
     background-color: {{ ACCENT_ACTION }};
-    color: #ffffff;
+    color: {{ TEXT_ON_ACTION_BUTTON }};
     font-weight: bold;
 }
 
@@ -650,4 +756,49 @@ QScrollBar::handle:vertical[needed="false"] {
 #tree_profile::item {
     height: 26px;
     padding: 0px;
+}
+
+/* Limit-Balken Beschriftungen */
+#lbl_full_val,
+#lbl_medium_val,
+#lbl_small_val,
+#lbl_pointers_val {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: 12px;
+    margin-bottom: 0px;
+}
+
+/* Hauptseitentitel (z. B. Page_Tools) */
+QLabel#lbl_page_title {
+    color: {{ TEXT_ON_DARK }};
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* Protokoll- und Konsolen-Widget (Widget_LogConsole) */
+Widget_LogConsole, QPlainTextEdit#log_console {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 10px;
+    border: 1px solid #333333;
+    border-radius: 4px;
+}
+
+/* Dashboard-Modul-Kacheln (Widget_TileIconButton) */
+QLabel#tile_text {
+    color: {{ TILE_TEXT_COLOR }};
+    font-size: {{ TILE_TEXT_SIZE }};
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#tile_text:disabled {
+    color: {{ TILE_TEXT_DISABLED }};
 }

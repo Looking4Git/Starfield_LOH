@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QTimer, QPoint
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QColor, QFont
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar, get_theme_color
 
 ROLE_LOCKED = Qt.ItemDataRole.UserRole + 2
 
@@ -44,6 +44,7 @@ class Dialog_Mod_Activation_Cascade(QDialog):
     """
     def __init__(self, parent=None, profile_id: int = 1, target_mod_id: int = 0, cascade_data: dict = None, mode: str = "ACTIVATE"):
         super().__init__(parent)
+        self.setObjectName("Dialog_Mod_Activation_Cascade")
         self.profile_id = int(profile_id)
         self.target_mod_id = int(target_mod_id)
         self.cascade_data = cascade_data or {}
@@ -62,32 +63,18 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         self.setModal(True)
 
         # 1. Standardgröße 800 x 840 px (bzw. angepasst an Bildschirmhöhe ohne Settings-Bindung)
-        target_height = 840
+        self._target_height = 840
         app = QApplication.instance()
         if app:
             primary_screen = app.primaryScreen()
             if primary_screen:
                 avail_h = primary_screen.availableGeometry().height()
-                target_height = min(840, avail_h - 80)
-        self.resize(800, target_height)
+                self._target_height = min(840, avail_h - 80)
+        self.setMinimumSize(750, 480)
+        self.resize(800, self._target_height)
 
         # 2. Zentrales Theme und Titelleiste aktivieren
         setup_starfield_theme(window=self, custom_icon_path=icon_path)
-
-        # 3. Kaskadenspezifische Tri-State Checkbox-Indikatoren
-        icon_chk = os.path.join(GRAPHICS_DIR, "Icon_Check.svg").replace("\\", "/")
-        self.setStyleSheet(f"""
-            QTableView::indicator:indeterminate {{
-                background-color: #E06236;
-                border: 1px solid #5b7a9e;
-                image: url("{icon_chk}");
-            }}
-            QTableView::indicator:checked:disabled {{
-                border: 1px solid #444444;
-                background-color: #B8BDC4;
-                image: url("{icon_chk}");
-            }}
-        """)
 
         # 3. Layout aufbauen
         self.main_layout = QVBoxLayout(self)
@@ -98,33 +85,32 @@ class Dialog_Mod_Activation_Cascade(QDialog):
         target_name = self.cascade_data.get("target_mod_name") or f"Mod #{self.target_mod_id}"
         header_text = f"Kaskadierende Mod-Aktivierung für: {target_name}" if self.mode == "ACTIVATE" else f"Kaskadierende Mod-Deaktivierung für: {target_name}"
         self.lbl_title = QLabel(header_text)
-        self.lbl_title.setStyleSheet("color: #D7A64B; font-size: 16px; font-weight: bold;")
+        self.lbl_title.setObjectName("lbl_dialog_title")
         self.main_layout.addWidget(self.lbl_title)
 
-        # Infotext mit Standard-Label-Schriftgröße 13px und sauberem Zeilenabstand (<br>)
+        # Infotext mit universellem Standard-Inhaltstext (variant="description", 14px, Zeilenabstand 1.4)
         if self.mode == "ACTIVATE":
             info_html = (
-                '<div style="color: #ECECEC; font-size: 13px; line-height: 1.4;">'
-                '• Direkte Voraussetzungen und Abhängigkeiten einer Mod werden bei einer Aktivierung automatisch mit aktiviert.<br>'
-                '• Weitere Abhängigkeiten werden als Vorschlag mit angezeigt und können nach Wunsch hinzugefügt werden.<br>'
-                '• Mods welche bereits in der LoadOrder aktiv sind können nicht umgestellt werden.'
-                '</div>'
+                "• Direkte Voraussetzungen und Abhängigkeiten einer Mod werden bei einer Aktivierung automatisch mit aktiviert.<br>"
+                "• Weitere Abhängigkeiten werden als Vorschlag mit angezeigt und können nach Wunsch hinzugefügt werden.<br>"
+                "• Mods welche bereits in der LoadOrder aktiv sind können nicht umgestellt werden."
             )
         else:
             info_html = (
-                f'<div style="color: #ECECEC; font-size: 13px; line-height: 1.4;">'
-                f'Durch das Deaktivieren von \'{target_name}\' werden alle abhängigen Mods im Profil ebenfalls deaktiviert, um Ladefehler zu verhindern.<br>'
-                f'Bitte bestätigen Sie die kaskadierende Deaktivierung der folgenden Positionen:'
-                f'</div>'
+                f"Durch das Deaktivieren von '{target_name}' werden alle abhängigen Mods im Profil ebenfalls deaktiviert, um Ladefehler zu verhindern.<br>"
+                "Bitte bestätigen Sie die kaskadierende Deaktivierung der folgenden Positionen:"
             )
         self.lbl_info = QLabel(info_html)
-        self.lbl_info.setStyleSheet("margin-bottom: 4px;")
+        self.lbl_info.setProperty("variant", "description")
         self.main_layout.addWidget(self.lbl_info)
 
         # Tabelle (Spalten: Pos., Aktiv, Mod-Name, Masterfile - ohne Beziehung)
         self.table_view = QTableView()
         self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.table_view.setAlternatingRowColors(True)
+        self.table_view.setMinimumHeight(280)
+        self.table_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.table_view.verticalHeader().setVisible(False)
         self.model = QStandardItemModel(self)
         self.model.setHorizontalHeaderLabels(["Pos.", "Aktiv", "Mod-Name", "Masterfile"])
@@ -158,6 +144,8 @@ class Dialog_Mod_Activation_Cascade(QDialog):
 
         action_label = "Aktivieren" if self.mode == "ACTIVATE" else "Deaktivieren"
         self.btn_activate = QPushButton(action_label)
+        if self.mode == "DEACTIVATE":
+            self.btn_activate.setProperty("variant", "red")
         self.btn_activate.clicked.connect(self.on_activate_clicked)
         self.btn_layout.addWidget(self.btn_activate)
 
@@ -171,6 +159,9 @@ class Dialog_Mod_Activation_Cascade(QDialog):
 
         # Initial die Zeile der Ziel-Mod selektieren, damit deren Beziehungen direkt hervorgehoben werden
         self._select_target_row()
+
+        # Finale Geometrie sicherstellen
+        self.resize(800, self._target_height)
 
     def _select_target_row(self):
         """Wählt initial die Zeile der Ziel-Mod aus."""
@@ -331,13 +322,15 @@ class Dialog_Mod_Activation_Cascade(QDialog):
             sel_reqs = {int(x) for x in req_map.get(selected_mod_id, [])}
             sel_deps = {int(x) for x in dep_map.get(selected_mod_id, [])}
 
-        color_req_active = QColor("#C72138")     # Starfield Rot (Voraussetzung)
-        color_req_muted = QColor("#5C1C24")      # Muted Rot (bereits im Profil aktiv)
-        color_dep_active = QColor("#1F7343")     # Starfield Grün (Abhängigkeit)
-        color_dep_muted = QColor("#164329")      # Muted Grün (bereits im Profil aktiv)
-        color_neutral_bg = QColor("#FFFFFF")     # Neutraler Tabellenhintergrund
-        color_white = QColor("#FFFFFF")
-        color_black = QColor("#000000")
+        color_req_active_bg = get_theme_color("ROW_HIGHLIGHT_REQ_BG", "#C72138")
+        color_req_active_fg = get_theme_color("ROW_HIGHLIGHT_REQ_FG", "#FFFFFF")
+        color_req_muted_bg = get_theme_color("ROW_HIGHLIGHT_REQ_MUTED_BG", "#5C1C24")
+        color_req_muted_fg = get_theme_color("ROW_HIGHLIGHT_REQ_MUTED_FG", "#FFFFFF")
+
+        color_dep_active_bg = get_theme_color("ROW_HIGHLIGHT_DEP_BG", "#1F7343")
+        color_dep_active_fg = get_theme_color("ROW_HIGHLIGHT_DEP_FG", "#FFFFFF")
+        color_dep_muted_bg = get_theme_color("ROW_HIGHLIGHT_DEP_MUTED_BG", "#164329")
+        color_dep_muted_fg = get_theme_color("ROW_HIGHLIGHT_DEP_MUTED_FG", "#FFFFFF")
 
         for r in range(self.model.rowCount()):
             item_pos = self.model.item(r, 0)
@@ -347,15 +340,19 @@ class Dialog_Mod_Activation_Cascade(QDialog):
             mod_id = int(r_data.get("Mod_ID", 0))
             was_active = bool(profile_mod_active.get(mod_id, False))
 
+            row_bg = None
+            row_fg = None
+
             if mod_id in sel_reqs:
-                row_bg = color_req_muted if (self.mode == "ACTIVATE" and was_active) else color_req_active
-                row_fg = color_white
+                if self.mode == "ACTIVATE" and was_active:
+                    row_bg, row_fg = color_req_muted_bg, color_req_muted_fg
+                else:
+                    row_bg, row_fg = color_req_active_bg, color_req_active_fg
             elif mod_id in sel_deps:
-                row_bg = color_dep_muted if (self.mode == "ACTIVATE" and was_active) else color_dep_active
-                row_fg = color_white
-            else:
-                row_bg = color_neutral_bg
-                row_fg = color_black
+                if self.mode == "ACTIVATE" and was_active:
+                    row_bg, row_fg = color_dep_muted_bg, color_dep_muted_fg
+                else:
+                    row_bg, row_fg = color_dep_active_bg, color_dep_active_fg
 
             for col in range(self.model.columnCount()):
                 it = self.model.item(r, col)
@@ -558,6 +555,7 @@ class Dialog_Mod_Activation_Cascade(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self.resize(800, self._target_height)
         self._apply_dark_title_bar()
         QTimer.singleShot(0, self._apply_dark_title_bar)
         self._position_dialog()

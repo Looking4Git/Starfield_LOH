@@ -1,0 +1,13 @@
+/* =========================================================================
+   Starfield LOH – Dialog_Mod_Activation_Cascade.qss
+   Modulspezifisches Styling fuer das Aktivierungs-/Deaktivierungsfenster.
+   Wird modular ueber UI_Theme geladen und in das Gesamt-Stylesheet kompiliert.
+   ========================================================================= */
+
+/* Zentrierte Beschriftung fuer Dialog-Bestaetigungstasten */
+Dialog_Mod_Activation_Cascade QPushButton,
+#Dialog_Mod_Activation_Cascade QPushButton,
+Dialog_Mod_Activation_Cascade QPushButton[variant="red"],
+#Dialog_Mod_Activation_Cascade QPushButton[variant="red"] {
+    text-align: center;
+}

@@ -35,7 +35,7 @@ graph TD
 ```
 
 * **Vollständige Entkopplung:** `LOH_Control_TileView` ist generisch aufgebaut. Sie akzeptiert jede beliebige Kachel-Widget-Klasse über den Parameter `card_class` (z. B. `Widget_ConflictCard`), sofern diese eine Methode `set_data(data: dict)` und optional ein Signal `zoom_requested` implementiert.
-* **Stabile Scrollbar-Architektur:** Nutzt das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Pages.qss` inklusive nativer 16px Endschaltflächen.
+* **Stabile Scrollbar-Architektur:** Nutzt das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Common.qss` inklusive nativer 16px Endschaltflächen.
 
 ---
 

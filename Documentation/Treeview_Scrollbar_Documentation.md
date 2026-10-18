@@ -2,7 +2,7 @@
 
 **Stand:** 2026-10-15  
 **Projekt:** Starfield Load Order Helper (LOH)  
-**Referenzen:** [Documentation/Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md), [Style/Starfield_LOH_Pages.qss](file:///d:/Starfield_LOH/Style/Starfield_LOH_Pages.qss)
+**Referenzen:** [Documentation/Design_Rules.md](file:///d:/Starfield_LOH/Documentation/Design_Rules.md), [Style/Starfield_LOH_Common.qss](file:///d:/Starfield_LOH/Style/Starfield_LOH_Common.qss)
 
 ---
 
@@ -76,7 +76,7 @@ from Structure.Controls import LOH_Control_EmbeddedScrollTree
 self.frame_categories_creations = LOH_Control_EmbeddedScrollTree.wrap(self.tree_categories_creations)
 ```
 
-### 4.3 Stylesheet (`Style/Starfield_LOH_Pages.qss`)
+### 4.3 Stylesheet (`Style/Starfield_LOH_Common.qss`)
 
 Der Rahmen `#embedded_tree_frame` bindet den Tree und den Rollbalken optisch im Starfield-Weiß `#ECECEC` zusammen:
 
@@ -110,7 +110,7 @@ self.tree_dependencies.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAs
 ```
 
 ### 5.2 Stylesheet für Rückbau
-In [Style/Starfield_LOH_Pages.qss](file:///d:/Starfield_LOH/Style/Starfield_LOH_Pages.qss) werden `QTableView` und `QTreeView` wieder in einem gemeinsamen Selektor zusammengefasst:
+In [Style/Starfield_LOH_Common.qss](file:///d:/Starfield_LOH/Style/Starfield_LOH_Common.qss) werden `QTableView` und `QTreeView` wieder in einem gemeinsamen Selektor zusammengefasst:
 ```css
 QTableView QScrollBar:vertical, QTreeView QScrollBar:vertical {
     background: #2b2b2b;

@@ -152,21 +152,15 @@ class DragDropStandardItemModel(QStandardItemModel):
 class SorterNewPositionDelegate(QStyledItemDelegate):
     """
     Spezifischer Delegate für Spalte 'Neu' (COL_NEW):
-    - Neu < Pos: Starfield Grün (#1F7343) mit weißer Schrift (#FFFFFF).
-    - Neu > Pos: Starfield Rot (#C72138) mit weißer Schrift (#FFFFFF).
-    - Neu == Pos oder kein Sorter-Wert: Neutraler Tabellenhintergrund (#ECECEC / #F2F2F2), dunkle Schrift (#1E1E1E).
+    - Neu < Pos: Starfield Grün (ROW_HIGHLIGHT_DEP_BG) mit Textfarbe (ROW_HIGHLIGHT_DEP_FG).
+    - Neu > Pos: Starfield Rot (ROW_HIGHLIGHT_REQ_BG) mit Textfarbe (ROW_HIGHLIGHT_REQ_FG).
+    - Neu == Pos oder kein Sorter-Wert: Neutraler Tabellenhintergrund synchron zur Tabelle
+      (Zeile 0 = SURFACE_PRIMARY, Zeile 1 = SURFACE_SECONDARY), Textfarbe TEXT_ON_SURFACE, Gitter BORDER_TABLE.
     - Entkoppelt vom Zeilenmarker: Unterdrückt State_Selected, sodass die Zelle bei Selektion niemals blau übermalt wird.
     """
     def __init__(self, col_pos: int = 1, parent=None):
         super().__init__(parent)
         self.col_pos = col_pos
-        self.color_green = QColor("#1F7343")
-        self.color_red = QColor("#C72138")
-        self.color_white = QColor("#FFFFFF")
-        self.color_text_default = QColor("#1E1E1E")
-        self.color_bg_even = QColor("#ECECEC")
-        self.color_bg_odd = QColor("#F2F2F2")
-        self.color_grid = QColor("#D0D0D0")
 
     def paint(self, painter, option, index):
         opt = QStyleOptionViewItem(option)
@@ -198,21 +192,27 @@ class SorterNewPositionDelegate(QStyledItemDelegate):
 
         if sorter_pos is not None and profile_pos is not None:
             if sorter_pos < profile_pos:
-                bg_color = self.color_green
-                fg_color = self.color_white
+                bg_color = get_theme_color("ROW_HIGHLIGHT_DEP_BG", "#1F7343")
+                fg_color = get_theme_color("ROW_HIGHLIGHT_DEP_FG", "#FFFFFF")
             elif sorter_pos > profile_pos:
-                bg_color = self.color_red
-                fg_color = self.color_white
+                bg_color = get_theme_color("ROW_HIGHLIGHT_REQ_BG", "#C72138")
+                fg_color = get_theme_color("ROW_HIGHLIGHT_REQ_FG", "#FFFFFF")
 
         if bg_color is None:
-            bg_color = self.color_bg_odd if index.row() % 2 == 1 else self.color_bg_even
-            fg_color = self.color_text_default
+            # Zeile 0 (gerade) = SURFACE_PRIMARY, Zeile 1 (ungerade) = SURFACE_SECONDARY (exakt synchron zu QTableView)
+            if index.row() % 2 == 0:
+                bg_color = get_theme_color("SURFACE_PRIMARY", "#F2F2F2")
+            else:
+                bg_color = get_theme_color("SURFACE_SECONDARY", "#E0E0E0")
+            fg_color = get_theme_color("TEXT_ON_SURFACE", "#000000")
+
+        grid_color = get_theme_color("BORDER_TABLE", "#D0D0D0")
 
         painter.save()
         painter.fillRect(opt.rect, bg_color)
 
         # Feine Gitterlinie unten und rechts für nahtlose Einbettung ins Tabellengitter
-        painter.setPen(QPen(self.color_grid, 1))
+        painter.setPen(QPen(grid_color, 1))
         painter.drawLine(opt.rect.bottomLeft(), opt.rect.bottomRight())
         painter.drawLine(opt.rect.topRight(), opt.rect.bottomRight())
 
@@ -1953,13 +1953,19 @@ class Page_LoadOrder(QWidget):
         req_ids = {int(req["ID"]) for req in req_list if "ID" in req}
         dep_ids = {int(dep["ID"]) for dep in dep_list if "ID" in dep}
 
-        color_req = get_theme_color("STATUS_CRITICAL", "#C72138")               # Starfield Rot
-        color_dep = get_theme_color("STATUS_SUCCESS", "#1F7343")                # Starfield Grün (Deep Sci-Fi)
-        color_conflict_type3 = get_theme_color("STATUS_CRITICAL", "#C72138")     # Rot (Typ 3)
-        color_conflict_type2 = get_theme_color("STATUS_WARNING", "#E06236")      # Orange (Typ 2)
-        color_conflict_type1 = get_theme_color("ACCENT_BRAND", "#D7A64B")        # Gelb (Typ 1 oder Kombiniert)
-        color_conflict_resolved = get_theme_color("STATUS_SUCCESS", "#1F7343")   # Grün (Empfohlen/Optional/Behoben)
-        color_fg = QColor("#ffffff")                                             # Weißer Text
+        color_req_bg = get_theme_color("ROW_HIGHLIGHT_REQ_BG", "#C72138")
+        color_req_fg = get_theme_color("ROW_HIGHLIGHT_REQ_FG", "#FFFFFF")
+        color_dep_bg = get_theme_color("ROW_HIGHLIGHT_DEP_BG", "#1F7343")
+        color_dep_fg = get_theme_color("ROW_HIGHLIGHT_DEP_FG", "#FFFFFF")
+
+        color_conflict_type3_bg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_3_BG", "#C72138")
+        color_conflict_type3_fg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_3_FG", "#FFFFFF")
+        color_conflict_type2_bg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_2_BG", "#E06236")
+        color_conflict_type2_fg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_2_FG", "#FFFFFF")
+        color_conflict_type1_bg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_1_BG", "#D7A64B")
+        color_conflict_type1_fg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_1_FG", "#000000")
+        color_conflict_resolved_bg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_RESOLVED_BG", "#1F7343")
+        color_conflict_resolved_fg = get_theme_color("ROW_HIGHLIGHT_CONFLICT_RESOLVED_FG", "#FFFFFF")
 
         if mode == "Abhängigkeiten":
             if not req_ids and not dep_ids:
@@ -1973,12 +1979,15 @@ class Page_LoadOrder(QWidget):
                     continue
                 row_mod_id = int(row_data["Mod_ID"])
                 bg_color = None
+                fg_color = None
                 if row_mod_id in req_ids:
-                    bg_color = color_req
+                    bg_color = color_req_bg
+                    fg_color = color_req_fg
                 elif row_mod_id in dep_ids:
-                    bg_color = color_dep
+                    bg_color = color_dep_bg
+                    fg_color = color_dep_fg
                 if bg_color:
-                    self._apply_row_color(r, bg_color, color_fg)
+                    self._apply_row_color(r, bg_color, fg_color)
 
         elif mode == "Konflikte":
             conflicts = get_mod_conflicts_for_ui(mod_id_int)
@@ -1995,16 +2004,21 @@ class Page_LoadOrder(QWidget):
                 if row_mod_id in conflicts:
                     severity = conflicts[row_mod_id]
                     if severity == "rot":
-                        bg_color = color_conflict_type3
+                        bg_color = color_conflict_type3_bg
+                        fg_color = color_conflict_type3_fg
                     elif severity == "orange":
-                        bg_color = color_conflict_type2
+                        bg_color = color_conflict_type2_bg
+                        fg_color = color_conflict_type2_fg
                     elif severity == "gelb":
-                        bg_color = color_conflict_type1
+                        bg_color = color_conflict_type1_bg
+                        fg_color = color_conflict_type1_fg
                     elif severity == "gruen":
-                        bg_color = color_conflict_resolved
+                        bg_color = color_conflict_resolved_bg
+                        fg_color = color_conflict_resolved_fg
                     else:
-                        bg_color = color_conflict_type2
-                    self._apply_row_color(r, bg_color, color_fg)
+                        bg_color = color_conflict_type2_bg
+                        fg_color = color_conflict_type2_fg
+                    self._apply_row_color(r, bg_color, fg_color)
 
         elif mode in ("Konfliktvermeidung", "Kombiniert"):
             req_conflicts, dep_conflicts = get_mod_conflict_avoidance_for_ui(mod_id_int)
@@ -2017,12 +2031,15 @@ class Page_LoadOrder(QWidget):
                     continue
                 row_mod_id = int(row_data["Mod_ID"])
                 bg_color = None
+                fg_color = None
                 if row_mod_id in req_conflicts:
-                    bg_color = color_req  # Rot (#C72138) - Voraussetzung zur Konfliktvermeidung (muss vor der Mod laden)
+                    bg_color = color_req_bg
+                    fg_color = color_req_fg
                 elif row_mod_id in dep_conflicts:
-                    bg_color = color_dep  # Grün (#1F7343) - Abhängig zur Konfliktvermeidung (muss nach der Mod laden)
+                    bg_color = color_dep_bg
+                    fg_color = color_dep_fg
                 if bg_color:
-                    self._apply_row_color(r, bg_color, color_fg)
+                    self._apply_row_color(r, bg_color, fg_color)
 
     def highlight_requirements_and_dependencies(self, req_list=None, dep_list=None):
         """Aktualisiert die Tabellenmarkierungen gemäß aktuellem Dynamik-Modus."""

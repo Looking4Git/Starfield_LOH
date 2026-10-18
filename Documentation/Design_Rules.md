@@ -2,7 +2,7 @@
 
 Dieses Dokument definiert die verbindlichen Gestaltungs-, Komponenten- und Stilregeln für alle Benutzeroberflächen, Seiten, angedockten Werkzeugfenster und Eingabemasken des Projekts **Starfield Load Order Helper (LOH)**. Alle Entwicklungen und KI-Agenten müssen sich strikt an diese Vorgaben halten.
 
-Als alleinige Referenzquelle („Single Source of Truth“) dient das **Hauptfenster mit seinen etablierten Hauptseiten** (`Page_LoadOrder`, `Page_Mods`, `Page_Update` sowie das zentrale Stylesheet `Style/Starfield_LOH_Pages.qss`).
+Als fundamentale Referenzquellen („Single Source of Truth“) dienen das **Hauptfenster mit seinen etablierten Hauptseiten** (`Page_LoadOrder`, `Page_Mods`, `Page_Update`), der semantische Token-Katalog in [Structure/GUI/UI_Theme_Tokens.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme_Tokens.py) sowie das modulare Stylesheet-System ([Style/Starfield_LOH_Common.qss](file:///d:/Starfield_LOH/Style/Starfield_LOH_Common.qss) und modulspezifische `Style/*.qss`).
 
 ---
 
@@ -12,8 +12,6 @@ Das Gesamtdesign orientiert sich an einem hochwertigen Sci-Fi-Dark-Mode mit klar
 
 | Element / Zweck | Farbwert (Hex) | Name / Bedeutung |
 | :--- | :--- | :--- |
-| **Haupthintergrund** | `#0D0D0D` / `rgb(13, 13, 13)` (Mixed/Dark) bzw. `#E6E8EC` (Light) | Primärer Hintergrund für Fenster und Seiten |
-| **Sidebar / Tabellenköpfe** | `#212121` / `#2B2B2B` (Mixed/Dark) bzw. `#D0D7DE` (Light) | Menüleiste, Scrollbar-Tracks und Tabellenköpfe |
 | **Primärer Akzent** | `#304C7A` | **Starfield Blau**: Selektionen, primäre Buttons, Trennlinien |
 | **Sekundärer Akzent** | `#D7A64B` | **Starfield Gelb / Gold**: Sektions-Überschriften, Read-Only-Felder |
 | **Kritischer Akzent** | `#C72138` | **Starfield Rot**: Fehler, Gefahrenbuttons, Mod-Voraussetzungen |
@@ -22,9 +20,10 @@ Das Gesamtdesign orientiert sich an einem hochwertigen Sci-Fi-Dark-Mode mit klar
 | **Starfield Creations Cyan** | `#25A4BA` / `rgb(37, 164, 186)` | **Starfield Creations**: Ingame Creations Store Statusanzeigen, Zähler, Footer-Hinweise, Scrollbar-Akzente |
 | **Starfield Creations Schiefergrau** | `#394450` / `rgb(57, 68, 80)` | **Creation Store Rahmen**: Ingame Kachelrahmen, Fensterrahmen, Statusrahmen des Overlays |
 | **Starfield Creations Dark Blue** | `#03041C` / `rgb(3, 4, 28)` | **Creations Kachelhintergrund**: Originaler dunkler Beschriftungshintergrund des Bethesda Creation Stores, Kachelbasis im Overlay |
-| **Helle Flächen / Tabellen**| `#E0E0E0` / `#F2F2F2` (Mixed) bzw. `#EAECEF` / `#FFFFFF` (Light) | Tabellenhintergrund, alternierende Zeilen, editierbare Eingabefelder |
-| **Standardtext (dunkel)**| `#000000` / `#1E1E1E` | Text auf hellen Hintergründen (Tabellen, Eingabefelder) |
-| **Standardtext (hell)** | `#ECECEC` / `#E0E0E0` | Text auf dunklen Hintergründen (Labels, Sektionstexte) |
+
+> [!NOTE]
+> **Architektur-Hinweis (Entkopplung von Werten):** Diese Farbwerte definieren die primäre visuelle Markenidentität. Alle konkreten, modusabhängigen Hex-Werte für `mixed`, `dark` und `light` sowie alle Typografie- und Highlight-Paare werden verbindlich im Code-Katalog [Structure/GUI/UI_Theme_Tokens.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme_Tokens.py) gepflegt. Stylesheets und programmatische Aufrufe greifen ausnahmslos über Token-Namen (`{{ TOKEN_NAME }}` bzw. `get_theme_color("TOKEN_NAME")`) darauf zu.
+
 
 ---
 
@@ -35,45 +34,45 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 ### A. Beschriftungs-Label (`QLabel`)
 * **Standard-Feldlabel (`lbl_*_label` bzw. Formular-Labels):**
   * **Textkonvention:** Endet im Formular immer mit einem Doppelpunkt (z. B. `Name:`, `Autor:`, `Kategorie:`, `Komponente:`).
-  * **Typografie:** `"Segoe UI", Arial`, Schriftgröße `15px` (`FONT_SIZE_BASE`), normal (`font-weight: normal`).
-  * **Schriftfarbe:** Hellgrau `#ECECEC` (bzw. `#E0E0E0`) auf dunklem Hintergrund (`TEXT_ON_DARK`), dunkel `#24292F` im Light Mode.
+  * **Typografie:** `FONT_FAMILY`, Schriftgröße `FONT_SIZE_BASE`, normale Schriftstärke (`font-weight: normal`).
+  * **Schriftfarbe:** Dynamisch über Design-Token **`TEXT_ON_DARK`** (im Light Mode `TEXT_ON_SURFACE`).
   * **Ausrichtung:** Linksbündig, vertikal zentriert (`Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
 * **Sektions-Überschriften (`lbl_*`):**
-  * **Farbe:** Starfield Gelb / Gold (`#D7A64B`).
-  * **Typografie:** `"Segoe UI", Arial`, `18px` (`FONT_SIZE_TITLE`), Fettschrift (`font-weight: bold`).
+  * **Farbe:** Dynamisch über Design-Token **`TEXT_TITLE`** (`ACCENT_BRAND`).
+  * **Typografie:** `FONT_FAMILY`, `FONT_SIZE_TITLE`, Fettschrift (`font-weight: bold`).
   * **Abstände:** `margin-top: 4px; margin-bottom: 2px;`.
 * **Teilüberschriften / Subheadings (`QLabel[variant="subheading"]`):**
-  * **Typografie:** `"Segoe UI", Arial`, `14px`, Fettschrift (`font-weight: bold`).
-  * **Farbe:** Standard-Textfarbe `TEXT_ON_DARK` (`#ECECEC` im Dark/Mixed Modus, `#24292F` im Light Modus).
+  * **Typografie:** `FONT_FAMILY`, `FONT_SIZE_DESC`, Fettschrift (`font-weight: bold`).
+  * **Farbe:** Standard-Textfarbe **`TEXT_ON_DARK`**.
   * **Verwendung:** Unterteilungen innerhalb von Sektionsblöcken (z. B. Entwickler- und KI-Credits auf der Info-Seite).
 * **Inhaltstexte & Beschreibungen (`QLabel[variant="description"]`):**
-  * **Typografie:** `"Segoe UI", Arial`, Schriftgröße `14px` (`FONT_SIZE_DESC`), normale Schriftstärke (`font-weight: normal`), Zeilenabstand `line-height: 1.4`.
-  * **Schriftfarbe:** Dynamisch über Token `TEXT_ON_DARK` (im Dark/Mixed Modus `#ECECEC`, im Light Modus `#24292F`).
+  * **Typografie:** `FONT_FAMILY`, Schriftgröße `FONT_SIZE_DESC`, normale Schriftstärke (`font-weight: normal`), Zeilenabstand `line-height: 1.4`.
+  * **Schriftfarbe:** Dynamisch über Token **`TEXT_ON_DARK`**.
   * **Verwendung:** Mehrzeilige Erklärungstexte, Infotexte unter Sektionen (z. B. Einstellungs-Hinweise, Entwickler-Informationen, rechtliche Hinweise).
-  * **Dezente Disclaimer & Kleingedrucktes (`variant="muted"`):** `13px`, normale Schriftstärke, Farbe `TEXT_ON_DARK_MUTED` (`#888888` bzw. `#656D76`), `line-height: 1.4`.
+  * **Dezente Disclaimer & Kleingedrucktes (`variant="muted"`):** Schriftgröße `FONT_SIZE_BUTTON`, normale Schriftstärke, Farbe **`TEXT_ON_DARK_MUTED`**, `line-height: 1.4`.
 * **Status-Meldungen unter Eingabefeldern (`QLabel[variant="status_*"]`):**
-  * **Typografie:** `"Segoe UI", Arial`, Schriftgröße `14px` (`FONT_SIZE_DESC`), Fettschrift (`font-weight: bold`).
+  * **Typografie:** `FONT_FAMILY`, Schriftgröße `FONT_SIZE_DESC`, Fettschrift (`font-weight: bold`).
   * **Farben & Semantik:**
-    * `status_success`: Starfield-Grün (`#1F7343` / `STATUS_SUCCESS`) für Bestätigungen und aktive Zustände.
-    * `status_warning`: Starfield-Gold (`#D7A64B` / `ACCENT_BRAND`) für Warnungen, Timeouts und Hinweise.
-    * `status_critical` / `status_error`: Starfield-Rot (`#C72138` / `STATUS_CRITICAL`) für Fehler und ungültige Eingaben.
-    * `status_neutral` / `status_info`: Gedimmtes Grau (`TEXT_ON_DARK_MUTED`) für Prüfvorgänge und neutrale Infos.
+    * `status_success`: Dynamisch über Token **`STATUS_SUCCESS`** für Bestätigungen und aktive Zustände.
+    * `status_warning`: Dynamisch über Token **`STATUS_WARNING`** bzw. **`ACCENT_BRAND`** für Warnungen, Timeouts und Hinweise.
+    * `status_critical` / `status_error`: Dynamisch über Token **`STATUS_CRITICAL`** für Fehler und ungültige Eingaben.
+    * `status_neutral` / `status_info`: Gedimmtes Textgrau über **`TEXT_ON_DARK_MUTED`** für Prüfvorgänge und neutrale Infos.
   * **Verwendung:** Unterhalb von Eingabefeldern und Pfadangaben; Steuerung ausschließlich über `.setProperty("variant", "status_*")` ohne Inline-Styles.
 
 ---
 
 ### B. Einzeilige Eingabe- & Anzeigefelder (`QLineEdit`)
-* **Typografie:** `"Segoe UI", Arial`, Schriftgröße `15px` (`FONT_SIZE_BASE`), normale Schriftstärke (`font-weight: normal`), linksbündig ausgerichtet (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
+* **Typografie:** `FONT_FAMILY`, Schriftgröße `FONT_SIZE_BASE`, normale Schriftstärke (`font-weight: normal`), linksbündig ausgerichtet (`Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter`).
 * **Zustand Editierbar:**
-  * Hintergrund: Starfield-Weiß (`#ECECEC`).
-  * Schriftfarbe: Schwarz (`#000000`).
-  * Rahmen: `1px solid #888888`, `border-radius: 2px`.
+  * Hintergrund: Dynamisch über Design-Token **`SURFACE_PRIMARY`**.
+  * Schriftfarbe: Dynamisch über Design-Token **`TEXT_ON_SURFACE`**.
+  * Rahmen: `1px solid {{ BORDER_INPUT }}`, `border-radius: 2px`.
   * Innenabstand (Padding): `4px 8px`.
 * **Zustand Schreibgeschützt (`readOnly = True`):**
-  * Hintergrund: Dynamisch über Design-Token **`SURFACE_READONLY`** (Starfield Gelb / Gold `#D7A64B` im Mixed-Modus, dunkles Bronze-Gold `#3D321D` im Dark-Modus, zartes Gold-Beige `#FFF8E6` im Light-Modus).
-  * Schriftfarbe: Dynamisch über Design-Token **`TEXT_READONLY`** (Schwarz `#000000` im Mixed-Modus, Standardschriftfarbe Hellgrau `#ECECEC` im Dark-Modus, dunkles Schiefergrau `#24292F` im Light-Modus).
+  * Hintergrund: Dynamisch über Design-Token **`SURFACE_READONLY`** (themenspezifisch Gold/Bronze für optimale Lesbarkeit ohne visuelle Blendung).
+  * Schriftfarbe: Dynamisch über Design-Token **`TEXT_READONLY`**.
   * Rahmen & Padding: Identisch (`1px solid {{ BORDER_INPUT }}`, `border-radius: 2px`, `padding: 4px 8px`).
-  * *Bedeutung:* Signalisiert dem Benutzer unmissverständlich einen festen, unveränderlichen System-, Berechnungs- oder Datenbankwert mit optimaler themenspezifischer Lesbarkeit ohne visuelle Blendung.
+  * *Bedeutung:* Signalisiert dem Benutzer unmissverständlich einen festen, unveränderlichen System-, Berechnungs- oder Datenbankwert.
 * **Geometrie & Skalierungsverhalten:**
   * Mindesthöhe: `26px` bis `28px` (durch Padding `4px 8px`).
   * Horizontale Skalierung: `sizePolicy: Expanding, Fixed` – passt sich im Layout flexibel der verfügbaren Breite an (`ExpandingFieldsGrow`), schrumpft jedoch nie unter die Mindestbreite.
@@ -84,29 +83,29 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### C. Mehrzeilige Textfelder (`QTextEdit`)
 * **Einsatz:** URLs, Notizen, Kurzbeschreibungen.
-* **Hintergrund:** Starfield-Weiß (`#ECECEC`), Schriftfarbe Schwarz (`#000000`).
-* **Rahmen & Padding:** `1px solid #888888`, `border-radius: 2px`, `padding: 4px 4px 4px 8px`.
+* **Hintergrund & Schrift:** Dynamisch über **`SURFACE_PRIMARY`** und **`TEXT_ON_SURFACE`**.
+* **Rahmen & Padding:** `1px solid {{ BORDER_INPUT }}`, `border-radius: 2px`, `padding: 4px 4px 4px 8px`.
 * **Geometrie:** Standardhöhe `78px`, `sizePolicy: Expanding, Fixed`, `acceptRichText: False`.
 
 ---
 
 ### D. Auswahllisten (`QComboBox`)
-* **Eingabebereich:** Starfield-Weißer Hintergrund (`#ECECEC`), Textfarbe Schwarz (`#000000`), Rahmen `1px solid #888888`, `border-radius: 2px`.
-* **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund Starfield-Blau (`#304C7A`), Hover `#5B7A9E`, Rahmen `none`.
-* **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), zentriert. Das Pfeilsymbol wird exklusiv im rechten blauen Drop-Down-Button (`::drop-down`) geführt; das weiße Eingabefeld (Grundfeld) bleibt vollständig rein textbasiert ohne Pfeilsymbole.
+* **Eingabebereich:** Hintergrund **`SURFACE_PRIMARY`**, Textfarbe **`TEXT_ON_SURFACE`**, Rahmen `1px solid {{ BORDER_INPUT }}`, `border-radius: 2px`.
+* **Aufklapp-Button (Drop-Down):** Rechtsbündig, feste Breite `32px`, Hintergrund **`ACCENT_ACTION`**, Hover **`ACCENT_ACTION_HOVER`**, Rahmen `none`.
+* **Pfeilsymbol:** `Graphics/Icon_Arrow_Down.svg` (`14x14 px`), zentriert im rechten Aktionsbutton (`::drop-down`); das Grundfeld bleibt rein textbasiert.
 * **Klassisches Drop-Down-Verhalten (Anzeige unterhalb):**
   * Auswahllisten öffnen sich verbindlich **immer bündig an der Unterkante** der ComboBox (zentral gesteuert über `LOH_Dropdown_Style` mit `SH_ComboBox_Popup = 0` in `LOH_Control_Dropdown.py`).
-  * Die ComboBox (weißes Textfeld + blauer Pfeilbutton) bleibt während der gesamten Auswahl zu 100 % sichtbar an ihrer festen Position im Formular stehen.
+  * Die ComboBox (Textfeld + Aufklapp-Button) bleibt während der gesamten Auswahl zu 100 % sichtbar an ihrer festen Position im Formular stehen.
   * Reicht der verfügbare Bildschirmplatz nach unten nicht aus, klappt Qt die Liste automatisch bündig nach oben auf (*Pull-up*).
 * **Aufklappliste / Popup-Ansicht (`QComboBox QAbstractItemView`):**
-  * Hintergrund: Starfield-Weiß (`#ECECEC` / `SURFACE_PRIMARY`).
-  * Textfarbe der Einträge: Tiefschwarz (`#000000` / `TEXT_ON_SURFACE`).
-  * Selektion (`selection-background-color` / `item:selected`): **Alternierender Tabellenzeilen-Ton `SURFACE_SECONDARY`** (`#F2F2F2` im Mixed-Modus), Textfarbe Tiefschwarz (`#000000` / `TEXT_ON_SURFACE`). Markiert den aktuell aktiven Wert beim Öffnen äußerst dezent ohne harten Dunkelblau-Block.
-  * Mausberührung (`item:hover` und `item:selected:hover`): Helles Blau (`#5B7A9E` / `ACCENT_ACTION_HOVER`), Textfarbe Weiß (`#FFFFFF`).
-  * Rahmen: `1px solid {{ BORDER_INPUT }}` (`#888888`).
-  * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Pages.qss` für alle Hauptseiten sowie alle angedockten Diagnose- und Statistikfenster. Lokale Widget-Stylesheets müssen diese View-Eigenschaften zwingend mitführen.
-* **Mindest- & Standardbreite:** Im Formularbereich für kurze Dropdown-Felder verbindlich **242 px** (210 px weißes Textfeld + 32 px rechter blauer Aufklapp-Button; `min-width: 242px; max-width: 242px;`).
+  * Hintergrund: **`SURFACE_PRIMARY`**, Textfarbe der Einträge: **`TEXT_ON_SURFACE`**.
+  * Selektion (`item:selected`): **`SURFACE_SECONDARY`** mit Textfarbe **`TEXT_ON_SURFACE`** (dezent ohne harten Farbblock).
+  * Mausberührung (`item:hover`): **`ACCENT_ACTION_HOVER`** mit Textfarbe **`TEXT_ON_ACTION_BUTTON`**.
+  * Rahmen: `1px solid {{ BORDER_INPUT }}`.
+  * *Verbindlichkeit:* Gilt universal über das globale Stylesheet `Starfield_LOH_Common.qss`.
+* **Mindest- & Standardbreite:** Im Formularbereich für kurze Dropdown-Felder verbindlich **242 px** (210 px Textfeld + 32 px rechter Aufklapp-Button; `min-width: 242px; max-width: 242px;`).
 * **Mausrad-Schutz:** Globaler Schutz vor versehentlichem Verstellen über `setup_dropdown_wheel_guard` (`LOH_Control_Dropdown.py`).
+
 
 ---
 
@@ -114,11 +113,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Allgemeines Farbsystem für Schaltflächen:**
   | Rolle | Normal | Hover | Pressed | Disabled / Muted | Verwendung |
   | :--- | :--- | :--- | :--- | :--- | :--- |
-  | **Blau (Standard / Primär)** | `BUTTON_BLUE_NORMAL` (`#304C7A`) | `BUTTON_BLUE_HOVER` (`#5B7A9E`) | `BUTTON_BLUE_PRESSED` (`#1F3354`) | `BUTTON_BLUE_DISABLED` (`#222D3D`, Text `BUTTON_TEXT_DISABLED` `#888888`) | Standard-Aktionen, Menüs, Kopieren, Einlesen |
-  | **Rot (Kritisch / Gefahr / Prüfen)** | `BUTTON_RED_NORMAL` (`#C72138`) | `BUTTON_RED_HOVER` (`#E03048`) | `BUTTON_RED_PRESSED` (`#A0182B`) | `BUTTON_RED_DISABLED` (`#422226`, Text `BUTTON_TEXT_DISABLED` `#888888`) | Löschen, Update prüfen, Abbrechen |
-  | **Grün (Aktivierung / Bestätigung)** | `BUTTON_GREEN_NORMAL` (`#1F7343`) | `BUTTON_GREEN_HOVER` (`#2EA44F`) | `BUTTON_GREEN_PRESSED` (`#165A33`) | `BUTTON_GREEN_DISABLED` (`#1E5232`, Text `BUTTON_TEXT_DISABLED` `#888888`) | Profil aktivieren, Bestätigen |
+  | **Blau (Standard / Primär)** | `BUTTON_BLUE_NORMAL` | `BUTTON_BLUE_HOVER` | `BUTTON_BLUE_PRESSED` | `BUTTON_BLUE_DISABLED` (Text `BUTTON_TEXT_DISABLED`) | Standard-Aktionen, Menüs, Kopieren, Einlesen |
+  | **Rot (Kritisch / Gefahr / Prüfen)** | `BUTTON_RED_NORMAL` | `BUTTON_RED_HOVER` | `BUTTON_RED_PRESSED` | `BUTTON_RED_DISABLED` (Text `BUTTON_TEXT_DISABLED`) | Löschen, Update prüfen, Abbrechen |
+  | **Grün (Aktivierung / Bestätigung)** | `BUTTON_GREEN_NORMAL` | `BUTTON_GREEN_HOVER` | `BUTTON_GREEN_PRESSED` | `BUTTON_GREEN_DISABLED` (Text `BUTTON_TEXT_DISABLED`) | Profil aktivieren, Bestätigen |
 * **Typografie & Geometrie:**
-  * Schrift & Icons: Weiß/Hellgrau `#ECECEC` (`13px`), `bold` bei Aktionsbuttons für markante Lesbarkeit und hohen Kontrast auch im deaktivierten Zustand.
+  * Schrift & Icons: Dynamisch über `BUTTON_TEXT_NORMAL` mit `FONT_SIZE_BUTTON`, Fettschrift (`font-weight: bold`) bei Aktionsbuttons für markante Lesbarkeit und hohen Kontrast.
   * Textausrichtung: Linksbündig (`text-align: left`), damit Text und Icons untereinander exakt auf einer Fluchtlinie liegen.
   * Rahmen & Rundung: `border: none; border-radius: 2px;`.
   * Standardhöhe: `32px`, Padding `4px 8px`, Icongröße `18x18 px` bis `22x22 px`.
@@ -133,15 +132,15 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Webseiten-Aufruf (z. B. `btn_open_url` auf `Page_Mods` und `Page_Update`):** Nutzt verbindlich `Graphics/Icon_Downstream.svg`.
   * **Fetch- und Synchronisations-Aktionen (z. B. `btn_fetch`, `btn_nexus_fetch`, `btn_loot_fetch` auf `Page_Tools`):** Nutzen verbindlich `Graphics/Icon_Cloud.svg`.
 * **Dialoge & MessageBoxen (`QDialog` / `QMessageBox`):**
-  * **Hintergrund & Text:** Fenstergrund `WINDOW_BG` (`#0D0D0D` in Mixed/Dark, `#F6F8FA` in Light), Hinweistexte `TEXT_ON_DARK`.
-  * **Windows-Titelleiste (DWM):** Automatische dynamische Anpassung über `set_dark_title_bar(window)` (im Light Mode native helle Leiste, im Mixed/Dark Mode native dunkle Leiste).
-  * **Schaltflächen:** Starfield-Blau (`BUTTON_BLUE_NORMAL` `#304C7A`, Hover `#5B7A9E`, Pressed `#1F3354`) mit verbindlich weißer Schrift (`BUTTON_TEXT` `#ECECEC`, `min-width: 75px; padding: 6px 16px; border-radius: 2px; text-align: center;`).
+  * **Hintergrund & Text:** Fenstergrund **`WINDOW_BG`**, Hinweistexte **`TEXT_ON_DARK`**.
+  * **Windows-Titelleiste (DWM):** Automatische dynamische Anpassung über `set_dark_title_bar(window)`.
+  * **Schaltflächen:** Basierend auf `BUTTON_BLUE_*` mit zentrierter Schrift `BUTTON_TEXT_NORMAL` (`min-width: 75px; padding: 6px 16px; border-radius: 2px; text-align: center;`).
   * **Zentraler Aufruf:** Über `show_starfield_message_box(parent, title, text, icon, yes_no, buttons)` in `Structure/GUI/UI_Utils.py`.
 
 ---
 
 ### F. Sektions-Trennlinien (`QFrame` mit HLine)
-* **Farbe:** Starfield-Blau (`#304C7A`).
+* **Farbe:** Dynamisch über Design-Token **`ACCENT_ACTION`** (Starfield-Blau).
 * **Abmessungen:** Feste Höhe exakt `4px` (`min-height: 4px; max-height: 4px; height: 4px;`).
 * **Rahmen:** Keiner (`border: none;`).
 
@@ -149,17 +148,17 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### G. Checkboxen (`QCheckBox` / `QTableView::indicator`)
 * **Universeller Projekt-Standard (Formulare, Detailansichten, Einstellungen, Tabellen & Filterleisten):**
-  * Kasten: Weiß (`#FFFFFF`), Standardgröße `14x14 px` (Tabellen/Filter) bzw. `16x16 px` (Formulare/Detail), Rahmen `1px solid #5B7A9E`, `border-radius: 0px` (ohne Abrundung für saubere Kanten auf dynamisch gefärbten Zeilen).
-  * Hover: Rahmen Starfield-Gelb (`#D7A64B`).
-  * Aktiviert (Checked): Hintergrund **Starfield-Gelb/Gold (`#D7A64B`)** mit dunklem Häkchen `#1E1E1E` (`Graphics/Icon_Check.svg`) und Rahmen `1px solid #5B7A9E`.
-  * Deaktiviert / Gesperrt (Disabled): Kasten `#B8BDC4`, Rahmen `#444444`, mit dunklem Häkchen `#1E1E1E` (`Graphics/Icon_Check.svg`).
+  * Kasten: Dynamisch über **`SURFACE_PRIMARY`**, Standardgröße `14x14 px` (Tabellen/Filter) bzw. `16x16 px` (Formulare/Detail), Rahmen `1px solid {{ ACCENT_ACTION_HOVER }}`, `border-radius: 0px` (ohne Abrundung für saubere Kanten auf dynamisch gefärbten Zeilen).
+  * Hover: Rahmen **`ACCENT_BRAND`**.
+  * Aktiviert (Checked): Hintergrund **`ACCENT_BRAND`** mit dunklem Häkchen (`Graphics/Icon_Check.svg`) und Rahmen `1px solid {{ ACCENT_ACTION_HOVER }}`.
+  * Deaktiviert / Gesperrt (Disabled): Kasten **`SURFACE_DISABLED`**, Rahmen **`BORDER_SUBTLE`**, mit Häkchen (`Graphics/Icon_Check.svg`).
 
 ---
 
 ### H. Tabellen & Bäume (`QTableView` / `QTreeView` / `LOH_Control_HeaderView`)
-* **Körper:** Grundfläche `SURFACE_PRIMARY` (Starfield-Mattweiß `#F2F2F2` im Mixed-Modus, Reinweiß `#FFFFFF` im Light-Modus, `#161B22` im Dark-Modus), alternierende Zeilen `SURFACE_SECONDARY` (Akzentgrau: `#E0E0E0` im Mixed-Modus, `#EAECEF` im Light-Modus, `#1E232B` im Dark-Modus), Textfarbe `TEXT_ON_SURFACE`, Gitterlinien `BORDER_TABLE`.
-* **Selektion:** Starfield-Blau (`#304C7A`) mit weißer Schrift (`#FFFFFF`).
-* **Header:** Dunkelgrau (`#2B2B2B`), weiße Schrift (`#ECECEC`, bold), Rand `#1A1A1A`, Klick-Farbe `#D7A64B`.
+* **Körper:** Grundfläche **`SURFACE_PRIMARY`**, alternierende Zeilen **`SURFACE_SECONDARY`**, Textfarbe **`TEXT_ON_SURFACE`**, Gitterlinien **`BORDER_TABLE`**.
+* **Selektion:** Hintergrund **`ACCENT_ACTION`** mit Schriftfarbe **`TEXT_ON_ACTION_BUTTON`**.
+* **Header:** Hintergrund **`PANEL_HEADER`**, Schriftfarbe **`TEXT_ON_DARK`** (Fettschrift), Rand **`BORDER_DARK`**, Klick-Farbe **`ACCENT_BRAND`**.
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_HeaderView_Documentation.md).
 * **Initiale Spaltenbreite für Mod-Namen:** In den Haupttabellen (`Page_Mods` und `Page_LoadOrder`) wird die Spalte *Name* beim Initialisieren verbindlich auf **440 px** kalibriert (`setColumnWidth(..., 440)`), um eine Verdrängung der Folgespalten durch vereinzelte überlange Namen zu verhindern. Der Spaltenmodus bleibt interaktiv (`Interactive`) für individuelle Benutzeranpassungen.
@@ -168,67 +167,71 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Schafft ein kompaktes, klares Schriftbild und zentriert Text und Symbole (`◆◆◆`) ergonomisch und augenfreundlich ohne vertikale Gedrängtheit.
 * **Einstellungs-Untermenü (`#settings_tree` auf `Page_Settings`):**
   * **Abmessung & Breite:** Feste Breite von verbindlich **`180 px`** (`tree_view.setFixedWidth(180)`), harmonisiert mit der Größenordnung der Haupt-Sidebar (175 px) für eine stabile Navigation ohne Mitziehen bei Fenstervergrößerungen und maximalen Freiraum im Detailbereich.
-  * **Menü-Zeilenhöhe & Spacing:** Feste Zeilenhöhe von **`42px`** mit Hauptmenü-Zeilenabstand (`#Page_Settings QTreeView#settings_tree::item { min-height: 42px; max-height: 42px; height: 42px; padding-left: 10px; margin-top: 3px; margin-bottom: 3px; }`) zur perfekten vertikalen Ausrichtung und ergonomischen Umrahmung der 20x20px Menü-Icons (`Icon_Folder.svg`, `Icon_Help.svg`).
-  * **Branch-Bereinigung:** Beseitigung von Ast-Vorsprüngen am Zeilenanfang durch `tree_view.setRootIsDecorated(False)`, `tree_view.setIndentation(0)` und `#Page_Settings QTreeView#settings_tree::branch { background: transparent; }` für eine absolut bündige Selektionsleiste.
-  * **Typografie & Farbgebung:** Inaktive Menüeinträge nutzen verbindlich **`TEXT_ON_DARK_MUTED`** (analog zur Haupt-Sidebar), Hover hebt dezent den Hintergrund (`BORDER_SUBTLE`) hervor während die Schrift dezent bleibt, selektierte Zeilen erhalten den Aktionshintergrund **`ACCENT_ACTION`** mit weißer fetter Schrift (`{{ TEXT_ON_ACTION_BUTTON }}`, bold).
-  * **Hintergrund:** Dynamisch über `PANEL_BG` (`#212121` im Mixed/Dark Mode, `#D0D7DE` im Light Mode) als kohärente sekundäre Menüleiste.
+  * **Menü-Zeilenhöhe & Spacing:** Feste Zeilenhöhe von **`42px`** mit Hauptmenü-Zeilenabstand (`padding-left: 10px; margin-top: 3px; margin-bottom: 3px;`) zur perfekten vertikalen Ausrichtung und ergonomischen Umrahmung der 20x20px Menü-Icons (`Icon_Folder.svg`, `Icon_Help.svg`).
+  * **Branch-Bereinigung:** Beseitigung von Ast-Vorsprüngen am Zeilenanfang durch `tree_view.setRootIsDecorated(False)`, `tree_view.setIndentation(0)` und transparente Branches für eine absolut bündige Selektionsleiste.
+  * **Typografie & Farbgebung:** Inaktive Menüeinträge nutzen verbindlich **`TEXT_ON_DARK_MUTED`** (analog zur Haupt-Sidebar), Hover hebt dezent den Hintergrund (**`BORDER_SUBTLE`**) hervor während die Schrift dezent bleibt, selektierte Zeilen erhalten den Aktionshintergrund **`ACCENT_ACTION`** mit weißer fetter Schrift (**`TEXT_ON_ACTION_BUTTON`**, bold).
+  * **Hintergrund:** Dynamisch über **`PANEL_BG`** als kohärente sekundäre Menüleiste.
 * **Aktive Profilmarkierung & Zeilenhöhe (`tree_profile`):**
-  * **Zeilenhöhe:** Feste Zeilenhöhe von **`26px`** (`#tree_profile::item { height: 26px; padding: 0px; }`), harmonisiert mit dem universellen Projekt-Standard aller Listen und Bäume für eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons.
+  * **Zeilenhöhe:** Feste Zeilenhöhe von **`26px`**, harmonisiert mit dem universellen Projekt-Standard aller Listen und Bäume für eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons.
   * **Spaltenstruktur:** Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
   * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` wie folgt gekennzeichnet:
-    * **Spalte 0:** Zeigt das offizielle Aktivierungs-Icon `Graphics/Icon_Activation.svg` zentriert in einer schlanken 28 px Spalte ohne Textbeschriftung. Dadurch bleibt der Aktivstatus auch bei selektierter (blauer) Zeile (`#304C7A`) immer sofort erkennbar.
-    * **Nicht selektiert:** Hintergrund Deep Sci-Fi Grün (`#1F7343`), Schriftfarbe Weiß (`#FFFFFF`).
+    * **Spalte 0:** Zeigt das offizielle Aktivierungs-Icon `Graphics/Icon_Activation.svg` zentriert in einer schlanken 28 px Spalte ohne Textbeschriftung. Dadurch bleibt der Aktivstatus auch bei selektierter Zeile (**`ACCENT_ACTION`**) immer sofort erkennbar.
+    * **Nicht selektiert:** Hintergrund **`STATUS_SUCCESS`**, Schriftfarbe **`TEXT_ON_ACTION_BUTTON`**.
     * **Tooltip:** `Aktives Profil (stimmt mit Plugins.txt überein)`.
   * Nicht übereinstimmende Profile verbleiben im neutralen Standard-Styling ohne Aktivierungs-Icon.
 * **Dynamische Zeilenfarben in der Ladereihenfolge (`Page_LoadOrder`):**
-  * **Modus »Abhängigkeiten«:** Voraussetzungen = Rot (`#C72138`), Abhängige Mods = Grün (`#1F7343`).
-  * **Modus »Konflikte«:** Typ 3 = Rot (`#C72138`), Typ 2 = Orange (`#E06236`), Typ 1 = Gelb (`#D7A64B`), Behoben/Empfohlen = Grün (`#1F7343`).
+  * **Modus »Abhängigkeiten«:** Voraussetzungen = **`ROW_HIGHLIGHT_REQ_BG`** / **`ROW_HIGHLIGHT_REQ_FG`**, Abhängige Mods = **`ROW_HIGHLIGHT_DEP_BG`** / **`ROW_HIGHLIGHT_DEP_FG`**.
+  * **Modus »Konflikte«:** Typ 3 = **`ROW_HIGHLIGHT_CONFLICT_3_*`**, Typ 2 = **`ROW_HIGHLIGHT_CONFLICT_2_*`**, Typ 1 = **`ROW_HIGHLIGHT_CONFLICT_1_*`**, Behoben/Empfohlen = **`ROW_HIGHLIGHT_CONFLICT_RESOLVED_*`**.
   * **Modus »Konfliktvermeidung«:**
-    * Voraussetzungen zur Konfliktvermeidung (Mods, die vor der selektierten Mod laden müssen): Rot (`#C72138`, weißer Text).
-    * Abhängige Mods zur Konfliktvermeidung (Mods, die nach der selektierten Mod laden müssen): Grün (`#1F7343`, weißer Text).
+    * Voraussetzungen zur Konfliktvermeidung: **`ROW_HIGHLIGHT_REQ_BG`** / **`ROW_HIGHLIGHT_REQ_FG`**.
+    * Abhängige Mods zur Konfliktvermeidung: **`ROW_HIGHLIGHT_DEP_BG`** / **`ROW_HIGHLIGHT_DEP_FG`**.
 * **Universalisiertes Kaskadenfenster (`Dialog_Mod_Activation_Cascade`):**
   * **Modi:**
     * `mode="ACTIVATE"`: Aktivierungskaskade mit sichtbarer Checkbox-Spalte (editierbar für Folge-Mods, gesperrt für Ziel/bereits aktive Mods), dynamischer Kaskadierungs-Synchronisation und Vorschlägen.
     * `mode="DEACTIVATE"`: Deaktivierungskaskade mit ausgeblendeter Checkbox-Spalte; zeigt alle zwingend mitzudeaktivierenden Folge-Mods als transparente Bestätigungsübersicht.
-  * **Hintergrund & Typografie:** Sci-Fi Dunkel `#0D0D0D`, Titellabel Gold `#D7A64B`, Infotext in Standard-Label-Schriftgröße `13px` (`line-height: 1.4;`) mit unaufdringlichen Bullets (`•`) und gleichmäßigem Zeilenabstand ohne Farblegende.
-  * **Schaltflächen:** Reine Text-Buttons ohne Icons (einheitlich zu den Standard-Dialogen): »Abbrechen« und »Aktivieren« bzw. »Deaktivieren« (`#304C7A`, Hover `#5B7A9E`, `padding: 6px 20px; font-weight: bold;`).
-  * **Muted-Farbkonzept für Tabellenzeilen:**
-    * **Ziel-Mod:** Muted Sci-Fi Blau (`#24354D`, weißer Text `#FFFFFF`) – gedämpfter Ton, der sich eindeutig von der leuchtend blauen Tabellenselektion (`#304C7A`) abhebt und Doppelmarkierungen ausschließt.
-    * **Voraussetzungen (Master):** Muted Rot (`#5C1C24`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Voraussetzungen; Aktives Rot (`#C72138`) bei frei editierbaren Positionen.
-    * **Abhängige Mods (Patches/Erweiterungen):** Muted Grün (`#164329`, weißer Text `#FFFFFF`) bei fixierten/gesperrten Positionen (z. B. bereits im Profil aktiv oder im Deaktivierungsmodus); Aktives Grün (`#1F7343`) bei frei editierbaren Folge-Mods.
+  * **Hintergrund & Typografie:** Fenstergrund **`WINDOW_BG`**, Titellabel **`TEXT_TITLE`**, Infotext in Standard-Inhaltstextgröße `FONT_SIZE_DESC` (`variant="description"`, `line-height: 1.4;`) mit unaufdringlichen Bullets (`•`) und gleichmäßigem Zeilenabstand ohne Farblegende.
+  * **Schaltflächen:** Reine Text-Buttons ohne Icons (einheitlich zu den Standard-Dialogen); zentriert über [Style/Dialog_Mod_Activation_Cascade.qss](file:///d:/Starfield_LOH/Style/Dialog_Mod_Activation_Cascade.qss); Aktions- und Gefahrenvariante über `BUTTON_BLUE_*` bzw. `BUTTON_RED_*`.
+  * **Farbkonzept für Tabellenzeilen:**
+    * **Ziel-Mod:** **`ROW_HIGHLIGHT_TARGET_BG`** / **`ROW_HIGHLIGHT_TARGET_FG`** – gedämpfter Ton, der sich eindeutig von der leuchtend blauen Tabellenselektion (**`ACCENT_ACTION`**) abhebt und Doppelmarkierungen ausschließt.
+    * **Voraussetzungen (Master):** **`ROW_HIGHLIGHT_REQ_MUTED_*`** bei fixierten/gesperrten Voraussetzungen; **`ROW_HIGHLIGHT_REQ_*`** bei frei editierbaren Positionen.
+    * **Abhängige Mods (Patches/Erweiterungen):** **`ROW_HIGHLIGHT_DEP_MUTED_*`** bei fixierten/gesperrten Positionen; **`ROW_HIGHLIGHT_DEP_*`** bei frei editierbaren Folge-Mods.
   * **Checkbox-Verhalten (im Modus `ACTIVATE`):**
-    * **Bereits aktive Mods (Ist-Zustand):** Fest angehakt (`Checked`), gesperrt; Kasten helles Metallic-Grau (`#B8BDC4`), Rahmen `#444444`, Haken `#1E1E1E`.
-    * **Zwingend neu zu aktivierende Mods (Einstiegs-Mod & Voraussetzungen):** Fest angehakt (`Checked`), gesperrt; Kasten **Starfield-Orange (`#E06236`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E`.
-    * **Optionale Folge-Mods (Vorschläge):** Frei editierbar; Kasten **Starfield-Gold (`#D7A64B`)**, Rahmen `#5B7A9E`, Haken `#1E1E1E` (bzw. Weiß `#FFFFFF` bei Unchecked).
+    * **Bereits aktive Mods (Ist-Zustand):** Fest angehakt (`Checked`), gesperrt; Kasten **`SURFACE_DISABLED`**, Rahmen **`BORDER_SUBTLE`**.
+    * **Zwingend neu zu aktivierende Mods (Einstiegs-Mod & Voraussetzungen):** Fest angehakt (`Checked`), gesperrt; Kasten **`STATUS_WARNING`**, Rahmen **`ACCENT_ACTION_HOVER`**.
+    * **Optionale Folge-Mods (Vorschläge):** Frei editierbar; Kasten **`ACCENT_BRAND`**, Rahmen **`ACCENT_ACTION_HOVER`** (bzw. **`SURFACE_PRIMARY`** bei Unchecked).
     * **Interaktion:** Anhaken einer Mod aktiviert deren Voraussetzungen und erfüllt nachfolgende Abhängigkeiten; Abwählen deaktiviert abhängige Folge-Mods.
 * **Engine-Limit-Balkenanzeigen (`LimitBar` auf `Page_LoadOrder`):**
-  * Grundhintergrund (unbefüllter Balkenbereich): Dynamisch über Token **`SURFACE_PRIMARY`** (Starfield-Mattweiß `#ECECEC` im Mixed-Modus, dunkle Oberfläche `#161B22` im Dark-Modus, Reinweiß `#FFFFFF` im Light-Modus) vollflächig und randlos (`Qt.PenStyle.NoPen`).
-  * Segmente: Core/System = Starfield-Orange (`#E06236` / `STATUS_WARNING`), Mods = Starfield-Gelb/Gold (`#D7A64B` / `ACCENT_BRAND`), Kritisch (>= Warnschwelle, Standard 90 %) = Starfield-Rot (`#C72138` / `STATUS_CRITICAL`). Die farbigen Segmente schließen exakt deckend und bündig von Kante zu Kante ab (kein Rahmen/Inset).
+  * Grundhintergrund (unbefüllter Balkenbereich): Dynamisch über Token **`SURFACE_PRIMARY`** vollflächig und randlos (`Qt.PenStyle.NoPen`).
+  * Segmente: Core/System = **`STATUS_WARNING`**, Mods = **`ACCENT_BRAND`**, Kritisch (>= Warnschwelle, Standard 90 %) = **`STATUS_CRITICAL`**. Die farbigen Segmente schließen exakt deckend und bündig von Kante zu Kante ab (kein Rahmen/Inset).
   * Feste Höhe: `14px`.
 * **Rollbalken-Eckverbindung (`QAbstractScrollArea::corner`, `QTableView::corner`):**
-  * Treffen vertikale und horizontale Rollbalken aufeinander, wird die Verbindungsecke nahtlos über **`SCROLLBAR_TRACK`** (`#2B2B2B` Mixed, `#161B22` Dark, `#E1E4E8` Light) ohne Rahmen (`border: none`) formatiert.
+  * Treffen vertikale und horizontale Rollbalken aufeinander, wird die Verbindungsecke nahtlos über **`SCROLLBAR_TRACK`** ohne Rahmen (`border: none`) formatiert.
+
 
 ---
 
 ### I. Informationstextfelder & Kacheln (Card-View) & LOH_Control_TileView
 * **Einsatz:** Kompakte Datenkarten, HUD-Kacheln und interaktive Konflikt-Karten (`Widget_ConflictCard`), bei denen Daten ohne Formularrahmen als reiner strukturierter Text dargestellt werden.
-* **Kartenrahmen:** Menühintergrund `#212121` (`rgb(33, 33, 33)`), Rahmen `1px solid #383838`, Rundung `8px`, Hover-Highlight `#5B7A9E`.
-* **Kopf-Badge:** Farbiges Typ-Banner oben (Rot `#C72138`, Orange `#E06236`, Gelb `#D7A64B`, Muted `#555555`), Rundung `4px`, zentrierter fetter Text.
+* **Kartenrahmen:** Menühintergrund **`PANEL_BG`**, Rahmen `1px solid {{ BORDER_SUBTLE }}`, Rundung `8px`, Hover-Highlight **`ACCENT_ACTION_HOVER`**.
+* **Kopf-Badge:** Farbiges Typ-Banner oben (Kritisch **`STATUS_CRITICAL`**, Warnung **`STATUS_WARNING`**, Standard **`ACCENT_BRAND`**, Muted **`TEXT_ON_DARK_MUTED`**), Rundung `4px`, zentrierter fetter Text.
 * **Informationstextfeld (Label-Wert-Paare):**
-  * **Labels:** Rechtsbündig an einer vertikalen Fluchtachse ausgerichtet (`Qt.AlignmentFlag.AlignRight`), kompakter Block linksbündig orientiert, Farbe **Starfield-Gelb/Gold (`#D7A64B`)**, normale Schriftstärke (`font-weight: normal`), Schriftgröße `12px` / `9pt`. *(Vorgemerkt für Hellmodus-Test: Wechsel auf Starfield-Blau `#304C7A`)*.
-  * **Werte:** Linksbündig direkt anschließend, Farbe `#ECECEC` / `#FFFFFF` (FormIDs in `Consolas`, Strings in `Segoe UI`).
+  * **Labels:** Rechtsbündig an einer vertikalen Fluchtachse ausgerichtet (`Qt.AlignmentFlag.AlignRight`), kompakter Block linksbündig orientiert, Farbe dynamisch über **`ACCENT_BRAND`**, normale Schriftstärke (`font-weight: normal`), Schriftgröße `FONT_SIZE_SMALL`.
+  * **Werte:** Linksbündig direkt anschließend, Farbe **`TEXT_ON_DARK`** (FormIDs in `Consolas`, Strings in `FONT_FAMILY`).
   * **Stabile Geometrie:** Alle 6 Datenzeilen sind stets im Layout vorhanden (leere Felder erhalten `""` statt `"-"`), wodurch die blaue Trennlinie kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
-* **Trennlinie:** Starfield-Blau `#304C7A`, Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
+* **Trennlinie:** Dynamisch über **`ACCENT_ACTION`** (Starfield-Blau), Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
 * **Lupenfunktion (Modal Zoom Overlay bei Klick):** Statt unruhiger Breitenexpansion im Layout verbleiben Kacheln im Ribbon stabil auf 280 px. Ein Klick öffnet ein zentriertes Modal-Overlay (`LOH_TileZoomOverlay`) in doppelter Größe (560 × 400 px), das alle Details und lange Texte ohne Scrollen darstellt. Ein Klick auf die Lupe, daneben oder ESC schließt den Zoom sofort.
-* **Virtualisiertes Kachelband (`LOH_Control_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Pages.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`). Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_TileView_Documentation.md).
+* **Virtualisiertes Kachelband (`LOH_Control_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Common.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`). Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_TileView_Documentation.md).
 * **Dashboard-Modul-Kacheln (`Widget_TileIconButton` auf `Page_Tools`):**
   * **Kachel:** Quadratisch (`64×64 px`), Rundung `12px`, zentriertes Icon (`43×43 px`). Zustandsfarben über `BUTTON_BLUE_*` bzw. `BUTTON_RED_*` Tokens (Normal, Hover, Pressed, Disabled).
-  * **Beschriftung (`QLabel#tile_text`):** Mehrzeiliger Text zentriert unter der Kachel, Schriftgröße `14px` (`TILE_TEXT_SIZE`, synchronisiert mit Fensterinhaltstexten `FONT_SIZE_DESC`), `"Segoe UI", Arial, sans-serif`. Textfarbe dynamisch über `TILE_TEXT_COLOR` (`#ECECEC` in Mixed/Dark, `#000000` in Light) und `TILE_TEXT_DISABLED` (`#888888`). Hover/Pressed aktiviert dynamische Textunterstreichung.
+  * **Beschriftung (`QLabel#tile_text`):** Mehrzeiliger Text zentriert unter der Kachel, Schriftgröße `TILE_TEXT_SIZE` (synchronisiert mit `FONT_SIZE_DESC`), `FONT_FAMILY`. Textfarbe dynamisch über `TILE_TEXT_COLOR` und `TILE_TEXT_DISABLED`. Hover/Pressed aktiviert dynamische Textunterstreichung.
   * **Abschnittstrenner & Titel:** Nutzen standardmäßig `QFrame#sep_*_section` (4px `ACCENT_ACTION`) und `QLabel#lbl_*_section` (`TEXT_TITLE` 16px bold).
 
 ---
 
 ### J. Inhaltsdiagramme (Spinnennetz- & Balkendiagramm)
+> [!NOTE]
+> **Vormerkung zur Modularisierung:** Bei der anstehenden Überarbeitung des Statistikfensters (`Window_Mod_Statistics` / `Section_Mod_Statistics_Content`) werden die modulspezifischen Farben und Stylesheet-Regeln in eine dedizierte `Style/Window_Mod_Statistics.qss` überführt und dieser Abschnitt synchron gestrafft.
+
 * **Einsatz:** Vergleichende visuelle Inhaltsanalyse in der Sektion *Inhalte* (`Section_Mod_Statistics_Content`).
 * **Radar-Chart (`Widget_ContentRadarChart`):**
   * 32 dimensionale Achsenstränge für alle Starfield-LOH-Kategorien.
@@ -275,12 +278,12 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Text- & Listen-Normalisierung:**
     * Vorverarbeitung von Fließtexten wandelt Unicode-Bullets (`•`, `\x95`, `\ufffd` mit Tabs/Leerzeichen) automatisch in Standard-Markdown-Listen (`- `) um. Dadurch rendert Qt saubere `<ul><li>`-HTML-Listen mit korrektem Einzug ohne Tabulator-Lücken.
 * **Zoom-Fenster (`Window_MarkdownView`):**
-  * Eigenständiger modaler Dialog im konsistenten Sci-Fi-Dark-Design (`#0D0D0D`):
+  * Eigenständiger modaler Dialog im konsistenten Design (**`WINDOW_BG`**):
     * Fenster-Icon: `Graphics/Icon_Magnifier_Hover.svg` (Starfield-Gold für hohe Sichtbarkeit auf dunkler Windows-Titelleiste).
-    * Titel im Kopfbereich in **Starfield-Gold (`#D7A64B`, fett, 15px)**.
+    * Titel im Kopfbereich über **`TEXT_TITLE`** (fett, `FONT_SIZE_BASE`).
     * Checkbox für automatischen Zeilenumbruch (Standard: aktiviert).
     * Großflächiger `QTextBrowser` für ermüdungsfreies Lesen langer Markdown-Texte inkl. klickbarer Links.
-    * Rechtsbündige Standard-Schaltfläche *Schließen* (120 × 32 px, Starfield-Blau `#304C7A`).
+    * Rechtsbündige Standard-Schaltfläche *Schließen* (120 × 32 px, **`BUTTON_BLUE_*`**).
 
 ### 3.1 Menüstruktur & Navigation (Sidebar)
 Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht (**64 px**) und einer erweiterten Ansicht mit Icons und Text (**175 px**) umgeschaltet werden:
@@ -332,15 +335,17 @@ Menü (Navigation) | Tabellen/Konsole (Master-View) | Eingabemasken (Detail-View
 
 ---
 
-### 3.5 Stylesheet-Hierarchie (QSS)
-* **`Starfield_LOH_Main.qss`:** Definiert die Shell, Fensterrahmen, Titelleisten und die Sidebar-Navigation.
-* **`Starfield_LOH_Pages.qss`:** Zentrales Stylesheet für alle Pages, Tabellen (`QTableView`), Detailbereiche, Kacheln und Scrollbars.
-* **Strikte Trennung:** Layout, Margins und Geometrien verbleiben in `.ui`-Dateien; Farben, Hover, Rahmen und Typografie werden exklusiv in `.qss` gepflegt.
+### 3.5 Stylesheet-Hierarchie & Modularisierung (QSS)
+* **`Structure/GUI/UI_Theme_Tokens.py`:** Single Source of Truth für alle semantischen Farben, Zustände und Schriftgrößen der 3 Modi (Mixed, Dark, Light).
+* **`Style/Starfield_LOH_Main.qss`:** Definiert die Shell, Fensterrahmen, Titelleisten und die Sidebar-Navigation.
+* **`Style/Starfield_LOH_Common.qss`:** Globales Basis-Stylesheet für alle gemeinsamen UI-Elemente: Typografie, Tabellen (`QTableView`), Bäume (`QTreeView`), Standard-Controls (Inputs, Dropdowns, Checkboxen), Buttons, Formulare und Dark Mode Scrollbars.
+* **Modulare Sub-Stylesheets (`Style/Dialog_*.qss`, `Style/Window_*.qss`):** Fenster- und modulspezifische Abweichungen (z. B. Tasten-Ausrichtungen oder Spezial-Widgets) werden in separaten `.qss`-Dateien im Ordner `Style/` abgelegt und durch den Compiler in `UI_Theme.py` automatisch mitkompiliert.
+* **Strikte Trennung:** Layout, Margins und Geometrien verbleiben in `.ui`-Dateien bzw. Python-Layouts; Farben, Hover, Rahmen und Typografie werden exklusiv über Design-Tokens in `.qss` gepflegt. Lokale `widget.setStyleSheet(...)`-Aufrufe sind verboten, um ein Überschreiben der Vererbung zu verhindern.
 
 ---
 
 ### 3.6 Feld-Darstellung Autoren (`inp_author`)
-* **Schreibschutz & Farbgebung:** Das Feld `inp_author` ist in allen Detailbereichen (`Page_Mods`, `Page_Update`) **schreibgeschützt (`readOnly = True`)** und verbindlich in **Starfield Gelb / Gold (`#D7A64B`)** mit schwarzer Schrift (`#000000`) hinterlegt, analog zu `inp_name_catalog` und `inp_id_catalog`.
+* **Schreibschutz & Farbgebung:** Das Feld `inp_author` ist in allen Detailbereichen (`Page_Mods`, `Page_Update`) **schreibgeschützt (`readOnly = True`)** und verbindlich über die Design-Tokens **`SURFACE_READONLY`** und **`TEXT_READONLY`** hinterlegt, analog zu `inp_name_catalog` und `inp_id_catalog`.
 * **Optionale Steuerung:** In den Programmeinstellungen unter *Anzeige* steuert die Option »Author durch Nexus Benutzer ersetzen.« (`chk_replace_author_nexus`, Key `Replace_Author_With_Nexus_User`, Standard: `false` / deaktiviert) das Anzeige-Verhalten.
 * **Detailbereiche (`Page_Mods`, `Page_Update`):**
   * Ist die Option **aktiv (`true`)**: Bei Mods der Plattform **Nexus** (`Platform = 2`) und vorhandenem Nexus-Uploader (`User_Nexus`) wird im schreibgeschützten Feld *Autor* der Wert `User_Nexus` dargestellt.
@@ -461,8 +466,8 @@ Für das Desktop-Overlay-Fenster (`Window_Mod_Update_Overlay.py`), das sich wäh
    * In keinem Modul darf auf Modulebene `os.system('')`, `cmd.exe` oder ein externer Subprozess aufgerufen werden.
    * In kompilierten GUI-Anwendungen (`--windowed`) oder unter `pythonw.exe` besitzt der Prozess kein eigenes Konsolenfenster. Ein Shell-Aufruf zwingt Windows dazu, für Sekundenbruchteile ein leeres Terminal-Fenster einzublenden, was beim Anwender als störendes Flackern wahrgenommen wird.
    * Terminal-Funktionen wie ANSI/VT100 dürfen ausschließlich über direkte Ctypes-API-Aufrufe (`kernel32.SetConsoleMode`) und nur nach Prüfung auf eine reale Konsole (`sys.stdout.isatty()`) erfolgen.
-2. **Dunkle Basis-Palette (`QPalette`):**
-   * Direkt nach Erzeugung der `QApplication` wird die Basisfarbpalette auf `#0D0D0D` festgelegt. Dadurch verhindert Qt, dass das Windows DWM beim Fensteraufbau kurz den hellen Systemstandard zeichnet, bevor Stylesheets geladen sind.
+2. **Dynamische Basis-Palette (`QPalette`):**
+   * Direkt nach Erzeugung der `QApplication` wird die Basisfarbpalette über `get_starfield_palette(theme_mode)` festgelegt. Dadurch verhindert Qt, dass das Windows DWM beim Fensteraufbau kurz einen abweichenden Systemstandard zeichnet, bevor Stylesheets geladen sind.
 
 ---
 
@@ -525,8 +530,8 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
 1. **Single Source of Truth (`setup_starfield_theme`):**
    * Jedes Hauptfenster, jeder Dialog und jedes Standalone-Tool (z. B. `Build_Release.py`, `Classifier_Heatmap_GUI.py`) bindet verbindlich [Structure/GUI/UI_Theme.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme.py) ein und ruft bei der Initialisierung `setup_starfield_theme(app=None, window=self)` auf.
 2. **Design-Token-Engine & QSS-Compiler:**
-   * Da Qt QSS keine nativen CSS-Variablen unterstützt, stellt `UI_Theme.py` einen semantischen Token-Compiler bereit (`render_theme_stylesheet`).
-   * Alle Stylesheets (`Starfield_LOH_Main.qss`, `Starfield_LOH_Pages.qss`) verwenden semantische Tokens (`{{ WINDOW_BG }}`, `{{ SURFACE_PRIMARY }}`, `{{ ACCENT_ACTION }}`, `{{ FONT_BASE }}`).
+   * Da Qt QSS keine nativen CSS-Variablen unterstützt, stellt `UI_Theme.py` einen semantischen Token-Compiler bereit (`render_theme_stylesheet`), gespeist aus [Structure/GUI/UI_Theme_Tokens.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme_Tokens.py).
+   * Alle Stylesheets (`Starfield_LOH_Main.qss`, `Starfield_LOH_Common.qss`, `Dialog_*.qss`) verwenden semantische Tokens (`{{ WINDOW_BG }}`, `{{ SURFACE_PRIMARY }}`, `{{ ACCENT_ACTION }}`, `{{ FONT_BASE }}`).
    * **3 unterstützte Design-Modi:**
      * **`Mixed` (Standard / 1:1 Ist-Zustand):** Dunkles Fenster (`#0D0D0D`), helle Inhaltsflächen/Tabellen (`#ECECEC`), Starfield Gold & Navy Akzente.
      * **`Dark Mode`:** Vollständiger Sci-Fi Dark Mode mit abgedunkelten Inhaltsflächen (`#161B22`).
@@ -535,11 +540,11 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
 3. **Die Kernbausteine von `UI_Theme`:**
    * **Fusion-Render-Engine:** `app.setStyle("Fusion")` stellt sicher, dass Qt plattformunabhängig alle QSS-Regeln fehlerfrei interpretiert und nicht in das native Windows-Fallback (`windowsvista`) zurückfällt.
    * **Dynamische System-Palette:** `get_starfield_palette(theme_mode)` setzt die globale Basisfarbe und verhindert weißes Aufflackern beim Laden.
-   * **Kaskadierendes Stylesheet auf `QApplication`-Ebene:** `get_starfield_stylesheet(theme_mode)` kompiliert `Starfield_LOH_Main.qss` und `Starfield_LOH_Pages.qss` und übergibt das Ergebnis direkt an `QApplication.instance().setStyleSheet(...)`. Dadurch erben alle Kind- und Sub-Controls (insbesondere `QScrollBar` in `QPlainTextEdit` und `QTreeView`) nahtlos das Sci-Fi-Dark-Design.
+   * **Kaskadierendes, modulares Stylesheet auf `QApplication`-Ebene:** `get_starfield_stylesheet(theme_mode)` kompiliert `Starfield_LOH_Main.qss`, `Starfield_LOH_Common.qss` sowie alle weiteren `Style/*.qss`-Dateien deterministisch und übergibt das Gesamtergebnis direkt an `QApplication.instance().setStyleSheet(...)`. Dadurch erben alle Kind- und Sub-Controls (insbesondere `QScrollBar` in `QPlainTextEdit` und `QTreeView`) nahtlos das Sci-Fi-Dark-Design.
    * **Mausrad-Schutz:** Automatische Registrierung des Dropdown-Mausradschutzes (`setup_dropdown_wheel_guard`).
    * **Fenster-Attribute:** Automatische DWM-Aktivierung der Titelleiste (`set_dark_title_bar(window)`) mit Fallback 19 und Zuweisung des Standard-Fenster-Icons (`Starfield_LOH.ico`).
-4. **Strukturierung von `Starfield_LOH_Pages.qss`:**
-   * Das zentrale Stylesheet ist strikt in 8 logische Abschnitte gegliedert:
+4. **Strukturierung von `Starfield_LOH_Common.qss` & Modul-Dateien:**
+   * Das zentrale gemeinsame Stylesheet `Starfield_LOH_Common.qss` ist strikt in 8 logische Abschnitte gegliedert:
      1. Basis & Typografie
      2. Tabellen & Bäume (Master-View)
      3. Standard-Steuerelemente & Formulare (Inputs, Dropdowns, Checkboxen)
@@ -548,6 +553,7 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
      6. Dialoge & Modale Fenster
      7. Rollbalken (Dark Mode Scrollbars)
      8. Seiten-Spezifische Ergänzungen
+   * Spezifische Abweichungen für Dialoge und Werkzeugfenster (z. B. Button-Zentrierung im Bestätigungsdialog) werden in eigenen Dateien wie `Style/Dialog_Mod_Activation_Cascade.qss` geführt und automatisch mitkompiliert.
 5. **Verbot von unselektierten Container-Stylesheets:**
    * In `.ui`-Dateien und im Python-Code dürfen Container-Widgets (wie das Root-Widget) niemals unselektierte Stylesheet-Deklarationen wie `background-color: #ffffff;` oder `background-color: #141414;` ohne konkreten Typ- oder Objekt-Selektor erhalten, da Qt diese Eigenschaften sonst auf interne Scrollbar-Komponenten vererbt.
 

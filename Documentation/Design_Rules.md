@@ -556,5 +556,8 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
    * Spezifische Abweichungen für Dialoge und Werkzeugfenster (z. B. Button-Zentrierung im Bestätigungsdialog) werden in eigenen Dateien wie `Style/Dialog_Mod_Activation_Cascade.qss` geführt und automatisch mitkompiliert.
 5. **Verbot von unselektierten Container-Stylesheets:**
    * In `.ui`-Dateien und im Python-Code dürfen Container-Widgets (wie das Root-Widget) niemals unselektierte Stylesheet-Deklarationen wie `background-color: #ffffff;` oder `background-color: #141414;` ohne konkreten Typ- oder Objekt-Selektor erhalten, da Qt diese Eigenschaften sonst auf interne Scrollbar-Komponenten vererbt.
+6. **Begründete Ausnahmen vom dynamischen Theme-Wechsel:**
+   * **`Window_Splash_Screen.py`:** Wird vor allen Initialisierungen, Profilen und Einstellungen angezeigt. Als randloses, teiltransparentes Sci-Fi-Startfenster mit festen Starfield-Farben (`#161B22`, `#D7A64B`) und Wander-Ticker ist es fest an die Markenidentität gebunden; ein Theme-Wechsel (insbesondere Light Mode) würde Transparenzkonturen und das Sci-Fi-Erlebnis aufbrechen.
+   * **`Window_Mod_Update_Overlay.py`:** Fungiert als Always-on-Top In-Game-HUD, das während des Bethesda Creations Downloads direkt über dem laufenden 3D-Spielfenster liegt. Es benötigt feste RGBA-Transparenzen (`rgba(3, 4, 28, 0.55)`), Schiefer-Akzente und weiße Kontraste zur Lesbarkeit über bewegten 3D-Spielgrafiken. Ein Umschalten auf helle Desktop-Themes würde den Spieler im Spiel blenden und die HUD-Lesbarkeit zerstören.
 
 

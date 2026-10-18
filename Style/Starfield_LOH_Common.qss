@@ -500,7 +500,21 @@ QDialog QLabel, QMessageBox QLabel {
     font-size: {{ FONT_SIZE_BASE }};
 }
 
-QDialog QPushButton, QMessageBox QPushButton {
+QDialog QPushButton {
+    background-color: {{ BUTTON_BLUE_NORMAL }};
+    color: {{ BUTTON_TEXT_NORMAL }};
+    border: none;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: {{ FONT_SIZE_BUTTON }};
+    font-weight: bold;
+    min-width: 90px;
+    min-height: 32px;
+    max-height: 32px;
+    text-align: left;
+}
+
+QMessageBox QPushButton {
     background-color: {{ BUTTON_BLUE_NORMAL }};
     color: {{ BUTTON_TEXT_NORMAL }};
     border: none;
@@ -539,8 +553,8 @@ QLabel#lbl_dialog_title {
     color: {{ TEXT_TITLE }};
     font-size: 16px;
     font-weight: bold;
-    margin-top: 0px;
-    margin-bottom: 2px;
+    margin: 0px;
+    padding: 0px;
 }
 
 QDialog QLineEdit, QDialog QTextEdit, QDialog QPlainTextEdit, QDialog QTextBrowser {
@@ -813,8 +827,8 @@ QLabel#lbl_page_title {
     padding: 0px;
 }
 
-/* Protokoll- und Konsolen-Widget (Widget_LogConsole) */
-Widget_LogConsole, QPlainTextEdit#log_console {
+/* Protokoll- und Konsolen-Widget (Widget_LogConsole & Log-Viewer) */
+Widget_LogConsole, QPlainTextEdit#log_console, QPlainTextEdit#txt_log_content {
     background-color: #1e1e1e;
     color: #d4d4d4;
     font-family: Consolas, 'Courier New', monospace;

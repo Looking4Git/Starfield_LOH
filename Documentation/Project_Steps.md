@@ -70,7 +70,7 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
     - [X] FormID-Overrides-Erfassung, CE2-Konfliktstufung (0 bis 3)
     - [X] Gebündelte Single-Pass EDID-Anreicherung
   - [X] **LoadOrder-Sortierer ([Structure/LoadOrder_Sorter.py](file:///d:/Starfield_LOH/Structure/LoadOrder_Sorter.py)):**
-    - [X] Vorab-Sicherheitsprüfungen & modaler Dialog [Structure/GUI/Dialog_Sorter_Checks.py](file:///d:/Starfield_LOH/Structure/GUI/Dialog_Sorter_Checks.py)
+    - [X] Vorab-Sicherheitsprüfungen & Dialogsteuerung [Structure/GUI/Handler_Sorter_Precheck_Dialogs.py](file:///d:/Starfield_LOH/Structure/GUI/Handler_Sorter_Precheck_Dialogs.py)
     - [X] Schritt 1: BGS-Basisblock (offizielle Creations sfta01..sfta06)
     - [X] Schritt 2: Wunsch-Ranking & Gravitationsberechnung (Hauptkategorie, Masterfile-Offset, Subkategorie-Clustering)
     - [X] Schritt 3: Topologische DAG-Sortierung & Konfliktauflösung (Zyklenprävention, Schiedsrichterregeln)

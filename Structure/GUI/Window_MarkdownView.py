@@ -5,17 +5,39 @@ von Markdown-Inhalten (z. B. Mod-Beschreibungen, Dokumentationen, Notizen).
 """
 
 import os
-import sys
-import ctypes
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QCheckBox, QTextBrowser, QPushButton
 )
-from PySide6.QtCore import Qt, QFile
+from PySide6.QtCore import Qt, QFile, QSize
 from PySide6.QtGui import QIcon, QTextOption
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR
-from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar, get_starfield_stylesheet, get_theme_color_hex
+from Structure.GUI.UI_Theme_Tokens import TYPOGRAPHY_TOKENS
+
+
+def get_markdown_doc_style() -> str:
+    """
+    Erzeugt das typografische Stylesheet für den QTextBrowser dynamisch anhand
+    der aktiven Theme-Tokens für optimale Lesbarkeit in allen Betriebsmodi.
+    """
+    text_color = get_theme_color_hex("TEXT_ON_SURFACE")
+    title_color = get_theme_color_hex("TEXT_TITLE")
+    link_color = get_theme_color_hex("ACCENT_ACTION")
+    border_color = get_theme_color_hex("BORDER_SUBTLE")
+    font_family = TYPOGRAPHY_TOKENS.get("FONT_FAMILY", '"Segoe UI", Arial')
+    return f"""
+        body, p, li {{ font-family: {font_family}; font-size: 11pt; color: {text_color}; }}
+        h1 {{ font-family: {font_family}; font-size: 15pt; font-weight: bold; color: {title_color}; margin: 10px 0px 6px 0px; }}
+        h2 {{ font-family: {font_family}; font-size: 13pt; font-weight: bold; color: {title_color}; margin: 8px 0px 4px 0px; }}
+        h3 {{ font-family: {font_family}; font-size: 12pt; font-weight: bold; color: {text_color}; margin: 6px 0px 3px 0px; }}
+        p {{ margin: 4px 0px; font-family: {font_family}; font-size: 11pt; line-height: 1.4; color: {text_color}; }}
+        ul, ol {{ margin: 4px 0px 4px 20px; padding: 0px; font-family: {font_family}; font-size: 11pt; }}
+        li {{ margin: 2px 0px; }}
+        a {{ color: {link_color}; text-decoration: underline; font-weight: bold; }}
+        hr {{ border: none; height: 1px; background-color: {border_color}; margin: 8px 0px; }}
+    """
 
 
 class Window_MarkdownView(QDialog):
@@ -37,11 +59,12 @@ class Window_MarkdownView(QDialog):
         self.resize(850, 600)
         self.setMinimumSize(650, 400)
 
+        # 1. Kapselung gegen vererbte Eltern-Stylesheets & zentrales Theme
+        self.setStyleSheet(get_starfield_stylesheet())
+
         icon_path = os.path.join(GRAPHICS_DIR, "Icon_Magnifier_Hover.svg")
         if not os.path.exists(icon_path):
             icon_path = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
-
-        # 1. Zentrales Theme und Titelleiste aktivieren
         setup_starfield_theme(window=self, custom_icon_path=icon_path)
 
         # 2. UI dynamisch aus .ui-Datei laden
@@ -63,38 +86,52 @@ class Window_MarkdownView(QDialog):
         self.txt_markdown_content = self.content_widget.findChild(QTextBrowser, "txt_markdown_content")
         self.btn_close = self.content_widget.findChild(QPushButton, "btn_close")
 
-        # 4. Signale verbinden
-        if self.chk_word_wrap:
-            self.chk_word_wrap.toggled.connect(self.on_word_wrap_toggled)
+        # 4. Titel-Label an globales Dialog-Theme anbinden
+        if self.lbl_title:
+            self.lbl_title.setObjectName("lbl_dialog_title")
+
+        # 5. Schaltfläche Schließen konfigurieren (Icon_Magnifier_Hover)
         if self.btn_close:
             self.btn_close.clicked.connect(self.close)
+            btn_icon_path = os.path.join(GRAPHICS_DIR, "Icon_Magnifier_Hover.svg")
+            if os.path.exists(btn_icon_path):
+                self.btn_close.setIcon(QIcon(btn_icon_path))
+                self.btn_close.setIconSize(QSize(18, 18))
 
-        # 5. Fensterspezifischer Titel-Akzent
-        if self.lbl_title:
-            self.lbl_title.setStyleSheet("color: #D7A64B; font-size: 15px; font-weight: bold;")
+        # 6. Signale verbinden
+        if self.chk_word_wrap:
+            self.chk_word_wrap.toggled.connect(self.on_word_wrap_toggled)
 
-        # 5. Inhalte setzen
+        # 7. Dynamisches Typografie-Stylesheet für Markdown-Dokument anwenden
         if self.txt_markdown_content:
-            doc_style = """
-                body, p, li { font-family: "Segoe UI", Arial; font-size: 11pt; color: #000000; }
-                h1 { font-family: "Segoe UI", Arial; font-size: 15pt; font-weight: bold; color: #111111; margin: 10px 0px 6px 0px; }
-                h2 { font-family: "Segoe UI", Arial; font-size: 13pt; font-weight: bold; color: #111111; margin: 8px 0px 4px 0px; }
-                h3 { font-family: "Segoe UI", Arial; font-size: 12pt; font-weight: bold; color: #222222; margin: 6px 0px 3px 0px; }
-                p { margin: 4px 0px; font-family: "Segoe UI", Arial; font-size: 11pt; line-height: 1.4; color: #000000; }
-                ul, ol { margin: 4px 0px 4px 20px; padding: 0px; font-family: "Segoe UI", Arial; font-size: 11pt; }
-                li { margin: 2px 0px; }
-                a { color: #304C7A; text-decoration: underline; font-weight: bold; }
-                hr { border: none; height: 1px; background-color: #CCCCCC; margin: 8px 0px; }
-            """
-            self.txt_markdown_content.document().setDefaultStyleSheet(doc_style)
+            self.txt_markdown_content.document().setDefaultStyleSheet(get_markdown_doc_style())
 
         self.set_title(title)
         self.set_markdown(markdown_text)
 
     def showEvent(self, event):
-        """Stellt sicher, dass die immersive Windows-Titelleiste bei jeder Fensteranzeige zuverlässig aktiv ist."""
+        """Stellt sicher, dass Titelleiste und Zentrierung bei jeder Anzeige zuverlässig aktiv sind."""
         super().showEvent(event)
         set_dark_title_bar(self)
+        if not getattr(self, "_has_positioned", False):
+            self._has_positioned = True
+            self._position_dialog()
+
+    def _position_dialog(self):
+        """Zentriert das Fenster über dem Elternfenster oder auf dem Bildschirm."""
+        parent = self.parent()
+        if parent and parent.isVisible():
+            parent_geo = parent.geometry()
+            x = parent_geo.x() + (parent_geo.width() - self.width()) // 2
+            y = parent_geo.y() + (parent_geo.height() - self.height()) // 2
+            self.move(max(0, x), max(0, y))
+        else:
+            screen = self.screen()
+            if screen:
+                screen_geo = screen.availableGeometry()
+                x = screen_geo.x() + (screen_geo.width() - self.width()) // 2
+                y = screen_geo.y() + (screen_geo.height() - self.height()) // 2
+                self.move(max(0, x), max(0, y))
 
     def set_title(self, title: str):
         """Setzt den Mod-/Dokumentennamen im Kopfbereich."""
@@ -115,3 +152,4 @@ class Window_MarkdownView(QDialog):
                 self.txt_markdown_content.setWordWrapMode(QTextOption.WrapMode.WordWrap)
             else:
                 self.txt_markdown_content.setLineWrapMode(QTextBrowser.LineWrapMode.NoWrap)
+

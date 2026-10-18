@@ -1,6 +1,4 @@
 import os
-import sys
-import ctypes
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QCheckBox, QPlainTextEdit, QPushButton, QMessageBox, QSpacerItem
@@ -10,7 +8,7 @@ from PySide6.QtGui import QIcon, QTextCursor
 from PySide6.QtUiTools import QUiLoader
 
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR, LOGS_DIR
-from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar, get_starfield_stylesheet
 
 
 class Window_Starfield_Log_Files(QDialog):
@@ -32,9 +30,12 @@ class Window_Starfield_Log_Files(QDialog):
         self.resize(920, 620)
         self.setMinimumSize(750, 450)
 
-        icon_path = os.path.join(GRAPHICS_DIR, "Icon_Folder.svg")
+        # 1. Kapselung gegen vererbte Eltern-Stylesheets & zentrales Theme
+        self.setStyleSheet(get_starfield_stylesheet())
 
-        # 1. Zentrales Theme und Titelleiste aktivieren
+        icon_path = os.path.join(GRAPHICS_DIR, "Icon_Folder.svg")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
         setup_starfield_theme(window=self, custom_icon_path=icon_path)
 
         # 2. UI dynamisch aus .ui-Datei laden
@@ -82,9 +83,28 @@ class Window_Starfield_Log_Files(QDialog):
         self.refresh_log_files()
 
     def showEvent(self, event):
-        """Stellt sicher, dass die immersive Windows-Titelleiste bei jeder Fensteranzeige zuverlässig aktiv ist."""
+        """Stellt sicher, dass die immersive Windows-Titelleiste und Zentrierung bei jeder Fensteranzeige zuverlässig aktiv ist."""
         super().showEvent(event)
         set_dark_title_bar(self)
+        if not getattr(self, "_has_positioned", False):
+            self._has_positioned = True
+            self._position_dialog()
+
+    def _position_dialog(self):
+        """Zentriert das Fenster über dem Elternfenster oder auf dem Bildschirm."""
+        parent = self.parent()
+        if parent and parent.isVisible():
+            parent_geo = parent.geometry()
+            x = parent_geo.x() + (parent_geo.width() - self.width()) // 2
+            y = parent_geo.y() + (parent_geo.height() - self.height()) // 2
+            self.move(max(0, x), max(0, y))
+        else:
+            screen = self.screen()
+            if screen:
+                screen_geo = screen.availableGeometry()
+                x = screen_geo.x() + (screen_geo.width() - self.width()) // 2
+                y = screen_geo.y() + (screen_geo.height() - self.height()) // 2
+                self.move(max(0, x), max(0, y))
 
     def refresh_log_files(self):
         """Liest das Logs-Verzeichnis ein, befüllt das Dropdown und steuert den Aktivierungsstatus."""
@@ -185,7 +205,15 @@ class Window_Starfield_Log_Files(QDialog):
         msg.setWindowTitle("Log Files löschen")
         msg.setText("Möchten Sie alle Log Files wirklich löschen?")
         msg.setIcon(QMessageBox.Icon.Question)
-        _set_dark_title_bar(msg)
+
+        if self.windowIcon() and not self.windowIcon().isNull():
+            msg.setWindowIcon(self.windowIcon())
+        else:
+            app_icon_path = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
+            if os.path.exists(app_icon_path):
+                msg.setWindowIcon(QIcon(app_icon_path))
+
+        set_dark_title_bar(msg)
 
         btn_cancel = msg.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
         btn_delete = msg.addButton("Löschen", QMessageBox.ButtonRole.YesRole)

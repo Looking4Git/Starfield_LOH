@@ -24,7 +24,6 @@ class Page_Tools(QWidget):
         super().__init__()
         self.setObjectName("Page_Tools")
         self.splash_callback = splash_callback
-        self.window_log_files = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -425,12 +424,8 @@ class Page_Tools(QWidget):
     def open_log_files_window(self):
         """Öffnet das Fenster zur Ansicht und Verwaltung der Starfield LOH Log-Dateien."""
         from Structure.GUI.Window_Starfield_Log_Files import Window_Starfield_Log_Files
-        if self.window_log_files is None:
-            self.window_log_files = Window_Starfield_Log_Files(self)
-        self.window_log_files.refresh_log_files()
-        self.window_log_files.show()
-        self.window_log_files.raise_()
-        self.window_log_files.activateWindow()
+        dlg = Window_Starfield_Log_Files(self)
+        dlg.exec()
 
     def append_log(self, text):
         """Delegiert an die Konsole (für Rückwärtskompatibilität)."""

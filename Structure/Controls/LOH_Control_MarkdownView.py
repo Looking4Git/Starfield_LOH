@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt, QEvent, QTimer, QSize
 from PySide6.QtGui import QTextOption, QIcon
 
 from Structure.Paths import GRAPHICS_DIR
-from Structure.GUI.Window_MarkdownView import Window_MarkdownView
+from Structure.GUI.Window_MarkdownView import Window_MarkdownView, get_markdown_doc_style
 
 
 def _prepare_markdown(text: str) -> str:
@@ -106,19 +106,8 @@ class LOH_Control_MarkdownView(QWidget):
         self.text_browser.setLineWrapMode(QTextBrowser.LineWrapMode.WidgetWidth)
         self.text_browser.setWordWrapMode(QTextOption.WrapMode.WordWrap)
 
-        # Typografie-Stylesheet für ansprechende Darstellung
-        doc_style = """
-            body, p, li { font-family: "Segoe UI", Arial; font-size: 11pt; color: #000000; }
-            h1 { font-family: "Segoe UI", Arial; font-size: 14pt; font-weight: bold; color: #111111; margin: 8px 0px 4px 0px; }
-            h2 { font-family: "Segoe UI", Arial; font-size: 12pt; font-weight: bold; color: #111111; margin: 6px 0px 3px 0px; }
-            h3 { font-family: "Segoe UI", Arial; font-size: 11pt; font-weight: bold; color: #222222; margin: 4px 0px 2px 0px; }
-            p { margin: 3px 0px; font-family: "Segoe UI", Arial; font-size: 11pt; line-height: 1.35; color: #000000; }
-            ul, ol { margin: 3px 0px 3px 18px; padding: 0px; font-family: "Segoe UI", Arial; font-size: 11pt; }
-            li { margin: 2px 0px; }
-            a { color: #304C7A; text-decoration: underline; font-weight: bold; }
-            hr { border: none; height: 1px; background-color: #CCCCCC; margin: 6px 0px; }
-        """
-        self.text_browser.document().setDefaultStyleSheet(doc_style)
+        # Typografie-Stylesheet für ansprechende Darstellung dynamisch anhand Theme-Tokens
+        self.text_browser.document().setDefaultStyleSheet(get_markdown_doc_style())
         self.layout.addWidget(self.text_browser)
 
         # 3. Schwebende Zoom-Schaltfläche oben rechts

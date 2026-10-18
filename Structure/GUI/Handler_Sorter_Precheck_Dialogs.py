@@ -1,14 +1,14 @@
 """
-Sicherheits- und Vorprüfungsdialoge vor dem Start des LoadOrder Sorters.
+Steuerung der Sicherheits- und Vorprüfungsdialoge vor dem Start des LoadOrder Sorters.
 """
 
-import sys
-import ctypes
+import os
 from PySide6.QtWidgets import QMessageBox, QWidget
 from PySide6.QtGui import QIcon
 
 from Structure.Database import check_sorter_prerequisites, apply_all_classifier_categories
 from Structure.GUI.UI_Theme import set_dark_title_bar
+from Structure.Paths import GRAPHICS_DIR
 
 
 def _show_custom_message_box(
@@ -27,8 +27,12 @@ def _show_custom_message_box(
     msg_box.setText(text)
     msg_box.setIcon(icon)
 
-    if parent and parent.windowIcon():
+    if parent and parent.windowIcon() and not parent.windowIcon().isNull():
         msg_box.setWindowIcon(parent.windowIcon())
+    else:
+        app_icon_path = os.path.join(GRAPHICS_DIR, "Icon_App.svg")
+        if os.path.exists(app_icon_path):
+            msg_box.setWindowIcon(QIcon(app_icon_path))
 
     set_dark_title_bar(msg_box)
 

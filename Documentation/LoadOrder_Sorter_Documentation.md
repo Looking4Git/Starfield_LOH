@@ -22,7 +22,7 @@ Die Ausführung gliedert sich in zwei streng getrennte Phasen:
            ├─► check_sorter_prerequisites() (Datenbankprüfung)
            │
            ├──► [Fehler / Veraltet / Divergenzen]
-           │        └─► Dialog_Sorter_Checks (Szenarien 1a, 1b, 1c, 2, 3)
+           │        └─► Handler_Sorter_Precheck_Dialogs (Szenarien 1a, 1b, 1c, 2, 3)
            │                 ├─► [Abbruch] ──► Time_End bleibt NULL (Kein Sortierlauf)
            │                 └─► [Ausführen / Fortfahren]
            │
@@ -90,9 +90,9 @@ Vor jedem Sortierversuch prüft `check_sorter_prerequisites()` (definiert in `St
 
 ---
 
-### 4. Sicherheits-Dialog & Szenarien (`Dialog_Sorter_Checks.py`)
+### 4. Sicherheits-Dialog & Szenarien (`Handler_Sorter_Precheck_Dialogs.py`)
 
-Treten bei den Prüfungen Auffälligkeiten auf, öffnet sich der modale Sicherheitsdialog `Dialog_Sorter_Checks`. Dieser fügt sich nahtlos in das Windows 11 Dark Mode Design ein (`DwmSetWindowAttribute`) und reagiert kontextbezogen:
+Treten bei den Prüfungen Auffälligkeiten auf, öffnet sich die modale Dialogsteuerung `Handler_Sorter_Precheck_Dialogs`. Diese fügt sich nahtlos in das Windows 11 Dark Mode Design ein (`DwmSetWindowAttribute`) und reagiert kontextbezogen:
 
 | Szenario | Auslöser / Bedingung | Mögliche Benutzeraktionen |
 | :--- | :--- | :--- |

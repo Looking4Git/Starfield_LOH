@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QSortFilterProxyModel, QModelIndex
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem
 from Structure.Paths import APP_ROOT, GRAPHICS_DIR, SETTINGS_FILE
 from Structure.Database import get_installed_mods_with_components
-from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
+from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar, get_starfield_stylesheet
 
 class ModFilterProxyModel(QSortFilterProxyModel):
     """Proxy-Model für Live-Volltextsuche über Mod-Name und Masterfile."""
@@ -76,27 +76,37 @@ class ModSelectionDialog(QDialog):
         dia_cfg = (
             self.settings_data.get("dialog_mod_selection")
             or self.settings_data.get("dialog_table")
-            or self.settings_data.get("diaolg_table", {"width": 800, "height": 600, "x": 300, "y": 300})
+            or self.settings_data.get("diaolg_table", {})
         )
-        self.resize(dia_cfg.get("width", 800), dia_cfg.get("height", 600))
-        self.move(dia_cfg.get("x", 300), dia_cfg.get("y", 300))
+        w = dia_cfg.get("width", 840)
+        h = dia_cfg.get("height", 900)
+        if w < 600 or h < 500:
+            w, h = 840, 900
+        self._target_width = w
+        self._target_height = h
+        self._target_x = dia_cfg.get("x", 200)
+        self._target_y = dia_cfg.get("y", 100)
+        self._has_shown = False
+        
+        self.setObjectName("Dialog_Mod_Selection")
         
         # Zentrales Theme und Titelleiste aktivieren
         setup_starfield_theme(window=self)
+        self.setStyleSheet(get_starfield_stylesheet())
         
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(16, 16, 16, 16)
         self.main_layout.setSpacing(12)
         
         self.lbl_title = QLabel(header_text)
-        self.lbl_title.setStyleSheet("color: #D7A64B; font-size: 16px; font-weight: bold;")
+        self.lbl_title.setObjectName("lbl_dialog_title")
         self.main_layout.addWidget(self.lbl_title)
         
         # Suchbereich (Live-Volltextsuche)
         self.search_layout = QHBoxLayout()
+        self.search_layout.setContentsMargins(0, 0, 0, 0)
         self.search_layout.setSpacing(8)
         self.lbl_search = QLabel("Suche:")
-        self.lbl_search.setStyleSheet("color: #ECECEC; font-weight: bold;")
         self.inp_search = QLineEdit()
         self.inp_search.textChanged.connect(self.on_search_changed)
         self.search_layout.addWidget(self.lbl_search)
@@ -108,6 +118,8 @@ class ModSelectionDialog(QDialog):
         self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.table_view.setAlternatingRowColors(True)
+        self.table_view.setMinimumHeight(280)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.doubleClicked.connect(self.on_double_clicked)
@@ -120,7 +132,14 @@ class ModSelectionDialog(QDialog):
         self.spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.btn_layout.addItem(self.spacer)
         
-        self.btn_confirm = QPushButton(f"   {confirm_text}")
+        self.btn_cancel = QPushButton("Abbrechen")
+        icon_discard_path = os.path.join(GRAPHICS_DIR, "Icon_Discard.svg")
+        if os.path.exists(icon_discard_path):
+            self.btn_cancel.setIcon(QIcon(icon_discard_path))
+        self.btn_cancel.clicked.connect(self.reject)
+        self.btn_layout.addWidget(self.btn_cancel)
+        
+        self.btn_confirm = QPushButton(confirm_text)
         icon_path = os.path.join(GRAPHICS_DIR, confirm_icon)
         if not os.path.exists(icon_path):
             icon_path = os.path.join(GRAPHICS_DIR, "Icon_Check.svg")
@@ -129,13 +148,6 @@ class ModSelectionDialog(QDialog):
         self.btn_confirm.setEnabled(False)
         self.btn_confirm.clicked.connect(self.on_confirm_clicked)
         self.btn_layout.addWidget(self.btn_confirm)
-        
-        self.btn_cancel = QPushButton("   Abbrechen")
-        icon_del_path = os.path.join(GRAPHICS_DIR, "Icon_Delete.svg")
-        if os.path.exists(icon_del_path):
-            self.btn_cancel.setIcon(QIcon(icon_del_path))
-        self.btn_cancel.clicked.connect(self.reject)
-        self.btn_layout.addWidget(self.btn_cancel)
         
         self.main_layout.addLayout(self.btn_layout)
         
@@ -169,6 +181,7 @@ class ModSelectionDialog(QDialog):
         
         self.table_view.setModel(self.proxy_model)
         self.table_view.resizeColumnsToContents()
+        self.table_view.setColumnWidth(0, 440)
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         
@@ -209,6 +222,10 @@ class ModSelectionDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
+        if not self._has_shown:
+            self._has_shown = True
+            self.resize(self._target_width, self._target_height)
+            self.move(self._target_x, self._target_y)
         set_dark_title_bar(self)
 
     def closeEvent(self, event):
@@ -224,6 +241,12 @@ class ModSelectionDialog(QDialog):
         super().accept()
 
     def save_dialog_settings(self):
+        w = self.width()
+        h = self.height()
+        # Nur plausible Fenstergrößen abspeichern, um versehentlichen Kollaps zu verhindern
+        if w < 600 or h < 500:
+            return
+
         settings_data = {}
         if os.path.exists(SETTINGS_FILE):
             try:
@@ -233,8 +256,8 @@ class ModSelectionDialog(QDialog):
                 pass
                 
         settings_data["dialog_mod_selection"] = {
-            "width": self.width(),
-            "height": self.height(),
+            "width": w,
+            "height": h,
             "x": self.x(),
             "y": self.y()
         }

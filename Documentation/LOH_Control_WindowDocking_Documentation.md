@@ -12,17 +12,20 @@ Diese Dokumentation beschreibt die universelle Begleitpanel- und Docking-Steueru
 
 ### 1.2 Die Lösung: Splitter-Panel + Floating-Window (Konzept A)
 `LOH_Control_WindowDocking` vereint das Beste aus zwei Welten:
-1. **Angedockter Zustand (QSplitter):**
-   - Das Statistik-Widget sitzt eingebettet im nativen `QSplitter` (`main_splitter`) des Hauptfensters rechts neben `content_stack`.
-   - Nahtloser Splitter-Griff (4px, Starfield-Gold Hover) mit 100% synchronen Renderzyklen im Qt-Grafikbaum – völlig frei von Ghosting oder Flackern.
-   - Header-Leiste mit Titel, Popout-Button (`btn_dock_float`, Icon `Icon_Export.svg`) und Schließen-Button (`btn_dock_close`).
+1. **Angedockter Zustand (LOH_Control_Splitter):**
+   - Das Statistik-Widget sitzt eingebettet im maßgeschneiderten `LOH_Control_Splitter` (`main_splitter`) des Hauptfensters rechts neben `content_stack`.
+   - **Sci-Fi Grip-Handle (7 px):** Feine Führungslinien und 5 horizontale Grip-Segmente in Starfield-Gold (`#D7A64B`, Ruhezustand `#304C7A`), die bei Hover und Drag dynamisch aufleuchten.
+   - **Ergonomie & Doppelklick-Reset:** Cursor `Qt.CursorShape.SplitHCursor` ($\leftrightarrow$). Ein Doppelklick auf den Splittergriff setzt die Breite des Panels automatisch wieder auf den Idealwert (850 px) zurück.
+   - **Header-Leiste:** Subfensterleiste mit dezentem Titel `"Docking: Mod-Analyse & Statistiken"` (`{{ TEXT_ON_DARK_MUTED }}`, bold, 14 px), Popout-Button (`btn_dock_float`, Icon `Icon_Export.svg`) und Schließen-Button (`btn_dock_close`).
 2. **Abgedockter Zustand (FloatingCompanionWindow):**
    - Auf Klick auf den Popout-Button löst sich das Statistik-Widget in ein eigenständiges Windows-Top-Level-Fenster (`FloatingCompanionWindow`).
    - Volle OS-Integration: Echtes Maximieren/Vollbild, Minimieren, Windows-11 DWM-Titelleiste (Dark Mode), nativer Taskleisten-Eintrag und Multi-Monitor-Freiheit.
    - Re-Dock-Button im Header (`btn_floating_redock`, Icon `Icon_Import.svg`), der das Panel direkt wieder in den Splitter des Hauptfensters einhängt.
-3. **Automatisches Synchronisieren:**
+   - **Design-Konsistenz:** Identische Subfensterleiste wie im Docking (`"Docking: Mod-Analyse & Statistiken"`), saubere Margins und feste Mindestbreite von 850 px.
+3. **Automatisches Synchronisieren & Layout-Schutz:**
    - Minimieren des Hauptfensters blendet das Schwebefenster synchron aus und stellt es beim Wiederherstellen wieder her.
    - Schließen des Hauptfensters speichert alle Splitter- und Schwebefenster-Geometrien in `settings.json`.
+   - Durchgängige Mindestbreite von 850 px verhindert das Abschneiden von Bedienelementen und hält den 16px-Rollbalkenkanal frei.
 
 ---
 
@@ -30,7 +33,9 @@ Diese Dokumentation beschreibt die universelle Begleitpanel- und Docking-Steueru
 
 ```mermaid
 graph TD
-    A[StarfieldLOH Main Window] -->|Enthält| S[QSplitter: main_splitter]
+    A[StarfieldLOH Main Window] -->|Enthält| S[LOH_Control_Splitter: main_splitter]
+    S -->|createHandle| SH[LOH_SplitterHandle: 7px Sci-Fi Grip]
+    SH -->|Doppelklick| RS[Reset auf Standardbreite 850px]
     S -->|Links| CS[content_stack]
     S -->|Rechts| DC[dock_container]
     DC -->|Header| DH[dock_header: Float + Close]

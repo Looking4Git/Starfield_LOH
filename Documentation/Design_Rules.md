@@ -418,13 +418,24 @@ Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mo
 
 ---
 
-## 5. Docking-Geometrie & flackerfreies Schließen (`LOH_Control_WindowDocking`-Standard)
+## 5. Docking-Geometrie, Splitter-Design & flackerfreies Schließen (`LOH_Control_WindowDocking`-Standard)
 
-1. **Dynamische Breitenführung bei manuellem Resize:**
+1. **Sci-Fi Splitter-Griff ([LOH_Control_Splitter.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_Splitter.py)):**
+   * **Breite:** 7 px Greifzone (`setHandleWidth(7)`) mit Cursor `Qt.CursorShape.SplitHCursor` ($\leftrightarrow$).
+   * **Optik:** Feine vertikale Führungslinien (`#223348`, Hover `#5B7A9E`) mit 5 horizontalen Grip-Segmenten in Starfield-Gold (`#D7A64B`, Ruhezustand `#304C7A`).
+   * **Doppelklick-Reset:** Ein Doppelklick auf das Handle stellt automatisch die Standardbreite des Docking-Panels (**850 px**) wieder her.
+2. **Subfensterleisten & Typografie:**
+   * Angedockter Header (`dock_header`) und Schwebefenster-Header (`floating_dock_header`):
+   * Titel `"Docking: Mod-Analyse & Statistiken"`, `color: {{ TEXT_ON_DARK_MUTED }};`, `font-size: {{ FONT_SIZE_DESC }};` (14 px), `font-weight: bold;`.
+   * Nahtloser Hintergrund mit `{{ WINDOW_BG }}` und dezentem Trennstrich `border-bottom: 1px solid {{ BORDER_SUBTLE }};`.
+3. **Rollbalken-Gutter & Breitenstabilität:**
+   * Verbindliche Mindestbreite von **850 px** für das Statistikfenster sowohl angedockt als auch freischwebend.
+   * `dock_layout.setContentsMargins(0, 0, 0, 0)` garantiert, dass der 16px-Gutter des Rollbalkens exakt reserviert bleibt und keine Bedienelemente an der rechten Kante abgeschnitten werden.
+4. **Dynamische Breitenführung bei manuellem Resize:**
    * Manuelle Größenänderungen des Hauptfensters synchronisieren kontinuierlich `base_main_width = max(1280, main_window.width() - (dock_w + SEPARATOR_WIDTH))`.
-2. **Atomares, flackerfreies Schließen:**
+5. **Atomares, flackerfreies Schließen:**
    * Dock-Schließen erfolgt unter Kapselung von `main_window.setUpdatesEnabled(False)` und `main_window.layout().activate()`, bevor das Hauptfenster verkleinert wird.
-3. **Persistente Speicherung (`get_clean_window_width`):**
+6. **Persistente Speicherung (`get_clean_window_width`):**
    * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite) abgelegt.
    * Details siehe [LOH_Control_WindowDocking_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_WindowDocking_Documentation.md).
 

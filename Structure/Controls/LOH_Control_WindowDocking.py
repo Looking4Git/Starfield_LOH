@@ -45,10 +45,10 @@ class FloatingCompanionWindow(QWidget):
         self.header = QWidget(self)
         self.header.setObjectName("floating_dock_header")
         header_layout = QHBoxLayout(self.header)
-        header_layout.setContentsMargins(12, 4, 8, 4)
+        header_layout.setContentsMargins(12, 6, 8, 8)
         header_layout.setSpacing(6)
 
-        self.lbl_title = QLabel("Mod-Analyse & Statistiken", self.header)
+        self.lbl_title = QLabel("Docking: Mod-Analyse & Statistiken", self.header)
         self.lbl_title.setObjectName("lbl_floating_title")
         header_layout.addWidget(self.lbl_title, 1)
 
@@ -62,7 +62,7 @@ class FloatingCompanionWindow(QWidget):
         header_layout.addWidget(self.btn_redock)
 
         self.layout_root.addWidget(self.header)
-        self.setMinimumSize(700, 400)
+        self.setMinimumSize(850, 400)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -155,7 +155,7 @@ class LOH_Control_WindowDocking(QObject):
                 total_w = self.main_splitter.width()
                 if total_w <= 0:
                     total_w = self.main_window.width() - 175  # Abzüglich Sidebar
-                w_dock = max(700, min(self.docked_width, total_w - 400))
+                w_dock = max(850, min(self.docked_width, total_w - 400))
                 w_content = max(400, total_w - w_dock)
                 self.main_splitter.setSizes([w_content, w_dock])
 

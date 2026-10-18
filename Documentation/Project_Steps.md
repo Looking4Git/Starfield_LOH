@@ -122,9 +122,10 @@ Wir arbeiten iterativ und meilensteinorientiert. Die KI und der Entwickler gener
   - [X] Fremdsystem-Sperrmatrix ([Structure/Environment_Controller.py](file:///d:/Starfield_LOH/Structure/Environment_Controller.py))
 
 - [X] **Phase 11: Abdockbares Mod-Statistik- & Analysefenster (Window_Mod_Statistics)**
-  - [X] Universelle Fenster-Docking-Steuerung ([Structure/LOH_Control_WindowDocking.py](file:///d:/Starfield_LOH/Structure/LOH_Control_WindowDocking.py))
-  - [X] Geometriestabilisierung des Hauptfensters beim Ein-/Abdocken und flackerfreies Schließen
-  - [X] Wiederverwendbare UI-Komponenten (`LOH_Control_CollapsibleSection`, `LOH_Control_TileView`, `LOH_Control_SectionResizeGrip`)
+  - [X] Universelle Fenster-Docking-Steuerung ([Structure/Controls/LOH_Control_WindowDocking.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_WindowDocking.py))
+  - [X] Maßgeschneiderter Splitter mit Sci-Fi Grip & Doppelklick-Reset ([Structure/Controls/LOH_Control_Splitter.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_Splitter.py))
+  - [X] Geometriestabilisierung des Hauptfensters beim Ein-/Abdocken, 850px-Gutter-Schutz und flackerfreies Schließen
+  - [X] Wiederverwendbare UI-Komponenten (`LOH_Control_CollapsibleSection`, `LOH_Control_TileView`, `LOH_Control_SectionResizeGrip`, `LOH_Control_Splitter`)
   - [X] Fachspezifische Analyse-Sektionen:
     - [X] Inhalts- und Pointer-Metriken ([Structure/GUI/Section_Mod_Statistics_Content.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Content.py) mit Balken- und Radar-Charts)
     - [X] Klassifizierungs-Ergebnisse & Kachelansicht ([Structure/GUI/Section_Mod_Statistics_Classification.py](file:///d:/Starfield_LOH/Structure/GUI/Section_Mod_Statistics_Classification.py) mit `Widget_ClassificationCard.py`)

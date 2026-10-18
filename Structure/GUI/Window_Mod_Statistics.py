@@ -35,7 +35,7 @@ class Window_Mod_Statistics(QWidget):
         self.splash_callback = splash_callback
 
         # Standard-Geometrie & Mindestmaße
-        self.min_width = 700
+        self.min_width = 850
         self.min_height = 400
         self.setMinimumSize(self.min_width, self.min_height)
         
@@ -121,7 +121,7 @@ class Window_Mod_Statistics(QWidget):
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.min_width = max(600, cfg.get("min_width", 800))
+        self.min_width = max(850, cfg.get("min_width", 850))
         self.setMinimumWidth(self.min_width)
         
         self.target_width = cfg.get("width", cfg.get("docked_width", 1000))

@@ -16,6 +16,7 @@ from Structure.GUI.Page_Settings import Page_Settings
 from Structure.GUI.Window_Mod_Statistics import Window_Mod_Statistics
 from Structure.GUI.Window_Splash_Screen import Window_SplashScreen, start_splash_screen
 from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
+from Structure.Controls.LOH_Control_Splitter import LOH_Control_Splitter
 from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
 from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
 from Structure.LOH_Logging import write_log_header
@@ -232,7 +233,7 @@ class StarfieldLOH(QMainWindow):
         self.content_stack.currentChanged.connect(self.on_page_changed)
 
         # Haupt-Splitter für Content-Bereich und angedocktes Begleitpanel
-        self.main_splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        self.main_splitter = LOH_Control_Splitter(Qt.Orientation.Horizontal, self)
         self.main_splitter.setObjectName("main_splitter")
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.addWidget(self.content_stack)
@@ -242,6 +243,7 @@ class StarfieldLOH(QMainWindow):
         # Container für das angedockte Diagnose-/Statistik-Panel
         self.dock_container = QWidget(self)
         self.dock_container.setObjectName("dock_container")
+        self.dock_container.setMinimumWidth(850)
         self.dock_layout = QVBoxLayout(self.dock_container)
         self.dock_layout.setContentsMargins(0, 0, 0, 0)
         self.dock_layout.setSpacing(0)
@@ -250,10 +252,10 @@ class StarfieldLOH(QMainWindow):
         self.dock_header = QWidget(self.dock_container)
         self.dock_header.setObjectName("dock_header")
         dock_header_layout = QHBoxLayout(self.dock_header)
-        dock_header_layout.setContentsMargins(12, 6, 8, 6)
+        dock_header_layout.setContentsMargins(12, 6, 8, 8)
         dock_header_layout.setSpacing(6)
 
-        self.lbl_dock_title = QLabel("Mod-Analyse & Statistiken", self.dock_header)
+        self.lbl_dock_title = QLabel("Docking: Mod-Analyse & Statistiken", self.dock_header)
         self.lbl_dock_title.setObjectName("lbl_dock_title")
         dock_header_layout.addWidget(self.lbl_dock_title, 1)
 

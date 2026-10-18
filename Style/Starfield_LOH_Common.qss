@@ -857,30 +857,25 @@ QLabel#tile_text:disabled {
    Abschnitt 13 – Haupt-Splitter & Begleitpanel (Dock & Floating)
    ========================================================================= */
 QSplitter#main_splitter::handle {
-    background-color: #2b303c;
-    width: 4px;
-}
-
-QSplitter#main_splitter::handle:hover {
-    background-color: {{ ACCENT_BRAND }};
+    background-color: {{ WINDOW_BG }};
 }
 
 QWidget#dock_container {
-    background-color: #14171d;
-    border-left: 1px solid #2b303c;
+    background-color: {{ WINDOW_BG }};
 }
 
 QWidget#dock_header {
-    background-color: #1c212b;
-    border-bottom: 1px solid #2b303c;
-    min-height: 32px;
-    max-height: 32px;
+    background-color: {{ WINDOW_BG }};
+    border-bottom: 1px solid {{ BORDER_SUBTLE }};
+    min-height: 38px;
+    max-height: 38px;
 }
 
 QLabel#lbl_dock_title {
-    color: {{ TEXT_ON_DARK }};
-    font-size: 13px;
+    color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: {{ FONT_SIZE_DESC }};
     font-weight: bold;
+    font-family: {{ FONT_FAMILY }};
 }
 
 QPushButton#btn_dock_float,
@@ -908,30 +903,40 @@ QPushButton#btn_dock_close:hover {
 }
 
 QWidget#floating_dock_header {
-    background-color: #1c212b;
-    border-bottom: 1px solid #2b303c;
-    min-height: 28px;
-    max-height: 28px;
+    background-color: {{ WINDOW_BG }};
+    border-bottom: 1px solid {{ BORDER_SUBTLE }};
+    min-height: 38px;
+    max-height: 38px;
 }
 
 QLabel#lbl_floating_title {
     color: {{ TEXT_ON_DARK_MUTED }};
-    font-size: 12px;
+    font-size: {{ FONT_SIZE_DESC }};
     font-weight: bold;
+    font-family: {{ FONT_FAMILY }};
 }
 
 QPushButton#btn_floating_redock {
     background-color: transparent;
     border: none;
     border-radius: 3px;
-    min-width: 22px;
-    max-width: 22px;
-    min-height: 22px;
-    max-height: 22px;
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
     color: {{ TEXT_ON_DARK_MUTED }};
+    font-size: 14px;
+    font-weight: bold;
 }
 
 QPushButton#btn_floating_redock:hover {
     background-color: #2b303c;
     color: {{ ACCENT_BRAND }};
+}
+
+/* Mod-Statistik Inhaltsfläche */
+#Window_Mod_Statistics,
+#Window_Mod_Statistics QScrollArea,
+#Window_Mod_Statistics QWidget#scroll_content {
+    background-color: {{ WINDOW_BG }};
 }

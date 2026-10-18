@@ -103,10 +103,11 @@ class Section_Mod_Statistics_Comparison(QWidget):
                 font-size: 12px;
             }
         """
-        if self.lbl_main_image:
-            self.lbl_main_image.setStyleSheet(style_image_box)
-        if self.lbl_comp_image:
-            self.lbl_comp_image.setStyleSheet(style_image_box)
+        for lbl in (self.lbl_main_image, self.lbl_comp_image):
+            if lbl:
+                lbl.setStyleSheet(style_image_box)
+                lbl.setFixedSize(210, 118)
+                lbl.setAlignment(Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             
         if self.btn_select_comp:
             self.btn_select_comp.setText("")
@@ -243,7 +244,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
             return
             
         img_data = get_mod_image(mod_id)
-        scaled = load_mod_preview_pixmap(img_data, 240, 135)
+        scaled = load_mod_preview_pixmap(img_data, 210, 118)
         if scaled:
             label.setPixmap(scaled)
             label.setText("")

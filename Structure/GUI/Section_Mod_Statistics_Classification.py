@@ -54,7 +54,7 @@ class Section_Mod_Statistics_Classification(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_mod_id = None
-        self._last_table_height = 324
+        self._last_table_height = 322
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Classification.ui")
@@ -84,21 +84,21 @@ class Section_Mod_Statistics_Classification(QWidget):
             if conn:
                 conn.close()
 
-        # Exakte Maximalhöhe: (Kategorien - 1) Zeilen à 24 px + 70 px (Kopf, Rollbalken, Grip, Spacing/Puffer)
+        # Exakte Maximalhöhe: (Kategorien - 1) Zeilen à 28 px + 70 px (Kopf, Rollbalken, Grip, Spacing/Puffer)
         rows = max(1, cat_count - 1)
-        dynamic_max_height = (rows * 24) + 70
+        dynamic_max_height = (rows * 28) + 70
 
         # 2. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=324,
+            min_height=322,
             max_height=dynamic_max_height,
-            default_height=324,
+            default_height=322,
             parent=self
         )
         self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
-        self.setFixedHeight(324)
+        self.setFixedHeight(322)
 
         # UI-Elemente referenzieren
         self.chk_tile_view = self.ui.findChild(QCheckBox, "chk_tile_view")
@@ -107,36 +107,7 @@ class Section_Mod_Statistics_Classification(QWidget):
         self.table_view = self.ui.findChild(QTableView, "table_classification")
 
         # Checkbox Styling gemäß Starfield LOH Standard
-        chk_style = """
-            QCheckBox {
-                color: #ECECEC;
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 11px;
-                font-weight: bold;
-                spacing: 6px;
-            }
-            QCheckBox::indicator {
-                width: 14px;
-                height: 14px;
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-            }
-            QCheckBox::indicator:hover {
-                border: 1px solid #D7A64B;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #D7A64B;
-                image: url(Graphics/Icon_Check.svg);
-                border: 1px solid #5b7a9e;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #ffffff;
-                image: none;
-            }
-        """
         if self.chk_tile_view:
-            self.chk_tile_view.setStyleSheet(chk_style)
             self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
 
         # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 290px, Höhe 200px)
@@ -161,7 +132,7 @@ class Section_Mod_Statistics_Classification(QWidget):
 
         if self.table_view:
             self.table_view.setModel(self.proxy_model)
-            self.table_view.setMinimumHeight(280)
+            self.table_view.setMinimumHeight(240)
             self.table_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -169,7 +140,8 @@ class Section_Mod_Statistics_Classification(QWidget):
             self.table_view.setAlternatingRowColors(True)
             self.table_view.setSortingEnabled(True)
             self.table_view.verticalHeader().setVisible(False)
-            self.table_view.verticalHeader().setDefaultSectionSize(24)
+            self.table_view.verticalHeader().setMinimumSectionSize(20)
+            self.table_view.verticalHeader().setDefaultSectionSize(28)
 
             # Intelligenter Header mit Mindestbreiten und dynamischem Stretch
             header = LOH_Control_HeaderView(self.table_view)
@@ -208,7 +180,7 @@ class Section_Mod_Statistics_Classification(QWidget):
                 # Tabellenansicht: Zieher einblenden und gemerkte Höhe wiederherstellen
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(True)
-                self.setFixedHeight(getattr(self, "_last_table_height", 324))
+                self.setFixedHeight(getattr(self, "_last_table_height", 322))
 
     def set_mod(self, mod_id: int):
         """Lädt die Klassifikationsdaten der ersten Hauptkomponente für die Mod."""

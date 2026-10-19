@@ -1,0 +1,166 @@
+/* =========================================================================
+   Starfield LOH – Modulares Stylesheet: Window_Mod_Statistics
+   Gekapselte Theme-Regeln fuer das Mod-Statistik- und Analysefenster
+   ========================================================================= */
+
+/* Haupt-Container & Scroll-Bereich */
+#Window_Mod_Statistics,
+#Window_Mod_Statistics QScrollArea,
+#Window_Mod_Statistics QWidget#scroll_content {
+    background-color: {{ WINDOW_BG }};
+}
+
+/* -------------------------------------------------------------------------
+   LOH_Control_CollapsibleSection (Klappsektionen)
+   ------------------------------------------------------------------------- */
+QPushButton#btn_collapsible_header {
+    background-color: {{ PANEL_HEADER }};
+    border: 1px solid {{ BORDER_SUBTLE }};
+    border-left: 4px solid {{ ACCENT_ACTION }};
+    border-radius: 2px;
+    padding: 0px 8px;
+    text-align: left;
+}
+
+QPushButton#btn_collapsible_header:hover {
+    border-left: 4px solid {{ ACCENT_ACTION_HOVER }};
+}
+
+QLabel#lbl_collapsible_title {
+    color: {{ COLLAPSIBLE_TITLE }};
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_DESC }};
+    font-weight: bold;
+    background: transparent;
+    border: none;
+}
+
+/* -------------------------------------------------------------------------
+   Section_Mod_Statistics_Comparison (Mod-Vergleich)
+   ------------------------------------------------------------------------- */
+#Window_Mod_Statistics QFrame#vertical_separator {
+    background-color: {{ ACCENT_ACTION }};
+    width: 2px;
+    max-width: 2px;
+    border: none;
+}
+
+#Window_Mod_Statistics QLineEdit#inp_comp_name {
+    background-color: {{ SURFACE_PRIMARY }};
+    color: {{ TEXT_ON_SURFACE }};
+    border: 1px solid {{ BORDER_INPUT }};
+}
+
+#Window_Mod_Statistics QLabel#lbl_main_image,
+#Window_Mod_Statistics QLabel#lbl_comp_image {
+    background-color: transparent;
+    color: {{ TEXT_MUTED }};
+    border: none;
+    font-size: {{ FONT_SIZE_SMALL }};
+}
+
+#Window_Mod_Statistics QPushButton#btn_select_comp {
+    background-color: {{ BUTTON_BLUE_NORMAL }};
+    color: {{ BUTTON_TEXT_NORMAL }};
+    border: none;
+    border-radius: 2px;
+    padding: 0px;
+    text-align: center;
+}
+
+#Window_Mod_Statistics QPushButton#btn_select_comp:hover {
+    background-color: {{ BUTTON_BLUE_HOVER }};
+}
+
+#Window_Mod_Statistics QPushButton#btn_select_comp:pressed {
+    background-color: {{ BUTTON_BLUE_PRESSED }};
+}
+
+/* -------------------------------------------------------------------------
+   Section_Mod_Statistics_Conflicts (Konflikte)
+   ------------------------------------------------------------------------- */
+#Window_Mod_Statistics QLabel#lbl_stats {
+    color: {{ TEXT_TITLE }};
+    font-weight: bold;
+    font-size: {{ FONT_SIZE_BUTTON }};
+    background: transparent;
+    border: none;
+}
+
+/* -------------------------------------------------------------------------
+   Widget_ClassificationCard (Kategorie-Klassifikation Kachel & Zoom)
+   ------------------------------------------------------------------------- */
+QFrame#Widget_ClassificationCard {
+    background-color: {{ SURFACE_DARK }};
+    border: 1px solid {{ BORDER_SUBTLE }};
+    border-radius: 8px;
+}
+
+QFrame#Widget_ClassificationCard:hover {
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
+}
+
+#Widget_ClassificationCard QFrame#sep_line {
+    background-color: {{ ACCENT_ACTION }};
+    border: none;
+    border-radius: 1px;
+}
+
+#Widget_ClassificationCard QLabel#lbl_card_value {
+    color: {{ TEXT_ON_DARK }};
+    background: transparent;
+    border: none;
+}
+
+#Widget_ClassificationCard QLabel#lbl_card_reason {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    background: transparent;
+    border: none;
+}
+
+#Widget_ClassificationCard QLabel#lbl_close_hint {
+    color: {{ TEXT_MUTED }};
+    font-size: 11px;
+    font-style: italic;
+    background: transparent;
+    border: none;
+}
+
+/* -------------------------------------------------------------------------
+   Widget_ConflictCard (Konflikt-Kachel & Zoom)
+   ------------------------------------------------------------------------- */
+QFrame#Widget_ConflictCard {
+    background-color: {{ SURFACE_DARK }};
+    border: 1px solid {{ BORDER_SUBTLE }};
+    border-radius: 8px;
+}
+
+QFrame#Widget_ConflictCard:hover {
+    border: 1px solid {{ ACCENT_ACTION_HOVER }};
+}
+
+#Widget_ConflictCard QFrame#sep_line {
+    background-color: {{ ACCENT_ACTION }};
+    border: none;
+    border-radius: 1px;
+}
+
+#Widget_ConflictCard QLabel#lbl_card_value {
+    color: {{ TEXT_ON_DARK }};
+    background: transparent;
+    border: none;
+}
+
+#Widget_ConflictCard QLabel#lbl_card_reason {
+    color: {{ TEXT_ON_DARK_MUTED }};
+    background: transparent;
+    border: none;
+}
+
+#Widget_ConflictCard QLabel#lbl_close_hint {
+    color: {{ TEXT_MUTED }};
+    font-size: 11px;
+    font-style: italic;
+    background: transparent;
+    border: none;
+}

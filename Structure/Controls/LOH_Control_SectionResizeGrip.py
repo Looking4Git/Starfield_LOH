@@ -5,9 +5,10 @@ Interaktiver Sci-Fi-Ziehgriff zur stufenlosen Höhenanpassung von GUI-Sektionen 
 Dokumentation: Documentation/LOH_Control_SectionResizeGrip_Documentation.md
 """
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QScrollArea, QSpacerItem, QSizePolicy
 from PySide6.QtCore import Qt, QPointF, Signal
 from PySide6.QtGui import QPainter, QPen, QColor, QMouseEvent
+from Structure.GUI.UI_Theme import get_theme_color
 
 class LOH_Control_SectionResizeGrip(QWidget):
     """
@@ -16,6 +17,7 @@ class LOH_Control_SectionResizeGrip(QWidget):
     - Dezent integrierte Sci-Fi-Ziehlinie mit interaktivem Hover-Effekt (Starfield-Gold #D7A64B)
     - Doppelklick setzt die Höhe wieder auf die Standardhöhe zurück
     - Einstellbare Mindest-, Maximal- und Standardhöhe
+    - Stabilisiert übergeordnete ScrollAreas gegen Zwangsscrollen beim Zusammenziehen
     """
     height_changed = Signal(int)
 
@@ -31,10 +33,20 @@ class LOH_Control_SectionResizeGrip(QWidget):
         self._hovered = False
         self._start_y = 0.0
         self._start_h = 0
+        self._temp_spacer = None
+        self._scroll_area = None
 
         self.setFixedHeight(12)
         self.setCursor(Qt.CursorShape.SizeVerCursor)
         self.setToolTip("Höhe per Maus ziehen anpassen · Doppelklick setzt auf Standard zurück")
+
+    def _find_parent_scroll_area(self):
+        curr = self.target_widget.parent()
+        while curr:
+            if isinstance(curr, QScrollArea):
+                return curr
+            curr = curr.parent()
+        return None
 
     def set_default_height(self, h: int):
         self.default_height = h
@@ -60,6 +72,17 @@ class LOH_Control_SectionResizeGrip(QWidget):
             self._dragging = True
             self._start_y = event.globalPosition().y()
             self._start_h = self.target_widget.height()
+
+            # Übergeordnete ScrollArea gegen Zwangsscrollen beim Zusammenziehen puffern
+            scroll_area = self._find_parent_scroll_area()
+            if scroll_area and scroll_area.widget() and scroll_area.widget().layout():
+                layout = scroll_area.widget().layout()
+                shrink_reserve = max(0, self._start_h - self.min_height)
+                if shrink_reserve > 0:
+                    self._temp_spacer = QSpacerItem(0, shrink_reserve, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+                    layout.addSpacerItem(self._temp_spacer)
+                    self._scroll_area = scroll_area
+
             event.accept()
             return
         super().mousePressEvent(event)
@@ -68,8 +91,15 @@ class LOH_Control_SectionResizeGrip(QWidget):
         if self._dragging:
             delta = event.globalPosition().y() - self._start_y
             new_h = int(max(self.min_height, min(self.max_height, self._start_h + delta)))
-            self.target_widget.setFixedHeight(new_h)
-            self.height_changed.emit(new_h)
+            if new_h != self.target_widget.height():
+                self.target_widget.setFixedHeight(new_h)
+                self.height_changed.emit(new_h)
+                # Synchrone Layout-Aktivierung der Elternkette, um 1-Frame-Verzögerungen zu eliminieren
+                p = self.target_widget.parent()
+                while p:
+                    if p.layout():
+                        p.layout().activate()
+                    p = p.parent()
             event.accept()
             return
         super().mouseMoveEvent(event)
@@ -77,6 +107,14 @@ class LOH_Control_SectionResizeGrip(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
+
+            # Temporären Scroll-Puffer nach Drag-Abschluss entfernen
+            if self._temp_spacer and self._scroll_area:
+                if self._scroll_area.widget() and self._scroll_area.widget().layout():
+                    self._scroll_area.widget().layout().removeItem(self._temp_spacer)
+            self._temp_spacer = None
+            self._scroll_area = None
+
             event.accept()
             return
         super().mouseReleaseEvent(event)
@@ -85,6 +123,11 @@ class LOH_Control_SectionResizeGrip(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.target_widget.setFixedHeight(self.default_height)
             self.height_changed.emit(self.default_height)
+            p = self.target_widget.parent()
+            while p:
+                if p.layout():
+                    p.layout().activate()
+                p = p.parent()
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
@@ -98,13 +141,13 @@ class LOH_Control_SectionResizeGrip(QWidget):
         cy = h / 2.0
         cx = w / 2.0
 
-        # Farben je nach Zustand
+        # Farben je nach Zustand dynamisch über Theme-Tokens auflösen
         if self._dragging or self._hovered:
-            col_line = QColor("#5B7A9E")
-            col_dot = QColor("#D7A64B")
+            col_line = get_theme_color("ACCENT_ACTION_HOVER", "#5B7A9E")
+            col_dot = get_theme_color("ACCENT_BRAND", "#D7A64B")
         else:
-            col_line = QColor("#223348")
-            col_dot = QColor("#304C7A")
+            col_line = get_theme_color("BORDER_SUBTLE", "#223348")
+            col_dot = get_theme_color("ACCENT_ACTION", "#304C7A")
 
         # Feine Trennlinie links und rechts
         pen_line = QPen(col_line, 1.0)

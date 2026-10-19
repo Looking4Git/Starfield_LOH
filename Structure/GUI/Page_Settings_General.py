@@ -434,7 +434,7 @@ class Page_Settings_General(QWidget):
         self.btn_reset.setFixedHeight(32)
         make_button_premium(
             self.btn_reset,
-            os.path.join(GRAPHICS_DIR, "Icon_Discard.svg"),
+            os.path.join(GRAPHICS_DIR, "Icon_DBreset.svg"),
             "Starfield LOH Zurücksetzen",
             variant="red",
             icon_size=18,

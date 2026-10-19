@@ -3,22 +3,13 @@ from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QMouseEvent
 )
+from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
 
 class _BarCanvas(QWidget):
     """Zeichnet die 32 horizontalen Balkenzeilen mit QPainter."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
-        self.setStyleSheet("""
-            QToolTip {
-                background-color: #1A1A1A;
-                color: #ECECEC;
-                border: 1px solid #304C7A;
-                padding: 4px 8px;
-                font-family: 'Segoe UI', Arial;
-                font-size: 13px;
-            }
-        """)
 
         self._items = []
         self._winner_cat = None
@@ -56,7 +47,7 @@ class _BarCanvas(QWidget):
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
         if not self._items:
-            painter.setPen(QColor("#777777"))
+            painter.setPen(get_theme_color("TEXT_MUTED", "#777777"))
             font = QFont("Segoe UI", 11)
             font.setItalic(True)
             painter.setFont(font)
@@ -68,6 +59,17 @@ class _BarCanvas(QWidget):
         bar_x = self.margin_x + self.label_width + 8
         bar_w = max(40.0, w - bar_x - self.value_width - self.margin_x)
 
+        col_hover_accent = get_theme_color("ACCENT_ACTION", "#304C7A")
+        col_winner = get_theme_color("ACCENT_BRAND", "#D7A64B")
+        col_hovered_text = get_theme_color("TEXT_ON_DARK", "#FFFFFF")
+        col_active_text = get_theme_color("TEXT_ON_DARK_MUTED", "#CCCCCC")
+        col_inactive_text = get_theme_color("TEXT_MUTED", "#555555")
+        brush_track = get_theme_color("SURFACE_DARK", "#1E1E1E")
+        brush_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
+        brush_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
+        col_val_active = get_theme_color("TEXT_ON_DARK_MUTED", "#AAAAAA")
+        col_val_inactive = get_theme_color("TEXT_MUTED", "#444444")
+
         for i, item in enumerate(self._items):
             y = self.margin_y + i * self.row_height
             is_active = item.get("is_active", False)
@@ -77,21 +79,21 @@ class _BarCanvas(QWidget):
 
             # Hover-Hintergrundzeile
             if is_hovered:
-                painter.fillRect(0, y, w, self.row_height, QColor(48, 76, 122, 40))
+                painter.fillRect(0, y, w, self.row_height, QColor(col_hover_accent.red(), col_hover_accent.green(), col_hover_accent.blue(), 40))
 
             # 1. Label links
             rect_lbl = QRectF(self.margin_x, y, self.label_width, self.row_height)
             if is_winner:
-                painter.setPen(QColor("#D7A64B"))
+                painter.setPen(col_winner)
                 painter.setFont(self.font_winner)
             elif is_hovered:
-                painter.setPen(QColor("#FFFFFF"))
+                painter.setPen(col_hovered_text)
                 painter.setFont(self.font_normal)
             elif is_active:
-                painter.setPen(QColor("#CCCCCC"))
+                painter.setPen(col_active_text)
                 painter.setFont(self.font_normal)
             else:
-                painter.setPen(QColor("#555555"))
+                painter.setPen(col_inactive_text)
                 painter.setFont(self.font_inactive)
 
             painter.drawText(rect_lbl, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, cat_name)
@@ -99,14 +101,14 @@ class _BarCanvas(QWidget):
             # 2. Balken-Track (Hintergrund)
             track_y = y + (self.row_height - 10) / 2.0
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor("#1E1E1E"))
+            painter.setBrush(brush_track)
             painter.drawRoundedRect(QRectF(bar_x, track_y, bar_w, 10), 2, 2)
 
             # 3. Outer-Balken (Gelb - Referenzen)
             norm_outer = item.get("norm_outer", 0.0) if is_active else 0.0
             outer_w = bar_w * max(0.0, min(1.0, norm_outer))
             if outer_w > 1.0:
-                painter.setBrush(QColor("#D7A64B"))
+                painter.setBrush(brush_outer)
                 painter.drawRoundedRect(QRectF(bar_x, track_y, outer_w, 10), 2, 2)
 
             # 4. Inner-Balken (Rot - Overrides)
@@ -114,14 +116,14 @@ class _BarCanvas(QWidget):
             inner_w = bar_w * max(0.0, min(1.0, norm_inner))
             if inner_w > 1.0:
                 inner_track_y = y + (self.row_height - 5) / 2.0
-                painter.setBrush(QColor("#C72138"))
+                painter.setBrush(brush_inner)
                 painter.drawRoundedRect(QRectF(bar_x, inner_track_y, inner_w, 5), 1.5, 1.5)
 
             # 5. Zahlenwert rechts
             rect_val = QRectF(bar_x + bar_w + 8, y, self.value_width, self.row_height)
             val_outer = item.get("val_outer", 0.0) if is_active else 0.0
             val_str = f"{val_outer:,.0f}" if is_active else "-"
-            painter.setPen(QColor("#AAAAAA") if is_active else QColor("#444444"))
+            painter.setPen(col_val_active if is_active else col_val_inactive)
             painter.setFont(self.font_val)
             painter.drawText(rect_val, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, val_str)
 
@@ -164,16 +166,22 @@ class _BarCanvas(QWidget):
         val_inner = item.get("val_inner", 0.0)
 
         if is_winner:
-            cat_title_color = "#D7A64B"
+            cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         elif is_active:
-            cat_title_color = "#FFFFFF"
+            cat_title_color = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
         else:
-            cat_title_color = "#888888"
+            cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
 
-        tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: #ECECEC;">
-<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid #304C7A; padding-bottom: 6px;">{name}</td></tr>
-<tr><td style="color: #D7A64B; padding-right: 14px; padding-top: 4px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: #FFFFFF; font-weight: bold; text-align: right; padding-top: 4px; padding-bottom: 1px;">{val_outer:,.1f}</td></tr>
-<tr><td style="color: #C72138; padding-right: 14px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: #FFFFFF; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{val_inner:,.1f}</td></tr>
+        col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
+        col_text = get_theme_color_hex("TEXT_ON_DARK", "#ECECEC")
+        col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
+        col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
+        col_val = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+
+        tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: {col_text};">
+<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 6px;">{name}</td></tr>
+<tr><td style="color: {col_ref}; padding-right: 14px; padding-top: 4px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 4px; padding-bottom: 1px;">{val_outer:,.1f}</td></tr>
+<tr><td style="color: {col_override}; padding-right: 14px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{val_inner:,.1f}</td></tr>
 </table>"""
         QToolTip.showText(global_pos, tip_html, self)
 
@@ -186,11 +194,11 @@ class Widget_ContentBarChart(QScrollArea):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("Widget_ContentBarChart")
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.setStyleSheet("background: transparent; border: none;")
 
         self.canvas = _BarCanvas(self)
         self.setWidget(self.canvas)

@@ -54,37 +54,7 @@ class Section_Mod_Statistics_Content(QWidget):
         self.stacked_main = self.ui.findChild(QStackedWidget, "stacked_main")
         self.stacked_comp = self.ui.findChild(QStackedWidget, "stacked_comp")
 
-        # Checkbox Styling (Starfield Standard mit Icon_Check.svg)
-        icon_check = os.path.join(APP_ROOT, "Graphics", "Icon_Check.svg").replace("\\", "/")
-        chk_style = f"""
-            QCheckBox {{
-                color: #ECECEC;
-                font-family: "Segoe UI", Arial;
-                font-size: 11px;
-                spacing: 6px;
-            }}
-            QCheckBox::indicator {{
-                width: 14px;
-                height: 14px;
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-            }}
-            QCheckBox::indicator:hover {{
-                border: 1px solid #D7A64B;
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: #D7A64B;
-                image: url("{icon_check}");
-                border: 1px solid #5b7a9e;
-            }}
-            QCheckBox::indicator:unchecked {{
-                background-color: #ffffff;
-                image: none;
-            }}
-        """
         if self.chk_bar_chart:
-            self.chk_bar_chart.setStyleSheet(chk_style)
             self.chk_bar_chart.stateChanged.connect(self._on_toggle_view_mode)
 
         # 3. Diagramm-Widgets erzeugen und einbetten

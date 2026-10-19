@@ -82,6 +82,9 @@ class Page_Mods(QWidget):
         self.inp_ver_inst = ui.findChild(QLineEdit, "inp_ver_inst")
         self.inp_date_avail = ui.findChild(QLineEdit, "inp_date_avail")
         self.inp_ver_avail = ui.findChild(QLineEdit, "inp_ver_avail")
+        for f in (self.inp_date_inst, self.inp_ver_inst, self.inp_date_avail, self.inp_ver_avail):
+            if f:
+                f.setReadOnly(True)
         
         from Structure.GUI.UI_Utils import make_button_premium
         

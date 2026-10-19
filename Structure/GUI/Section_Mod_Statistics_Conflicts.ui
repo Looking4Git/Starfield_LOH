@@ -84,7 +84,7 @@
      <property name="minimumSize">
       <size>
        <width>0</width>
-       <height>295</height>
+       <height>240</height>
       </size>
      </property>
      <property name="currentIndex">
@@ -109,7 +109,7 @@
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>295</height>
+           <height>240</height>
           </size>
          </property>
          <property name="editTriggers">

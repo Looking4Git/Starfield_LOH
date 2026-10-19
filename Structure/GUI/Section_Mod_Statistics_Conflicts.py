@@ -13,6 +13,7 @@ from Structure.Controls.LOH_Control_HeaderView import LOH_Control_HeaderView
 from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
 from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 from Structure.GUI.Widget_ConflictCard import Widget_ConflictCard
+from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -37,7 +38,6 @@ class HexNumericStandardItem(QStandardItem):
             super().__init__("-")
             self.setData(-1, Qt.ItemDataRole.UserRole)
         self.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setFont(QFont("Consolas", 10))
 
     def __lt__(self, other):
         val_self = self.data(Qt.ItemDataRole.UserRole)
@@ -81,7 +81,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         super().__init__(parent)
         self.current_main_mod_id = None
         self.current_comp_mod_id = None
-        self._last_table_height = 346
+        self._last_table_height = 348
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Conflicts.ui")
@@ -98,14 +98,14 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         # Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=346,
+            min_height=348,
             max_height=800,
-            default_height=346,
+            default_height=348,
             parent=self
         )
         self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
-        self.setFixedHeight(346)
+        self.setFixedHeight(348)
 
         # UI-Elemente referenzieren
         self.lbl_stats = self.ui.findChild(QLabel, "lbl_stats")
@@ -115,45 +115,10 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         self.table_conflicts = self.ui.findChild(QTableView, "table_conflicts")
         self.layout_tiles_page = self.ui.findChild(QVBoxLayout, "layout_tiles_page")
 
-        if self.lbl_stats:
-            self.lbl_stats.setStyleSheet("color: #D7A64B; font-weight: bold; font-size: 13px;")
-
-        # Einheitliches Styling für die Starfield-Checkboxen
-        chk_style = """
-            QCheckBox {
-                color: #ECECEC;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                spacing: 8px;
-                background: transparent;
-            }
-            QCheckBox::indicator {
-                width: 14px;
-                height: 14px;
-                background-color: #ffffff;
-                border: 1px solid #5b7a9e;
-                border-radius: 0px;
-            }
-            QCheckBox::indicator:hover {
-                border: 1px solid #D7A64B;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #D7A64B;
-                image: url(Graphics/Icon_Check.svg);
-                border: 1px solid #5b7a9e;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #ffffff;
-                image: none;
-            }
-        """
-
         if self.chk_show_type_0:
-            self.chk_show_type_0.setStyleSheet(chk_style)
             self.chk_show_type_0.stateChanged.connect(self.on_toggle_type_0)
 
         if self.chk_tile_view:
-            self.chk_tile_view.setStyleSheet(chk_style)
             self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
 
         # Universelle LOH_Control_TileView in Page 1 einbetten
@@ -182,7 +147,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
         if self.table_conflicts:
             self.table_conflicts.setModel(self.proxy_model)
-            self.table_conflicts.setMinimumHeight(295)
+            self.table_conflicts.setMinimumHeight(240)
             self.table_conflicts.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_conflicts.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_conflicts.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -190,21 +155,22 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.table_conflicts.setAlternatingRowColors(True)
             self.table_conflicts.setSortingEnabled(True)
             self.table_conflicts.verticalHeader().setVisible(False)
-            self.table_conflicts.verticalHeader().setDefaultSectionSize(24)
+            self.table_conflicts.verticalHeader().setMinimumSectionSize(20)
+            self.table_conflicts.verticalHeader().setDefaultSectionSize(28)
 
             header = LOH_Control_HeaderView(self.table_conflicts)
             self.table_conflicts.setHorizontalHeader(header)
             header.setSortIndicatorShown(True)
             header.set_column_rule(0, min_width=95, default_width=95, stretch_factor=0)                         # Typ
-            header.set_column_rule(1, min_width=140, default_width=140, stretch_factor=1, cap_to_content=True) # Prüfschritt
+            header.set_column_rule(1, min_width=180, default_width=220, stretch_factor=0)                       # Prüfschritt
             header.set_column_rule(2, min_width=65, default_width=65, stretch_factor=0)                         # Signatur
             header.set_column_rule(3, min_width=105, default_width=105, stretch_factor=0)                       # FormID
-            header.set_column_rule(4, min_width=160, default_width=160, stretch_factor=0)                       # Name
+            header.set_column_rule(4, min_width=160, default_width=180, stretch_factor=0)                       # Name
             header.set_column_rule(5, min_width=105, default_width=105, stretch_factor=0)                       # Zell-FormID
-            header.set_column_rule(6, min_width=140, default_width=140, stretch_factor=0)                       # Zell-Name
+            header.set_column_rule(6, min_width=140, default_width=160, stretch_factor=0)                       # Zell-Name
             header.set_column_rule(7, min_width=105, default_width=105, stretch_factor=0)                       # Base-FormID
-            header.set_column_rule(8, min_width=140, default_width=140, stretch_factor=0)                       # Base-Name
-            header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=2, cap_to_content=False) # Begründung
+            header.set_column_rule(8, min_width=140, default_width=160, stretch_factor=0)                       # Base-Name
+            header.set_column_rule(9, min_width=500, default_width=500, stretch_factor=1, cap_to_content=False) # Begründung
             header.apply_initial_widths()
 
         # Einstellungs-Präferenz prüfen ("Kachelanzeige in Abschnitt Konflikte bevorzugen")
@@ -251,7 +217,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 # Tabellenansicht: Zieher einblenden und gemerkte/aktuelle Höhe wiederherstellen
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(True)
-                self.setFixedHeight(getattr(self, "_last_table_height", 346))
+                self.setFixedHeight(getattr(self, "_last_table_height", 348))
 
     def load_conflicts(self):
         """Lädt die Konflikte aus der Datenbank und befüllt Tabelle und Kacheln."""
@@ -365,16 +331,13 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 item_type.setData(int(ctype) if ctype is not None else -1, Qt.ItemDataRole.UserRole)
 
                 if ctype == 0:
-                    item_type.setForeground(QColor("#888888"))
+                    item_type.setForeground(get_theme_color("TEXT_MUTED", "#888888"))
                 elif ctype == 3:
-                    item_type.setForeground(QColor("#C72138"))  # Rot
-                    f = item_type.font()
-                    f.setBold(True)
-                    item_type.setFont(f)
+                    item_type.setForeground(get_theme_color("STATUS_CRITICAL", "#C72138"))  # Rot
                 elif ctype == 2:
-                    item_type.setForeground(QColor("#304C7A"))  # Blau
+                    item_type.setForeground(get_theme_color("STATUS_WARNING", "#E06236"))   # Orange
                 elif ctype == 1:
-                    item_type.setForeground(QColor("#D7A64B"))  # Gelb
+                    item_type.setForeground(get_theme_color("ACCENT_BRAND", "#D7A64B"))     # Gelb
 
                 item_step = QStandardItem(step_desc if step_desc else "-")
                 tip_parts = []
@@ -404,7 +367,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 item_reason.setToolTip(reason_tip)
 
                 if ctype == 0:
-                    muted = QColor("#888888")
+                    muted = get_theme_color("TEXT_MUTED", "#888888")
                     for itm in [item_step, item_sig, item_fid, item_edid,
                                 item_cell_fid, item_cell_edid, item_base_fid, item_base_edid, item_reason]:
                         itm.setForeground(muted)
@@ -443,10 +406,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
 
             if self.table_conflicts:
                 self.table_conflicts.setSortingEnabled(True)
-                hdr = self.table_conflicts.horizontalHeader()
-                if isinstance(hdr, LOH_Control_HeaderView):
-                    hdr.invalidate_cache()
-                    hdr._distribute_stretch()
+                self.update_column_widths()
 
             # Zusammenfassungszeile aktualisieren
             if self.lbl_stats:
@@ -465,6 +425,23 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         finally:
             if conn:
                 conn.close()
+
+    def update_column_widths(self):
+        """Passt die Spalten 0 bis 8 inhaltsbasiert an und dehnt die Begründung (Spalte 9) dynamisch aus."""
+        if not self.table_conflicts:
+            return
+        header = self.table_conflicts.horizontalHeader()
+        if self.model.rowCount() > 0:
+            for col in range(9):
+                self.table_conflicts.resizeColumnToContents(col)
+                w = self.table_conflicts.columnWidth(col)
+                rule_min = 70
+                if isinstance(header, LOH_Control_HeaderView) and col in header._rules:
+                    rule_min = header._rules[col]["min_width"]
+                self.table_conflicts.setColumnWidth(col, max(w + 14, rule_min))
+        if isinstance(header, LOH_Control_HeaderView):
+            header.invalidate_cache()
+            header._distribute_stretch()
 
     def _get_mod_name(self, cur, mod_id: int) -> str:
         """Ermittelt den Online- oder ContentCatalog-Namen einer Mod."""

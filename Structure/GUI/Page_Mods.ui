@@ -588,6 +588,9 @@
                <height>16777215</height>
               </size>
              </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item>
@@ -626,6 +629,9 @@
                <width>210</width>
                <height>16777215</height>
               </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -681,6 +687,9 @@
                <height>16777215</height>
               </size>
              </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item>
@@ -719,6 +728,9 @@
                <width>210</width>
                <height>16777215</height>
               </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
              </property>
             </widget>
            </item>

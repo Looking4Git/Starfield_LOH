@@ -262,7 +262,7 @@ class StarfieldLOH(QMainWindow):
         self.btn_dock_float = QPushButton(self.dock_header)
         self.btn_dock_float.setObjectName("btn_dock_float")
         self.btn_dock_float.setToolTip("In eigenständiges Fenster abdocken")
-        icon_float_path = os.path.join(self.graphics_path, "Icon_Export.svg")
+        icon_float_path = os.path.join(self.graphics_path, "Icon_Undock.svg")
         if os.path.exists(icon_float_path):
             self.btn_dock_float.setIcon(QIcon(icon_float_path))
         dock_header_layout.addWidget(self.btn_dock_float)

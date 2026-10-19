@@ -49,23 +49,9 @@ class Section_Mod_Statistics_Category(QWidget):
         self.inp_sub = self.ui.findChild(QLineEdit, "inp_sub")
         self.cmb_category = self.ui.findChild(QComboBox, "cmb_category")
 
-        # 3. Styling gemäß Design_Rules.md
-        style_readonly_field = """
-            QLineEdit {
-                background-color: #D7A64B;
-                color: #000000;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: normal;
-                border: 1px solid #888888;
-                padding: 3px 6px;
-                border-radius: 2px;
-                qproperty-alignment: 'AlignLeft | AlignVCenter';
-            }
-        """
+        # 3. Ausrichtung (Styling erfolgt über zentrales QSS)
         for field in [self.inp_loot, self.inp_classifier, self.inp_sub]:
             if field:
-                field.setStyleSheet(style_readonly_field)
                 field.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         if self.cmb_category:

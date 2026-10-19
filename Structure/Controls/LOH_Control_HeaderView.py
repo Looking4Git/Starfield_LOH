@@ -82,6 +82,8 @@ class LOH_Control_HeaderView(QHeaderView):
 
     def eventFilter(self, watched, event):
         if watched == self.parent() and event.type() in (QEvent.Type.Resize, QEvent.Type.Show):
+            if event.type() == QEvent.Type.Resize and event.oldSize().width() == event.size().width():
+                return super().eventFilter(watched, event)
             self._distribute_stretch()
         return super().eventFilter(watched, event)
 

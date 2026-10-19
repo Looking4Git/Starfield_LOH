@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
+from Structure.GUI.UI_Theme import get_theme_color_hex
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -13,13 +14,17 @@ CONFLICT_TYPES = {
     3: "Kritisch",
 }
 
-# Farben für den oberen Typ-Badge gemäß Starfield-UI-Standards
-TYPE_COLORS = {
-    3: {"bg": "#C72138", "text": "#FFFFFF"},  # Starfield Rot (Kritisch)
-    2: {"bg": "#E06236", "text": "#FFFFFF"},  # Starfield Orange (Normal)
-    1: {"bg": "#D7A64B", "text": "#1E1E1E"},  # Starfield Gelb (Tolerabel)
-    0: {"bg": "#555555", "text": "#CCCCCC"},  # Muted Grau (Kein)
-}
+# Farben für den oberen Typ-Badge dynamisch über Theme-Tokens ermitteln
+def get_type_colors(ctype: int) -> dict:
+    """Ermittelt das Farbschema für den Header-Badge anhand des Konflikttyps dynamisch über Theme-Tokens."""
+    if ctype == 3:
+        return {"bg": get_theme_color_hex("STATUS_CRITICAL", "#C72138"), "text": "#FFFFFF"}
+    elif ctype == 2:
+        return {"bg": get_theme_color_hex("STATUS_WARNING", "#E06236"), "text": "#FFFFFF"}
+    elif ctype == 1:
+        return {"bg": get_theme_color_hex("ACCENT_BRAND", "#D7A64B"), "text": "#1E1E1E"}
+    else:
+        return {"bg": get_theme_color_hex("TEXT_MUTED", "#555555"), "text": "#CCCCCC"}
 
 
 class Widget_ConflictCard(QFrame):
@@ -71,7 +76,7 @@ class Widget_ConflictCard(QFrame):
         if sig and sig != "-":
             type_str += f"  [{sig}]"
 
-        color_cfg = TYPE_COLORS.get(ctype, TYPE_COLORS[0])
+        color_cfg = get_type_colors(ctype)
         self.badge_frame = QFrame()
         self.badge_frame.setFixedHeight(34 if self.is_zoomed else 26)
         self.badge_frame.setStyleSheet(f"""
@@ -146,29 +151,30 @@ class Widget_ConflictCard(QFrame):
         self.grid_layout.setColumnStretch(0, 0)
         self.grid_layout.setColumnStretch(1, 1)
 
+        col_label = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         for row_idx, (lbl_text, val_text, is_mono) in enumerate(self.fields):
-            # Label: Starfield-Gelb/Gold #D7A64B, rechtsbündig innerhalb der linken Spalte
+            # Label: Starfield-Gelb/Gold via Theme, rechtsbündig innerhalb der linken Spalte
             lbl = QLabel(lbl_text)
             lbl.setFont(self.font_label)
             lbl.setFixedWidth(label_col_w)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            lbl.setStyleSheet("color: #D7A64B; background: transparent; border: none; padding: 0px;")
+            lbl.setStyleSheet(f"color: {col_label}; background: transparent; border: none; padding: 0px;")
             self.grid_layout.addWidget(lbl, row_idx, 0)
 
-            # Wert: Weiß/Hellgrau, linksbündig mit Ausdehnung nach rechts
+            # Wert: Linksbuendig mit Ausdehnung nach rechts
             val = QLabel(val_text)
+            val.setObjectName("lbl_card_value")
             val.setFont(self.font_mono if is_mono else self.font_val)
             val.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            val.setStyleSheet("color: #ECECEC; background: transparent; border: none; padding: 0px;")
             val.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             self.grid_layout.addWidget(val, row_idx, 1)
 
         main_layout.addLayout(self.grid_layout)
 
-        # 3. Trennlinie (Starfield Blau #304C7A)
+        # 3. Trennlinie (Starfield Blau via Theme)
         self.sep_line = QFrame()
+        self.sep_line.setObjectName("sep_line")
         self.sep_line.setFixedHeight(4 if self.is_zoomed else 3)
-        self.sep_line.setStyleSheet("background-color: #304C7A; border: none; border-radius: 1px;")
         main_layout.addWidget(self.sep_line)
 
         # 4. Begründungsbereich
@@ -187,43 +193,45 @@ class Widget_ConflictCard(QFrame):
             display_reason = f"[{' | '.join(header_context)}]\n{reason_text}"
 
         self.lbl_reason = QLabel(display_reason)
+        self.lbl_reason.setObjectName("lbl_card_reason")
         self.lbl_reason.setFont(self.font_val)
         self.lbl_reason.setWordWrap(True)
         self.lbl_reason.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         r_size = "13px" if self.is_zoomed else "11px"
-        self.lbl_reason.setStyleSheet(f"color: #CCCCCC; font-size: {r_size}; background: transparent; border: none;")
+        self.lbl_reason.setStyleSheet(f"font-size: {r_size};")
         self.lbl_reason.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(self.lbl_reason)
 
         # Im Zoom-Modus: Dezenter Schließen-Hinweis am unteren Rand
         if self.is_zoomed:
             lbl_close_hint = QLabel("(Klicken oder ESC zum Schließen)")
+            lbl_close_hint.setObjectName("lbl_close_hint")
             lbl_close_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl_close_hint.setStyleSheet("color: #777777; font-size: 11px; font-style: italic; background: transparent;")
             main_layout.addWidget(lbl_close_hint)
 
     def _update_appearance(self):
-        """Aktualisiert Rahmen und Hintergrund gemäß Dark-Mode-Vorgaben (#212121)."""
+        """Aktualisiert Rahmen und Hintergrund dynamisch über Theme-Tokens."""
+        card_bg = get_theme_color_hex("SURFACE_DARK", "#212121")
         if self.is_zoomed:
-            border_color = "#5B7A9E"
+            border_color = get_theme_color_hex("ACCENT_ACTION_HOVER", "#5B7A9E")
             border_width = "2px"
             radius = "12px"
         elif self._is_selected:
-            border_color = "#D7A64B"
+            border_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
             border_width = "2px"
             radius = "8px"
         elif self._is_hovered:
-            border_color = "#5B7A9E"
+            border_color = get_theme_color_hex("ACCENT_ACTION_HOVER", "#5B7A9E")
             border_width = "1px"
             radius = "8px"
         else:
-            border_color = "#383838"
+            border_color = get_theme_color_hex("BORDER_SUBTLE", "#383838")
             border_width = "1px"
             radius = "8px"
 
         self.setStyleSheet(f"""
             QFrame#Widget_ConflictCard {{
-                background-color: #212121;
+                background-color: {card_bg};
                 border: {border_width} solid {border_color};
                 border-radius: {radius};
             }}

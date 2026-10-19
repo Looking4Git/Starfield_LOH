@@ -55,7 +55,7 @@ class FloatingCompanionWindow(QWidget):
         self.btn_redock = QPushButton(self.header)
         self.btn_redock.setObjectName("btn_floating_redock")
         self.btn_redock.setToolTip("Wieder an Hauptfenster andocken")
-        icon_dock_path = os.path.join(GRAPHICS_DIR, "Icon_Import.svg")
+        icon_dock_path = os.path.join(GRAPHICS_DIR, "Icon_Dock.svg")
         if os.path.exists(icon_dock_path):
             self.btn_redock.setIcon(QIcon(icon_dock_path))
         self.btn_redock.clicked.connect(self.dock_requested.emit)

@@ -4,32 +4,24 @@ from PySide6.QtCore import Qt, QPointF, QRectF
 from PySide6.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPolygonF, QMouseEvent
 )
+from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
 
 class Widget_ContentRadarChart(QWidget):
     """
     Spinnennetz-Diagramm (Radar Chart) für Starfield LOH Inhaltsanalyse:
     - 32 dimensionale Achsenstränge für alle Starfield-LOH-Kategorien
-    - Inaktive Kategorien (nach Prüfschritt 1 ausgeschieden) dezent abgeblendet (#3A3A3A)
-    - Aktive Kategorien mit deutlicher Achsenlinie (#666666)
-    - Sieger-Kategorie in Starfield-Gelb (#D7A64B, fett)
-    - Äußere Dimension (dim_calc_outer, Referenzen) in Starfield-Gelb (#D7A64B) mit Alpha-Füllung
-    - Innere Dimension (dim_calc_inner, Overrides) in Starfield-Rot (#C72138) mit Alpha-Füllung
+    - Inaktive Kategorien (nach Prüfschritt 1 ausgeschieden) dezent abgeblendet
+    - Aktive Kategorien mit deutlicher Achsenlinie
+    - Sieger-Kategorie in Starfield-Gelb (fett)
+    - Äußere Dimension (dim_calc_outer, Referenzen) in Starfield-Gelb mit Alpha-Füllung
+    - Innere Dimension (dim_calc_inner, Overrides) in Starfield-Rot mit Alpha-Füllung
     - Interaktives Hover mit präzisem HUD-Tooltip
     """
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("Widget_ContentRadarChart")
         self.setMouseTracking(True)
         self.setMinimumSize(320, 320)
-        self.setStyleSheet("""
-            QToolTip {
-                background-color: #1A1A1A;
-                color: #ECECEC;
-                border: 1px solid #304C7A;
-                padding: 4px 8px;
-                font-family: 'Segoe UI', Arial;
-                font-size: 13px;
-            }
-        """)
 
         self._items = []  # Liste aus 32 Kategorie-Dicts
         self._winner_cat = None
@@ -63,7 +55,7 @@ class Widget_ContentRadarChart(QWidget):
 
         # Wenn keine Daten vorhanden sind
         if not self._items:
-            painter.setPen(QColor("#777777"))
+            painter.setPen(get_theme_color("TEXT_MUTED", "#777777"))
             font = QFont("Segoe UI", 11)
             font.setItalic(True)
             painter.setFont(font)
@@ -77,8 +69,8 @@ class Widget_ContentRadarChart(QWidget):
         total_axes = len(self._items)  # 32
 
         # 1. Konzentrische Hilfskreise (25%, 50%, 75%, 100%)
-        pen_grid = QPen(QColor("#2B2B2B"), 1.0, Qt.PenStyle.DashLine)
-        pen_outer_ring = QPen(QColor("#3A3A3A"), 1.2, Qt.PenStyle.SolidLine)
+        pen_grid = QPen(get_theme_color("BORDER_SUBTLE", "#2B2B2B"), 1.0, Qt.PenStyle.DashLine)
+        pen_outer_ring = QPen(get_theme_color("BORDER_DARK", "#3A3A3A"), 1.2, Qt.PenStyle.SolidLine)
         
         for frac in [0.25, 0.50, 0.75]:
             painter.setPen(pen_grid)
@@ -93,6 +85,14 @@ class Widget_ContentRadarChart(QWidget):
         font_normal = QFont("Segoe UI", 8)
         font_winner = QFont("Segoe UI", 9, QFont.Weight.Bold)
         font_inactive = QFont("Segoe UI", 7)
+
+        col_winner = get_theme_color("ACCENT_BRAND", "#D7A64B")
+        col_hovered_text = get_theme_color("TEXT_ON_DARK", "#FFFFFF")
+        col_active_text = get_theme_color("TEXT_ON_DARK_MUTED", "#CCCCCC")
+        col_inactive_text = get_theme_color("TEXT_MUTED", "#4A4A4A")
+        col_axis_hover = get_theme_color("ACCENT_ACTION_HOVER", "#5B7A9E")
+        col_axis_active = get_theme_color("BORDER_SUBTLE", "#666666")
+        col_axis_inactive = get_theme_color("BORDER_DARK", "#2D2D2D")
 
         axis_angles = []
         axis_endpoints = []
@@ -111,13 +111,13 @@ class Widget_ContentRadarChart(QWidget):
             is_winner = (self._winner_cat and self._winner_cat.lower() == cat_name.lower())
             is_hovered = (self._hovered_idx == i)
 
-            # Achsenlinie (Gewinner-Achse bleibt grau, um nicht wie ein 100%-Vektor zu wirken)
+            # Achsenlinie (Gewinner-Achse bleibt dezent, um nicht wie ein 100%-Vektor zu wirken)
             if is_hovered:
-                pen_axis = QPen(QColor("#5B7A9E"), 1.5)
+                pen_axis = QPen(col_axis_hover, 1.5)
             elif is_active:
-                pen_axis = QPen(QColor("#666666"), 1.0)
+                pen_axis = QPen(col_axis_active, 1.0)
             else:
-                pen_axis = QPen(QColor("#2D2D2D"), 1.0)
+                pen_axis = QPen(col_axis_inactive, 1.0)
 
             painter.setPen(pen_axis)
             painter.drawLine(QPointF(cx, cy), end_pt)
@@ -129,16 +129,16 @@ class Widget_ContentRadarChart(QWidget):
 
             # Textfarbe & Font
             if is_winner:
-                painter.setPen(QColor("#D7A64B"))
+                painter.setPen(col_winner)
                 painter.setFont(font_winner)
             elif is_hovered:
-                painter.setPen(QColor("#FFFFFF"))
+                painter.setPen(col_hovered_text)
                 painter.setFont(font_normal)
             elif is_active:
-                painter.setPen(QColor("#CCCCCC"))
+                painter.setPen(col_active_text)
                 painter.setFont(font_normal)
             else:
-                painter.setPen(QColor("#4A4A4A"))
+                painter.setPen(col_inactive_text)
                 painter.setFont(font_inactive)
 
             # Rechnerische Textbox um den Zielpunkt
@@ -193,37 +193,41 @@ class Widget_ContentRadarChart(QWidget):
 
         # Polygone zeichnen (Outer zuerst, dann Inner darüber)
         # Outer: Starfield-Gelb
+        col_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
+        col_outer_fill = QColor(col_outer.red(), col_outer.green(), col_outer.blue(), 45)
         if outer_poly.count() >= 3:
-            painter.setPen(QPen(QColor("#D7A64B"), 2.0, Qt.PenStyle.SolidLine))
-            painter.setBrush(QBrush(QColor(215, 166, 75, 45)))
+            painter.setPen(QPen(col_outer, 2.0, Qt.PenStyle.SolidLine))
+            painter.setBrush(QBrush(col_outer_fill))
             painter.drawPolygon(outer_poly)
         elif outer_poly.count() == 2:
-            painter.setPen(QPen(QColor("#D7A64B"), 2.0, Qt.PenStyle.SolidLine))
+            painter.setPen(QPen(col_outer, 2.0, Qt.PenStyle.SolidLine))
             painter.drawLine(outer_poly.at(0), outer_poly.at(1))
 
         # Inner: Starfield-Rot
+        col_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
+        col_inner_fill = QColor(col_inner.red(), col_inner.green(), col_inner.blue(), 70)
         if inner_poly.count() >= 3:
-            painter.setPen(QPen(QColor("#C72138"), 2.0, Qt.PenStyle.SolidLine))
-            painter.setBrush(QBrush(QColor(199, 33, 56, 70)))
+            painter.setPen(QPen(col_inner, 2.0, Qt.PenStyle.SolidLine))
+            painter.setBrush(QBrush(col_inner_fill))
             painter.drawPolygon(inner_poly)
         elif inner_poly.count() == 2:
-            painter.setPen(QPen(QColor("#C72138"), 2.0, Qt.PenStyle.SolidLine))
+            painter.setPen(QPen(col_inner, 2.0, Qt.PenStyle.SolidLine))
             painter.drawLine(inner_poly.at(0), inner_poly.at(1))
 
         # 5. Datenpunkte hervorheben (Vertices)
-        painter.setPen(QColor("#D7A64B"))
-        painter.setBrush(QBrush(QColor("#FFD97D")))
+        painter.setPen(col_outer)
+        painter.setBrush(QBrush(col_outer.lighter(130)))
         for pt in outer_points:
             painter.drawEllipse(pt, 3.5, 3.5)
 
-        painter.setPen(QColor("#C72138"))
-        painter.setBrush(QBrush(QColor("#FF5566")))
+        painter.setPen(col_inner)
+        painter.setBrush(QBrush(col_inner.lighter(130)))
         for pt in inner_points:
             painter.drawEllipse(pt, 3.0, 3.0)
 
         # 6. Zentrierter Mittelpunkt-Pin
-        painter.setPen(QColor("#555555"))
-        painter.setBrush(QBrush(QColor("#222222")))
+        painter.setPen(get_theme_color("TEXT_MUTED", "#555555"))
+        painter.setBrush(QBrush(get_theme_color("SURFACE_DARK", "#222222")))
         painter.drawEllipse(QPointF(cx, cy), 3.0, 3.0)
 
         painter.end()
@@ -296,15 +300,21 @@ class Widget_ContentRadarChart(QWidget):
         val_inner = item.get("val_inner", 0.0)
 
         if is_winner:
-            cat_title_color = "#D7A64B"
+            cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         elif is_active:
-            cat_title_color = "#FFFFFF"
+            cat_title_color = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
         else:
-            cat_title_color = "#888888"
+            cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
 
-        tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: #ECECEC;">
-<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid #304C7A; padding-bottom: 6px;">{name}</td></tr>
-<tr><td style="color: #D7A64B; padding-right: 14px; padding-top: 4px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: #FFFFFF; font-weight: bold; text-align: right; padding-top: 4px; padding-bottom: 1px;">{val_outer:,.1f}</td></tr>
-<tr><td style="color: #C72138; padding-right: 14px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: #FFFFFF; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{val_inner:,.1f}</td></tr>
+        col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
+        col_text = get_theme_color_hex("TEXT_ON_DARK", "#ECECEC")
+        col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
+        col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
+        col_val = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+
+        tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: {col_text};">
+<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 6px;">{name}</td></tr>
+<tr><td style="color: {col_ref}; padding-right: 14px; padding-top: 4px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 4px; padding-bottom: 1px;">{val_outer:,.1f}</td></tr>
+<tr><td style="color: {col_override}; padding-right: 14px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{val_inner:,.1f}</td></tr>
 </table>"""
         QToolTip.showText(global_pos, tip_html, self)

@@ -33,26 +33,14 @@ class LOH_Control_CollapsibleSection(QWidget):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 4)
         self.main_layout.setSpacing(4)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 
         # 1. Klickbare Header-Schaltfläche
         self.header_btn = QPushButton()
+        self.header_btn.setObjectName("btn_collapsible_header")
         self.header_btn.setFixedHeight(34)
         self.header_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.header_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #1e1e1e;
-                border: 1px solid #333333;
-                border-left: 4px solid #304C7A;
-                border-radius: 2px;
-                padding: 0px 8px;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background-color: #2b2b2b;
-                border-left: 4px solid #D7A64B;
-            }
-        """)
 
         self.header_layout = QHBoxLayout(self.header_btn)
         self.header_layout.setContentsMargins(8, 0, 8, 0)
@@ -60,13 +48,14 @@ class LOH_Control_CollapsibleSection(QWidget):
 
         # Pfeil-Icon (Indikator für Auf-/Zuklappen)
         self.lbl_arrow = QLabel()
+        self.lbl_arrow.setObjectName("lbl_collapsible_arrow")
         self.lbl_arrow.setFixedSize(16, 16)
         self.lbl_arrow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.header_layout.addWidget(self.lbl_arrow)
 
         # Titel
         self.lbl_title = QLabel(title)
-        self.lbl_title.setStyleSheet("color: #D7A64B; font-size: 14px; font-weight: bold; background: transparent;")
+        self.lbl_title.setObjectName("lbl_collapsible_title")
         self.lbl_title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.header_layout.addWidget(self.lbl_title)
 
@@ -81,6 +70,7 @@ class LOH_Control_CollapsibleSection(QWidget):
         self.content_layout = QVBoxLayout(self.content_container)
         self.content_layout.setContentsMargins(4, 4, 4, 4)
         self.content_layout.setSpacing(0)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         if self.content_widget:
             self.content_layout.addWidget(self.content_widget)

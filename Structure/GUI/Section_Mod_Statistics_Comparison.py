@@ -49,63 +49,13 @@ class Section_Mod_Statistics_Comparison(QWidget):
         self.lbl_comp_image = self.ui.findChild(QLabel, "lbl_comp_image")
         self.btn_select_comp = self.ui.findChild(QPushButton, "btn_select_comp")
 
-        # 3. Styling & Trennlinie nach Design_Rules.md
-        if self.vertical_separator:
-            self.vertical_separator.setStyleSheet("""
-                QFrame#vertical_separator {
-                    background-color: #304C7A;
-                    width: 2px;
-                    max-width: 2px;
-                    border: none;
-                }
-            """)
-            
-        style_readonly_field = """
-            QLineEdit {
-                background-color: #D7A64B;
-                color: #000000;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: normal;
-                border: 1px solid #888888;
-                padding: 4px 8px;
-                border-radius: 2px;
-                qproperty-alignment: 'AlignLeft | AlignVCenter';
-            }
-        """
-        for field in [self.inp_main_name, self.inp_main_component, self.inp_comp_component]:
+        # 3. Ausrichtung & Icons (Styling erfolgt vollständig über Window_Mod_Statistics.qss)
+        for field in [self.inp_main_name, self.inp_main_component, self.inp_comp_name, self.inp_comp_component]:
             if field:
-                field.setStyleSheet(style_readonly_field)
                 field.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 
-        style_active_field = """
-            QLineEdit {
-                background-color: #ECECEC;
-                color: #000000;
-                font-family: "Segoe UI", Arial;
-                font-size: 13px;
-                font-weight: normal;
-                border: 1px solid #888888;
-                padding: 4px 8px;
-                border-radius: 2px;
-                qproperty-alignment: 'AlignLeft | AlignVCenter';
-            }
-        """
-        if self.inp_comp_name:
-            self.inp_comp_name.setStyleSheet(style_active_field)
-            self.inp_comp_name.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                
-        style_image_box = """
-            QLabel {
-                background-color: transparent;
-                color: #888888;
-                border: none;
-                font-size: 12px;
-            }
-        """
         for lbl in (self.lbl_main_image, self.lbl_comp_image):
             if lbl:
-                lbl.setStyleSheet(style_image_box)
                 lbl.setFixedSize(210, 118)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             
@@ -114,19 +64,6 @@ class Section_Mod_Statistics_Comparison(QWidget):
             icon_add_path = os.path.join(GRAPHICS_DIR, "Icon_Add.svg")
             if os.path.exists(icon_add_path):
                 self.btn_select_comp.setIcon(QIcon(icon_add_path))
-            self.btn_select_comp.setStyleSheet("""
-                QPushButton {
-                    background-color: #304C7A;
-                    color: #ECECEC;
-                    border: none;
-                    border-radius: 2px;
-                    padding: 0px;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #5b7a9e;
-                }
-            """)
             self.btn_select_comp.clicked.connect(self.on_select_comp_clicked)
 
     def set_main_mod(self, mod_id: int):

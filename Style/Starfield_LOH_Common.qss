@@ -78,12 +78,12 @@ QTableView, QTreeView {
     font-size: {{ FONT_SIZE_BASE }};
 }
 
-/* Universelle Zeilenhöhe und Padding für Bäume und Listen (z. B. Komponentenfeld auf Page_Mods) */
-QTreeView::item, QListView::item {
-    min-height: 26px;
-    max-height: 26px;
-    height: 26px;
-    padding: 1px 4px;
+/* Universelle Zeilenhöhe und Padding für Bäume, Listen und Detail-Tabellen */
+QTableView::item, QTreeView::item, QListView::item {
+    min-height: 28px;
+    max-height: 28px;
+    height: 28px;
+    padding: 0px 4px;
 }
 
 /* Direkte Formatierung der Tabellenzellen bei Auswahl */
@@ -469,7 +469,11 @@ QFrame#sep_install_process {
 #Page_Update #detail_view QLineEdit#inp_name_catalog,
 #Page_Update #detail_view QLineEdit#inp_id_catalog,
 #Page_Update #detail_view QLineEdit#inp_author,
-#Page_Update #detail_view QLineEdit#inp_last_update_date {
+#Page_Update #detail_view QLineEdit#inp_last_update_date,
+#Page_Update #detail_view QLineEdit#inp_date_inst,
+#Page_Update #detail_view QLineEdit#inp_date_avail,
+#Page_Update #detail_view QLineEdit#inp_ver_inst,
+#Page_Update #detail_view QLineEdit#inp_ver_avail {
     background-color: {{ SURFACE_READONLY }};
     color: {{ TEXT_READONLY }};
 }
@@ -804,8 +808,8 @@ QScrollBar::handle:vertical[needed="false"] {
 }
 
 #tree_profile::item {
-    height: 26px;
-    padding: 0px;
+    height: 28px;
+    padding: 0px 4px;
 }
 
 /* Limit-Balken Beschriftungen */
@@ -860,7 +864,8 @@ QSplitter#main_splitter::handle {
     background-color: {{ WINDOW_BG }};
 }
 
-QWidget#dock_container {
+QWidget#dock_container,
+QWidget#FloatingCompanionWindow {
     background-color: {{ WINDOW_BG }};
 }
 
@@ -893,7 +898,7 @@ QPushButton#btn_dock_close {
 }
 
 QPushButton#btn_dock_float:hover {
-    background-color: #2b303c;
+    background-color: {{ BUTTON_BLUE_HOVER }};
     color: {{ ACCENT_BRAND }};
 }
 
@@ -930,13 +935,18 @@ QPushButton#btn_floating_redock {
 }
 
 QPushButton#btn_floating_redock:hover {
-    background-color: #2b303c;
+    background-color: {{ BUTTON_BLUE_HOVER }};
     color: {{ ACCENT_BRAND }};
 }
 
-/* Mod-Statistik Inhaltsfläche */
-#Window_Mod_Statistics,
-#Window_Mod_Statistics QScrollArea,
-#Window_Mod_Statistics QWidget#scroll_content {
-    background-color: {{ WINDOW_BG }};
+/* =========================================================================
+   Abschnitt 13 – Tooltips (HUD-Design)
+   ========================================================================= */
+QToolTip {
+    background-color: {{ PANEL_BG }};
+    color: {{ TEXT_ON_DARK }};
+    border: 1px solid {{ ACCENT_ACTION }};
+    padding: 4px 8px;
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_DESC }};
 }

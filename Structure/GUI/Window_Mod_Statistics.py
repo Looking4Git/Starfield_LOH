@@ -1,10 +1,6 @@
 import os
-import sys
-import ctypes
-from ctypes import wintypes
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QScrollArea, 
-                               QSpacerItem, QSizePolicy, QApplication)
-from PySide6.QtCore import Qt, QFile, Signal, QTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QSpacerItem
+from PySide6.QtCore import Qt, QFile, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 

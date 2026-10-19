@@ -162,8 +162,8 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Sortierpfeile:** `Graphics/Icon_Arrow_Up.svg` und `Graphics/Icon_Arrow_Down.svg` (`14x14 px`).
 * **Spaltensteuerung (`LOH_Control_HeaderView`):** Individuelle Mindestbreiten (`min_width`), dynamischer Überschuss-Stretch (`stretch_factor`) und Inhaltsdeckelung (`cap_to_content`). Siehe [LOH_Control_HeaderView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_HeaderView_Documentation.md).
 * **Initiale Spaltenbreite für Mod-Namen:** In den Haupttabellen (`Page_Mods` und `Page_LoadOrder`) wird die Spalte *Name* beim Initialisieren verbindlich auf **440 px** kalibriert (`setColumnWidth(..., 440)`), um eine Verdrängung der Folgespalten durch vereinzelte überlange Namen zu verhindern. Der Spaltenmodus bleibt interaktiv (`Interactive`) für individuelle Benutzeranpassungen.
-* **Universelle Zeilenhöhe für Bäume & Listen (`QTreeView` / `QListView`):**
-  * **Standard-Zeilenhöhe:** Verbindlich **26 px** (`min-height: 26px; max-height: 26px; height: 26px; padding: 1px 4px;`) für alle Baum- und Listenansichten (z. B. Komponentenfeld `list_components` auf `Page_Mods`).
+* **Universelle Zeilenhöhe für Bäume, Listen & Detail-Tabellen (`QTreeView` / `QListView` / Statistik-`QTableView`):**
+  * **Standard-Zeilenhöhe:** Verbindlich **28 px** (`min-height: 28px; max-height: 28px; height: 28px; padding: 0px 4px;` bzw. `verticalHeader().setDefaultSectionSize(28)`) für alle Baum- und Listenansichten (z. B. Komponentenfeld `list_components` auf `Page_Mods`, Detailbäume auf `Page_LoadOrder`) sowie für die Detail- und Diagnose-Tabellen im Statistikfenster (`table_classification`, `table_conflicts`).
   * Schafft ein kompaktes, klares Schriftbild und zentriert Text und Symbole (`◆◆◆`) ergonomisch und augenfreundlich ohne vertikale Gedrängtheit.
 * **Einstellungs-Untermenü (`#settings_tree` auf `Page_Settings`):**
   * **Abmessung & Breite:** Feste Breite von verbindlich **`180 px`** (`tree_view.setFixedWidth(180)`), harmonisiert mit der Größenordnung der Haupt-Sidebar (175 px) für eine stabile Navigation ohne Mitziehen bei Fenstervergrößerungen und maximalen Freiraum im Detailbereich.
@@ -172,7 +172,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Typografie & Farbgebung:** Inaktive Menüeinträge nutzen verbindlich **`TEXT_ON_DARK_MUTED`** (analog zur Haupt-Sidebar), Hover hebt dezent den Hintergrund (**`BORDER_SUBTLE`**) hervor während die Schrift dezent bleibt, selektierte Zeilen erhalten den Aktionshintergrund **`ACCENT_ACTION`** mit weißer fetter Schrift (**`TEXT_ON_ACTION_BUTTON`**, bold).
   * **Hintergrund:** Dynamisch über **`PANEL_BG`** als kohärente sekundäre Menüleiste.
 * **Aktive Profilmarkierung & Zeilenhöhe (`tree_profile`):**
-  * **Zeilenhöhe:** Feste Zeilenhöhe von **`26px`**, harmonisiert mit dem universellen Projekt-Standard aller Listen und Bäume für eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons.
+  * **Zeilenhöhe:** Feste Zeilenhöhe von **`28px`**, harmonisiert mit dem universellen Projekt-Standard aller Listen und Bäume für eine ergonomische Klickauswahl und saubere vertikale Zentrierung des 16x16px Aktivierungs-Icons.
   * **Spaltenstruktur:** Spalte 0 (leer `""`, 28 px fixiert, Icon `Icon_Activation.svg`), `ID` (Spalte 1, zentriert), `Name` (Spalte 2, dehnbar).
   * Profile, deren gespeicherte Ladereihenfolge und Aktivierungsstatus exakt (1:1) mit der Live-Datei `Plugins.txt` übereinstimmen, werden in `tree_profile` wie folgt gekennzeichnet:
     * **Spalte 0:** Zeigt das offizielle Aktivierungs-Icon `Graphics/Icon_Activation.svg` zentriert in einer schlanken 28 px Spalte ohne Textbeschriftung. Dadurch bleibt der Aktivstatus auch bei selektierter Zeile (**`ACCENT_ACTION`**) immer sofort erkennbar.
@@ -230,7 +230,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### J. Inhaltsdiagramme (Spinnennetz- & Balkendiagramm)
 > [!NOTE]
-> **Vormerkung zur Modularisierung:** Bei der anstehenden Überarbeitung des Statistikfensters (`Window_Mod_Statistics` / `Section_Mod_Statistics_Content`) werden die modulspezifischen Farben und Stylesheet-Regeln in eine dedizierte `Style/Window_Mod_Statistics.qss` überführt und dieser Abschnitt synchron gestrafft.
+> **Modulare Stylesheet-Architektur:** Alle fensterspezifischen Selektoren und Komponentenstile des Statistik- und Analysefensters (`Window_Mod_Statistics`) sind modular in [Style/Window_Mod_Statistics.qss](file:///d:/Starfield_LOH/Style/Window_Mod_Statistics.qss) ausgelagert und werden vom zentralen Theme-Compiler automatisch eingebunden. Diagramm- und Canvas-Zeichenoperationen (`QPainter`) binden dynamisch an die zentralen Tokens aus [UI_Theme_Tokens.py](file:///d:/Starfield_LOH/Structure/GUI/UI_Theme_Tokens.py) an.
 
 * **Einsatz:** Vergleichende visuelle Inhaltsanalyse in der Sektion *Inhalte* (`Section_Mod_Statistics_Content`).
 * **Radar-Chart (`Widget_ContentRadarChart`):**
@@ -564,7 +564,7 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
      6. Dialoge & Modale Fenster
      7. Rollbalken (Dark Mode Scrollbars)
      8. Seiten-Spezifische Ergänzungen
-   * Spezifische Abweichungen für Dialoge und Werkzeugfenster (z. B. Button-Zentrierung im Bestätigungsdialog) werden in eigenen Dateien wie `Style/Dialog_Mod_Activation_Cascade.qss` geführt und automatisch mitkompiliert.
+   * Spezifische Abweichungen für Dialoge und Werkzeugfenster (z. B. Button-Zentrierung im Bestätigungsdialog oder Komponentenstile des Statistikfensters) werden in modularen Dateien wie `Style/Dialog_Mod_Activation_Cascade.qss` und `Style/Window_Mod_Statistics.qss` geführt und automatisch mitkompiliert.
 5. **Verbot von unselektierten Container-Stylesheets:**
    * In `.ui`-Dateien und im Python-Code dürfen Container-Widgets (wie das Root-Widget) niemals unselektierte Stylesheet-Deklarationen wie `background-color: #ffffff;` oder `background-color: #141414;` ohne konkreten Typ- oder Objekt-Selektor erhalten, da Qt diese Eigenschaften sonst auf interne Scrollbar-Komponenten vererbt.
 6. **Begründete Ausnahmen vom dynamischen Theme-Wechsel:**

@@ -166,7 +166,7 @@ class LOH_Control_TileView(QWidget):
         # 2. Scroll-Content Container
         self.content_widget = QWidget()
         self.content_widget.setObjectName("loh_tile_content")
-        self.content_widget.setStyleSheet("background: transparent;")
+        self.content_widget.setStyleSheet("QWidget#loh_tile_content { background: transparent; }")
         self.content_widget.setMinimumHeight(self.card_height + 8)
 
         self.content_layout = QHBoxLayout(self.content_widget)
@@ -291,11 +291,12 @@ class LOH_Control_TileView(QWidget):
                 card = self.card_class(data, base_width=self.tile_width, parent=self.content_widget)
                 card.clicked.connect(lambda d, c=card: self._on_card_clicked(c, d))
                 card.set_selected(self._selected_data == data)
-                self._active_widgets[idx] = card
 
-                # Vor dem rechten Platzhalter einfügen
-                insert_pos = self.content_layout.indexOf(self.right_spacer)
+                # Exakte Sortierposition im QHBoxLayout bestimmen:
+                # Layout-Index 0 ist stets self.left_spacer, danach folgen alle aktiven Kacheln mit kleinerem Datenindex.
+                insert_pos = 1 + sum(1 for active_idx in self._active_widgets if active_idx < idx)
                 self.content_layout.insertWidget(insert_pos, card)
+                self._active_widgets[idx] = card
 
         # 4. Rechten Platzhalter anpassen
         remaining = total_count - 1 - new_end

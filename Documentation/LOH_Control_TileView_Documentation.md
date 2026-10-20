@@ -1,6 +1,6 @@
 # Dokumentation: LOH_Control_TileView
 
-Diese Dokumentation beschreibt die universelle, hochperformante Kachel-Ribbon-Steuerung [Structure/LOH_Control_TileView.py](file:///d:/Starfield_LOH/Structure/LOH_Control_TileView.py) im Projekt **Starfield Load Order Helper (LOH)**.
+Diese Dokumentation beschreibt die universelle, hochperformante Kachel-Ribbon-Steuerung [Structure/Controls/LOH_Control_TileView.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_TileView.py) im Projekt **Starfield Load Order Helper (LOH)**.
 
 ---
 
@@ -14,11 +14,12 @@ Moderne Datenansichten erfordern neben klassischen Tabellen zunehmend visuelle K
 
 ### 1.2 Die Lösung: `LOH_Control_TileView`
 `LOH_Control_TileView` implementiert eine **positionsbasierte Fenster-Virtualisierung (Windowed Viewport-Virtualisierung)**:
-1. **Puffer-basierter Windowed Loader:** Es werden zu jedem Zeitpunkt ausschließlich die aktuell im sichtbaren Viewport befindlichen Kacheln sowie ein konfigurierbarer Puffer (standardmäßig 8–10 Kacheln links und rechts) im Speicher instanziiert und aktualisiert.
-2. **Blitzschnelle Ladezeit:** Das Öffnen von Listen mit 500+ Items erfolgt in **unter 20 Millisekunden**.
-3. **Flüssiges Scrollen:** Beim Scrollen werden Kacheln außerhalb des Sicht- und Pufferfensters recycelt und neue Kacheln on-demand nachgeladen.
-4. **Präzise Kachelschritte:** Die Scrollbar nutzt eine exakte Kachelschrittweite (`singleStep = tile_width + spacing = 288 px`), sodass jeder Klick auf die Scrollbar-Pfeile exakt um eine Kachelbreite weiterspringt.
-5. **Integriertes modales Zoom-Overlay (`LOH_TileZoomOverlay`):** Ein Klick auf die Lupe einer Kachel öffnet ein zentriertes Detail-Overlay in doppelter Größe (560 × 400 px), das alle Details und Langtexte scrollfrei und übersichtlich darstellt.
+1. **Puffer-basierter Windowed Loader:** Es werden zu jedem Zeitpunkt ausschließlich die aktuell im sichtbaren Viewport befindlichen Kacheln sowie ein konfigurierbarer Puffer (standardmäßig 8 Kacheln links und rechts) im Speicher instanziiert und aktualisiert.
+2. **Strikt indexbasierte Layout-Sortierung:** Neu geladene Kacheln werden anhand ihres Datenindex (`idx`) sortiert in das `QHBoxLayout` eingefügt (`insert_pos = 1 + sum(1 for active_idx in self._active_widgets if active_idx < idx)`), sodass die visuelle Reihenfolge beim Vorwärts-, Rückwärts- und Sprungscrollen stets absolut stabil bleibt.
+3. **Blitzschnelle Ladezeit:** Das Öffnen von Listen mit 500+ Items erfolgt in **unter 20 Millisekunden**.
+4. **Flüssiges Scrollen:** Beim Scrollen werden Kacheln außerhalb des Sicht- und Pufferfensters recycelt und neue Kacheln on-demand nachgeladen.
+5. **Präzise Kachelschritte:** Die Scrollbar nutzt eine exakte Kachelschrittweite (`singleStep = tile_width + spacing = 323 px`), sodass jeder Klick auf die Scrollbar-Pfeile exakt um eine Kachelbreite weiterspringt.
+6. **Integriertes modales Zoom-Overlay (`LOH_TileZoomOverlay`):** Ein Klick auf eine Kachel öffnet ein zentriertes Detail-Overlay in doppelter Breite (630 px), das alle Details und Langtexte scrollfrei und übersichtlich darstellt.
 
 ---
 
@@ -28,13 +29,13 @@ Moderne Datenansichten erfordern neben klassischen Tabellen zunehmend visuelle K
 graph TD
     A[Datenquelle: Liste von Dicts] -->|set_items| B[LOH_Control_TileView]
     B --> C[Virtuelle Leinwand Canvas: Gesamtbreite berechnet]
-    B --> D[QScrollBar: 1:1 Pages.qss Design, singleStep 288px]
+    B --> D[QScrollBar: 1:1 Common.qss Design, singleStep 323px]
     D -->|scroll_x geändert| E[Windowed Loader: Ermittelt sichtbar + Puffer]
-    E -->|Instanziiert / Aktualisiert| F[Kachel-Widgets z.B. Widget_ConflictCard]
-    F -->|Klick auf Lupe| G[LOH_TileZoomOverlay: Zentriert, 560x400 px]
+    E -->|Instanziiert indexsortiert| F[Kachel-Widgets z.B. Widget_ConflictCard]
+    F -->|Klick auf Kachel| G[LOH_TileZoomOverlay: Zentriert, 630 px]
 ```
 
-* **Vollständige Entkopplung:** `LOH_Control_TileView` ist generisch aufgebaut. Sie akzeptiert jede beliebige Kachel-Widget-Klasse über den Parameter `card_class` (z. B. `Widget_ConflictCard`), sofern diese eine Methode `set_data(data: dict)` und optional ein Signal `zoom_requested` implementiert.
+* **Vollständige Entkopplung:** `LOH_Control_TileView` ist generisch aufgebaut. Sie akzeptiert jede beliebige Kachel-Widget-Klasse über den Parameter `card_class` (z. B. `Widget_ClassificationCard`, `Widget_ConflictCard`), sofern diese ein Signal `clicked` implementiert.
 * **Stabile Scrollbar-Architektur:** Nutzt das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Common.qss` inklusive nativer 16px Endschaltflächen.
 
 ---
@@ -45,7 +46,7 @@ graph TD
 ```python
 LOH_Control_TileView(
     card_class,
-    tile_width: int = 280,
+    tile_width: int = 315,
     tile_spacing: int = 8,
     buffer_count: int = 8,
     parent: QWidget = None
@@ -55,7 +56,7 @@ LOH_Control_TileView(
 | Parameter | Typ | Standard | Beschreibung |
 | :--- | :--- | :--- | :--- |
 | `card_class` | `class` | *Pflicht* | Die Widget-Klasse für die einzelnen Kacheln (z. B. `Widget_ConflictCard`). |
-| `tile_width` | `int` | `280` | Feste Breite einer einzelnen Kachel in Pixeln. |
+| `tile_width` | `int` | `315` | Feste Breite einer einzelnen Kachel in Pixeln (Standard: 315 px). |
 | `tile_spacing` | `int` | `8` | Horizontaler Abstand zwischen zwei Kacheln in Pixeln. |
 | `buffer_count` | `int` | `8` | Anzahl der Puffer-Kacheln links und rechts des sichtbaren Bereichs. |
 | `parent` | `QWidget`| `None` | Eltern-Widget. |

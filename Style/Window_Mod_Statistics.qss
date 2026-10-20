@@ -88,78 +88,154 @@ QLabel#lbl_collapsible_title {
 }
 
 /* -------------------------------------------------------------------------
-   Widget_ClassificationCard (Kategorie-Klassifikation Kachel & Zoom)
+   Widget_ClassificationCard & Widget_ConflictCard (Kacheln & Zoom)
    ------------------------------------------------------------------------- */
-QFrame#Widget_ClassificationCard {
-    background-color: {{ SURFACE_DARK }};
-    border: 1px solid {{ BORDER_SUBTLE }};
-    border-radius: 8px;
-}
-
-QFrame#Widget_ClassificationCard:hover {
-    border: 1px solid {{ ACCENT_ACTION_HOVER }};
-}
-
-#Widget_ClassificationCard QFrame#sep_line {
-    background-color: {{ ACCENT_ACTION }};
-    border: none;
-    border-radius: 1px;
-}
-
-#Widget_ClassificationCard QLabel#lbl_card_value {
-    color: {{ TEXT_ON_DARK }};
-    background: transparent;
-    border: none;
-}
-
-#Widget_ClassificationCard QLabel#lbl_card_reason {
-    color: {{ TEXT_ON_DARK_MUTED }};
-    background: transparent;
-    border: none;
-}
-
-#Widget_ClassificationCard QLabel#lbl_close_hint {
-    color: {{ TEXT_MUTED }};
-    font-size: 11px;
-    font-style: italic;
-    background: transparent;
-    border: none;
-}
-
-/* -------------------------------------------------------------------------
-   Widget_ConflictCard (Konflikt-Kachel & Zoom)
-   ------------------------------------------------------------------------- */
+QFrame#Widget_ClassificationCard,
 QFrame#Widget_ConflictCard {
     background-color: {{ SURFACE_DARK }};
     border: 1px solid {{ BORDER_SUBTLE }};
     border-radius: 8px;
 }
 
+QFrame#Widget_ClassificationCard:hover,
 QFrame#Widget_ConflictCard:hover {
     border: 1px solid {{ ACCENT_ACTION_HOVER }};
 }
 
+QFrame#Widget_ClassificationCard[selected="true"],
+QFrame#Widget_ConflictCard[selected="true"] {
+    border: 2px solid {{ ACCENT_BRAND }};
+}
+
+QFrame#Widget_ClassificationCard[zoomed="true"],
+QFrame#Widget_ConflictCard[zoomed="true"] {
+    border: 2px solid {{ ACCENT_ACTION_HOVER }};
+    border-radius: 12px;
+}
+
+/* Header-Badge Container */
+#Widget_ClassificationCard QFrame#card_badge_frame,
+#Widget_ConflictCard QFrame#card_badge_frame {
+    border-radius: 3px;
+    border: none;
+}
+
+#Widget_ClassificationCard[zoomed="true"] QFrame#card_badge_frame,
+#Widget_ConflictCard[zoomed="true"] QFrame#card_badge_frame {
+    border-radius: 5px;
+}
+
+/* Badge Farbstufen */
+QFrame#card_badge_frame[badgeColor="critical"] {
+    background-color: {{ STATUS_CRITICAL }};
+}
+
+QFrame#card_badge_frame[badgeColor="warning"] {
+    background-color: {{ STATUS_WARNING }};
+}
+
+QFrame#card_badge_frame[badgeColor="brand"] {
+    background-color: {{ ACCENT_BRAND }};
+}
+
+QFrame#card_badge_frame[badgeColor="muted"] {
+    background-color: {{ TEXT_MUTED }};
+}
+
+/* Header-Badge Beschriftung */
+QLabel#lbl_card_badge {
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_SMALL }};
+    font-weight: bold;
+    background: transparent;
+    border: none;
+}
+
+#Widget_ClassificationCard[zoomed="true"] QLabel#lbl_card_badge,
+#Widget_ConflictCard[zoomed="true"] QLabel#lbl_card_badge {
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+QLabel#lbl_card_badge[badgeColor="critical"],
+QLabel#lbl_card_badge[badgeColor="warning"] {
+    color: #FFFFFF;
+}
+
+QLabel#lbl_card_badge[badgeColor="brand"] {
+    color: #1E1E1E;
+}
+
+QLabel#lbl_card_badge[badgeColor="muted"] {
+    color: #CCCCCC;
+}
+
+/* Metadaten-Schlüssel (Labels links) */
+QLabel#lbl_card_key {
+    color: {{ ACCENT_BRAND }};
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_SMALL }};
+    font-weight: normal;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#lbl_card_key[keyRole="winner"] {
+    color: {{ STATUS_SUCCESS }};
+}
+
+#Widget_ClassificationCard[zoomed="true"] QLabel#lbl_card_key,
+#Widget_ConflictCard[zoomed="true"] QLabel#lbl_card_key {
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+/* Metadaten-Werte (Rechts) */
+QLabel#lbl_card_value {
+    color: {{ TEXT_ON_DARK }};
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_SMALL }};
+    font-weight: normal;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#lbl_card_value[isMono="true"] {
+    font-family: "Consolas", monospace;
+}
+
+#Widget_ClassificationCard[zoomed="true"] QLabel#lbl_card_value,
+#Widget_ConflictCard[zoomed="true"] QLabel#lbl_card_value {
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+/* Trennbalken (Starfield-Blau) */
+#Widget_ClassificationCard QFrame#sep_line,
 #Widget_ConflictCard QFrame#sep_line {
     background-color: {{ ACCENT_ACTION }};
     border: none;
     border-radius: 1px;
 }
 
-#Widget_ConflictCard QLabel#lbl_card_value {
-    color: {{ TEXT_ON_DARK }};
-    background: transparent;
-    border: none;
-}
-
+/* Begründungstext */
+#Widget_ClassificationCard QLabel#lbl_card_reason,
 #Widget_ConflictCard QLabel#lbl_card_reason {
     color: {{ TEXT_ON_DARK_MUTED }};
+    font-family: {{ FONT_FAMILY }};
+    font-size: {{ FONT_SIZE_SMALL }};
     background: transparent;
     border: none;
 }
 
-#Widget_ConflictCard QLabel#lbl_close_hint {
+#Widget_ClassificationCard[zoomed="true"] QLabel#lbl_card_reason,
+#Widget_ConflictCard[zoomed="true"] QLabel#lbl_card_reason {
+    font-size: {{ FONT_SIZE_BASE }};
+}
+
+/* Zoom Schließen-Hinweis */
+QLabel#lbl_close_hint {
     color: {{ TEXT_MUTED }};
-    font-size: 11px;
+    font-size: {{ FONT_SIZE_SMALL }};
     font-style: italic;
     background: transparent;
     border: none;

@@ -220,13 +220,13 @@
            <property name="minimumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="editTriggers">
@@ -888,13 +888,13 @@
            <property name="minimumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="editTriggers">
@@ -1031,13 +1031,13 @@
            <property name="minimumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>518</width>
-             <height>140</height>
+             <height>149</height>
             </size>
            </property>
            <property name="editTriggers">

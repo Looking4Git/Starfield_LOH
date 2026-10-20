@@ -81,7 +81,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         super().__init__(parent)
         self.current_main_mod_id = None
         self.current_comp_mod_id = None
-        self._last_table_height = 348
+        self._last_table_height = 350
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Conflicts.ui")
@@ -98,14 +98,14 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         # Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=348,
+            min_height=350,
             max_height=800,
-            default_height=348,
+            default_height=350,
             parent=self
         )
         self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
-        self.setFixedHeight(348)
+        self.setFixedHeight(350)
 
         # UI-Elemente referenzieren
         self.lbl_stats = self.ui.findChild(QLabel, "lbl_stats")
@@ -124,7 +124,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         # Universelle LOH_Control_TileView in Page 1 einbetten
         self.tile_view = LOH_Control_TileView(
             card_class=Widget_ConflictCard,
-            tile_width=290,
+            tile_width=315,
             tile_spacing=8,
             buffer_count=8,
             parent=self
@@ -217,7 +217,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 # Tabellenansicht: Zieher einblenden und gemerkte/aktuelle Höhe wiederherstellen
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(True)
-                self.setFixedHeight(getattr(self, "_last_table_height", 348))
+                self.setFixedHeight(getattr(self, "_last_table_height", 350))
 
     def load_conflicts(self):
         """Lädt die Konflikte aus der Datenbank und befüllt Tabelle und Kacheln."""

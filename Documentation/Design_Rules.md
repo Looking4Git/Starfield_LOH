@@ -211,16 +211,27 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 ---
 
 ### I. Informationstextfelder & Kacheln (Card-View) & LOH_Control_TileView
-* **Einsatz:** Kompakte Datenkarten, HUD-Kacheln und interaktive Konflikt-Karten (`Widget_ConflictCard`), bei denen Daten ohne Formularrahmen als reiner strukturierter Text dargestellt werden.
-* **Kartenrahmen:** Menühintergrund **`PANEL_BG`**, Rahmen `1px solid {{ BORDER_SUBTLE }}`, Rundung `8px`, Hover-Highlight **`ACCENT_ACTION_HOVER`**.
-* **Kopf-Badge:** Farbiges Typ-Banner oben (Kritisch **`STATUS_CRITICAL`**, Warnung **`STATUS_WARNING`**, Standard **`ACCENT_BRAND`**, Muted **`TEXT_ON_DARK_MUTED`**), Rundung `4px`, zentrierter fetter Text.
-* **Informationstextfeld (Label-Wert-Paare):**
-  * **Labels:** Rechtsbündig an einer vertikalen Fluchtachse ausgerichtet (`Qt.AlignmentFlag.AlignRight`), kompakter Block linksbündig orientiert, Farbe dynamisch über **`ACCENT_BRAND`**, normale Schriftstärke (`font-weight: normal`), Schriftgröße `FONT_SIZE_SMALL`.
-  * **Werte:** Linksbündig direkt anschließend, Farbe **`TEXT_ON_DARK`** (FormIDs in `Consolas`, Strings in `FONT_FAMILY`).
-  * **Stabile Geometrie:** Alle 6 Datenzeilen sind stets im Layout vorhanden (leere Felder erhalten `""` statt `"-"`), wodurch die blaue Trennlinie kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
-* **Trennlinie:** Dynamisch über **`ACCENT_ACTION`** (Starfield-Blau), Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
-* **Lupenfunktion (Modal Zoom Overlay bei Klick):** Statt unruhiger Breitenexpansion im Layout verbleiben Kacheln im Ribbon stabil auf 280 px. Ein Klick öffnet ein zentriertes Modal-Overlay (`LOH_TileZoomOverlay`) in doppelter Größe (560 × 400 px), das alle Details und lange Texte ohne Scrollen darstellt. Ein Klick auf die Lupe, daneben oder ESC schließt den Zoom sofort.
-* **Virtualisiertes Kachelband (`LOH_Control_TileView`):** Nutzt Viewport-Virtualisierung (Windowed Loader mit 8–10 Puffer-Kacheln) und das standardisierte Tabellen-Scrollbar-Design aus `Starfield_LOH_Common.qss` inkl. nativer 16px Endschaltflächen und kachelgenauer Schrittweite (`singleStep = 288px`). Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_TileView_Documentation.md).
+> [!NOTE]
+> **QSS-Zentralisierung & Modulares Komponenten-Styling:** Sämtliche visuellen Stile, Rahmenzustände (`:hover`, `[selected="true"]`, `[zoomed="true"]`), Typografie (`FONT_SIZE_SMALL` = 13px, fett für Badges) und Farb-Tokens der Kacheln sind vollständig in [Style/Window_Mod_Statistics.qss](file:///d:/Starfield_LOH/Style/Window_Mod_Statistics.qss) ausgelagert. Operative Python-Widgets steuern ihr Erscheinungsbild deklarativ über dynamische Qt-Properties (`badgeColor`, `keyRole`, `isMono`, `selected`, `zoomed`).
+
+* **Einsatz:** Kompakte Datenkarten und interaktive Kacheln im Diagnose- und Statistikzentrum (`Window_Mod_Statistics`):
+  * **Klassifikations-Kacheln (`Widget_ClassificationCard`):** Feste Standardgröße `315 × 200 px` (Zoom: `630 × 350 px`).
+  * **Konflikt-Kacheln (`Widget_ConflictCard`):** Feste Standardgröße `315 × 260 px` (Zoom: `630 × 400 px`).
+* **Konzentrische Geometrie & Radien:**
+  * **Mathematische Konzentrizität:** Gleicher Krümmungsmittelpunkt von Kachelrahmen und Kopf-Badge ($R_{\text{outer}} = R_{\text{inner}} + \text{Abstand}$).
+  * **Kachelrahmen:** Außenradius $R_{\text{outer}} = \mathbf{8\,\text{px}}$ (Projekt-Standard), Randabstand rundum symmetrisch **`5px`** (`margins = (5, 5, 5, 5)`), Hintergrund `SURFACE_DARK`.
+  * **Kopf-Badge:** Innenradius $R_{\text{inner}} = \mathbf{3\,\text{px}}$, Höhe `26px`, Innenabstand `4px` links/rechts.
+* **Typografie & Farbgebung (über `Window_Mod_Statistics.qss`):**
+  * **Kopf-Badge:** Farbige Typ-Banner (Kritisch `STATUS_CRITICAL`, Warnung `STATUS_WARNING`, Standard `ACCENT_BRAND`, Muted `TEXT_MUTED`), Schriftgröße 13 px Segoe UI fett (`font-weight: bold;`).
+  * **Labels (links):** Rechtsbündig an gemeinsamer Fluchtlinie (`Qt.AlignmentFlag.AlignRight`), Farbe `ACCENT_BRAND` (bzw. `STATUS_SUCCESS` für Siegerkategorie in Klassifikation), 13 px Segoe UI Normal.
+  * **Werte (rechts):** Linksbündig direkt anschließend, Farbe `TEXT_ON_DARK` (Hex-FormIDs in 13 px `Consolas`, Namen in 13 px `Segoe UI`).
+  * **Stabile Geometrie:** Alle 6 Datenzeilen bei Konflikten stets vorhanden (leere Felder als `""`), wodurch der Trennbalken kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
+* **Trennbalken (`sep_line`):** Starfield-Blau über **`ACCENT_ACTION`** (`#304C7A`), Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
+* **Lupenfunktion (Modal Zoom Overlay bei Klick):** Ein Klick auf eine Kachel öffnet das modale Lupen-Overlay (`LOH_TileZoomOverlay`) in verdoppelter Größe (`630 px` Breite) direkt über der Quellkachel. Klick oder ESC schließt den Zoom.
+* **Virtualisiertes Kachelband (`LOH_Control_TileView`):**
+  * Windowed Viewport-Virtualisierung mit Pufferkacheln und strikt indexbasierter Einfügung im `QHBoxLayout`.
+  * Kachelgenaue Schrittweite der Scrollbar (`singleStep = tile_width + spacing = 323 px`).
+  * Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_TileView_Documentation.md).
 * **Dashboard-Modul-Kacheln (`Widget_TileIconButton` auf `Page_Tools`):**
   * **Kachel:** Quadratisch (`64×64 px`), Rundung `12px`, zentriertes Icon (`43×43 px`). Zustandsfarben über `BUTTON_BLUE_*` bzw. `BUTTON_RED_*` Tokens (Normal, Hover, Pressed, Disabled).
   * **Beschriftung (`QLabel#tile_text`):** Mehrzeiliger Text zentriert unter der Kachel, Schriftgröße `TILE_TEXT_SIZE` (synchronisiert mit `FONT_SIZE_DESC`), `FONT_FAMILY`. Textfarbe dynamisch über `TILE_TEXT_COLOR` und `TILE_TEXT_DISABLED`. Hover/Pressed aktiviert dynamische Textunterstreichung.
@@ -260,7 +271,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * **Einstellungspräferenz (`Prefer_Content_BarChart`):** In `Page_Settings_General` konfigurierbar ("Balkendiagramme in Abschnitt Inhalte bevorzugen (Fenster: Mod-Analyse Statistiken)").
   * **Auto-Fit Höhe:** Radar startet mit großzügiger Basishöhe (480 px); beim Umschalten auf Balkendiagramm expandiert die Sektion automatisch auf exakt 704 px (kalibriert auf 652 px Canvas-Höhe inkl. Kopfzeile, Abständen und `LOH_Control_SectionResizeGrip`, sodass alle 32 Zeilen bündig ohne toten Freiraum und ohne internen Rollbalken sichtbar sind).
   * **`LOH_Control_SectionResizeGrip`:** Integrierter Sci-Fi-Ziehgriff am unteren Sektionsrand für stufenloses manuelles Aufziehen der Höhe per Mausdrag (`SizeVerCursor`) inkl. Doppelklick für Reset auf Standard.
-    * Eingesetzt in: *Inhalte* (Auto-Fit 480/704 px, stufenlos ziehbar), *Klassifizierung* (Standard/Minimum 324 px) und *Konflikte* (Standard/Minimum 346 px in Tabellenansicht; im Kachelmodus wird der Zieher ausgeblendet und die Sektion schließt bündig ohne Freiraum ab).
+    * Eingesetzt in: *Inhalte* (Auto-Fit 480/704 px, stufenlos ziehbar), *Klassifizierung* (Standard/Minimum 316 px für 8 Tabellenzeilen) und *Konflikte* (Standard/Minimum 350 px in Tabellenansicht für 8 Tabellenzeilen; im Kachelmodus wird der Zieher ausgeblendet und die Sektion schließt bündig ohne Freiraum ab).
     * Siehe [LOH_Control_SectionResizeGrip_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_SectionResizeGrip_Documentation.md).
 
 ---
@@ -384,6 +395,7 @@ Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mo
 
 2. **Standardisierte Vorlagenbreiten im Datenbereich (Spalte 2):**
    * **Vollflächige Felder (518 px):** Mod-Name, Katalog-Name, ID, Autor, URLs, Beschreibungen, Notizen, Tabellen/Bäume (`tree_profile`, `tree_requirements`, `tree_dependencies`, `list_components`), Progress-Bars. Füllen exakt 518 px aus (`min-width: 518px; max-width: 518px;`).
+     * **Feste Höhe für Detail-Listenfelder (4 Zeilen):** Verbindlich **149 px** (`min-width: 518px; max-width: 518px; min-height: 149px; max-height: 149px;`). Basiert arithmetisch auf 33 px Header + $4 \times 28\,\text{px} = 112\,\text{px}$ Datenzeilen + 4 px Rahmen-Overhead des `LOH_Control_EmbeddedScrollTree`. Dadurch sind exakt 4 Datenzeilen vollständig ohne vertikales Abschneiden sichtbar.
    * **Kurze Textfelder (210 px):** Feste Breite **210 px** (`min-width: 210px; max-width: 210px;`, z. B. `inp_sorter_last_update`, `inp_classifier_category`, `inp_date_inst`, `inp_date_avail`, `inp_ver_inst`, `inp_ver_avail`, `inp_last_update_date`). In zweispaltigen Zeilen (wie Datum und Version) sind beide Felder exakt 210 px breit und symmetrisch ausgerichtet.
    * **Vorschaubilder (210 × 118 px):** Feste Abmessungen **210 × 118 px** (`min-width: 210px; max-width: 210px; min-height: 118px; max-height: 118px;`, 16:9-Verhältnis) auf `Page_Mods` und `Page_Update`. Ausrichtung strikt linksbündig (`AlignLeft | AlignTop`), schließt exakt bündig an der linken 105-px-Fluchtlinie sowie an der rechten 315-px-Fluchtlinie der kurzen Textfelder ab.
    * **Positionszeile (210 px Abschluss):** `inp_position` mit **88 px** Breite; zusammen mit Spacing und den beiden Pfeiltasten à 56 px ($88 + 5 + 56 + 5 + 56 = \mathbf{210\,\text{px}}$) schließt `btn_pos_down` exakt bündig an der 210-px-Fluchtlinie ab.

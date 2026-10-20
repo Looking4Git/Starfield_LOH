@@ -54,7 +54,7 @@ class Section_Mod_Statistics_Classification(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_mod_id = None
-        self._last_table_height = 322
+        self._last_table_height = 316
 
         loader = QUiLoader()
         ui_file_path = os.path.join(APP_ROOT, "Structure", "GUI", "Section_Mod_Statistics_Classification.ui")
@@ -91,14 +91,14 @@ class Section_Mod_Statistics_Classification(QWidget):
         # 2. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=322,
+            min_height=316,
             max_height=dynamic_max_height,
-            default_height=322,
+            default_height=316,
             parent=self
         )
         self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
-        self.setFixedHeight(322)
+        self.setFixedHeight(316)
 
         # UI-Elemente referenzieren
         self.chk_tile_view = self.ui.findChild(QCheckBox, "chk_tile_view")
@@ -110,10 +110,10 @@ class Section_Mod_Statistics_Classification(QWidget):
         if self.chk_tile_view:
             self.chk_tile_view.stateChanged.connect(self.on_toggle_view_mode)
 
-        # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 290px, Höhe 200px)
+        # Universelle LOH_Control_TileView in Page 1 einbetten (Breite 315px, Höhe 200px)
         self.tile_view = LOH_Control_TileView(
             card_class=Widget_ClassificationCard,
-            tile_width=290,
+            tile_width=315,
             card_height=200,
             tile_spacing=8,
             buffer_count=8,
@@ -180,7 +180,7 @@ class Section_Mod_Statistics_Classification(QWidget):
                 # Tabellenansicht: Zieher einblenden und gemerkte Höhe wiederherstellen
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(True)
-                self.setFixedHeight(getattr(self, "_last_table_height", 322))
+                self.setFixedHeight(getattr(self, "_last_table_height", 316))
 
     def set_mod(self, mod_id: int):
         """Lädt die Klassifikationsdaten der ersten Hauptkomponente für die Mod."""

@@ -2,7 +2,7 @@ import math
 from PySide6.QtWidgets import QWidget, QToolTip
 from PySide6.QtCore import Qt, QPointF, QRectF
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QFont, QPolygonF, QMouseEvent
+    QPainter, QPen, QBrush, QColor, QFont, QPolygonF, QMouseEvent, QFontMetrics
 )
 from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
 
@@ -64,13 +64,14 @@ class Widget_ContentRadarChart(QWidget):
             return
 
         # Dynamischer Radius (deutlich vergrößertes Diagramm durch optimiertes Padding)
-        padding = 42.0
+        padding = 48.0
         radius = max(20.0, min(cx, cy) - padding)
         total_axes = len(self._items)  # 32
 
         # 1. Konzentrische Hilfskreise (25%, 50%, 75%, 100%)
-        pen_grid = QPen(get_theme_color("BORDER_SUBTLE", "#2B2B2B"), 1.0, Qt.PenStyle.DashLine)
-        pen_outer_ring = QPen(get_theme_color("BORDER_DARK", "#3A3A3A"), 1.2, Qt.PenStyle.SolidLine)
+        col_grid = get_theme_color("CHART_GRID", "#2B2B2B")
+        pen_grid = QPen(col_grid, 1.0, Qt.PenStyle.DashLine)
+        pen_outer_ring = QPen(col_grid, 1.2, Qt.PenStyle.SolidLine)
         
         for frac in [0.25, 0.50, 0.75]:
             painter.setPen(pen_grid)
@@ -82,17 +83,27 @@ class Widget_ContentRadarChart(QWidget):
         painter.drawEllipse(QPointF(cx, cy), radius, radius)
 
         # 2. Achsenstrahlen & Beschriftung zeichnen
-        font_normal = QFont("Segoe UI", 8)
-        font_winner = QFont("Segoe UI", 9, QFont.Weight.Bold)
-        font_inactive = QFont("Segoe UI", 7)
+        font_normal = QFont("Segoe UI")
+        font_normal.setPixelSize(13)
 
-        col_winner = get_theme_color("ACCENT_BRAND", "#D7A64B")
-        col_hovered_text = get_theme_color("TEXT_ON_DARK", "#FFFFFF")
-        col_active_text = get_theme_color("TEXT_ON_DARK_MUTED", "#CCCCCC")
-        col_inactive_text = get_theme_color("TEXT_MUTED", "#4A4A4A")
+        font_winner = QFont("Segoe UI")
+        font_winner.setPixelSize(13)
+        font_winner.setBold(True)
+
+        font_inactive = QFont("Segoe UI")
+        font_inactive.setPixelSize(13)
+
+        col_winner = get_theme_color("CHART_TEXT_WINNER", "#D7A64B")
+        col_hovered_text = get_theme_color("CHART_TEXT_HOVER", "#ECECEC")
+        col_active_text = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
+        col_inactive_text = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
         col_axis_hover = get_theme_color("ACCENT_ACTION_HOVER", "#5B7A9E")
-        col_axis_active = get_theme_color("BORDER_SUBTLE", "#666666")
-        col_axis_inactive = get_theme_color("BORDER_DARK", "#2D2D2D")
+        col_axis_active = get_theme_color("CHART_AXIS_ACTIVE", "#555555")
+        col_axis_inactive = get_theme_color("CHART_AXIS_INACTIVE", "#202020")
+        pen_leader = QPen(get_theme_color("BORDER_SUBTLE", "#444444"), 1.0, Qt.PenStyle.DotLine)
+
+        fm_normal = QFontMetrics(font_normal)
+        fm_winner = QFontMetrics(font_winner)
 
         axis_angles = []
         axis_endpoints = []
@@ -122,47 +133,55 @@ class Widget_ContentRadarChart(QWidget):
             painter.setPen(pen_axis)
             painter.drawLine(QPointF(cx, cy), end_pt)
 
-            # Label-Positionierung (knapp außerhalb des Rings)
-            lbl_dist = radius + 8.0
-            lbl_x = cx + lbl_dist * cos_a
-            lbl_y = cy + lbl_dist * sin_a
+            # Leader-Lines & Label-Positionierung (Highcharts / Chart.js Standard)
+            is_polar = abs(sin_a) > 0.8
+            leader_len = 16.0 if is_polar else 6.0
+            lbl_x = cx + (radius + leader_len) * cos_a
+            lbl_y = cy + (radius + leader_len) * sin_a
+
+            if is_polar:
+                painter.setPen(pen_leader)
+                painter.drawLine(end_pt, QPointF(lbl_x, lbl_y))
 
             # Textfarbe & Font
             if is_winner:
                 painter.setPen(col_winner)
                 painter.setFont(font_winner)
+                fm = fm_winner
             elif is_hovered:
                 painter.setPen(col_hovered_text)
                 painter.setFont(font_normal)
+                fm = fm_normal
             elif is_active:
                 painter.setPen(col_active_text)
                 painter.setFont(font_normal)
+                fm = fm_normal
             else:
                 painter.setPen(col_inactive_text)
                 painter.setFont(font_inactive)
+                fm = fm_normal
 
-            # Rechnerische Textbox um den Zielpunkt
-            tb_w = 75.0
-            tb_h = 16.0
-            rect_x = lbl_x - tb_w / 2.0
-            rect_y = lbl_y - tb_h / 2.0
+            tw = fm.horizontalAdvance(cat_name)
+            th = fm.height()
 
-            if abs(cos_a) > 0.3:
+            # Ausrichtung & Bounding Box
+            if abs(cos_a) > 0.25:
                 if cos_a > 0:
-                    rect_x = lbl_x + 2.0
-                    align = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                    bx = lbl_x + 3.0
+                    by = lbl_y - th / 2.0
                 else:
-                    rect_x = lbl_x - tb_w - 2.0
-                    align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    bx = lbl_x - tw - 3.0
+                    by = lbl_y - th / 2.0
             else:
-                if sin_a > 0:
-                    rect_y = lbl_y + 2.0
-                    align = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
+                if abs(cos_a) < 0.05:
+                    bx = lbl_x - tw / 2.0
+                elif cos_a > 0:
+                    bx = lbl_x + 2.0
                 else:
-                    rect_y = lbl_y - tb_h - 2.0
-                    align = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom
+                    bx = lbl_x - tw - 2.0
+                by = (lbl_y + 2.0) if sin_a > 0 else (lbl_y - th - 2.0)
 
-            painter.drawText(QRectF(rect_x, rect_y, tb_w, tb_h), align, cat_name)
+            painter.drawText(QRectF(bx, by, tw + 2.0, th), Qt.AlignmentFlag.AlignCenter, cat_name)
 
         # 3. Gelbes Datenpolygon (dim_calc_outer - Referenzen / Masse)
         # Verbindet ausschließlich aktive Kategorien mit Netto-Inhalt direkt miteinander
@@ -226,8 +245,8 @@ class Widget_ContentRadarChart(QWidget):
             painter.drawEllipse(pt, 3.0, 3.0)
 
         # 6. Zentrierter Mittelpunkt-Pin
-        painter.setPen(get_theme_color("TEXT_MUTED", "#555555"))
-        painter.setBrush(QBrush(get_theme_color("SURFACE_DARK", "#222222")))
+        painter.setPen(col_axis_active)
+        painter.setBrush(QBrush(get_theme_color("CHART_PIN", "#1A1A1A")))
         painter.drawEllipse(QPointF(cx, cy), 3.0, 3.0)
 
         painter.end()
@@ -302,15 +321,15 @@ class Widget_ContentRadarChart(QWidget):
         if is_winner:
             cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         elif is_active:
-            cat_title_color = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+            cat_title_color = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
         else:
             cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
 
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
-        col_text = get_theme_color_hex("TEXT_ON_DARK", "#ECECEC")
+        col_text = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
         col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
-        col_val = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+        col_val = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
 
         tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: {col_text};">
 <tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 6px;">{name}</td></tr>

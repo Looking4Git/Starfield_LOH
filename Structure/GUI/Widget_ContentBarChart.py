@@ -64,7 +64,7 @@ class _BarCanvas(QWidget):
         col_hovered_text = get_theme_color("TEXT_ON_DARK", "#FFFFFF")
         col_active_text = get_theme_color("TEXT_ON_DARK_MUTED", "#CCCCCC")
         col_inactive_text = get_theme_color("TEXT_MUTED", "#555555")
-        brush_track = get_theme_color("SURFACE_DARK", "#1E1E1E")
+        brush_track = get_theme_color("CHART_GRID", "#2B2B2B")
         brush_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
         brush_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
         col_val_active = get_theme_color("TEXT_ON_DARK_MUTED", "#AAAAAA")
@@ -168,15 +168,15 @@ class _BarCanvas(QWidget):
         if is_winner:
             cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         elif is_active:
-            cat_title_color = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+            cat_title_color = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
         else:
             cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
 
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
-        col_text = get_theme_color_hex("TEXT_ON_DARK", "#ECECEC")
+        col_text = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
         col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
-        col_val = get_theme_color_hex("TEXT_ON_DARK", "#FFFFFF")
+        col_val = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
 
         tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: {col_text};">
 <tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 6px;">{name}</td></tr>

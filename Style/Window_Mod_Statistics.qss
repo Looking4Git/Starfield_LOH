@@ -88,6 +88,23 @@ QLabel#lbl_collapsible_title {
 }
 
 /* -------------------------------------------------------------------------
+   Section_Mod_Statistics_Content (Inhalte: Radar- & Balkendiagramm)
+   ------------------------------------------------------------------------- */
+#Window_Mod_Statistics QLabel#lbl_status {
+    color: {{ TEXT_TITLE }};
+    font-weight: bold;
+    font-size: {{ FONT_SIZE_BUTTON }};
+    background: transparent;
+    border: none;
+}
+
+#Window_Mod_Statistics QWidget#container_main,
+#Window_Mod_Statistics QWidget#container_comp {
+    background: transparent;
+    border: none;
+}
+
+/* -------------------------------------------------------------------------
    Widget_ClassificationCard & Widget_ConflictCard (Kacheln & Zoom)
    ------------------------------------------------------------------------- */
 QFrame#Widget_ClassificationCard,

@@ -36,9 +36,6 @@
     <layout class="QHBoxLayout" name="header_layout">
      <item>
       <widget class="QLabel" name="lbl_status">
-       <property name="styleSheet">
-        <string notr="true">color: #D7A64B; font-weight: bold; font-size: 12px;</string>
-       </property>
        <property name="text">
         <string>Inhaltsdimensionen (Netto-Inhalte nach Prüfschritt 1)</string>
        </property>

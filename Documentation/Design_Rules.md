@@ -251,22 +251,28 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Einsatz:** Vergleichende visuelle Inhaltsanalyse in der Sektion *Inhalte* (`Section_Mod_Statistics_Content`).
 * **Radar-Chart (`Widget_ContentRadarChart`):**
   * 32 dimensionale Achsenstränge für alle Starfield-LOH-Kategorien.
-  * Inaktive Achsen dezent abgeblendet (`#2D2D2D`), aktive Achsen (`#666666`), Siegerkategorie mit dezenter Speiche (`#666666`, kein gelber Vektor) und Label in Starfield-Gelb (`#D7A64B`, fett).
-  * Konzentrische Hilfskreise bei 25 %, 50 %, 75 % und 100 %.
-  * **Äußere Dimension (`dim_calc_outer`, Referenzen / Masse):** Gelbe Kontur (`#D7A64B`, 2px) mit transparenter gelber Füllung (`rgba(215, 166, 75, 0.25)`).
-  * **Innere Dimension (`dim_calc_inner`, Overrides / Tiefe):** Rote Kontur (`#C72138`, 2px) mit transparenter roter Füllung (`rgba(199, 33, 56, 0.35)`).
+  * **Design-Tokens für Achsen & Ringe:**
+    * Inaktive Achsen: dezent abgedimmt über `CHART_AXIS_INACTIVE` (`#202020` Mixed, `#161B22` Dark, `#E1E4E8` Light); Label über `CHART_TEXT_INACTIVE` (`#888888` Mixed/Dark, `#8C959F` Light, `13 px` normal).
+    * Aktive Achsen: deutliche Konturlinie über `CHART_AXIS_ACTIVE` (`#555555` Mixed, `#484F58` Dark, `#8C959F` Light); Label über `CHART_TEXT_ACTIVE` (`#CCCCCC` Mixed/Dark, `#24292F` Light, `13 px` normal).
+    * Hover-Achsen: Highlight über `ACCENT_ACTION_HOVER` (`#5B7A9E`); Label über `CHART_TEXT_HOVER` (`#ECECEC` Mixed, `#FFFFFF` Dark, `#0969DA` Light, `13 px` normal).
+    * Siegerkategorie: dezente Speiche (`CHART_AXIS_ACTIVE`), Label über `CHART_TEXT_WINNER` (`#D7A64B` Mixed/Dark, `#A87B24` Light, `13 px` fett).
+    * Bounding-Box, Padding & Leader-Lines (Highcharts/Chart.js Standard): Diagramm-Padding `48 px`; an den polaren Verdichtungspunkten (`|sin(α)| > 0.8`) verbinden feine gepunktete Linien (`BORDER_SUBTLE`, `16 px`) die Speichenspitzen mit den exakt über `QFontMetrics` berechneten, horizontalen Textboxen (schließt Überlappungen 100 % kollisionsfrei aus und sorgt für klare optische Speichenzuordnung).
+    * Konzentrische Hilfskreise (25 %, 50 %, 75 %) & Außenring (100 %): `CHART_GRID` (`#2B2B2B` Mixed, `#21262D` Dark, `#D0D7DE` Light).
+    * Naben-Pin: `CHART_PIN` (`#1A1A1A` Mixed, `#0D1117` Dark, `#AFB8C1` Light).
+  * **Äußere Dimension (`dim_calc_outer`, Referenzen / Masse):** Gelbe Kontur (`ACCENT_BRAND` = `#D7A64B`, 2px) mit transparenter gelber Füllung (`rgba(215, 166, 75, 0.22)`).
+  * **Innere Dimension (`dim_calc_inner`, Overrides / Tiefe):** Rote Kontur (`STATUS_CRITICAL` = `#C72138`, 2px) mit transparenter roter Füllung (`rgba(199, 33, 56, 0.30)`).
   * **Aktive Polygon-Kettung:** Die Datenpolygone verbinden **ausschließlich aktive Kategorien direkt miteinander**. Inaktive Kategorien (Netto = 0 oder in Schritt 1 ausgeschieden) führen zu keinem Abfall in den Kreismittelpunkt, sodass eine zusammenhängende, geschlossene Fläche entsteht.
 * **Normierung & Skalierung:**
   * Jede Achse ist über das globale Datenbank-Maximum der Kategorie (`View_Category_Dimension_Max.Max_Outer`) auf 0–100 % genormt.
   * **Mod-basierte Aggregation:** Das globale Maximum wird über die Summe aller Komponenten einer Mod (`GROUP BY Mod_ID`) ermittelt. Dadurch wird der vollständige Inhalts-Fingerabdruck von Multi-Komponenten-Mods unverzerrt abgebildet.
   * **Proportionale Vergleichbarkeit:** Sowohl die äußere Referenzmasse (`dim_calc_outer`) als auch die innere Override-Tiefe (`dim_calc_inner`) werden gegen denselben `Max_Outer`-Kategoriewert skaliert (`val / Max_Outer`), damit beide Werte auf derselben Achse direkt vergleichbar sind.
-* **HUD-Tooltip (Dark Mode):**
-  * Einheitliches kompaktes dunkles HUD-Design (`#1A1A1A`, Starfield-blauer Rand `#304C7A`, `padding: 4px 8px`).
+* **HUD-Tooltip (Theme-harmonisiert):**
+  * Einheitliches HUD-Design synchronisiert mit akzentuierten Tabellenzeilen (`SURFACE_SECONDARY`, Starfield-blauer Rand `ACCENT_ACTION` = `#304C7A`, Textfarbe `TEXT_ON_SURFACE`, `padding: 4px 8px`).
   * **Flache HTML-Tabelle:** Direkte `<table>`-Struktur ohne übergeordnetes `<div>` und ohne leere Trennzeilen, um künstliche Leer-Absatzblöcke der Qt-RichText-Engine zu unterbinden.
-  * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie, Weiß für aktive Kategorien, dezent Grau `#888888` für inaktive).
+  * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie, `TEXT_ON_SURFACE` für aktive Kategorien, dezent Grau `TEXT_MUTED` für inaktive).
   * Trennbalken: Direkte `border-bottom: 1px solid #304C7A; padding-bottom: 6px;` Unterstreichung der Titelzelle (hauchdünne 1px-Linie über die volle Tabellenbreite, bündig links und rechts, ausreichend Freiraum für Buchstaben-Unterlängen).
-  * Zeile 1: `Referenzen / Masse:` gefolgt vom direkten absoluten `dim_calc_outer`-Wert (`padding-top: 4px;`).
-  * Zeile 2: `Overrides / Tiefe:` gefolgt vom direkten absoluten `dim_calc_inner`-Wert.
+  * Zeile 1: `Referenzen / Masse:` in Starfield-Gelb gefolgt vom absoluten `dim_calc_outer`-Wert (`padding-top: 4px;`).
+  * Zeile 2: `Overrides / Tiefe:` in Starfield-Rot gefolgt vom absoluten `dim_calc_inner`-Wert.
 * **Horizontales Balkendiagramm (`Widget_ContentBarChart`):**
   * Horizontale Balkenliste aller 32 Kategorien. Roter Overrides-Balken (`dim_calc_inner`) überlagert den gelben Referenzen-Balken (`dim_calc_outer`) mit identischem Tooltip.
   * **Werteanzeige:** Reine absolute Zahlenwerte (ohne redundante Prozentangaben), inaktive Zeilen mit `-`.

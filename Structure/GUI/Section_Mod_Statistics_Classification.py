@@ -13,6 +13,7 @@ from Structure.Controls.LOH_Control_HeaderView import LOH_Control_HeaderView
 from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
 from Structure.GUI.Widget_ClassificationCard import Widget_ClassificationCard
+from Structure.GUI.UI_Utils import format_tooltip_text
 
 
 class ClassificationSortProxyModel(QSortFilterProxyModel):
@@ -253,7 +254,7 @@ class Section_Mod_Statistics_Classification(QWidget):
 
             item_winner = QStandardItem(winner_str)
             item_reason = QStandardItem(reason_str)
-            item_reason.setToolTip(reason_str)
+            item_reason.setToolTip(format_tooltip_text(reason_str, max_chars=70))
 
             for item in (item_step, item_name, item_loser, item_winner, item_reason):
                 item.setEditable(False)

@@ -215,22 +215,27 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 > **QSS-Zentralisierung & Modulares Komponenten-Styling:** Sämtliche visuellen Stile, Rahmenzustände (`:hover`, `[selected="true"]`, `[zoomed="true"]`), Typografie (`FONT_SIZE_SMALL` = 13px, fett für Badges) und Farb-Tokens der Kacheln sind vollständig in [Style/Window_Mod_Statistics.qss](file:///d:/Starfield_LOH/Style/Window_Mod_Statistics.qss) ausgelagert. Operative Python-Widgets steuern ihr Erscheinungsbild deklarativ über dynamische Qt-Properties (`badgeColor`, `keyRole`, `isMono`, `selected`, `zoomed`).
 
 * **Einsatz:** Kompakte Datenkarten und interaktive Kacheln im Diagnose- und Statistikzentrum (`Window_Mod_Statistics`):
-  * **Klassifikations-Kacheln (`Widget_ClassificationCard`):** Feste Standardgröße `315 × 200 px` (Zoom: `630 × 350 px`).
-  * **Konflikt-Kacheln (`Widget_ConflictCard`):** Feste Standardgröße `315 × 260 px` (Zoom: `630 × 400 px`).
+  * **Klassifikations-Kacheln (`Widget_ClassificationCard`):** Feste Standardgröße `315 × 200 px` (Zoom: `630 × 350 px`), Metadaten-Rasterhöhe fest `42 px` (Zoom: `60 px`).
+  * **Konflikt-Kacheln (`Widget_ConflictCard`):** Feste Standardgröße `315 × 300 px` (Zoom: `630 × 480 px`), Metadaten-Rasterhöhe fest `106 px` (Zoom: `150 px`).
 * **Konzentrische Geometrie & Radien:**
   * **Mathematische Konzentrizität:** Gleicher Krümmungsmittelpunkt von Kachelrahmen und Kopf-Badge ($R_{\text{outer}} = R_{\text{inner}} + \text{Abstand}$).
-  * **Kachelrahmen:** Außenradius $R_{\text{outer}} = \mathbf{8\,\text{px}}$ (Projekt-Standard), Randabstand rundum symmetrisch **`5px`** (`margins = (5, 5, 5, 5)`), Hintergrund `SURFACE_DARK`.
+  * **Kachelrahmen:** Außenradius $R_{\text{outer}} = \mathbf{8\,\text{px}}$ (Projekt-Standard), Randabstand rundum symmetrisch **`5px`** (`margins = (5, 5, 5, 5)`), Hintergrund `SURFACE_CARD` (`#1A1A1A` Mixed, `#0D1117` Dark, `#FFFFFF` Light).
   * **Kopf-Badge:** Innenradius $R_{\text{inner}} = \mathbf{3\,\text{px}}$, Höhe `26px`, Innenabstand `4px` links/rechts.
 * **Typografie & Farbgebung (über `Window_Mod_Statistics.qss`):**
   * **Kopf-Badge:** Farbige Typ-Banner (Kritisch `STATUS_CRITICAL`, Warnung `STATUS_WARNING`, Standard `ACCENT_BRAND`, Muted `TEXT_MUTED`), Schriftgröße 13 px Segoe UI fett (`font-weight: bold;`).
   * **Labels (links):** Rechtsbündig an gemeinsamer Fluchtlinie (`Qt.AlignmentFlag.AlignRight`), Farbe `ACCENT_BRAND` (bzw. `STATUS_SUCCESS` für Siegerkategorie in Klassifikation), 13 px Segoe UI Normal.
   * **Werte (rechts):** Linksbündig direkt anschließend, Farbe `TEXT_ON_DARK` (Hex-FormIDs in 13 px `Consolas`, Namen in 13 px `Segoe UI`).
-  * **Stabile Geometrie:** Alle 6 Datenzeilen bei Konflikten stets vorhanden (leere Felder als `""`), wodurch der Trennbalken kartenübergreifend auf exakt gleicher Höhe fixiert bleibt.
+  * **Begründungs-/Beschreibungstext:** Farbe über `CARD_TEXT_DESC` (`#ECECEC` in Mixed/Dark harmonisiert mit `TEXT_ON_DARK`, `#24292F` in Light Mode auf weißem Grund), 13 px Segoe UI.
+  * **Stabile Geometrie:** Feste Container-Raster für die Metadatenzeilen garantieren, dass der Trennbalken kartenübergreifend auf einer absolut identischen horizontalen Fluchtlinie fixiert bleibt.
 * **Trennbalken (`sep_line`):** Starfield-Blau über **`ACCENT_ACTION`** (`#304C7A`), Höhe `3px` (bzw. `4px` im Zoom), `border: none`.
 * **Lupenfunktion (Modal Zoom Overlay bei Klick):** Ein Klick auf eine Kachel öffnet das modale Lupen-Overlay (`LOH_TileZoomOverlay`) in verdoppelter Größe (`630 px` Breite) direkt über der Quellkachel. Klick oder ESC schließt den Zoom.
 * **Virtualisiertes Kachelband (`LOH_Control_TileView`):**
   * Windowed Viewport-Virtualisierung mit Pufferkacheln und strikt indexbasierter Einfügung im `QHBoxLayout`.
   * Kachelgenaue Schrittweite der Scrollbar (`singleStep = tile_width + spacing = 323 px`).
+  * **Standardisierte Höhen & Kachel-Rollbalken-Abstand (Delta 28 px / 9 px Abstand):**
+    * *Klassifikation:* Kachelhöhe `200 px`, TileView-Höhe `228 px`, Standardhöhe der Sektion `260 px`.
+    * *Konflikte:* Kachelhöhe `300 px`, TileView-Höhe `328 px`, Standardhöhe der Sektion `398 px`.
+    * *Kachel-Rollbalken-Abstand:* Einheitlich exakt **`9 px`** Abstand zwischen Kachelunterkante und Oberkante der horizontalen Scrollbar über beide Sektionen hinweg.
   * Siehe [LOH_Control_TileView_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_TileView_Documentation.md).
 * **Dashboard-Modul-Kacheln (`Widget_TileIconButton` auf `Page_Tools`):**
   * **Kachel:** Quadratisch (`64×64 px`), Rundung `12px`, zentriertes Icon (`43×43 px`). Zustandsfarben über `BUTTON_BLUE_*` bzw. `BUTTON_RED_*` Tokens (Normal, Hover, Pressed, Disabled).
@@ -295,6 +300,18 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
     * Checkbox für automatischen Zeilenumbruch (Standard: aktiviert).
     * Großflächiger `QTextBrowser` für ermüdungsfreies Lesen langer Markdown-Texte inkl. klickbarer Links.
     * Rechtsbündige Standard-Schaltfläche *Schließen* (120 × 32 px, **`BUTTON_BLUE_*`**).
+
+---
+
+### L. Tooltips & Informations-Popups (`QToolTip` & `format_tooltip_text`)
+* **Styling (über `Starfield_LOH_Common.qss`):**
+  * Sci-Fi HUD-Optik (synchronisiert mit akzentuierten Tabellenzeilen): Hintergrund `SURFACE_SECONDARY` (`#E0E0E0` Mixed, `#1E232B` Dark, `#EAECEF` Light), Textfarbe `TEXT_ON_SURFACE` (`#000000` Mixed, `#ECECEC` Dark, `#24292F` Light), 1px Rahmen in `ACCENT_ACTION` (`#304C7A`), `padding: 4px 8px`.
+* **Format- & Umbruchdisziplin (`format_tooltip_text` in `Structure/GUI/UI_Utils.py`):**
+  * Standard-Qt-Tooltips für Plaintext besitzen keine automatische Breitenbegrenzung und würden lange Fließtexte einzeilig über den gesamten Bildschirm strecken.
+  * Längere Tooltip-Texte (insbesondere Begründungs-, Diagnose- und Prüfschritt-Beschreibungen in Tabellen wie `table_classification` und `table_conflicts`) müssen zwingend vor der Zuweisung an `item.setToolTip()` über `format_tooltip_text(text, max_chars=70)` formatiert werden.
+  * Dies bricht Fließtext an Wortgrenzen bei ca. **70 Zeichen** um und erzeugt ein lesbares, wohlproportioniertes Rechteckformat (~480–520 px Breite). Bestehende manuelle Absätze und strukturierte Header (`[...]`) bleiben unverändert als eigenständige Zeilen erhalten.
+
+---
 
 ### 3.1 Menüstruktur & Navigation (Sidebar)
 Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht (**64 px**) und einer erweiterten Ansicht mit Icons und Text (**175 px**) umgeschaltet werden:

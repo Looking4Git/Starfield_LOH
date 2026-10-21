@@ -92,7 +92,7 @@ QLabel#lbl_collapsible_title {
    ------------------------------------------------------------------------- */
 QFrame#Widget_ClassificationCard,
 QFrame#Widget_ConflictCard {
-    background-color: {{ SURFACE_DARK }};
+    background-color: {{ SURFACE_CARD }};
     border: 1px solid {{ BORDER_SUBTLE }};
     border-radius: 8px;
 }
@@ -220,7 +220,7 @@ QLabel#lbl_card_value[isMono="true"] {
 /* Begründungstext */
 #Widget_ClassificationCard QLabel#lbl_card_reason,
 #Widget_ConflictCard QLabel#lbl_card_reason {
-    color: {{ TEXT_ON_DARK_MUTED }};
+    color: {{ CARD_TEXT_DESC }};
     font-family: {{ FONT_FAMILY }};
     font-size: {{ FONT_SIZE_SMALL }};
     background: transparent;

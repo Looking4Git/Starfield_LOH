@@ -351,7 +351,7 @@ class Page_LoadOrder(QWidget):
         if self.btn_import_profile:
             make_button_premium(
                 self.btn_import_profile,
-                os.path.join(APP_ROOT, "Graphics", "Icon_Update.svg"),
+                os.path.join(APP_ROOT, "Graphics", "Icon_Profile_Import.svg"),
                 "Einlesen",
                 bold=True,
                 icon_size=18
@@ -360,7 +360,7 @@ class Page_LoadOrder(QWidget):
         if self.btn_copy_profile:
             make_button_premium(
                 self.btn_copy_profile,
-                os.path.join(APP_ROOT, "Graphics", "Icon_Add.svg"),
+                os.path.join(APP_ROOT, "Graphics", "Icon_Profile_Add.svg"),
                 "Kopieren",
                 bold=True,
                 icon_size=18
@@ -369,7 +369,7 @@ class Page_LoadOrder(QWidget):
         if self.btn_delete_profile:
             make_button_premium(
                 self.btn_delete_profile,
-                os.path.join(APP_ROOT, "Graphics", "Icon_Delete.svg"),
+                os.path.join(APP_ROOT, "Graphics", "Icon_Profile_Delete.svg"),
                 "Löschen",
                 bold=True,
                 icon_size=18
@@ -384,11 +384,11 @@ class Page_LoadOrder(QWidget):
         self.btn_apply_classifier_mod = ui.findChild(QPushButton, "btn_apply_classifier_mod")
         self.btn_apply_classifier_all = ui.findChild(QPushButton, "btn_apply_classifier_all")
         if self.btn_apply_classifier_mod:
-            make_button_premium(self.btn_apply_classifier_mod, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down.svg"), "Mod", icon_size=(14, 14))
+            make_button_premium(self.btn_apply_classifier_mod, os.path.join(APP_ROOT, "Graphics", "Icon_Category_Single.svg"), "Mod", icon_size=18)
             self.btn_apply_classifier_mod.setEnabled(False)
             self.btn_apply_classifier_mod.clicked.connect(self.on_apply_classifier_mod_clicked)
         if self.btn_apply_classifier_all:
-            make_button_premium(self.btn_apply_classifier_all, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down_Double.svg"), "Alle", icon_size=(26, 14))
+            make_button_premium(self.btn_apply_classifier_all, os.path.join(APP_ROOT, "Graphics", "Icon_Category_All.svg"), "Alle", icon_size=18)
             self.btn_apply_classifier_all.setEnabled(False)
             self.btn_apply_classifier_all.clicked.connect(self.on_apply_classifier_all_clicked)
         self.update_classifier_status()
@@ -452,10 +452,10 @@ class Page_LoadOrder(QWidget):
         self.btn_apply_sorter_profile = ui.findChild(QPushButton, "btn_apply_sorter_profile")
         self.btn_apply_sorter_all = ui.findChild(QPushButton, "btn_apply_sorter_all")
         if self.btn_apply_sorter_profile:
-            make_button_premium(self.btn_apply_sorter_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down.svg"), "Profil", icon_size=(14, 14))
+            make_button_premium(self.btn_apply_sorter_profile, os.path.join(APP_ROOT, "Graphics", "Icon_Profile_Single.svg"), "Profil", icon_size=18)
             self.btn_apply_sorter_profile.clicked.connect(self.on_apply_sorter_profile_clicked)
         if self.btn_apply_sorter_all:
-            make_button_premium(self.btn_apply_sorter_all, os.path.join(APP_ROOT, "Graphics", "Icon_Arrow_Down_Double.svg"), "Alle", icon_size=(26, 14))
+            make_button_premium(self.btn_apply_sorter_all, os.path.join(APP_ROOT, "Graphics", "Icon_Profile_All.svg"), "Alle", icon_size=18)
             self.btn_apply_sorter_all.clicked.connect(self.on_apply_sorter_all_clicked)
             
         # Zuweisung einer ID zur Zeilen-Identifikation

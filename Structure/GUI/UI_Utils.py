@@ -1,4 +1,5 @@
 import os
+import textwrap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton
 from PySide6.QtGui import QIcon, QPixmap, QPainter
 from PySide6.QtCore import Qt, QObject, QEvent
@@ -302,4 +303,24 @@ def show_starfield_message_box(
         msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
         msg_box.exec()
         return True
+
+
+def format_tooltip_text(text: str, max_chars: int = 70) -> str:
+    """
+    Formatiert lange Tooltip-Texte in ein lesbares, wohlproportioniertes Rechteck (HUD-Format):
+    - Behält bestehende Absätze und strukturierte Header (Zeilenumbrüche) bei
+    - Bricht Fließtextzeilen an Wortgrenzen bei max_chars (Standard: 70 Zeichen) um
+    - Verhindert über die gesamte Bildschirmbreite gezogene Einzeiler-Tooltips
+    """
+    if not text:
+        return ""
+    paragraphs = text.split("\n")
+    wrapped_paragraphs = []
+    for p in paragraphs:
+        if p.strip():
+            wrapped_paragraphs.append(textwrap.fill(p.strip(), width=max_chars))
+        else:
+            wrapped_paragraphs.append("")
+    return "\n".join(wrapped_paragraphs)
+
 

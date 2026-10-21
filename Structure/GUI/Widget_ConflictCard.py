@@ -28,8 +28,8 @@ def get_type_color_role(ctype: int) -> str:
 class Widget_ConflictCard(QFrame):
     """
     Konflikt-Kachel für Mod-Konflikte:
-    - Normalmodus (is_zoomed=False): Feste Größe 315 x 260 px für flüssiges Scrolling im Ribbon
-    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (630 x 400 px) mit vollem Lesebereich
+    - Normalmodus (is_zoomed=False): Feste Größe 315 x 300 px für flüssiges Scrolling im Ribbon
+    - Lupenmodus (is_zoomed=True): Vergrößerte Ansicht (630 x 480 px) mit vollem Lesebereich
     - Konzentrische Eckenradien: R_outer = R_inner + Abstand (8px = 3px + 5px)
     - Labels in Starfield-Gelb, rechtsbündig ausgerichtet, kompakter Block
     - 6 fixe Zeilen (leere Werte als "") für absolut einheitliche Trennlinien-Höhe
@@ -50,7 +50,7 @@ class Widget_ConflictCard(QFrame):
         self.data = data or {}
         self.is_zoomed = is_zoomed
         self.base_width = 630 if is_zoomed else base_width
-        self.card_height = 400 if is_zoomed else 260
+        self.card_height = 480 if is_zoomed else 300
         self._is_selected = False
 
         self.setObjectName("Widget_ConflictCard")
@@ -93,8 +93,10 @@ class Widget_ConflictCard(QFrame):
         main_layout.addWidget(self.badge_frame)
 
         # 2. Informationstextfeld-Grid (Labels rechtsbündig, Monospace für Hex-IDs)
-        self.grid_layout = QGridLayout()
-        self.grid_layout.setContentsMargins(0, 2, 0, 2)
+        self.grid_container = QWidget()
+        self.grid_container.setFixedHeight(150 if self.is_zoomed else 106)
+        self.grid_layout = QGridLayout(self.grid_container)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setHorizontalSpacing(8)
         self.grid_layout.setVerticalSpacing(2)
 
@@ -139,7 +141,7 @@ class Widget_ConflictCard(QFrame):
             val.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             self.grid_layout.addWidget(val, row_idx, 1)
 
-        main_layout.addLayout(self.grid_layout)
+        main_layout.addWidget(self.grid_container)
 
         # 3. Trennlinie (Starfield Blau via QSS)
         self.sep_line = QFrame()

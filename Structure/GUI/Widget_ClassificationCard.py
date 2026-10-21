@@ -83,7 +83,9 @@ class Widget_ClassificationCard(QFrame):
         main_layout.addWidget(self.badge_frame)
 
         # 2. Metadaten-Grid (Verlierer & Gewinner)
-        self.grid_layout = QGridLayout()
+        self.grid_container = QWidget()
+        self.grid_container.setFixedHeight(60 if self.is_zoomed else 42)
+        self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setContentsMargins(0, 2, 0, 2)
         self.grid_layout.setHorizontalSpacing(8)
         self.grid_layout.setVerticalSpacing(3)
@@ -115,7 +117,7 @@ class Widget_ClassificationCard(QFrame):
             val.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             self.grid_layout.addWidget(val, row_idx, 1)
 
-        main_layout.addLayout(self.grid_layout)
+        main_layout.addWidget(self.grid_container)
 
         # 3. Trennlinie (Starfield Blau via QSS)
         self.sep_line = QFrame()

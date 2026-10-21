@@ -943,8 +943,8 @@ QPushButton#btn_floating_redock:hover {
    Abschnitt 13 – Tooltips (HUD-Design)
    ========================================================================= */
 QToolTip {
-    background-color: {{ PANEL_BG }};
-    color: {{ TEXT_ON_DARK }};
+    background-color: {{ SURFACE_SECONDARY }};
+    color: {{ TEXT_ON_SURFACE }};
     border: 1px solid {{ ACCENT_ACTION }};
     padding: 4px 8px;
     font-family: {{ FONT_FAMILY }};

@@ -14,6 +14,7 @@ from Structure.Controls.LOH_Control_TileView import LOH_Control_TileView
 from Structure.Controls.LOH_Control_SectionResizeGrip import LOH_Control_SectionResizeGrip
 from Structure.GUI.Widget_ConflictCard import Widget_ConflictCard
 from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
+from Structure.GUI.UI_Utils import format_tooltip_text
 
 CONFLICT_TYPES = {
     0: "Kein",
@@ -100,12 +101,12 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             target_widget=self,
             min_height=350,
             max_height=800,
-            default_height=350,
+            default_height=398,
             parent=self
         )
         self.resize_grip.height_changed.connect(self._on_table_height_changed)
         layout.addWidget(self.resize_grip)
-        self.setFixedHeight(350)
+        self.setFixedHeight(398)
 
         # UI-Elemente referenzieren
         self.lbl_stats = self.ui.findChild(QLabel, "lbl_stats")
@@ -125,11 +126,12 @@ class Section_Mod_Statistics_Conflicts(QWidget):
         self.tile_view = LOH_Control_TileView(
             card_class=Widget_ConflictCard,
             tile_width=315,
+            card_height=300,
             tile_spacing=8,
             buffer_count=8,
             parent=self
         )
-        self.tile_view.setFixedHeight(295)
+        self.tile_view.setFixedHeight(328)
         if self.layout_tiles_page:
             self.layout_tiles_page.addWidget(self.tile_view)
 
@@ -209,7 +211,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 # Kachelansicht: Zieher ausblenden und Sektion fest auf Standardhöhe fixieren (kein Freiraum)
                 if hasattr(self, "resize_grip"):
                     self.resize_grip.setVisible(False)
-                self.setFixedHeight(346)
+                self.setFixedHeight(398)
                 if hasattr(self, "tile_view"):
                     self.tile_view._sync_content_height()
                     self.tile_view._update_visible_window(force=True)
@@ -348,7 +350,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                     tip_parts.append(f"Beteiligte ESM-Dateien: {main_file}  ⚡  {partner_file}")
                 if id_req and id_dep:
                     tip_parts.append(f"Ladereihenfolge-Regel: Mod {id_req} muss VOR Mod {id_dep} geladen werden.")
-                item_step.setToolTip("\n".join(tip_parts))
+                item_step.setToolTip(format_tooltip_text("\n".join(tip_parts), max_chars=70))
 
                 item_sig = QStandardItem(sig if sig else "-")
                 item_sig.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -364,7 +366,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
                 reason_tip = reason
                 if main_file and partner_file:
                     reason_tip = f"[{partner_name} | {main_file} vs {partner_file}]\n{reason}"
-                item_reason.setToolTip(reason_tip)
+                item_reason.setToolTip(format_tooltip_text(reason_tip, max_chars=70))
 
                 if ctype == 0:
                     muted = get_theme_color("TEXT_MUTED", "#888888")

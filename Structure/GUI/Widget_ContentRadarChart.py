@@ -1,6 +1,6 @@
 import math
 from PySide6.QtWidgets import QWidget, QToolTip
-from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtCore import Qt, QPointF, QRectF, QSize
 from PySide6.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPolygonF, QMouseEvent, QFontMetrics
 )
@@ -16,6 +16,7 @@ class Widget_ContentRadarChart(QWidget):
     - Äußere Dimension (dim_calc_outer, Referenzen) in Starfield-Gelb mit Alpha-Füllung
     - Innere Dimension (dim_calc_inner, Overrides) in Starfield-Rot mit Alpha-Füllung
     - Interaktives Hover mit präzisem HUD-Tooltip
+    - Dynamische Randabstands-Pufferung und beschnittfreies simultanes Wachstum (Option 2)
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,12 +29,110 @@ class Widget_ContentRadarChart(QWidget):
         self._mod_name = ""
         self._hovered_idx = -1
 
+        # Cache für Schriftgrößen, Textbreiten und Schwellenwerte (Zero-Overhead beim Drag/Resize)
+        self._cached_metrics = None
+        self._r_thresh_1 = 105.5
+        self._r_thresh_2 = 121.0
+        self._m_x_11 = 83.0
+        self._m_x_12 = 87.0
+        self._m_x_13 = 94.0
+        self._precompute_metrics()
+
+    def _precompute_metrics(self):
+        """
+        Berechnet alle Schriftbreiten, Text-Bounding-Boxes und Zielradien
+        einmalig bei Datenänderung vor (verhindert UI-Thread-Stalls beim Resize).
+        """
+        self._cached_metrics = {}
+        for px in (11, 12, 13):
+            f_norm = QFont("Segoe UI")
+            f_norm.setPixelSize(px)
+            fm_norm = QFontMetrics(f_norm)
+
+            f_win = QFont("Segoe UI")
+            f_win.setPixelSize(px)
+            f_win.setBold(True)
+            fm_win = QFontMetrics(f_win)
+
+            f_inact = QFont("Segoe UI")
+            f_inact.setPixelSize(px)
+
+            widths_norm = []
+            widths_win = []
+            max_tw = 0.0
+
+            if self._items:
+                for it in self._items:
+                    name = it.get("name", "")
+                    w_n = fm_norm.horizontalAdvance(name)
+                    w_w = fm_win.horizontalAdvance(name)
+                    widths_norm.append(w_n)
+                    widths_win.append(w_w)
+                    if w_w > max_tw:
+                        max_tw = float(w_w)
+            else:
+                max_tw = float(fm_win.horizontalAdvance("Außenposten"))
+
+            self._cached_metrics[px] = {
+                "font_normal": f_norm,
+                "font_winner": f_win,
+                "font_inactive": f_inact,
+                "fm_normal": fm_norm,
+                "fm_winner": fm_win,
+                "th": fm_norm.height(),
+                "widths_normal": widths_norm,
+                "widths_winner": widths_win,
+                "m_x": max_tw + 12.0
+            }
+
+        self._m_x_11 = self._cached_metrics[11]["m_x"]
+        self._m_x_12 = self._cached_metrics[12]["m_x"]
+        self._m_x_13 = self._cached_metrics[13]["m_x"]
+        self._r_thresh_1 = 385.0 / 2.0 - self._m_x_12
+        self._r_thresh_2 = 430.0 / 2.0 - self._m_x_13
+
+    def _calculate_layout(self, w: float, h: float) -> tuple[float, int, float, float, float, float]:
+        """
+        Berechnet die dynamische Geometrie in O(1) Geschwindigkeit:
+        - Reine Float-Mathematik ohne QFontMetrics-Aufrufe
+        """
+        cx = w / 2.0
+        cy = h / 2.0
+
+        if w <= 385.0:
+            font_px = 11
+        elif w <= 430.0:
+            font_px = 12
+        else:
+            font_px = 13
+
+        if not self._cached_metrics:
+            self._precompute_metrics()
+
+        m_x_current = self._cached_metrics[font_px]["m_x"]
+        m_y = 36.0
+        r_min = 80.0
+
+        # Stetiges Wachstum: Der Radius schrumpft bei Schriftwechseln zu keinem Zeitpunkt zurück
+        if w <= 320.0:
+            r_target = r_min
+        elif w <= 385.0:
+            r_target = r_min + (self._r_thresh_1 - r_min) * ((w - 320.0) / (385.0 - 320.0))
+        elif w <= 430.0:
+            r_target = self._r_thresh_1 + (self._r_thresh_2 - self._r_thresh_1) * ((w - 385.0) / (430.0 - 385.0))
+        else:
+            r_target = cx - self._m_x_13
+
+        radius = max(r_min, min(r_target, cy - m_y))
+        return radius, font_px, m_x_current, m_y, cx, cy
+
     def set_data(self, items: list[dict], winner_category: str | None = None, mod_name: str | None = None):
         """Setzt die 32 Kategorie-Datenpunkte und zeichnet das Diagramm neu."""
         self._items = items or []
         self._winner_cat = winner_category
         self._mod_name = mod_name or ""
         self._hovered_idx = -1
+        self._precompute_metrics()
         self.update()
 
     def clear(self):
@@ -41,6 +140,7 @@ class Widget_ContentRadarChart(QWidget):
         self._winner_cat = None
         self._mod_name = ""
         self._hovered_idx = -1
+        self._precompute_metrics()
         self.update()
 
     def paintEvent(self, event):
@@ -50,8 +150,6 @@ class Widget_ContentRadarChart(QWidget):
 
         w = self.width()
         h = self.height()
-        cx = w / 2.0
-        cy = h / 2.0
 
         # Wenn keine Daten vorhanden sind
         if not self._items:
@@ -63,9 +161,8 @@ class Widget_ContentRadarChart(QWidget):
             painter.end()
             return
 
-        # Dynamischer Radius (deutlich vergrößertes Diagramm durch optimiertes Padding)
-        padding = 48.0
-        radius = max(20.0, min(cx, cy) - padding)
+        # Dynamischer Radius & simultan skalierte Schriftgröße (Option 2)
+        radius, font_px, m_x, m_y, cx, cy = self._calculate_layout(w, h)
         total_axes = len(self._items)  # 32
 
         # 1. Konzentrische Hilfskreise (25%, 50%, 75%, 100%)
@@ -82,16 +179,18 @@ class Widget_ContentRadarChart(QWidget):
         painter.setPen(pen_outer_ring)
         painter.drawEllipse(QPointF(cx, cy), radius, radius)
 
-        # 2. Achsenstrahlen & Beschriftung zeichnen
-        font_normal = QFont("Segoe UI")
-        font_normal.setPixelSize(13)
+        # 2. Achsenstrahlen & Beschriftung zeichnen (Zero-Overhead über vorberechneten Cache)
+        cache = self._cached_metrics.get(font_px) if self._cached_metrics else None
+        if not cache:
+            self._precompute_metrics()
+            cache = self._cached_metrics[font_px]
 
-        font_winner = QFont("Segoe UI")
-        font_winner.setPixelSize(13)
-        font_winner.setBold(True)
-
-        font_inactive = QFont("Segoe UI")
-        font_inactive.setPixelSize(13)
+        font_normal = cache["font_normal"]
+        font_winner = cache["font_winner"]
+        font_inactive = cache["font_inactive"]
+        th = cache["th"]
+        widths_normal = cache["widths_normal"]
+        widths_winner = cache["widths_winner"]
 
         col_winner = get_theme_color("CHART_TEXT_WINNER", "#D7A64B")
         col_hovered_text = get_theme_color("CHART_TEXT_HOVER", "#ECECEC")
@@ -101,9 +200,6 @@ class Widget_ContentRadarChart(QWidget):
         col_axis_active = get_theme_color("CHART_AXIS_ACTIVE", "#555555")
         col_axis_inactive = get_theme_color("CHART_AXIS_INACTIVE", "#202020")
         pen_leader = QPen(get_theme_color("BORDER_SUBTLE", "#444444"), 1.0, Qt.PenStyle.DotLine)
-
-        fm_normal = QFontMetrics(font_normal)
-        fm_winner = QFontMetrics(font_winner)
 
         axis_angles = []
         axis_endpoints = []
@@ -143,26 +239,23 @@ class Widget_ContentRadarChart(QWidget):
                 painter.setPen(pen_leader)
                 painter.drawLine(end_pt, QPointF(lbl_x, lbl_y))
 
-            # Textfarbe & Font
+            # Textfarbe, Font & vorberechnete Textbreite (O(1) ohne Font-Shaper)
             if is_winner:
                 painter.setPen(col_winner)
                 painter.setFont(font_winner)
-                fm = fm_winner
+                tw = widths_winner[i] if i < len(widths_winner) else 80.0
             elif is_hovered:
                 painter.setPen(col_hovered_text)
                 painter.setFont(font_normal)
-                fm = fm_normal
+                tw = widths_normal[i] if i < len(widths_normal) else 80.0
             elif is_active:
                 painter.setPen(col_active_text)
                 painter.setFont(font_normal)
-                fm = fm_normal
+                tw = widths_normal[i] if i < len(widths_normal) else 80.0
             else:
                 painter.setPen(col_inactive_text)
                 painter.setFont(font_inactive)
-                fm = fm_normal
-
-            tw = fm.horizontalAdvance(cat_name)
-            th = fm.height()
+                tw = widths_normal[i] if i < len(widths_normal) else 80.0
 
             # Ausrichtung & Bounding Box
             if abs(cos_a) > 0.25:
@@ -257,16 +350,12 @@ class Widget_ContentRadarChart(QWidget):
             super().mouseMoveEvent(event)
             return
 
-        cx = self.width() / 2.0
-        cy = self.height() / 2.0
+        radius, font_px, m_x, m_y, cx, cy = self._calculate_layout(self.width(), self.height())
         mx = event.position().x()
         my = event.position().y()
         dx = mx - cx
         dy = my - cy
         dist = math.sqrt(dx * dx + dy * dy)
-
-        padding = 58.0
-        radius = max(20.0, min(cx, cy) - padding)
 
         # Wenn Maus zu weit außerhalb
         if dist > radius + 40.0:

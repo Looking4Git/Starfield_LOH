@@ -24,8 +24,24 @@ from Structure.GUI.UI_Theme_Tokens import THEME_TOKENS, TYPOGRAPHY_TOKENS
 
 
 
-def get_current_theme_mode() -> str:
-    """Liest den konfigurierten Theme-Modus aus settings.json (Bereich 'settings', Fallback: 'ui' / 'mixed')."""
+_THEME_MODE_CACHE = None
+
+
+def invalidate_theme_cache():
+    """Invalidiert den gecachten Theme-Modus (aufzurufen nach Speichern neuer Einstellungen)."""
+    global _THEME_MODE_CACHE
+    _THEME_MODE_CACHE = None
+
+
+def get_current_theme_mode(force_reload: bool = False) -> str:
+    """
+    Liest den konfigurierten Theme-Modus aus settings.json (Bereich 'settings', Fallback: 'ui' / 'mixed').
+    Nutzt In-Memory-Caching zur Vermeidung von UI-Thread-Stalls bei Repaints.
+    """
+    global _THEME_MODE_CACHE
+    if not force_reload and _THEME_MODE_CACHE is not None:
+        return _THEME_MODE_CACHE
+
     try:
         from Structure.Paths import SETTINGS_FILE
         if os.path.exists(SETTINGS_FILE):
@@ -33,9 +49,11 @@ def get_current_theme_mode() -> str:
                 data = json.load(f)
                 mode = data.get("settings", {}).get("theme_mode") or data.get("ui", {}).get("theme_mode", "mixed")
                 if mode in THEME_TOKENS:
+                    _THEME_MODE_CACHE = mode
                     return mode
     except Exception:
         pass
+    _THEME_MODE_CACHE = "mixed"
     return "mixed"
 
 
@@ -224,6 +242,9 @@ def setup_starfield_theme(
     theme_changed = (theme_mode is not None)
     if theme_mode is None:
         theme_mode = get_current_theme_mode()
+    else:
+        global _THEME_MODE_CACHE
+        _THEME_MODE_CACHE = theme_mode
 
     if app is None:
         app = QApplication.instance()

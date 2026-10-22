@@ -132,6 +132,8 @@ class Page_Mods(QWidget):
     def update_scrollbar_visibility(self, min_val, max_val):
         vsb = self.scroll_area_detail.verticalScrollBar()
         needed = min_val < max_val
+        if vsb.property("needed") == needed:
+            return
         vsb.setProperty("needed", needed)
         vsb.style().unpolish(vsb)
         vsb.style().polish(vsb)

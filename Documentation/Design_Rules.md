@@ -256,7 +256,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
     * Aktive Achsen: deutliche Konturlinie über `CHART_AXIS_ACTIVE` (`#555555` Mixed, `#484F58` Dark, `#8C959F` Light); Label über `CHART_TEXT_ACTIVE` (`#CCCCCC` Mixed/Dark, `#24292F` Light, `13 px` normal).
     * Hover-Achsen: Highlight über `ACCENT_ACTION_HOVER` (`#5B7A9E`); Label über `CHART_TEXT_HOVER` (`#ECECEC` Mixed, `#FFFFFF` Dark, `#0969DA` Light, `13 px` normal).
     * Siegerkategorie: dezente Speiche (`CHART_AXIS_ACTIVE`), Label über `CHART_TEXT_WINNER` (`#D7A64B` Mixed/Dark, `#A87B24` Light, `13 px` fett).
-    * Bounding-Box, Padding & Leader-Lines (Highcharts/Chart.js Standard): Diagramm-Padding `48 px`; an den polaren Verdichtungspunkten (`|sin(α)| > 0.8`) verbinden feine gepunktete Linien (`BORDER_SUBTLE`, `16 px`) die Speichenspitzen mit den exakt über `QFontMetrics` berechneten, horizontalen Textboxen (schließt Überlappungen 100 % kollisionsfrei aus und sorgt für klare optische Speichenzuordnung).
+    * **Bounding-Box, Beschnitt-Schutz & simultanes Wachstum (Option 2):** Dynamische Randpufferung $M_x$ über reale `QFontMetrics` der 32 Kategorien (kein Abschneiden an Ost-/Westflanke). Mindestradius $R_{\text{min}} = 80\text{ px}$. Stauchungsfreie $C^0$-stetige Radius-Interpolation (der innere Kreis schrumpft an den Schwellenwerten niemals zurück). Simultan-Skalierung der Typografie nach Diagrammbreite ($w \le 385\text{ px} \rightarrow 11\text{ px}$; $385 < w \le 430\text{ px} \rightarrow 12\text{ px}$; $w > 430\text{ px} \rightarrow 13\text{ px}$ Standard). An den polaren Verdichtungspunkten (`|sin(α)| > 0.8`) verbinden feine gepunktete Linien (`BORDER_SUBTLE`, `16 px`) die Speichenspitzen mit den horizontalen Textboxen.
     * Konzentrische Hilfskreise (25 %, 50 %, 75 %) & Außenring (100 %): `CHART_GRID` (`#2B2B2B` Mixed, `#21262D` Dark, `#D0D7DE` Light).
     * Naben-Pin: `CHART_PIN` (`#1A1A1A` Mixed, `#0D1117` Dark, `#AFB8C1` Light).
   * **Äußere Dimension (`dim_calc_outer`, Referenzen / Masse):** Gelbe Kontur (`ACCENT_BRAND` = `#D7A64B`, 2px) mit transparenter gelber Füllung (`rgba(215, 166, 75, 0.22)`).
@@ -464,7 +464,7 @@ Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mo
    * Titel `"Docking: Mod-Analyse & Statistiken"`, `color: {{ TEXT_ON_DARK_MUTED }};`, `font-size: {{ FONT_SIZE_DESC }};` (14 px), `font-weight: bold;`.
    * Nahtloser Hintergrund mit `{{ WINDOW_BG }}` und dezentem Trennstrich `border-bottom: 1px solid {{ BORDER_SUBTLE }};`.
 3. **Rollbalken-Gutter & Breitenstabilität:**
-   * Verbindliche Mindestbreite von **850 px** für das Statistikfenster sowohl angedockt als auch freischwebend.
+   * Verbindliche Mindestbreite von **750 px** für das Statistikfenster sowohl angedockt als auch freischwebend.
    * `dock_layout.setContentsMargins(0, 0, 0, 0)` garantiert, dass der 16px-Gutter des Rollbalkens exakt reserviert bleibt und keine Bedienelemente an der rechten Kante abgeschnitten werden.
 4. **Dynamische Breitenführung bei manuellem Resize:**
    * Manuelle Größenänderungen des Hauptfensters synchronisieren kontinuierlich `base_main_width = max(1280, main_window.width() - (dock_w + SEPARATOR_WIDTH))`.

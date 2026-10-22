@@ -243,7 +243,7 @@ class StarfieldLOH(QMainWindow):
         # Container für das angedockte Diagnose-/Statistik-Panel
         self.dock_container = QWidget(self)
         self.dock_container.setObjectName("dock_container")
-        self.dock_container.setMinimumWidth(850)
+        self.dock_container.setMinimumWidth(750)
         self.dock_layout = QVBoxLayout(self.dock_container)
         self.dock_layout.setContentsMargins(0, 0, 0, 0)
         self.dock_layout.setSpacing(0)

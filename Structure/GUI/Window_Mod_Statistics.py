@@ -31,7 +31,7 @@ class Window_Mod_Statistics(QWidget):
         self.splash_callback = splash_callback
 
         # Standard-Geometrie & Mindestmaße
-        self.min_width = 850
+        self.min_width = 750
         self.min_height = 400
         self.setMinimumSize(self.min_width, self.min_height)
         
@@ -110,6 +110,8 @@ class Window_Mod_Statistics(QWidget):
             return
         vsb = self.scroll_area.verticalScrollBar()
         needed = min_val < max_val
+        if vsb.property("needed") == needed:
+            return
         vsb.setProperty("needed", needed)
         vsb.style().unpolish(vsb)
         vsb.style().polish(vsb)
@@ -117,7 +119,7 @@ class Window_Mod_Statistics(QWidget):
     def load_geometry_settings(self, cfg: dict):
         if not cfg or not isinstance(cfg, dict):
             return
-        self.min_width = max(850, cfg.get("min_width", 850))
+        self.min_width = max(750, cfg.get("min_width", 750))
         self.setMinimumWidth(self.min_width)
         
         self.target_width = cfg.get("width", cfg.get("docked_width", 1000))

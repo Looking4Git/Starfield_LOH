@@ -184,12 +184,17 @@ class Section_Mod_Statistics_Content(QWidget):
             r = cur.fetchone()
             mod_name = r["Name"] if r and r["Name"] else f"Mod {mod_id}"
 
-            # 2. Ausgeschiedene Kategorien in Prüfschritt 1
+            # 2. Ausgeschiedene Kategorien in Prüfschritt 1 (nur wenn in keiner Komponente der Mod weitergekommen)
             cur.execute("""
                 SELECT DISTINCT CategoryLOH_ID_Looser 
                 FROM LoadOrder_Classifier_Results 
                 WHERE Mod_ID = ? AND Step_ID = 1
-            """, (mod_id,))
+                  AND CategoryLOH_ID_Looser NOT IN (
+                      SELECT CategoryLOH_ID_Looser FROM LoadOrder_Classifier_Results WHERE Mod_ID = ? AND Step_ID > 1
+                      UNION
+                      SELECT CategoryLOH_ID_Winner FROM LoadOrder_Classifier_Results WHERE Mod_ID = ? AND Step_ID > 1
+                  )
+            """, (mod_id, mod_id, mod_id))
             excluded_step1 = {row[0] for row in cur.fetchall()}
 
             # 3. Siegerkategorie aus Classifier-Ergebnissen

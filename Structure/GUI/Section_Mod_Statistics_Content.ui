@@ -13,7 +13,7 @@
   <property name="minimumSize">
    <size>
     <width>0</width>
-    <height>480</height>
+    <height>0</height>
    </size>
   </property>
   <layout class="QVBoxLayout" name="main_layout">
@@ -30,7 +30,7 @@
     <number>6</number>
    </property>
    <property name="bottomMargin">
-    <number>6</number>
+    <number>8</number>
    </property>
    <item>
     <layout class="QHBoxLayout" name="header_layout">
@@ -104,7 +104,7 @@
         <enum>QFrame::Shadow::Plain</enum>
        </property>
        <property name="styleSheet">
-        <string notr="true">color: #304C7A; background-color: #304C7A; width: 1px;</string>
+        <string notr="true">margin-top: 4px; margin-bottom: 3px;</string>
        </property>
       </widget>
      </item>

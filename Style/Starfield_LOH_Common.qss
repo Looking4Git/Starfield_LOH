@@ -78,8 +78,8 @@ QTableView, QTreeView {
     font-size: {{ FONT_SIZE_BASE }};
 }
 
-/* Universelle Zeilenhöhe und Padding für Bäume, Listen und Detail-Tabellen */
-QTableView::item, QTreeView::item, QListView::item {
+/* Universelle Zeilenhöhe und Padding für Bäume und Listen (z. B. Komponentenfeld auf Page_Mods) */
+QTreeView::item, QListView::item {
     min-height: 28px;
     max-height: 28px;
     height: 28px;
@@ -946,7 +946,16 @@ QToolTip {
     background-color: {{ SURFACE_SECONDARY }};
     color: {{ TEXT_ON_SURFACE }};
     border: 1px solid {{ ACCENT_ACTION }};
-    padding: 4px 8px;
+    padding: 2px 4px;
     font-family: {{ FONT_FAMILY }};
     font-size: {{ FONT_SIZE_DESC }};
+}
+
+/* Spezifischer HUD-Tooltip fuer Inhalts-Diagramme */
+Widget_ContentRadarChart QToolTip,
+Widget_ContentBarChart QToolTip {
+    background-color: {{ CHART_TOOLTIP_BG }};
+    color: {{ CHART_TOOLTIP_TEXT }};
+    border: 1px solid {{ ACCENT_ACTION }};
+    padding: 2px 4px;
 }

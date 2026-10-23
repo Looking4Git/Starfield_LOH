@@ -151,6 +151,7 @@ class Section_Mod_Statistics_Conflicts(QWidget):
             self.table_conflicts.setModel(self.proxy_model)
             self.table_conflicts.setMinimumHeight(240)
             self.table_conflicts.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            self.table_conflicts.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_conflicts.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_conflicts.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
             self.table_conflicts.setSelectionMode(QTableView.SelectionMode.SingleSelection)

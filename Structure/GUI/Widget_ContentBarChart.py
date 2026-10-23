@@ -4,6 +4,7 @@ from PySide6.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QMouseEvent
 )
 from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
+from Structure.GUI.UI_Utils import format_number_de
 
 class _BarCanvas(QWidget):
     """Zeichnet die 32 horizontalen Balkenzeilen mit QPainter."""
@@ -29,6 +30,10 @@ class _BarCanvas(QWidget):
     def set_data(self, items: list[dict], winner_category: str | None = None):
         self._items = items or []
         self._winner_cat = winner_category
+        if not self._winner_cat and self._items:
+            active = [it.get("name") for it in self._items if it.get("is_active")]
+            if len(active) == 1:
+                self._winner_cat = active[0]
         self._hovered_row = -1
         total_h = self.margin_y * 2 + len(self._items) * self.row_height
         self.setFixedHeight(max(320, total_h))
@@ -168,20 +173,23 @@ class _BarCanvas(QWidget):
         if is_winner:
             cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         elif is_active:
-            cat_title_color = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
+            cat_title_color = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
         else:
             cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
 
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
-        col_text = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
+        col_text = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
         col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
         col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
-        col_val = get_theme_color_hex("TEXT_ON_SURFACE", "#ECECEC")
+        col_val = get_theme_color_hex("CHART_TOOLTIP_VAL", "#CCCCCC")
+
+        str_val_outer = format_number_de(val_outer, 1)
+        str_val_inner = format_number_de(val_inner, 1)
 
         tip_html = f"""<table cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-family: 'Segoe UI', Arial; font-size: 13px; color: {col_text};">
-<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 6px;">{name}</td></tr>
-<tr><td style="color: {col_ref}; padding-right: 14px; padding-top: 4px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 4px; padding-bottom: 1px;">{val_outer:,.1f}</td></tr>
-<tr><td style="color: {col_override}; padding-right: 14px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{val_inner:,.1f}</td></tr>
+<tr><td colspan="2" style="font-size: 14px; font-weight: bold; color: {cat_title_color}; border-bottom: 1px solid {col_border}; padding-bottom: 3px;">{name}</td></tr>
+<tr><td style="color: {col_ref}; padding-right: 7px; padding-top: 2px; padding-bottom: 1px;">Referenzen / Masse:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 2px; padding-bottom: 1px;">{str_val_outer}</td></tr>
+<tr><td style="color: {col_override}; padding-right: 7px; padding-top: 1px; padding-bottom: 1px;">Overrides / Tiefe:</td><td style="color: {col_val}; font-weight: bold; text-align: right; padding-top: 1px; padding-bottom: 1px;">{str_val_inner}</td></tr>
 </table>"""
         QToolTip.showText(global_pos, tip_html, self)
 

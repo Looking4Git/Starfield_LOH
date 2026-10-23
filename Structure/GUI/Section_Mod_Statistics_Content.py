@@ -31,7 +31,7 @@ class Section_Mod_Statistics_Content(QWidget):
         self.current_comp_mod_id = None
         self._category_maxes = {}
 
-        self.default_radar_height = 480
+        self.default_radar_height = 486
         self.default_bar_height = 704
         self.setFixedHeight(self.default_radar_height)
 
@@ -73,7 +73,7 @@ class Section_Mod_Statistics_Content(QWidget):
         # 4. Manueller LOH_Control_SectionResizeGrip am unteren Sektionsrand
         self.resize_grip = LOH_Control_SectionResizeGrip(
             target_widget=self,
-            min_height=480,
+            min_height=486,
             max_height=1000,
             default_height=self.default_radar_height,
             parent=self
@@ -100,7 +100,7 @@ class Section_Mod_Statistics_Content(QWidget):
         # Auto-Fit Höhe: Balkendiagramm expandiert auf 704 px für alle 32 Zeilen ohne Scrollen und ohne Leerraum
         target_h = self.default_bar_height if is_bar else self.default_radar_height
         self.resize_grip.set_default_height(target_h)
-        self.resize_grip.set_min_height(480 if not is_bar else 500)
+        self.resize_grip.set_min_height(486 if not is_bar else 500)
         self.setFixedHeight(target_h)
 
     def _load_category_maxes(self):
@@ -203,6 +203,17 @@ class Section_Mod_Statistics_Content(QWidget):
             r_win = cur.fetchone()
             winner_cat = r_win["Name"] if r_win else None
 
+            # Fallback auf Mods-Tabelle (z. B. wenn eine Mod nur 1 aktive Kategorie hatte und kein Duell noetig war)
+            if not winner_cat:
+                cur.execute("""
+                    SELECT cl.Name
+                    FROM Mods m
+                    JOIN Categories_LOH cl ON COALESCE(m.Category_LOH_Classifier, m.Category_LOH) = cl.ID
+                    WHERE m.ID = ?
+                """, (mod_id,))
+                r_win_mod = cur.fetchone()
+                winner_cat = r_win_mod["Name"] if r_win_mod else None
+
             # 4. Dimensions-Werte aus Components_References_Base über alle Komponenten der Mod summieren
             cur.execute("""
                 SELECT crb.* 
@@ -250,6 +261,12 @@ class Section_Mod_Statistics_Content(QWidget):
                     "norm_outer": norm_out,
                     "norm_inner": norm_in
                 })
+
+            # Zusaetzliche logische Absicherung: Ist genau eine Kategorie aktiv, ist diese die Siegerkategorie
+            if not winner_cat:
+                active_cats = [it["name"] for it in items if it.get("is_active")]
+                if len(active_cats) == 1:
+                    winner_cat = active_cats[0]
 
             return mod_name, winner_cat, items
 

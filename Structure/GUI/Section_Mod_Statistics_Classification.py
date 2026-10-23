@@ -135,6 +135,7 @@ class Section_Mod_Statistics_Classification(QWidget):
             self.table_view.setModel(self.proxy_model)
             self.table_view.setMinimumHeight(240)
             self.table_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
             self.table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
             self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
             self.table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)

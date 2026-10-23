@@ -165,6 +165,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Universelle Zeilenhöhe für Bäume, Listen & Detail-Tabellen (`QTreeView` / `QListView` / Statistik-`QTableView`):**
   * **Standard-Zeilenhöhe:** Verbindlich **28 px** (`min-height: 28px; max-height: 28px; height: 28px; padding: 0px 4px;` bzw. `verticalHeader().setDefaultSectionSize(28)`) für alle Baum- und Listenansichten (z. B. Komponentenfeld `list_components` auf `Page_Mods`, Detailbäume auf `Page_LoadOrder`) sowie für die Detail- und Diagnose-Tabellen im Statistikfenster (`table_classification`, `table_conflicts`).
   * Schafft ein kompaktes, klares Schriftbild und zentriert Text und Symbole (`◆◆◆`) ergonomisch und augenfreundlich ohne vertikale Gedrängtheit.
+* **Text-Stabilität bei Zeilenauswahl (`QTableView::item`):** `QTableView::item, QTreeView::item, QListView::item` deklariert in `Starfield_LOH_Common.qss` verbindlich ein einheitliches Boxmodell (`padding: 0px 4px;` und feste Zeilenhöhe 28 px). Dadurch bleibt die Textposition beim Anklicken/Markieren einer Zeile absolut stabil (0 px Versatz), während dynamische Zeilenhintergründe über `Qt.ItemDataRole.BackgroundRole` (z. B. Farbmarkierungen für Abhängigkeiten/Konflikte auf `Page_LoadOrder`) uneingeschränkt aktiv bleiben.
 * **Einstellungs-Untermenü (`#settings_tree` auf `Page_Settings`):**
   * **Abmessung & Breite:** Feste Breite von verbindlich **`180 px`** (`tree_view.setFixedWidth(180)`), harmonisiert mit der Größenordnung der Haupt-Sidebar (175 px) für eine stabile Navigation ohne Mitziehen bei Fenstervergrößerungen und maximalen Freiraum im Detailbereich.
   * **Menü-Zeilenhöhe & Spacing:** Feste Zeilenhöhe von **`42px`** mit Hauptmenü-Zeilenabstand (`padding-left: 10px; margin-top: 3px; margin-bottom: 3px;`) zur perfekten vertikalen Ausrichtung und ergonomischen Umrahmung der 20x20px Menü-Icons (`Icon_Folder.svg`, `Icon_Help.svg`).
@@ -252,12 +253,12 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Radar-Chart (`Widget_ContentRadarChart`):**
   * 32 dimensionale Achsenstränge für alle Starfield-LOH-Kategorien.
   * **Design-Tokens für Achsen & Ringe:**
-    * Inaktive Achsen: dezent abgedimmt über `CHART_AXIS_INACTIVE` (`#202020` Mixed, `#161B22` Dark, `#E1E4E8` Light); Label über `CHART_TEXT_INACTIVE` (`#888888` Mixed/Dark, `#8C959F` Light, `13 px` normal).
-    * Aktive Achsen: deutliche Konturlinie über `CHART_AXIS_ACTIVE` (`#555555` Mixed, `#484F58` Dark, `#8C959F` Light); Label über `CHART_TEXT_ACTIVE` (`#CCCCCC` Mixed/Dark, `#24292F` Light, `13 px` normal).
-    * Hover-Achsen: Highlight über `ACCENT_ACTION_HOVER` (`#5B7A9E`); Label über `CHART_TEXT_HOVER` (`#ECECEC` Mixed, `#FFFFFF` Dark, `#0969DA` Light, `13 px` normal).
-    * Siegerkategorie: dezente Speiche (`CHART_AXIS_ACTIVE`), Label über `CHART_TEXT_WINNER` (`#D7A64B` Mixed/Dark, `#A87B24` Light, `13 px` fett).
+    * Inaktive Achsen: dezent abgedimmt über `CHART_AXIS_INACTIVE` (`#202020` Mixed, `#30363D` Dark, `#E1E4E8` Light); Label über `CHART_TEXT_INACTIVE` (`#888888` Mixed/Dark, `#8C959F` Light, `13 px` normal).
+    * Aktive Achsen: deutliche Konturlinie über `CHART_AXIS_ACTIVE` (`#555555` Mixed, `#768390` Dark, `#8C959F` Light); Label über `CHART_TEXT_ACTIVE` (`#CCCCCC` Mixed/Dark, `#24292F` Light, `13 px` normal).
+    * Hover-Achsen: Highlight über `ACCENT_ACTION_HOVER` (`#5B7A9E`); Label über `CHART_TEXT_HOVER` (`#5B7A9E` Mixed/Dark, `#0969DA` Light, `13 px` normal).
+    * Siegerkategorie: dezente Speiche (`CHART_AXIS_ACTIVE`), Label dauerhaft über `CHART_TEXT_WINNER` (`#D7A64B` Mixed/Dark, `#A87B24` Light, `13 px` fett), auch im Hover-Zustand.
     * **Bounding-Box, Beschnitt-Schutz & simultanes Wachstum (Option 2):** Dynamische Randpufferung $M_x$ über reale `QFontMetrics` der 32 Kategorien (kein Abschneiden an Ost-/Westflanke). Mindestradius $R_{\text{min}} = 80\text{ px}$. Stauchungsfreie $C^0$-stetige Radius-Interpolation (der innere Kreis schrumpft an den Schwellenwerten niemals zurück). Simultan-Skalierung der Typografie nach Diagrammbreite ($w \le 385\text{ px} \rightarrow 11\text{ px}$; $385 < w \le 430\text{ px} \rightarrow 12\text{ px}$; $w > 430\text{ px} \rightarrow 13\text{ px}$ Standard). An den polaren Verdichtungspunkten (`|sin(α)| > 0.8`) verbinden feine gepunktete Linien (`BORDER_SUBTLE`, `16 px`) die Speichenspitzen mit den horizontalen Textboxen.
-    * Konzentrische Hilfskreise (25 %, 50 %, 75 %) & Außenring (100 %): `CHART_GRID` (`#2B2B2B` Mixed, `#21262D` Dark, `#D0D7DE` Light).
+    * Konzentrische Hilfskreise (25 %, 50 %, 75 %) & Außenring (100 %): `CHART_GRID` (`#2B2B2B` Mixed, `#3D4450` Dark, `#D0D7DE` Light).
     * Naben-Pin: `CHART_PIN` (`#1A1A1A` Mixed, `#0D1117` Dark, `#AFB8C1` Light).
   * **Äußere Dimension (`dim_calc_outer`, Referenzen / Masse):** Gelbe Kontur (`ACCENT_BRAND` = `#D7A64B`, 2px) mit transparenter gelber Füllung (`rgba(215, 166, 75, 0.22)`).
   * **Innere Dimension (`dim_calc_inner`, Overrides / Tiefe):** Rote Kontur (`STATUS_CRITICAL` = `#C72138`, 2px) mit transparenter roter Füllung (`rgba(199, 33, 56, 0.30)`).
@@ -266,13 +267,13 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Jede Achse ist über das globale Datenbank-Maximum der Kategorie (`View_Category_Dimension_Max.Max_Outer`) auf 0–100 % genormt.
   * **Mod-basierte Aggregation:** Das globale Maximum wird über die Summe aller Komponenten einer Mod (`GROUP BY Mod_ID`) ermittelt. Dadurch wird der vollständige Inhalts-Fingerabdruck von Multi-Komponenten-Mods unverzerrt abgebildet.
   * **Proportionale Vergleichbarkeit:** Sowohl die äußere Referenzmasse (`dim_calc_outer`) als auch die innere Override-Tiefe (`dim_calc_inner`) werden gegen denselben `Max_Outer`-Kategoriewert skaliert (`val / Max_Outer`), damit beide Werte auf derselben Achse direkt vergleichbar sind.
-* **HUD-Tooltip (Theme-harmonisiert):**
-  * Einheitliches HUD-Design synchronisiert mit akzentuierten Tabellenzeilen (`SURFACE_SECONDARY`, Starfield-blauer Rand `ACCENT_ACTION` = `#304C7A`, Textfarbe `TEXT_ON_SURFACE`, `padding: 4px 8px`).
+* **HUD-Tooltip (Theme-harmonisiert & dediziert dunkel fuer Inhaltsdiagramme):**
+  * Spezifisches HUD-Design fuer Inhaltsdiagramme (`Widget_ContentRadarChart QToolTip`, `Widget_ContentBarChart QToolTip`): Hintergrund `CHART_TOOLTIP_BG` (`#1A1A1A` Mixed, `#1E232B` Dark Standard, `#1A1A1A` Light), Starfield-blauer Rand `ACCENT_ACTION` = `#304C7A`, abgedunkelte Text- und Zahlenfarbe über `CHART_TOOLTIP_TEXT` / `CHART_TOOLTIP_VAL` (`#CCCCCC` Mixed/Dark, `#24292F` Light), kompaktes `padding: 2px 4px`.
   * **Flache HTML-Tabelle:** Direkte `<table>`-Struktur ohne übergeordnetes `<div>` und ohne leere Trennzeilen, um künstliche Leer-Absatzblöcke der Qt-RichText-Engine zu unterbinden.
-  * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie, `TEXT_ON_SURFACE` für aktive Kategorien, dezent Grau `TEXT_MUTED` für inaktive).
-  * Trennbalken: Direkte `border-bottom: 1px solid #304C7A; padding-bottom: 6px;` Unterstreichung der Titelzelle (hauchdünne 1px-Linie über die volle Tabellenbreite, bündig links und rechts, ausreichend Freiraum für Buchstaben-Unterlängen).
-  * Zeile 1: `Referenzen / Masse:` in Starfield-Gelb gefolgt vom absoluten `dim_calc_outer`-Wert (`padding-top: 4px;`).
-  * Zeile 2: `Overrides / Tiefe:` in Starfield-Rot gefolgt vom absoluten `dim_calc_inner`-Wert.
+  * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie, `CHART_TOOLTIP_TEXT` `#CCCCCC` für aktive Kategorien, dezent Grau `TEXT_MUTED` für inaktive).
+  * Trennbalken: Direkte `border-bottom: 1px solid #304C7A; padding-bottom: 3px;` Unterstreichung der Titelzelle (hauchdünne 1px-Linie über die volle Tabellenbreite, bündig links und rechts, ausreichend Freiraum für Buchstaben-Unterlängen).
+  * Zeile 1: `Referenzen / Masse:` in Starfield-Gelb gefolgt vom absoluten Wert im deutschen Zahlenformat über `format_number_de` (`padding-top: 2px; padding-right: 7px;`).
+  * Zeile 2: `Overrides / Tiefe:` in Starfield-Rot gefolgt vom absoluten Wert im deutschen Zahlenformat (`format_number_de`).
 * **Horizontales Balkendiagramm (`Widget_ContentBarChart`):**
   * Horizontale Balkenliste aller 32 Kategorien. Roter Overrides-Balken (`dim_calc_inner`) überlagert den gelben Referenzen-Balken (`dim_calc_outer`) mit identischem Tooltip.
   * **Werteanzeige:** Reine absolute Zahlenwerte (ohne redundante Prozentangaben), inaktive Zeilen mit `-`.
@@ -280,9 +281,11 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Zweispaltige Aufteilung (Hauptmod links, Vergleichsmod rechts) ohne redundante Detailüberschriften für maximale Diagrammgröße.
   * Checkbox *Balkendiagramm* oben rechts (mit Standard-Häkchen) toggelt beide Hälften synchron zwischen Radar- und Balkenansicht.
   * **Einstellungspräferenz (`Prefer_Content_BarChart`):** In `Page_Settings_General` konfigurierbar ("Balkendiagramme in Abschnitt Inhalte bevorzugen (Fenster: Mod-Analyse Statistiken)").
-  * **Auto-Fit Höhe:** Radar startet mit großzügiger Basishöhe (480 px); beim Umschalten auf Balkendiagramm expandiert die Sektion automatisch auf exakt 704 px (kalibriert auf 652 px Canvas-Höhe inkl. Kopfzeile, Abständen und `LOH_Control_SectionResizeGrip`, sodass alle 32 Zeilen bündig ohne toten Freiraum und ohne internen Rollbalken sichtbar sind).
+  * **Auto-Fit Höhe:** Radar startet mit harmonischer Basishöhe (486 px); beim Umschalten auf Balkendiagramm expandiert die Sektion automatisch auf exakt 704 px (kalibriert auf 652 px Canvas-Höhe inkl. Kopfzeile, Abständen und `LOH_Control_SectionResizeGrip`, sodass alle 32 Zeilen bündig ohne toten Freiraum und ohne internen Rollbalken sichtbar sind).
+  * **Vertikale Sektionstrenner & Abstände:** Alle vertikalen Trenner im Statistikfenster (`vertical_separator` in Vergleich, `split_sep` in Inhalte) werden einheitlich mit einer Breite von **2 px** (`width: 2px; min-width: 2px; max-width: 2px; border: none;`) über [Style/Window_Mod_Statistics.qss](file:///d:/Starfield_LOH/Style/Window_Mod_Statistics.qss) formatiert. Die Mitteltrennlinie `split_sep` schließt mit einem symmetrischen Einzug (`margin-top: 4px; margin-bottom: 3px;`) und dauerhaft festem Abstand von 11 px über dem Ziehbalken ab. Die Radargrafik hält über `m_y = 36 px` harmonischen, proportionalen Abstand zum Ziehbalken bei kompakter 486 px Basishöhe.
+  * **Klassifikationstabelle (Exakt 8 Zeilen & permanenter horizontaler Rollbalken):** Beide Tabellen (`table_classification` und `table_conflicts`) schalten die horizontale Scrollbar dauerhaft ein (`ScrollBarAlwaysOn`). Die Sektionshöhe in `Section_Mod_Statistics_Classification` ist verbindlich auf **316 px** kalibriert. Dies ergibt für `table_classification` eine bündige 8-Zeilen-Ansicht (276 px Tabellenhöhe identisch zu Konflikte), sodass kein Überhang existiert und der vertikale Rollbalken sauber auf der horizontalen Scrollbar abschließt.
   * **`LOH_Control_SectionResizeGrip`:** Integrierter Sci-Fi-Ziehgriff am unteren Sektionsrand für stufenloses manuelles Aufziehen der Höhe per Mausdrag (`SizeVerCursor`) inkl. Doppelklick für Reset auf Standard.
-    * Eingesetzt in: *Inhalte* (Auto-Fit 480/704 px, stufenlos ziehbar), *Klassifizierung* (Standard/Minimum 316 px für 8 Tabellenzeilen) und *Konflikte* (Standard/Minimum 350 px in Tabellenansicht für 8 Tabellenzeilen; im Kachelmodus wird der Zieher ausgeblendet und die Sektion schließt bündig ohne Freiraum ab).
+    * Eingesetzt in: *Inhalte* (Auto-Fit 486/704 px, stufenlos ziehbar), *Klassifizierung* (Standard/Minimum 316 px für exakt 8 Tabellenzeilen à 28 px) und *Konflikte* (Standard/Minimum 350 px in Tabellenansicht für 8 Tabellenzeilen; im Kachelmodus wird der Zieher ausgeblendet und die Sektion schließt bündig ohne Freiraum ab).
     * Siehe [LOH_Control_SectionResizeGrip_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_SectionResizeGrip_Documentation.md).
 
 ---
@@ -311,7 +314,8 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ### L. Tooltips & Informations-Popups (`QToolTip` & `format_tooltip_text`)
 * **Styling (über `Starfield_LOH_Common.qss`):**
-  * Sci-Fi HUD-Optik (synchronisiert mit akzentuierten Tabellenzeilen): Hintergrund `SURFACE_SECONDARY` (`#E0E0E0` Mixed, `#1E232B` Dark, `#EAECEF` Light), Textfarbe `TEXT_ON_SURFACE` (`#000000` Mixed, `#ECECEC` Dark, `#24292F` Light), 1px Rahmen in `ACCENT_ACTION` (`#304C7A`), `padding: 4px 8px`.
+  * Sci-Fi HUD-Optik (synchronisiert mit akzentuierten Tabellenzeilen): Hintergrund `SURFACE_SECONDARY` (`#E0E0E0` Mixed, `#1E232B` Dark, `#EAECEF` Light), Textfarbe `TEXT_ON_SURFACE` (`#000000` Mixed, `#ECECEC` Dark, `#24292F` Light), 1px Rahmen in `ACCENT_ACTION` (`#304C7A`), kompaktes `padding: 2px 4px`.
+  * Inhaltsdiagramme (`Widget_ContentRadarChart`, `Widget_ContentBarChart`) nutzen über Widget-Kaskadierung abweichend einen dunklen Hintergrund (`SURFACE_DARK`) mit hellem Text (`TEXT_ON_DARK`).
 * **Format- & Umbruchdisziplin (`format_tooltip_text` in `Structure/GUI/UI_Utils.py`):**
   * Standard-Qt-Tooltips für Plaintext besitzen keine automatische Breitenbegrenzung und würden lange Fließtexte einzeilig über den gesamten Bildschirm strecken.
   * Längere Tooltip-Texte (insbesondere Begründungs-, Diagnose- und Prüfschritt-Beschreibungen in Tabellen wie `table_classification` und `table_conflicts`) müssen zwingend vor der Zuweisung an `item.setToolTip()` über `format_tooltip_text(text, max_chars=70)` formatiert werden.

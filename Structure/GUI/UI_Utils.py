@@ -324,3 +324,19 @@ def format_tooltip_text(text: str, max_chars: int = 70) -> str:
     return "\n".join(wrapped_paragraphs)
 
 
+def format_number_de(val: float | int, decimals: int = 1) -> str:
+    """
+    Formatiert Zahlen im deutschen Standard-Format:
+    - Punkt (.) als Tausendertrennzeichen
+    - Komma (,) als Dezimaltrennzeichen
+    Beispiel: 3.0 -> "3,0", 12345.6 -> "12.345,6"
+    """
+    try:
+        f_val = float(val or 0.0)
+        s = f"{f_val:,.{decimals}f}"
+        return s.replace(",", "X").replace(".", ",").replace("X", ".")
+    except (ValueError, TypeError):
+        return str(val)
+
+
+

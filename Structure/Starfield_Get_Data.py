@@ -432,79 +432,75 @@ def write_to_log(message):
 
 def parse_version_and_date(catalog_version_str, catalog_timestamp_int):
     """
-    Formatiert die Catalog Version (z.B. 1.0.0.0) und das Timestamp (Unix Timestamp oder None).
+    Formatiert die Catalog Version und das Timestamp (Unix Timestamp oder None).
     Gibt (formatted_version, date_from_version, date_from_timestamp) zurück.
     """
-    version_str = str(catalog_version_str or "")
+    version = str(catalog_version_str or "")
+    date_from_version = None
     
-    # 1. Fall: Version ist 0 oder leer
-    if version_str == "0" or not version_str:
-        formatted_version = "0"
+    if version == "2147483647.0" or version == "2147483647":
+        version = "0"
         date_from_version = None
-    else:
-        # 2. Fall: Version hat Format X.Y.Z.W
-        parts = version_str.split('.')
-        formatted_version = ".".join(parts[:3]) if len(parts) >= 3 else version_str
-        date_from_version = None
-        if len(parts) == 4 and len(parts[3]) >= 8:
-            date_part = parts[3][:8]
-            if date_part.isdigit():
-                date_from_version = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
-                
-    # Datum aus Timestamp
+    elif '.' in version:
+        parts = version.split('.', 1)
+        if parts[0].isdigit() and len(parts[0]) >= 10:
+            version = parts[1]
+            try:
+                dt = datetime.datetime.fromtimestamp(int(parts[0]))
+                date_from_version = dt.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+            
     date_from_timestamp = None
-    if catalog_timestamp_int and int(catalog_timestamp_int) > 0:
-        date_from_timestamp = datetime.datetime.fromtimestamp(int(catalog_timestamp_int)).strftime("%Y-%m-%d %H:%M:%S")
-        
-    return formatted_version, date_from_version, date_from_timestamp
+    if catalog_timestamp_int:
+        try:
+            dt = datetime.datetime.fromtimestamp(int(catalog_timestamp_int))
+            date_from_timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+            
+    return version, date_from_version, date_from_timestamp
 
 
 def check_plugin_flags(filepath):
     """
-    Liest den TES4 Record Header (HEDR Subrecord) einer .esm/.esp Datei aus,
-    um zu prüfen, ob es sich um ein Masterfile (Bit 0) und/oder eine Blueprint-Mod handelt.
-    Rückgabe: (is_masterfile, is_blueprint)
-    is_masterfile: 
-        1 = Full Master (.esm / Master-Bit)
-        2 = Medium Master (0xFD)
-        3 = Small Master (0xFE / Light)
-        0 = Normales Plugin (.esp)
+    Liest den TES4 Header einer .esm/.esp Datei aus und wertet die Starfield-Flags aus:
+    0x0800 -> Blueprint (Is_Blueprint = 1, Is_Masterfile = 0)
+    0x0100 -> Small Master / Light (Is_Masterfile = 3)
+    0x0400 -> Medium Master (Is_Masterfile = 2)
+    0x0001 -> Full Master (Is_Masterfile = 1)
+    Rückgabe: (Is_Masterfile, Is_Blueprint)
     """
     if not os.path.exists(filepath):
         return 0, 0
     try:
         with open(filepath, 'rb') as f:
-            sig = f.read(4)
-            if sig != b'TES4':
-                return 0, 0
-            
-            f.seek(8)
-            flags = struct.unpack('<I', f.read(4))[0]
-            
-            is_master = 1 if (flags & 0x00000001) != 0 else 0
-            is_light = 1 if (flags & 0x00000200) != 0 else 0
-            is_medium = 1 if (flags & 0x00000400) != 0 else 0
-            
-            is_masterfile_code = 0
-            if is_medium:
-                is_masterfile_code = 2
-            elif is_light:
-                is_masterfile_code = 3
-            elif is_master:
-                is_masterfile_code = 1
+            header = f.read(12)
+            if header.startswith(b'TES4'):
+                flags = int.from_bytes(header[8:12], byteorder='little')
                 
-            is_blueprint = 1 if (flags & 0x00004000) != 0 else 0
-            
-            return is_masterfile_code, is_blueprint
+                if (flags & 0x0800) != 0:
+                    return 0, 1  # Blueprint (Is_Blueprint = 1, kein Masterfile)
+                    
+                # Spezifischere Master-Flags zuerst prüfen
+                if (flags & 0x0100) != 0:
+                    return 3, 0  # Small Master
+                elif (flags & 0x0400) != 0:
+                    return 2, 0  # Medium Master
+                elif (flags & 0x0001) != 0:
+                    return 1, 0  # Full Master
+                
     except Exception:
-        return 0, 0
+        pass
+        
+    return 0, 0
 
 
 def build_catalog_mapping(catalog_path, log_msg):
     """
     Liest ContentCatalog.txt und baut ein Mapping auf:
     key: plugin_filename.lower() (z.B. 'mymod.esm')
-    value: dict mit Titel, Version, Timestamp, Creation_ID, Is_Masterfile, Is_Blueprint
+    value: dict mit Titel, Version, Timestamp, Creation_ID, Is_Masterfile, Is_Blueprint, All_Files
     """
     mapping = {}
     if not os.path.exists(catalog_path):
@@ -514,46 +510,59 @@ def build_catalog_mapping(catalog_path, log_msg):
     try:
         with open(catalog_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            # Der ContentCatalog kann als JSON oder Text formatiert sein. Wir parsen JSON.
             data = json.loads(content)
             
-        items = data.get("items", [])
-        for item in items:
-            creation_id = item.get("contentId")
-            title = item.get("title")
-            files = item.get("files", [])
-            version = item.get("version")
-            timestamp = item.get("releaseTimestamp")
+        import html
+        for key, value in data.items():
+            if key == "ContentCatalog" or not isinstance(value, dict) or "Files" not in value:
+                continue
+                
+            files = value.get("Files", [])
+            creation_id = value.get("contentId") or key.replace("TM_", "")
+            title = html.unescape(value.get("Title", "Unbekannt"))
+            version = value.get("Version", "")
+            timestamp = value.get("Timestamp", "")
             
-            all_files = []
-            for f in files:
-                all_files.append(f)
-                f_lower = f.lower()
-                if f_lower.endswith('.esm') or f_lower.endswith('.esp'):
-                    filepath = os.path.join(STARFIELD_GAME_DATA_PATH, f)
-                    is_m, is_bp = check_plugin_flags(filepath)
+            # Unix-Zeitwert aus Version extrahieren für Duplikatsprüfung
+            raw_version = str(version)
+            new_timestamp = 0
+            if '.' in raw_version:
+                parts = raw_version.split('.', 1)
+                if parts[0].isdigit():
+                    new_timestamp = int(parts[0])
+            elif raw_version.isdigit():
+                new_timestamp = int(raw_version)
+            
+            for filename in files:
+                f_lower = filename.lower()
+                if not (f_lower.endswith('.esm') or f_lower.endswith('.esp')):
+                    continue
                     
-                    mapping[f_lower] = {
-                        "Creation_ID": creation_id,
-                        "Title": title,
-                        "Version": version,
-                        "Timestamp": timestamp,
-                        "Is_Masterfile": is_m,
-                        "Is_Blueprint": is_bp,
-                        "All_Files": all_files
-                    }
-                    
-        # Sicherstellen, dass All_Files auf allen Plugins der gleichen Creation vollständig ist
-        for k, v in mapping.items():
-            for item in items:
-                if item.get("contentId") == v.get("Creation_ID"):
-                    v["All_Files"] = item.get("files", [])
-                    break
-                    
+                filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
+                master_code, bp_code = check_plugin_flags(filepath)
+                
+                existing_entry = mapping.get(f_lower)
+                if existing_entry:
+                    existing_timestamp = existing_entry.get("Unix_Timestamp", 0)
+                    if new_timestamp <= existing_timestamp:
+                        continue
+                        
+                mapping[f_lower] = {
+                    "Creation_ID": creation_id,
+                    "Title": title,
+                    "Version": version,
+                    "Timestamp": timestamp,
+                    "Unix_Timestamp": new_timestamp,
+                    "Is_Masterfile": master_code,
+                    "Is_Blueprint": bp_code,
+                    "All_Files": files
+                }
+                
     except Exception as e:
         log_msg(f"FEHLER beim Parsen von ContentCatalog.txt: {str(e)}")
         
     return mapping
+
 
 
 def assign_header_requirements(log_msg):

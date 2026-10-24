@@ -101,6 +101,7 @@ class Section_Mod_Statistics_Content(QWidget):
         target_h = self.default_bar_height if is_bar else self.default_radar_height
         self.resize_grip.set_default_height(target_h)
         self.resize_grip.set_min_height(380 if not is_bar else 500)
+        self.resize_grip.setVisible(not is_bar)
         self.setFixedHeight(target_h)
 
     def _load_category_maxes(self):
@@ -249,10 +250,10 @@ class Section_Mod_Statistics_Content(QWidget):
 
                 # Aktiv nach Prüfschritt 1: Nicht in Step 1 ausgeschlossen UND echter Netto-Inhalt vorhanden
                 is_active = (cat_id not in excluded_step1) and (sum_out > 0.0 or sum_in > 0.0)
-                norm_out = min(1.0, sum_out / max_out) if is_active else 0.0
-                # Innere Dimension (Overrides) wird auf dieselbe Achsenskala (max_out) bezogen,
-                # damit der relative Vergleich auf der Kategorieachse exakt stimmt:
-                norm_in = min(1.0, sum_in / max_out) if is_active else 0.0
+                norm_out = min(1.0, sum_out / max_out) if is_active and max_out > 0 else 0.0
+                # Innere Dimension (Overrides) bezogen auf max_in, gedeckelt durch 1.0 und norm_out:
+                norm_in = min(1.0, sum_in / max_in) if is_active and max_in > 0 else 0.0
+                norm_in = min(norm_in, norm_out)
 
                 items.append({
                     "id": cat_id,

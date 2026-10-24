@@ -13,7 +13,7 @@ import html
 import logging
 import struct
 import sys
-
+import time
 
 from Structure.Paths import (
     STARFIELD_PLUGINS_PATH, STARFIELD_CONTENT_CATALOG_PATH, APP_ROOT,
@@ -25,6 +25,7 @@ from Structure.Database import (
     get_mod_by_id,
     get_components_by_mod_id,
     get_db_connection,
+    set_foreign_keys,
     enable_db_performance_mode,
     restore_db_default_mode,
     record_script_start,
@@ -98,6 +99,7 @@ def calculate_shifters(counts):
     counts['Shifter_Quest_Chest'] = shifter_chest
     counts['Shifter_Quest_Ship'] = shifter_ship
 
+
 def get_num_full_masters(filepath, cursor):
     """Ermittelt die Anzahl der Full Master (Is_Masterfile = 1) in der Master-Liste einer ESM/ESP."""
     masters = get_masters_list(filepath)
@@ -133,11 +135,13 @@ def get_num_full_masters(filepath, cursor):
             num_full += 1
     return num_full
 
+
 def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
     """
     Sucht auf der Festplatte nach zugehörigen BA2-Dateien für eine Masterfile (.esm/.esp)
     und trägt diese als Komponenten ein und verknüpft sie mit der Mod in der Datenbank.
-    Unterstützt auch nummerierte Archive (z.B. "Textures01.ba2" bis "Textures17.ba2").
+    Unterstützt auch nummerierte Archive (z.B. "Textures01.ba2" bis "Textures17.ba2")
+    und synchronisiert die Groß-/Kleinschreibung.
     """
     if not esm_filename.lower().endswith(('.esm', '.esp')):
         return
@@ -156,7 +160,7 @@ def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
         files = os.listdir(STARFIELD_GAME_DATA_PATH)
         for f_name in files:
             if pattern.match(f_name.lower()):
-                cursor.execute("SELECT ID FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
+                cursor.execute("SELECT ID, File FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
                 row = cursor.fetchone()
                 if not row:
                     cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, 0, 0)", (f_name,))
@@ -164,6 +168,10 @@ def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
                     log_msg(f"    -> [AUTO DISCOVER BA2] {f_name} gefunden und als Komponente angelegt.")
                 else:
                     comp_id = row[0]
+                    db_file = row[1]
+                    if db_file != f_name:
+                        cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (f_name, comp_id))
+                        log_msg(f"    -> [UPDATE CASING BA2] '{db_file}' auf '{f_name}' synchronisiert.")
                     
                 cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
                 if not cursor.fetchone():
@@ -171,6 +179,7 @@ def register_associated_ba2_files(mod_id, esm_filename, cursor, log_msg):
                     log_msg(f"    -> [LINK BA2] {f_name} mit Mod ID {mod_id} verknüpft.")
     except Exception as e:
         log_msg(f"    -> [WARNUNG] Fehler bei der automatischen BA2-Suche für {esm_filename}: {str(e)}")
+
 
 OFFICIAL_DLC_NAMES = {
     "starfield.esm": "Starfield Hauptspiel",
@@ -180,11 +189,13 @@ OFFICIAL_DLC_NAMES = {
     "oldmars.esm": "DLC: Old Mars Skin Pack",
 }
 
-def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan: bool = False):
+
+def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan: bool = False, context: dict = None):
     """
     Scans the Starfield/Data directory for official Bethesda .esm files that are NOT mods
     (i.e. not registered in Plugins.txt / Components table), gets their modification date,
     reads their pointers (with caching), and updates the System_Components table.
+    Crash-Resilient & Performant: Nutzt set_foreign_keys für Bulk-Inserts und Transaktions-Siegelung.
     """
     log_msg("\n[System Check] Starte Single-Pass-Scan der offiziellen Spieldateien (Bethesda Masterfiles)...")
     
@@ -233,8 +244,17 @@ def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan:
             
             # Prüfe, ob wir diese System-Komponente schon in der DB haben
             col_list_str = ", ".join(CORE_POINTER_COLS)
-            cursor.execute(f"SELECT ID, {col_list_str}, Filedate_Last_Check FROM Components_System WHERE LOWER(File) = ?", (esm_lower,))
+            cursor.execute(f"SELECT ID, File, {col_list_str}, Filedate_Last_Check FROM Components_System WHERE LOWER(File) = ?", (esm_lower,))
             row = cursor.fetchone()
+
+            # Casing-Synchronisation auf Festplatte gegen Datenbank prüfen
+            if row:
+                actual_name = os.path.basename(filepath)
+                if actual_name != row['File']:
+                    cursor.execute("UPDATE Components_System SET File = ? WHERE ID = ?", (actual_name, row['ID']))
+                    conn.commit()
+                    log_msg(f"    -> [UPDATE CASING SYSTEM] '{row['File']}' auf Dateinamen '{actual_name}' synchronisiert.")
+                    esm = actual_name
             
             needs_scan = True
             
@@ -267,26 +287,40 @@ def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan:
                     set_clause = ", ".join([f"{col} = ?" for col in CORE_POINTER_COLS])
                     query = f"""
                         UPDATE Components_System 
-                        SET Friendly_Name = ?, Author = ?, Description = ?, {set_clause}, Filedate_Last_Check = ?
-                        WHERE LOWER(File) = ?
+                        SET Friendly_Name = ?, Author = ?, Description = ?, {set_clause}
+                        WHERE ID = ?
                     """
-                    params = [friendly_name, author, description] + pointer_values + [mtime_str, esm_lower]
+                    params = [friendly_name, author, description] + pointer_values + [sys_id]
                     cursor.execute(query, params)
                 else:
                     col_names_str = ", ".join(CORE_POINTER_COLS)
                     placeholders = ", ".join(["?"] * len(CORE_POINTER_COLS))
                     query = f"""
-                        INSERT INTO Components_System (File, Friendly_Name, Author, Description, {col_names_str}, Filedate_Last_Check)
-                        VALUES (?, ?, ?, ?, {placeholders}, ?)
+                        INSERT INTO Components_System (File, Friendly_Name, Author, Description, {col_names_str})
+                        VALUES (?, ?, ?, ?, {placeholders})
                     """
-                    params = [esm, friendly_name, author, description] + pointer_values + [mtime_str]
+                    params = [esm, friendly_name, author, description] + pointer_values
                     cursor.execute(query, params)
                     sys_id = cursor.lastrowid
                 
-                # FormID Signaturen speichern
+                # Teil 1: Vorab-Bereinigung & Zählung gelöschter Datensätze unter FK = ON
+                set_foreign_keys(conn, True)
+                del_count = 0
                 cursor.execute("DELETE FROM Components_System_FormIDs WHERE Component_ID = ?", (sys_id,))
+                del_count += cursor.rowcount
+                cursor.execute("DELETE FROM Components_System_LCTN WHERE Component_ID = ?", (sys_id,))
+                del_count += cursor.rowcount
+                cursor.execute("DELETE FROM Components_System_CELL_LCTN WHERE Component_ID = ?", (sys_id,))
+                del_count += cursor.rowcount
+                conn.commit()
+                if context is not None:
+                    context["deleted_records_count"] = context.get("deleted_records_count", 0) + del_count
+
+                # Teil 2: Performante Bulk-Ingestion unter FK = OFF
+                set_foreign_keys(conn, False)
+
+                # FormID Signaturen speichern
                 if local_sigs:
-                    from Structure.File_ESM_Parser import get_masters_list
                     masters = get_masters_list(filepath)
                     master_id_map = {}
                     for idx, master_name in enumerate(masters):
@@ -322,7 +356,6 @@ def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan:
                     """, insert_sigs)
 
                 # Locations in Components_System_LCTN speichern
-                cursor.execute("DELETE FROM Components_System_LCTN WHERE Component_ID = ?", (sys_id,))
                 if locations:
                     insert_locs = []
                     for loc in locations:
@@ -333,7 +366,6 @@ def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan:
                     """, insert_locs)
                 
                 # Zell-Location-Referenzen in Components_System_CELL_LCTN speichern
-                cursor.execute("DELETE FROM Components_System_CELL_LCTN WHERE Component_ID = ?", (sys_id,))
                 if cell_locations:
                     insert_cells = []
                     for cl in cell_locations:
@@ -342,201 +374,40 @@ def scan_and_update_system_components(log_msg, log_signal=None, force_full_scan:
                         INSERT OR IGNORE INTO Components_System_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
                         VALUES (?, ?, ?, ?)
                     """, insert_cells)
-                
+                conn.commit()
+
+                # Teil 3: Transaktions-Siegel & Filedate_Last_Check unter FK = ON
+                set_foreign_keys(conn, True)
+                cursor.execute("UPDATE Components_System SET Filedate_Last_Check = ? WHERE ID = ?", (mtime_str, sys_id))
                 conn.commit()
                 reporter.finish()
                 
     except Exception as e:
         log_msg(f"FEHLER beim Scannen der System-Masterfiles: {str(e)}")
+        if conn:
+            try:
+                set_foreign_keys(conn, True)
+                conn.rollback()
+            except Exception:
+                pass
+        raise
     finally:
         if conn:
             conn.close()
 
-def scan_and_update_mod_components(log_msg, log_signal=None, force_full_scan: bool = False):
+
+def scan_and_update_mod_components(log_msg, log_signal=None, force_full_scan: bool = False, parent_step_id: str = "4"):
     """
-    Iteriert über alle in der Tabelle 'Components' registrierten Masterfiles,
-    prüft deren Modifikationsdatum und aktualisiert ggf. die Pointer-Zähler.
+    Abwärtskompatible Schnittstelle für den Mod-Komponenten-Scan.
+    Delegiert direkt an den semantischen Dreiphasen-Pipeline-Schritt _step_scan_mod_components.
     """
-    log_msg("\n[Mod Check] Starte Single-Pass-Scan der aktiven Mod-Dateien (Creation Engine 2 Masterfiles)...")
-    
-    conn = None
-    try:
-        conn = get_db_connection()
-        conn.execute("PRAGMA synchronous = NORMAL;")
-        cursor = conn.cursor()
-        
-        # Hole alle registrierten Masterfiles
-        cursor.execute("""
-            SELECT c.ID, c.File, c.Filedate_Last_Check, em.REFR 
-            FROM Components c 
-            LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID 
-            WHERE c.Is_Masterfile > 0 OR LOWER(c.File) LIKE '%.esm'
-        """)
-        components = cursor.fetchall()
-        
-        # Lookups für Masterfiles vorab in-memory cachen
-        cursor.execute("SELECT ID, LOWER(File) FROM Components_System")
-        sys_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
-        cursor.execute("SELECT ID, LOWER(File) FROM Components")
-        mod_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+    context = {
+        "log_msg": log_msg,
+        "log_signal": log_signal,
+        "force_full_scan": force_full_scan,
+    }
+    return _step_scan_mod_components(context, parent_step_id, "Dreiphasen-Scan der Mod-Komponenten")
 
-        cleared_mods = set()
-        for comp in components:
-            comp_id = comp['ID']
-            file_name = comp['File']
-            db_mtime = comp['Filedate_Last_Check']
-            filepath = os.path.join(STARFIELD_GAME_DATA_PATH, file_name)
-            
-            if not os.path.exists(filepath):
-                continue
-                
-            # Hole Modifikationsdatum
-            mtime = os.path.getmtime(filepath)
-            mtime_str = datetime.datetime.fromtimestamp(mtime).isoformat()
-            
-            needs_scan = True
-            
-            if not force_full_scan and db_mtime == mtime_str:
-                needs_scan = False
-                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
-            
-            if needs_scan:
-                reporter = ParserProgressReporter(
-                    comp_id=comp_id,
-                    file_name=file_name,
-                    is_system=False,
-                    log_signal=log_signal,
-                    write_to_log_func=write_to_log
-                )
-                num_full = get_num_full_masters(filepath, cursor)
-                
-                counts, local_sigs, locations, cell_locations, dummy_records = scan_esm_for_handles(
-                    filepath, is_core=False, num_full_masters=num_full, reporter=reporter
-                )
-                reporter.mark_saving_db()
-                calculate_shifters(counts)
-                
-                pointer_values = []
-                for col in MOD_POINTER_COLS:
-                    key = col
-                    pointer_values.append(counts.get(key, 0))
-                
-                # 1. Update Filedate_Last_Check in Components
-                cursor.execute("""
-                    UPDATE Components 
-                    SET Filedate_Last_Check = ?
-                    WHERE ID = ?
-                """, (mtime_str, comp_id))
-                
-                # 2. Insert or Replace in Components_ESM_References
-                col_names_str = ", ".join(MOD_POINTER_COLS)
-                placeholders = ", ".join(["?"] * len(MOD_POINTER_COLS))
-                query = f"""
-                    INSERT OR REPLACE INTO Components_ESM_References (Component_ID, {col_names_str})
-                    VALUES (?, {placeholders})
-                """
-                params = [comp_id] + pointer_values
-                cursor.execute(query, params)
-                
-                # FormID Signaturen speichern
-                cursor.execute("DELETE FROM Components_ESM_FormIDs WHERE Component_ID = ?", (comp_id,))
-                if local_sigs:
-                    from Structure.File_ESM_Parser import get_masters_list
-                    masters = get_masters_list(filepath)
-                    master_id_map = {}
-                    for idx, master_name in enumerate(masters):
-                        m_low = master_name.lower()
-                        if m_low in sys_file_to_id:
-                            master_id_map[idx] = (sys_file_to_id[m_low], 1)
-                        elif m_low in mod_file_to_id:
-                            master_id_map[idx] = (mod_file_to_id[m_low], 0)
-                        else:
-                            master_id_map[idx] = (None, None)
-
-                    insert_sigs = []
-                    for (fid, is_ovr), (sig_bytes, master_idx, cell_fid, edid, base_fid) in local_sigs.items():
-                        master_db_id, is_system = (None, None)
-                        if is_ovr and master_idx is not None and master_idx in master_id_map:
-                            master_db_id, is_system = master_id_map[master_idx]
-
-                        insert_sigs.append((
-                            comp_id,
-                            fid,
-                            sig_bytes.decode('ascii', errors='ignore'),
-                            1 if is_ovr else 0,
-                            master_db_id,
-                            is_system,
-                            cell_fid,
-                            edid,
-                            base_fid
-                        ))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_FormIDs (
-                            Component_ID, FormID_Local, Sig, Is_Override, Master_Component_ID, Master_Is_System, Cell_FormID, EDID, Base_FormID
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, insert_sigs)
-
-                # Dummy-FormIDs in Components_ESM_Dummies speichern
-                cursor.execute("DELETE FROM Components_ESM_Dummies WHERE Component_ID = ?", (comp_id,))
-                if dummy_records:
-                    insert_dummies = [(comp_id, fid, sig_str, dtype) for fid, sig_str, dtype in dummy_records]
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_Dummies (Component_ID, FormID_Local, Sig, Dummy_Type)
-                        VALUES (?, ?, ?, ?)
-                    """, insert_dummies)
-
-                # 3. Locations in Components_ESM_LCTN speichern
-                cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ?", (comp_id,))
-                if locations:
-                    insert_locs = []
-                    for loc in locations:
-                        insert_locs.append((comp_id, loc['form_id_local'], loc['form_id_keyword']))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, FormID_Local, FormID_Keyword)
-                        VALUES (?, ?, ?)
-                    """, insert_locs)
-                
-                # Zell-Location-Referenzen in Components_ESM_CELL_LCTN speichern
-                cursor.execute("DELETE FROM Components_ESM_CELL_LCTN WHERE Component_ID = ?", (comp_id,))
-                if cell_locations:
-                    insert_cells = []
-                    for cl in cell_locations:
-                        insert_cells.append((comp_id, cl['cell_form_id'], cl['form_id_lctn'], cl.get('is_pack_in', 0)))
-                    cursor.executemany("""
-                        INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
-                        VALUES (?, ?, ?, ?)
-                    """, insert_cells)
-                
-                # Requirements (Masterfiles) aus dem ESM-Header auslesen und speichern
-                cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
-                mod_row = cursor.fetchone()
-                if mod_row:
-                    mod_id = mod_row[0]
-                    if mod_id not in cleared_mods:
-                        cursor.execute("DELETE FROM Mods_Requirements_Masterfile_List WHERE ID_Mod = ?", (mod_id,))
-                        cleared_mods.add(mod_id)
-                    
-                    masters = get_masters_list(filepath)
-                    if masters:
-                        insert_reqs = []
-                        for m in masters:
-                            if m.lower() != file_name.lower():
-                                insert_reqs.append((mod_id, m))
-                        if insert_reqs:
-                            cursor.executemany("""
-                                INSERT OR IGNORE INTO Mods_Requirements_Masterfile_List (ID_Mod, Masterfile)
-                                VALUES (?, ?)
-                            """, insert_reqs)
-                
-                conn.commit()
-                reporter.finish()
-                
-    except Exception as e:
-        log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")
-    finally:
-        if conn:
-            conn.close()
 
 def get_check_logger():
     os.makedirs(os.path.dirname(GET_DATA_LOG_FILE), exist_ok=True)
@@ -553,127 +424,137 @@ def get_check_logger():
         logger.addHandler(fh)
     return logger
 
+
 def write_to_log(message):
     logger = get_check_logger()
     logger.info(message)
 
+
 def parse_version_and_date(catalog_version_str, catalog_timestamp_int):
-    version = str(catalog_version_str)
-    date_from_version = ""
+    """
+    Formatiert die Catalog Version (z.B. 1.0.0.0) und das Timestamp (Unix Timestamp oder None).
+    Gibt (formatted_version, date_from_version, date_from_timestamp) zurück.
+    """
+    version_str = str(catalog_version_str or "")
     
-    if version == "2147483647.0" or version == "2147483647":
-        version = "0"
-        date_from_version = ""
-    elif '.' in version:
-        parts = version.split('.', 1)
-        if parts[0].isdigit() and len(parts[0]) >= 10:
-            version = parts[1]
-            try:
-                dt = datetime.datetime.fromtimestamp(int(parts[0]))
-                date_from_version = dt.strftime("%d.%m.%Y")
-            except Exception:
-                pass
-            
-    date_from_timestamp = ""
-    if catalog_timestamp_int:
-        try:
-            dt = datetime.datetime.fromtimestamp(int(catalog_timestamp_int))
-            date_from_timestamp = dt.strftime("%d.%m.%Y")
-        except Exception:
-            pass
-            
-    return version, date_from_version, date_from_timestamp
+    # 1. Fall: Version ist 0 oder leer
+    if version_str == "0" or not version_str:
+        formatted_version = "0"
+        date_from_version = None
+    else:
+        # 2. Fall: Version hat Format X.Y.Z.W
+        parts = version_str.split('.')
+        formatted_version = ".".join(parts[:3]) if len(parts) >= 3 else version_str
+        date_from_version = None
+        if len(parts) == 4 and len(parts[3]) >= 8:
+            date_part = parts[3][:8]
+            if date_part.isdigit():
+                date_from_version = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                
+    # Datum aus Timestamp
+    date_from_timestamp = None
+    if catalog_timestamp_int and int(catalog_timestamp_int) > 0:
+        date_from_timestamp = datetime.datetime.fromtimestamp(int(catalog_timestamp_int)).strftime("%Y-%m-%d %H:%M:%S")
+        
+    return formatted_version, date_from_version, date_from_timestamp
+
 
 def check_plugin_flags(filepath):
     """
-    Liest den TES4 Header und wertet die Flags aus:
-    0x800 -> Blueprint
-    0x1 -> Full Master (1)
-    0x400 -> Medium Master (2)
-    0x100 -> Small Master (3)
-    Gibt Tuple zurück: (Is_Masterfile, Is_Blueprint)
+    Liest den TES4 Record Header (HEDR Subrecord) einer .esm/.esp Datei aus,
+    um zu prüfen, ob es sich um ein Masterfile (Bit 0) und/oder eine Blueprint-Mod handelt.
+    Rückgabe: (is_masterfile, is_blueprint)
+    is_masterfile: 
+        1 = Full Master (.esm / Master-Bit)
+        2 = Medium Master (0xFD)
+        3 = Small Master (0xFE / Light)
+        0 = Normales Plugin (.esp)
     """
     if not os.path.exists(filepath):
         return 0, 0
     try:
         with open(filepath, 'rb') as f:
-            header = f.read(12)
-            if header.startswith(b'TES4'):
-                flags = int.from_bytes(header[8:12], byteorder='little')
+            sig = f.read(4)
+            if sig != b'TES4':
+                return 0, 0
+            
+            f.seek(8)
+            flags = struct.unpack('<I', f.read(4))[0]
+            
+            is_master = 1 if (flags & 0x00000001) != 0 else 0
+            is_light = 1 if (flags & 0x00000200) != 0 else 0
+            is_medium = 1 if (flags & 0x00000400) != 0 else 0
+            
+            is_masterfile_code = 0
+            if is_medium:
+                is_masterfile_code = 2
+            elif is_light:
+                is_masterfile_code = 3
+            elif is_master:
+                is_masterfile_code = 1
                 
-                if (flags & 0x0800) != 0:
-                    return 0, 1 # Blueprint (Is_Blueprint = 1, kein Masterfile)
-                    
-                # WICHTIG: Spezifischere Master-Flags zuerst prüfen, 
-                # da Small/Medium Masters oftmals AUCH das 0x1 Flag gesetzt haben!
-                if (flags & 0x100) != 0:
-                    return 3, 0 # Small Master
-                elif (flags & 0x400) != 0:
-                    return 2, 0 # Medium Master
-                elif (flags & 0x1) != 0:
-                    return 1, 0 # Full Master
-                
+            is_blueprint = 1 if (flags & 0x00004000) != 0 else 0
+            
+            return is_masterfile_code, is_blueprint
     except Exception:
-        pass
-        
-    return 0, 0
+        return 0, 0
+
 
 def build_catalog_mapping(catalog_path, log_msg):
+    """
+    Liest ContentCatalog.txt und baut ein Mapping auf:
+    key: plugin_filename.lower() (z.B. 'mymod.esm')
+    value: dict mit Titel, Version, Timestamp, Creation_ID, Is_Masterfile, Is_Blueprint
+    """
     mapping = {}
     if not os.path.exists(catalog_path):
+        log_msg("WARNUNG: ContentCatalog.txt nicht gefunden.")
         return mapping
         
     try:
-        with open(catalog_path, 'r', encoding='utf-8-sig') as f:
-            data = json.load(f)
+        with open(catalog_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Der ContentCatalog kann als JSON oder Text formatiert sein. Wir parsen JSON.
+            data = json.loads(content)
             
-        for key, value in data.items():
-            if not isinstance(value, dict) or "Files" not in value:
-                continue
-                
-            files = value.get("Files", [])
+        items = data.get("items", [])
+        for item in items:
+            creation_id = item.get("contentId")
+            title = item.get("title")
+            files = item.get("files", [])
+            version = item.get("version")
+            timestamp = item.get("releaseTimestamp")
             
-            for filename in files:
-                filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
-                if filename.lower().endswith('.esm'):
-                    if os.path.exists(filepath) and log_msg:
-                        log_msg(f"    -> Lese Plugin-Header: {filename} ...")
-                    master_code, bp_code = check_plugin_flags(filepath)
-                else:
-                    master_code, bp_code = 0, 0
+            all_files = []
+            for f in files:
+                all_files.append(f)
+                f_lower = f.lower()
+                if f_lower.endswith('.esm') or f_lower.endswith('.esp'):
+                    filepath = os.path.join(STARFIELD_GAME_DATA_PATH, f)
+                    is_m, is_bp = check_plugin_flags(filepath)
                     
-                # Extrahiere Unix-Zeitwert aus dem Version-String
-                raw_version = str(value.get("Version", "0"))
-                new_timestamp = 0
-                if '.' in raw_version:
-                    parts = raw_version.split('.', 1)
-                    if parts[0].isdigit():
-                        new_timestamp = int(parts[0])
-                elif raw_version.isdigit():
-                    new_timestamp = int(raw_version)
+                    mapping[f_lower] = {
+                        "Creation_ID": creation_id,
+                        "Title": title,
+                        "Version": version,
+                        "Timestamp": timestamp,
+                        "Is_Masterfile": is_m,
+                        "Is_Blueprint": is_bp,
+                        "All_Files": all_files
+                    }
                     
-                existing_entry = mapping.get(filename.lower())
-                if existing_entry:
-                    existing_timestamp = existing_entry.get("Unix_Timestamp", 0)
-                    if new_timestamp <= existing_timestamp:
-                        # Behalte den alten, neueren oder gleichwertigen Eintrag
-                        continue
+        # Sicherstellen, dass All_Files auf allen Plugins der gleichen Creation vollständig ist
+        for k, v in mapping.items():
+            for item in items:
+                if item.get("contentId") == v.get("Creation_ID"):
+                    v["All_Files"] = item.get("files", [])
+                    break
                     
-                mapping[filename.lower()] = {
-                    "Is_Masterfile": master_code,
-                    "Is_Blueprint": bp_code,
-                    "Creation_ID": key,
-                    "Title": html.unescape(value.get("Title", "Unbekannt")),
-                    "Version": value.get("Version", ""),
-                    "Timestamp": value.get("Timestamp", ""),
-                    "Unix_Timestamp": new_timestamp,
-                    "All_Files": files
-                }
-                
     except Exception as e:
-        log_msg(f"Fehler beim Parsen des ContentCatalog: {str(e)}")
-    
+        log_msg(f"FEHLER beim Parsen von ContentCatalog.txt: {str(e)}")
+        
     return mapping
+
 
 def assign_header_requirements(log_msg):
     """
@@ -710,133 +591,128 @@ def assign_header_requirements(log_msg):
         if conn:
             conn.close()
 
-def run_local_check(log_signal, force_full_scan: bool = False):
-    write_log_header(GET_DATA_LOG_FILE, "Starfield_Get_Data")
-    def log_msg(msg):
-        log_signal.emit(msg)
-        write_to_log(msg)
 
-    start_dt = datetime.datetime.now()
-    record_script_start("Starfield_Get_Data.py", start_dt)
-    main_log = logging.getLogger("Starfield_LOH")
-    main_log.info(f"Prozess 'Starfield Get Data' gestartet. Detailliertes Protokoll: {GET_DATA_LOG_FILE}")
-    conn = None
+# =========================================================================
+# Semantische Pipeline-Schritte für run_local_check (Regel 7 ai-manifest.md)
+# =========================================================================
+
+def _step_backup_and_catalog(context, step_id, step_name):
+    """Schritt 1: Dateisicherung von Plugins.txt & ContentCatalog.txt und Metadaten-Mapping."""
+    backup_dir = context["backup_dir"]
+    os.makedirs(backup_dir, exist_ok=True)
+    log_msg = context["log_msg"]
+
+    plugins_backup_path = context["plugins_backup_path"]
+    if os.path.exists(STARFIELD_PLUGINS_PATH):
+        shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
+        log_msg(f"-> Erfolgreich kopiert: Plugins.txt (nach {backup_dir})")
+    else:
+        log_msg(f"FEHLER: Plugins.txt nicht gefunden.")
+        raise FileNotFoundError(f"Plugins.txt unter '{STARFIELD_PLUGINS_PATH}' nicht gefunden.")
+
+    catalog_backup_path = context["catalog_backup_path"]
+    if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
+        shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, catalog_backup_path)
+        log_msg(f"-> Erfolgreich kopiert: ContentCatalog.txt (nach {backup_dir})")
+
+    log_msg("Lese ContentCatalog.txt und werte Binary Header (.esm) aus...")
+    context["catalog_mapping"] = build_catalog_mapping(catalog_backup_path, log_msg)
+
+
+def _step_sync_plugins_and_mods(context, step_id, step_name):
+    """Schritt 2: Synchronisation von Plugins.txt gegen Mods, Components & Mods_Components inkl. Casing-Abgleich."""
+    log_msg = context["log_msg"]
+    catalog_mapping = context["catalog_mapping"]
+    plugins_backup_path = context["plugins_backup_path"]
+
+    with open(plugins_backup_path, 'r', encoding='utf-8-sig') as f:
+        lines = f.readlines()
+
+    processed_count = 0
+    new_mods_count = 0
+    update_mods_count = 0
+
+    dry_run_components = set()
+    processed_mods_this_run = set()
+
+    conn = get_db_connection()
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cursor = conn.cursor()
+
     try:
-        log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
-        if force_full_scan:
-            log_msg("-> [HINWEIS] Vollständiges Einlesen erzwungen: Filterung auf unveränderte Dateien deaktiviert.")
-        backup_dir = BACKUPS_GET_DATA_DIR
-        os.makedirs(backup_dir, exist_ok=True)
-
-        plugins_backup_path = os.path.join(backup_dir, "Plugins.txt")
-        if os.path.exists(STARFIELD_PLUGINS_PATH):
-            shutil.copy2(STARFIELD_PLUGINS_PATH, plugins_backup_path)
-            log_msg(f"-> Erfolgreich kopiert: Plugins.txt (nach {backup_dir})")
-        else:
-            log_msg(f"FEHLER: Plugins.txt nicht gefunden.")
-            main_log.error("Prozess 'Starfield Get Data' abgebrochen: Plugins.txt nicht gefunden.")
-            return False
-
-        catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
-        if os.path.exists(STARFIELD_CONTENT_CATALOG_PATH):
-            shutil.copy2(STARFIELD_CONTENT_CATALOG_PATH, catalog_backup_path)
-            log_msg(f"-> Erfolgreich kopiert: ContentCatalog.txt (nach {backup_dir})")
-
-        # 1. Metadaten-Mapping
-        log_msg("\n[1] Lese ContentCatalog.txt und werte Binary Header (.esm) aus...")
-        catalog_mapping = build_catalog_mapping(catalog_backup_path, log_msg)
-
-        # 2. Plugins.txt als State-Machine iterieren
-        log_msg("\n[2] Starte DB-Abgleich basierend auf Plugins.txt und aktualisiere Datenbank...")
-        
-        with open(plugins_backup_path, 'r', encoding='utf-8-sig') as f:
-            lines = f.readlines()
-            
-        processed_count = 0
-        new_mods_count = 0
-        update_mods_count = 0
-        
-        # State-Tracker
-        dry_run_components = set()
-        processed_mods_this_run = set() # Verhindert doppeltes Einlesen bei Multi-Masterfiles
-        
-        # DB Verbindung aufbauen
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         for line in lines:
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
-                
+
             filename = line.lstrip('*')
-            
-            # Kern-Masterfiles des Grundspiels & offizielle Addons ignorieren (werden in Components_System separat erfasst)
+
+            # Kern-Masterfiles des Grundspiels & offizielle Addons ignorieren
             if filename.lower() in {"starfield.esm", "blueprintships-starfield.esm", "shatteredspace.esm", "constellation.esm", "oldmars.esm"}:
                 continue
-            
+
             if not (filename.lower().endswith('.esm') or filename.lower().endswith('.esp')):
                 continue
-                
+
             processed_count += 1
-            
             db_comp = check_component_exists(filename)
-            
-            # Simulation im aktuellen Lauf: Hatten wir die Komponente schon verarbeitet?
+
             if not db_comp and filename.lower() in dry_run_components:
                 cat_data = catalog_mapping.get(filename.lower(), {})
                 db_comp = {
-                    "Mod_ID": cat_data.get("Creation_ID", "DUMMY_ID"), 
+                    "Mod_ID": cat_data.get("Creation_ID", "DUMMY_ID"),
                     "Is_Masterfile": cat_data.get("Is_Masterfile", 0)
                 }
 
             if db_comp:
-                # FALL B: Masterfile-Komponente bereits in der Tabelle Components angelegt
+                # FALL B: Komponente bereits vorhanden (UPDATE MOD)
                 log_msg(f"\n  [UPDATE MOD] {filename}: Mod existiert, prüfe Updates und Status...")
-                
-                # 1. Prüfen und eintragen des Is_Masterfile und Is_Blueprint für das Masterfile
+
                 catalog_data = catalog_mapping.get(filename.lower())
                 if catalog_data:
                     is_m = catalog_data.get("Is_Masterfile", 0)
                     is_bp = catalog_data.get("Is_Blueprint", 0)
                 else:
                     is_m, is_bp = check_plugin_flags(os.path.join(STARFIELD_GAME_DATA_PATH, filename))
-                
-                cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
+
+                cursor.execute("SELECT ID, File, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
                 comp_row = cursor.fetchone()
                 if comp_row:
                     comp_id = comp_row[0]
-                    db_is_m = comp_row[1]
-                    db_is_bp = comp_row[2]
+                    db_file = comp_row[1]
+                    db_is_m = comp_row[2]
+                    db_is_bp = comp_row[3]
+
+                    # Groß-/Kleinschreibung synchronisieren falls abweichend
+                    if db_file != filename:
+                        cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (filename, comp_id))
+                        log_msg(f"    -> [UPDATE CASING] '{db_file}' auf '{filename}' synchronisiert.")
+
                     if db_is_m != is_m or db_is_bp != is_bp:
                         cursor.execute("UPDATE Components SET Is_Masterfile = ?, Is_Blueprint = ? WHERE ID = ?", (is_m, is_bp, comp_id))
                         log_msg(f"    -> [UPDATE MASTER COMPONENT] '{filename}' Flags aktualisiert (M:{is_m}, BP:{is_bp}).")
-                
-                # 2. Suchen des zugeordneten Mods über die Tabelle Mods_Components
+
                 mod_id = db_comp.get("Mod_ID")
-                
+
                 # Zugehörige BA2-Dateien auf Festplatte suchen und registrieren
                 if mod_id:
                     register_associated_ba2_files(mod_id, filename, cursor, log_msg)
-                
-                # Wenn wir diesen Mod im aktuellen Lauf schon aktualisiert/geprüft haben, überspringen!
+
                 if mod_id in processed_mods_this_run:
                     continue
-                    
+
                 processed_mods_this_run.add(mod_id)
-                
                 update_mods_count += 1
-                
+
                 # Mod-Zustand aus DB holen
                 cursor.execute("SELECT ID, ID_ContentCatalog, Name_ContentCatalog, State, Version_installed, Author, Description, Date_installed FROM Mods WHERE ID = ?", (mod_id,))
                 db_mod_row = cursor.fetchone()
-                
+
                 if db_mod_row:
                     db_creation_id = db_mod_row["ID_ContentCatalog"]
                     db_name_catalog = db_mod_row["Name_ContentCatalog"]
                     db_state = db_mod_row["State"]
-                    
-                    # - Übernehmen der Catalog_ID und Name_Catalog
+
                     if catalog_data and "Creation_ID" in catalog_data:
                         creation_id = catalog_data["Creation_ID"]
                         if db_creation_id != creation_id:
@@ -851,25 +727,22 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                                 WHERE ID = ?
                             """, (creation_id, mod_id))
                             log_msg(f"    -> [UPDATE] Creation_ID von '{db_creation_id}' auf '{creation_id}' geändert (Metadaten-Reset für Neuabruf).")
-                            
+
                         catalog_title = catalog_data.get("Title")
                         if db_name_catalog != catalog_title:
                             cursor.execute("UPDATE Mods SET Name_ContentCatalog = ? WHERE ID = ?", (catalog_title, mod_id))
                             log_msg(f"    -> [UPDATE] Name_ContentCatalog von '{db_name_catalog}' auf '{catalog_title}' geändert.")
-                    
-                    # - Prüfen des Mod Status? Ist dieser geplant oder entfernt -> Status auf installiert (1) ändern
-                    # Dies geschieht völlig unabhängig vom Vorhandensein im ContentCatalog!
+
                     if db_state != 1:
                         cursor.execute("UPDATE Mods SET State = 1 WHERE ID = ?", (mod_id,))
                         log_msg(f"    -> [UPDATE] Mod Status auf 'installiert' (1) geändert.")
-                        
-                    # Optionale Versionswarnung nur bei Bethesda-Mods mit Katalogeintrag
+
                     if catalog_data and "Version" in catalog_data:
                         parsed_version, _, _ = parse_version_and_date(catalog_data["Version"], catalog_data["Timestamp"])
                         db_version = str(db_mod_row["Version_installed"] or "")
                         if db_version != parsed_version:
                             log_msg(f"    -> [UPDATE SKIP] Version in DB ('{db_version}') unterscheidet sich von Catalog ('{parsed_version}'). Keine automatische Versionsaktualisierung.")
-                    
+
                     cursor.execute("""
                         SELECT c.File 
                         FROM Components c 
@@ -878,11 +751,11 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                     """, (mod_id,))
                     existing_comps = [row_comp[0] for row_comp in cursor.fetchall()] if isinstance(mod_id, int) else list(dry_run_components)
                     existing_comps_lower = [e.lower() for e in existing_comps]
-                    
+
                     if catalog_data:
                         all_files = catalog_data.get("All_Files", [])
                         all_files_lower = [f.lower() for f in all_files]
-                        
+
                         # 1. Verknüpfungen in Mods_Components entfernen für Komponenten, die nicht mehr im Catalog sind
                         for e_comp in existing_comps:
                             if e_comp.lower() not in all_files_lower:
@@ -892,60 +765,62 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                                     comp_id_to_remove = row[0]
                                     cursor.execute("DELETE FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id_to_remove))
                                     log_msg(f"    -> [REMOVE COMPONENT LINK] {e_comp} (nicht mehr im aktuellen Katalog-Eintrag enthalten)")
-                        
+
                         # 2. Schleife über alle Files im ContentCatalog
                         for f_name in all_files:
                             f_lower = f_name.lower()
                             is_m = catalog_mapping.get(f_lower, {}).get("Is_Masterfile", 0)
                             is_bp = catalog_mapping.get(f_lower, {}).get("Is_Blueprint", 0)
-                            
-                            # Prüfen ob die Komponente bereits angelegt ist (in Tabelle Components)
-                            cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_name.lower(),))
+
+                            cursor.execute("SELECT ID, File, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_lower,))
                             row = cursor.fetchone()
-                            
+
                             if not row:
-                                # Nein -> Komponente anlegen
                                 cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, ?, ?)", (f_name, is_m, is_bp))
                                 comp_id = cursor.lastrowid
                                 log_msg(f"    -> [INSERT COMPONENT] {f_name} (Is_Masterfile: {is_m}, Is_Blueprint: {is_bp})")
                             else:
-                                # Ja -> Komponente existiert bereits
                                 comp_id = row[0]
-                                db_is_m = row[1]
-                                db_is_bp = row[2]
-                                
-                                # Prüfen ob das File eine .esm Datei ist -> Prüfen und eintragen des Is_Masterfile und Is_Blueprint
+                                db_file = row[1]
+                                db_is_m = row[2]
+                                db_is_bp = row[3]
+
+                                if db_file != f_name:
+                                    cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (f_name, comp_id))
+                                    log_msg(f"    -> [UPDATE CASING] Komponente '{db_file}' auf '{f_name}' synchronisiert.")
+
                                 if f_name.lower().endswith('.esm'):
                                     if db_is_m != is_m or db_is_bp != is_bp:
                                         cursor.execute("UPDATE Components SET Is_Masterfile = ?, Is_Blueprint = ? WHERE ID = ?", (is_m, is_bp, comp_id))
                                         log_msg(f"    -> [UPDATE COMPONENT] '{f_name}' Masterfile/Blueprint Flags aktualisiert (M:{is_m}, BP:{is_bp}).")
-                            
-                            # Prüfen ob die Komponente mit dem Mod verbunden ist
+
                             cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
                             if not cursor.fetchone():
                                 cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
                                 if row:
                                     log_msg(f"    -> [RESTORE LINK] Verknüpfung für bestehende Komponente '{f_name}' wiederhergestellt.")
-                                
+
                             dry_run_components.add(f_name.lower())
                     else:
-                        # Für Offline-/Nexus-Mods (ohne Catalog-Eintrag) wird nur das Masterfile selbst als Komponente sichergestellt
-                        cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
+                        cursor.execute("SELECT ID, File, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
                         row = cursor.fetchone()
                         if row:
                             comp_id = row[0]
+                            db_file = row[1]
+                            if db_file != filename:
+                                cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (filename, comp_id))
+                                log_msg(f"    -> [UPDATE CASING] Komponente '{db_file}' auf '{filename}' synchronisiert.")
                         else:
                             cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, ?, ?)", (filename, is_m, is_bp))
                             comp_id = cursor.lastrowid
-                            
+
                         cursor.execute("SELECT 1 FROM Mods_Components WHERE Mod_ID = ? AND Component_ID = ?", (mod_id, comp_id))
                         if not cursor.fetchone():
                             cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
                             log_msg(f"    -> [RESTORE LINK] Verknüpfung für bestehende Nexus-Komponente '{filename}' wiederhergestellt.")
-                            
+
                         dry_run_components.add(filename.lower())
 
-                        # Fehlende Metadaten aus dem lokalen TES4-Header nachpflegen
                         filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
                         if os.path.exists(filepath):
                             try:
@@ -974,48 +849,50 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                                     log_msg(f"    -> [UPDATE HEADER] Metadaten aus TES4-Header für bestehende Mod '{filename}' nachgepflegt.")
                             except Exception as e:
                                 log_msg(f"    -> WARNUNG: Fehler beim Nachpflegen des TES4-Headers für '{filename}': {e}")
-                            
             else:
-                # FALL A: Masterfile-Komponente noch nicht in der Tabelle Components angelegt (NEUER MOD)
+                # FALL A: Masterfile-Komponente noch nicht in Components (NEUER MOD)
                 new_mods_count += 1
                 catalog_data = catalog_mapping.get(filename.lower())
-                
+
                 if catalog_data and "Creation_ID" in catalog_data:
                     parsed_version, date_v, date_t = parse_version_and_date(catalog_data["Version"], catalog_data["Timestamp"])
-                    
+
                     creation_id = catalog_data['Creation_ID']
                     processed_mods_this_run.add(creation_id)
-                    
+
                     log_msg(f"\n  [INSERT MOD] NEU: {catalog_data['Title']} (Creation: {creation_id})")
                     log_msg(f"    - Platform: 1 (Creations)")
                     log_msg(f"    - Version: {parsed_version} | Datum aus Version: {date_v} | Datum aus 'Timestamp': {date_t}")
-                    
-                    # Datum bestimmen
+
                     if parsed_version == "0" or not date_v:
                         date_installed = date_t
                     else:
                         date_installed = date_v
-                        
-                    # Neuen Mod in DB einfügen (State = 1 für 'installiert')
+
                     cursor.execute("""
                         INSERT INTO Mods (Platform, ID_ContentCatalog, Name_ContentCatalog, Version_installed, Date_installed, State)
                         VALUES (1, ?, ?, ?, ?, 1)
                     """, (creation_id, catalog_data['Title'], parsed_version, date_installed))
                     mod_id = cursor.lastrowid
-                    
+
                     all_files = catalog_data.get("All_Files", [])
                     for f_name in all_files:
                         f_lower = f_name.lower()
                         is_m = catalog_mapping.get(f_lower, {}).get("Is_Masterfile", 0)
                         is_bp = catalog_mapping.get(f_lower, {}).get("Is_Blueprint", 0)
-                        
-                        # Komponente in DB einfügen
-                        cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_lower,))
+
+                        cursor.execute("SELECT ID, File, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (f_lower,))
                         row = cursor.fetchone()
                         if row:
                             comp_id = row[0]
-                            db_is_m = row[1]
-                            db_is_bp = row[2]
+                            db_file = row[1]
+                            db_is_m = row[2]
+                            db_is_bp = row[3]
+
+                            if db_file != f_name:
+                                cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (f_name, comp_id))
+                                log_msg(f"    -> [UPDATE CASING] Komponente '{db_file}' auf '{f_name}' synchronisiert.")
+
                             if f_name.lower().endswith('.esm'):
                                 if db_is_m != is_m or db_is_bp != is_bp:
                                     cursor.execute("UPDATE Components SET Is_Masterfile = ?, Is_Blueprint = ? WHERE ID = ?", (is_m, is_bp, comp_id))
@@ -1025,22 +902,18 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                             comp_id = cursor.lastrowid
                             bp_marker = " [BLUEPRINT]" if is_bp else ""
                             log_msg(f"    -> [INSERT COMPONENT] {f_name} (Is_Masterfile: {is_m}, Is_Blueprint: {is_bp}){bp_marker}")
-                            
+
                         dry_run_components.add(f_name.lower())
-                            
-                        # Verknüpfung in Mods_Components
                         cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
                 else:
                     log_msg(f"\n  [INSERT MOD] NEU: Unbekannter Mod (nicht im Catalog)")
                     log_msg(f"    - Platform: 3 (Unbekannt)")
                     filepath = os.path.join(STARFIELD_GAME_DATA_PATH, filename)
-                    # Default: Gehen wir davon aus, dass es ein Full Master ist, wenn wir die Datei nicht parsen konnten
                     master_code, bp_code = check_plugin_flags(filepath)
                     master_code = 1 if master_code == 0 and bp_code == 0 else master_code
                     log_msg(f"    -> [INSERT COMPONENT] {filename} (Is_Masterfile: {master_code}, Is_Blueprint: {bp_code})")
                     dry_run_components.add(filename.lower())
 
-                    # TES4-Header auslesen (Autor, Beschreibung) und Dateidatum ermitteln
                     author_val = None
                     desc_val = None
                     date_val = None
@@ -1056,7 +929,6 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                         except Exception as e:
                             log_msg(f"    -> WARNUNG: Konnte TES4-Header für '{filename}' nicht lesen: {e}")
 
-                    # Neuen unbekannten Mod in DB einfügen (State = 1 für 'installiert')
                     note_val = None
                     if filename.lower().endswith('.esp'):
                         note_val = "ACHTUNG: Der Mod nutzt ein nicht erlaubtes .esp Plugin!"
@@ -1066,14 +938,19 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                         VALUES (3, ?, ?, ?, ?, 1, ?)
                     """, (filename, author_val, desc_val, date_val, note_val))
                     mod_id = cursor.lastrowid
-                    
-                    # Komponente in DB einfügen
-                    cursor.execute("SELECT ID, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
+
+                    cursor.execute("SELECT ID, File, Is_Masterfile, Is_Blueprint FROM Components WHERE LOWER(File) = ?", (filename.lower(),))
                     row = cursor.fetchone()
                     if row:
                         comp_id = row[0]
-                        db_is_m = row[1]
-                        db_is_bp = row[2]
+                        db_file = row[1]
+                        db_is_m = row[2]
+                        db_is_bp = row[3]
+
+                        if db_file != filename:
+                            cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (filename, comp_id))
+                            log_msg(f"    -> [UPDATE CASING] Komponente '{db_file}' auf '{filename}' synchronisiert.")
+
                         if filename.lower().endswith('.esm'):
                             if db_is_m != master_code or db_is_bp != bp_code:
                                 cursor.execute("UPDATE Components SET Is_Masterfile = ?, Is_Blueprint = ? WHERE ID = ?", (master_code, bp_code, comp_id))
@@ -1081,41 +958,435 @@ def run_local_check(log_signal, force_full_scan: bool = False):
                     else:
                         cursor.execute("INSERT INTO Components (File, Is_Masterfile, Is_Blueprint) VALUES (?, ?, ?)", (filename, master_code, bp_code))
                         comp_id = cursor.lastrowid
-                        
-                    # Verknüpfung in Mods_Components
+
                     cursor.execute("INSERT INTO Mods_Components (Mod_ID, Component_ID) VALUES (?, ?)", (mod_id, comp_id))
 
-            # Zugehörige BA2-Dateien auf Festplatte suchen und registrieren
             if mod_id:
                 register_associated_ba2_files(mod_id, filename, cursor, log_msg)
 
-        # Commit alle Änderungen
         conn.commit()
         log_msg("\n--> Alle Änderungen erfolgreich in der Datenbank gespeichert.")
+        context["processed_count"] = processed_count
+        context["new_mods_count"] = new_mods_count
+        context["update_mods_count"] = update_mods_count
 
-        # Performance-Modus (WAL) für die anstehenden Scans aktivieren
+    finally:
+        conn.close()
+
+
+def _step_scan_system_components(context, step_id, step_name):
+    """Schritt 3: Single-Pass-Scan der offiziellen Bethesda System-Masterfiles."""
+    scan_and_update_system_components(
+        context["log_msg"],
+        context["log_signal"],
+        force_full_scan=context["force_full_scan"],
+        context=context
+    )
+
+
+def _step_scan_mod_components(context, step_id, step_name):
+    """
+    Schritt 4: Dreiphasen-Scan aller aktiven Mod-Masterfiles mit kaskadierendem Fremdschlüsselschutz.
+    Gesteuert über eine semantische Unter-Pipeline gemäß Regel 7 (ai-manifest.md):
+      - 4.1: Integritätsprüfung & Kaskadierende Bereinigung verwaister Daten (FK = ON)
+      - 4.2: Ermittlung zu aktualisierender Mod-Masterfiles & Casing-Synchronisation
+      - 4.3: Performante Bulk-Ingestion (FK = OFF) & Transaktions-Siegelung (FK = ON)
+    """
+    log_msg = context["log_msg"]
+    log_signal = context.get("log_signal")
+    force_full_scan = context.get("force_full_scan", False)
+
+    log_msg("\n[Mod Check] Starte Dreiphasen-Scan der aktiven Mod-Dateien (Creation Engine 2 Masterfiles)...")
+
+    # -------------------------------------------------------------
+    # Teilfunktionen der Unter-Pipeline
+    # -------------------------------------------------------------
+
+    def _substep_cleanup_orphans(conn, cursor, step_id_sub, step_desc):
+        """Phase 1 (4.1): Kaskadierende Bereinigung verwaister Komponenten und Relikte unter Fremdschlüsselschutz."""
+        set_foreign_keys(conn, True)
+        del_count = 0
+        cursor.execute("""
+            DELETE FROM Components 
+            WHERE ID NOT IN (SELECT Component_ID FROM Mods_Components)
+              AND ID NOT IN (SELECT ID FROM Components_System);
+        """)
+        deleted_comps = cursor.rowcount
+        del_count += deleted_comps
+        if deleted_comps > 0:
+            log_msg(f"    -> [FK CLEANUP] {deleted_comps} verwaiste Komponenten kaskadierend entfernt.")
+
+        # Defensive Bereinigung für Child-Tabellen falls Relikte ohne Master existierten
+        cursor.execute("DELETE FROM Components_ESM_References WHERE Component_ID NOT IN (SELECT ID FROM Components);")
+        del_count += cursor.rowcount
+        cursor.execute("DELETE FROM Components_ESM_FormIDs WHERE Component_ID NOT IN (SELECT ID FROM Components);")
+        del_count += cursor.rowcount
+        cursor.execute("DELETE FROM Components_ESM_Dummies WHERE Component_ID NOT IN (SELECT ID FROM Components);")
+        del_count += cursor.rowcount
+        cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID NOT IN (SELECT ID FROM Components);")
+        del_count += cursor.rowcount
+        cursor.execute("DELETE FROM Components_ESM_CELL_LCTN WHERE Component_ID NOT IN (SELECT ID FROM Components);")
+        del_count += cursor.rowcount
+        conn.commit()
+        if context is not None:
+            context["deleted_records_count"] = context.get("deleted_records_count", 0) + del_count
+
+    def _substep_detect_pending(conn, cursor, step_id_sub, step_desc):
+        """Phase 2 (4.2): Ermittlung aller zu scannenden Masterfile-Komponenten inkl. Casing-Synchronisation."""
+        cursor.execute("""
+            SELECT c.ID, c.File, c.Filedate_Last_Check, em.REFR 
+            FROM Components c 
+            LEFT JOIN Components_ESM_References em ON c.ID = em.Component_ID 
+            WHERE c.Is_Masterfile > 0 OR LOWER(c.File) LIKE '%.esm'
+        """)
+        components = cursor.fetchall()
+
+        pending = []
+        for comp in components:
+            comp_id = comp['ID']
+            file_name = comp['File']
+            db_mtime = comp['Filedate_Last_Check']
+            filepath = os.path.join(STARFIELD_GAME_DATA_PATH, file_name)
+
+            if not os.path.exists(filepath):
+                continue
+
+            # Casing auf Festplatte gegen Datenbank prüfen und synchronisieren
+            actual_name = os.path.basename(filepath)
+            if actual_name != file_name:
+                cursor.execute("UPDATE Components SET File = ? WHERE ID = ?", (actual_name, comp_id))
+                conn.commit()
+                log_msg(f"    -> [UPDATE CASING] Komponente '{file_name}' auf Dateinamen '{actual_name}' synchronisiert.")
+                file_name = actual_name
+
+            mtime = os.path.getmtime(filepath)
+            mtime_str = datetime.datetime.fromtimestamp(mtime).isoformat()
+
+            needs_scan = True
+            if not force_full_scan and db_mtime == mtime_str:
+                needs_scan = False
+                log_msg(f"  -> [MOD COMPONENT] '{file_name}' ist unverändert (Überspringe binären Scan). Handles: REFR: {comp['REFR'] or 0}")
+
+            if needs_scan:
+                pending.append({
+                    "id": comp_id,
+                    "file_name": file_name,
+                    "filepath": filepath,
+                    "mtime_str": mtime_str
+                })
+        return pending
+
+    def _substep_bulk_ingest_and_seal(conn, cursor, pending_list, step_id_sub, step_desc):
+        """Phase 3 (4.3): Bulk-Ingestion (FK = OFF) mit vorausgehendem Clean und abschließendem Transaktions-Siegel (FK = ON)."""
+        if not pending_list:
+            return
+
+        cursor.execute("SELECT ID, LOWER(File) FROM Components_System")
+        sys_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+        cursor.execute("SELECT ID, LOWER(File) FROM Components")
+        mod_file_to_id = {row[1]: row[0] for row in cursor.fetchall()}
+
+        cleared_mods = set()
+
+        for item in pending_list:
+            comp_id = item["id"]
+            file_name = item["file_name"]
+            filepath = item["filepath"]
+            mtime_str = item["mtime_str"]
+
+            reporter = ParserProgressReporter(
+                comp_id=comp_id,
+                file_name=file_name,
+                is_system=False,
+                log_signal=log_signal,
+                write_to_log_func=write_to_log
+            )
+
+            # Teil 1: Bereinigung der Alt-Datensätze dieser Komponente unter FK = ON
+            set_foreign_keys(conn, True)
+            del_count = 0
+            cursor.execute("DELETE FROM Components_ESM_References WHERE Component_ID = ?", (comp_id,))
+            del_count += cursor.rowcount
+            cursor.execute("DELETE FROM Components_ESM_FormIDs WHERE Component_ID = ?", (comp_id,))
+            del_count += cursor.rowcount
+            cursor.execute("DELETE FROM Components_ESM_Dummies WHERE Component_ID = ?", (comp_id,))
+            del_count += cursor.rowcount
+            cursor.execute("DELETE FROM Components_ESM_LCTN WHERE Component_ID = ?", (comp_id,))
+            del_count += cursor.rowcount
+            cursor.execute("DELETE FROM Components_ESM_CELL_LCTN WHERE Component_ID = ?", (comp_id,))
+            del_count += cursor.rowcount
+            conn.commit()
+            if context is not None:
+                context["deleted_records_count"] = context.get("deleted_records_count", 0) + del_count
+
+            # Teil 2: Performante Bulk-Ingestion unter FK = OFF
+            set_foreign_keys(conn, False)
+            num_full = get_num_full_masters(filepath, cursor)
+            counts, local_sigs, locations, cell_locations, dummy_records = scan_esm_for_handles(
+                filepath, is_core=False, num_full_masters=num_full, reporter=reporter
+            )
+            reporter.mark_saving_db()
+            calculate_shifters(counts)
+
+            pointer_values = [counts.get(col, 0) for col in MOD_POINTER_COLS]
+            col_names_str = ", ".join(MOD_POINTER_COLS)
+            placeholders = ", ".join(["?"] * len(MOD_POINTER_COLS))
+            cursor.execute(f"""
+                INSERT INTO Components_ESM_References (Component_ID, {col_names_str})
+                VALUES (?, {placeholders})
+            """, [comp_id] + pointer_values)
+
+            # FormID Signaturen
+            if local_sigs:
+                masters = get_masters_list(filepath)
+                master_id_map = {}
+                for idx, master_name in enumerate(masters):
+                    m_low = master_name.lower()
+                    if m_low in sys_file_to_id:
+                        master_id_map[idx] = (sys_file_to_id[m_low], 1)
+                    elif m_low in mod_file_to_id:
+                        master_id_map[idx] = (mod_file_to_id[m_low], 0)
+                    else:
+                        master_id_map[idx] = (None, None)
+
+                insert_sigs = []
+                for (fid, is_ovr), (sig_bytes, master_idx, cell_fid, edid, base_fid) in local_sigs.items():
+                    master_db_id, is_system = (None, None)
+                    if is_ovr and master_idx is not None and master_idx in master_id_map:
+                        master_db_id, is_system = master_id_map[master_idx]
+
+                    insert_sigs.append((
+                        comp_id,
+                        fid,
+                        sig_bytes.decode('ascii', errors='ignore'),
+                        1 if is_ovr else 0,
+                        master_db_id,
+                        is_system,
+                        cell_fid,
+                        edid,
+                        base_fid
+                    ))
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO Components_ESM_FormIDs (
+                        Component_ID, FormID_Local, Sig, Is_Override, Master_Component_ID, Master_Is_System, Cell_FormID, EDID, Base_FormID
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, insert_sigs)
+
+            # Dummy-FormIDs
+            if dummy_records:
+                insert_dummies = [(comp_id, fid, sig_str, dtype) for fid, sig_str, dtype in dummy_records]
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO Components_ESM_Dummies (Component_ID, FormID_Local, Sig, Dummy_Type)
+                    VALUES (?, ?, ?, ?)
+                """, insert_dummies)
+
+            # Locations
+            if locations:
+                insert_locs = [(comp_id, loc['form_id_local'], loc['form_id_keyword']) for loc in locations]
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO Components_ESM_LCTN (Component_ID, FormID_Local, FormID_Keyword)
+                    VALUES (?, ?, ?)
+                """, insert_locs)
+
+            # Zell-Location-Referenzen
+            if cell_locations:
+                insert_cells = [(comp_id, cl['cell_form_id'], cl['form_id_lctn'], cl.get('is_pack_in', 0)) for cl in cell_locations]
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO Components_ESM_CELL_LCTN (Component_ID, Cell_FormID, FormID_LCTN, Is_PackIn)
+                    VALUES (?, ?, ?, ?)
+                """, insert_cells)
+
+            # Requirements (Masterfiles) aus dem ESM-Header
+            cursor.execute("SELECT Mod_ID FROM Mods_Components WHERE Component_ID = ?", (comp_id,))
+            mod_row = cursor.fetchone()
+            if mod_row:
+                mod_id = mod_row[0]
+                if mod_id not in cleared_mods:
+                    cursor.execute("DELETE FROM Mods_Requirements_Masterfile_List WHERE ID_Mod = ?", (mod_id,))
+                    cleared_mods.add(mod_id)
+
+                masters = get_masters_list(filepath)
+                if masters:
+                    insert_reqs = [(mod_id, m) for m in masters if m.lower() != file_name.lower()]
+                    if insert_reqs:
+                        cursor.executemany("""
+                            INSERT OR IGNORE INTO Mods_Requirements_Masterfile_List (ID_Mod, Masterfile)
+                            VALUES (?, ?)
+                        """, insert_reqs)
+            conn.commit()
+
+            # Teil 3: Transaktions-Siegel & Filedate_Last_Check unter FK = ON
+            set_foreign_keys(conn, True)
+            cursor.execute("""
+                UPDATE Components 
+                SET Filedate_Last_Check = ?
+                WHERE ID = ?
+            """, (mtime_str, comp_id))
+            conn.commit()
+            reporter.finish()
+
+    # -------------------------------------------------------------
+    # Semantische Unter-Pipeline gemäß Regel 7 (ai-manifest.md)
+    # -------------------------------------------------------------
+    MOD_SCAN_SUBSTEPS = [
+        (1, "Integritätsprüfung & Bereinigung verwaister Daten (FK = ON)", _substep_cleanup_orphans),
+        (2, "Ermittlung zu aktualisierender Mod-Masterfiles & Casing-Abgleich", _substep_detect_pending),
+        (3, "Performante Bulk-Ingestion (FK = OFF) & Transaktions-Siegelung (FK = ON)", _substep_bulk_ingest_and_seal),
+    ]
+
+    conn = get_db_connection()
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    cursor = conn.cursor()
+    try:
+        pending_components = []
+        for sub_id, sub_name, sub_func in MOD_SCAN_SUBSTEPS:
+            full_step_id = f"{step_id}.{sub_id}"
+            sub_start = time.time()
+            log_msg(f"  -> Schritt {full_step_id}: {sub_name}...")
+            if sub_id == 1:
+                sub_func(conn, cursor, full_step_id, sub_name)
+            elif sub_id == 2:
+                pending_components = sub_func(conn, cursor, full_step_id, sub_name)
+            elif sub_id == 3:
+                sub_func(conn, cursor, pending_components, full_step_id, sub_name)
+            sub_dur = time.time() - sub_start
+            log_msg(f"     [Schritt {full_step_id} abgeschlossen in {sub_dur:.2f}s]")
+    except Exception as e:
+        if conn:
+            try:
+                set_foreign_keys(conn, True)
+                conn.rollback()
+            except Exception:
+                pass
+        log_msg(f"FEHLER beim Scannen der Mod-Masterfiles: {str(e)}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+def _step_assign_header_requirements(context, step_id, step_name):
+    """Schritt 5: Abgleich und Zuweisung automatischer Header-Abhängigkeiten in Mods_Requirements."""
+    assign_header_requirements(context["log_msg"])
+
+
+def _step_vacuum_and_optimize(context, step_id, step_name):
+    """Schritt 6: Datenbank-Wartung & Reorganisation (Bedarfsgesteuertes VACUUM / Optimize)."""
+    log_msg = context["log_msg"]
+    deleted_count = context.get("deleted_records_count", 0)
+    force_full = context.get("force_full_scan", False)
+    VACUUM_THRESHOLD = 50000
+
+    conn = context.get("conn")
+    own_conn = False
+    if conn is None:
+        conn = get_db_connection()
+        own_conn = True
+
+    try:
+        # Sicherstellen, dass keine Transaktion offen ist, damit VACUUM und PRAGMAs greifen
+        if conn.in_transaction:
+            conn.commit()
+
+        if force_full or deleted_count >= VACUUM_THRESHOLD:
+            reason = "Vollständiger Scan erzwungen" if force_full else f"Schwellenwert überschritten ({deleted_count:,} gelöschte Datensätze >= {VACUUM_THRESHOLD:,})"
+            log_msg(f"  -> [VACUUM] Führe physische Datenbankreorganisation durch ({reason})...")
+            v_start = time.time()
+            set_foreign_keys(conn, True)
+            conn.execute("VACUUM;")
+            conn.execute("PRAGMA optimize;")
+            dur = time.time() - v_start
+            log_msg(f"  -> [VACUUM] Reorganisation und Speicherfreigabe erfolgreich abgeschlossen in {dur:.2f}s.")
+        else:
+            conn.execute("PRAGMA optimize;")
+            log_msg(f"  -> [OPTIMIZE] Keine signifikante Fragmentierung ({deleted_count:,} gelöschte Datensätze < {VACUUM_THRESHOLD:,}). Query-Planer optimiert.")
+    except Exception as e:
+        log_msg(f"WARNUNG bei Datenbank-Wartung (VACUUM/Optimize): {e}")
+    finally:
+        if own_conn and conn:
+            conn.close()
+
+
+def run_local_check(log_signal, force_full_scan: bool = False):
+    """
+    Hauptsteuerungs-Pipeline für Starfield Get Data:
+    Liest Spieldateien, Kataloge und Plugins ein, synchronisiert die Datenbank
+    und führt binäre ESM-Scans durch.
+    Gesteuert über eine semantische Funktionstabelle gemäß Regel 7 (ai-manifest.md).
+    """
+    write_log_header(GET_DATA_LOG_FILE, "Starfield_Get_Data")
+    def log_msg(msg):
+        if log_signal:
+            if hasattr(log_signal, "emit"):
+                log_signal.emit(msg)
+            elif callable(log_signal):
+                log_signal(msg)
+        else:
+            print(msg)
+        write_to_log(msg)
+
+    start_dt = datetime.datetime.now()
+    record_script_start("Starfield_Get_Data.py", start_dt)
+    main_log = logging.getLogger("Starfield_LOH")
+    main_log.info(f"Prozess 'Starfield Get Data' gestartet. Detailliertes Protokoll: {GET_DATA_LOG_FILE}")
+    conn = None
+    context = None
+    try:
+        log_msg("--- Neuer Starfield Check Prozess gestartet (Datenbank-Aktualisierung) ---")
+        if force_full_scan:
+            log_msg("-> [HINWEIS] Vollständiges Einlesen erzwungen: Filterung auf unveränderte Dateien deaktiviert.")
+
+        context = {
+            "log_msg": log_msg,
+            "log_signal": log_signal,
+            "force_full_scan": force_full_scan,
+            "backup_dir": BACKUPS_GET_DATA_DIR,
+            "plugins_backup_path": os.path.join(BACKUPS_GET_DATA_DIR, "Plugins.txt"),
+            "catalog_backup_path": os.path.join(BACKUPS_GET_DATA_DIR, "ContentCatalog.txt"),
+            "catalog_mapping": {},
+            "processed_count": 0,
+            "new_mods_count": 0,
+            "update_mods_count": 0,
+            "deleted_records_count": 0,
+            "conn": None,
+        }
+
+        # -------------------------------------------------------------
+        # Semantische Haupt-Pipeline gemäß Regel 7 (ai-manifest.md)
+        # -------------------------------------------------------------
+        GET_DATA_PIPELINE_STEPS = [
+            (1, "Dateisicherung & Metadaten-Mapping", _step_backup_and_catalog),
+            (2, "Synchronisation von Plugins & Mod-Katalog", _step_sync_plugins_and_mods),
+            (3, "Scan der offiziellen System-Masterfiles", _step_scan_system_components),
+            (4, "Dreiphasen-Scan der Mod-Komponenten", _step_scan_mod_components),
+            (5, "Zuweisung von Mod-Abhängigkeiten (Header Requirements)", _step_assign_header_requirements),
+            (6, "Datenbank-Wartung & Reorganisation (Bedarfsgesteuertes VACUUM / Optimize)", _step_vacuum_and_optimize),
+        ]
+
+        # Performance-Modus für die Gesamtdatenbank aktivieren
+        conn = get_db_connection()
         enable_db_performance_mode(conn)
+        context["conn"] = conn
 
-        # Zählen der Pointer Handles und Scannen der offiziellen Bethesda Masterfiles
-        try:
-            scan_and_update_system_components(log_msg, log_signal, force_full_scan=force_full_scan)
-            scan_and_update_mod_components(log_msg, log_signal, force_full_scan=force_full_scan)
-            assign_header_requirements(log_msg)
-        except Exception as e:
-            log_msg(f"FEHLER bei der Pointer-Handle-Aktualisierung oder Requirements-Zuweisung: {str(e)}")
+        for step_id, step_name, step_func in GET_DATA_PIPELINE_STEPS:
+            step_start = datetime.datetime.now()
+            log_msg(f"\n[{step_id}] Starte Schritt {step_id}: {step_name}...")
+            step_func(context, step_id, step_name)
+            step_dur = (datetime.datetime.now() - step_start).total_seconds()
+            log_msg(f"   [Schritt {step_id} abgeschlossen in {step_dur:.2f}s]")
 
         log_msg(f"\nZusammenfassung:")
-        log_msg(f"- {processed_count} aktivierte Masterfiles (.esm) in Plugins.txt gelesen.")
-        log_msg(f"- {new_mods_count} neue Mods importiert.")
-        log_msg(f"- {update_mods_count} bestehende Mods verarbeitet.")
+        log_msg(f"- {context['processed_count']} aktivierte Masterfiles (.esm) in Plugins.txt gelesen.")
+        log_msg(f"- {context['new_mods_count']} neue Mods importiert.")
+        log_msg(f"- {context['update_mods_count']} bestehende Mods verarbeitet.")
+        log_msg(f"- {context.get('deleted_records_count', 0):,} Datensätze bereinigt/aktualisiert.")
         log_msg("\nProzess erfolgreich abgeschlossen.\n")
         record_script_end("Starfield_Get_Data.py", datetime.datetime.now())
-        main_log.info(f"Prozess 'Starfield Get Data' erfolgreich abgeschlossen ({processed_count} Plugins verarbeitet, {new_mods_count} neu, {update_mods_count} aktualisiert).")
+        main_log.info(f"Prozess 'Starfield Get Data' erfolgreich abgeschlossen ({context['processed_count']} Plugins verarbeitet, {context['new_mods_count']} neu, {context['update_mods_count']} aktualisiert, {context.get('deleted_records_count', 0)} Datensätze bereinigt).")
         return True
 
     except Exception as e:
-        if conn:
-            conn.rollback()
         import traceback
         log_msg(f"KRITISCHER FEHLER im Skript: {str(e)}")
         log_msg(traceback.format_exc())
@@ -1125,6 +1396,7 @@ def run_local_check(log_signal, force_full_scan: bool = False):
         if conn:
             restore_db_default_mode(conn)
             conn.close()
+
 
 if __name__ == '__main__':
     class ConsoleSignal:

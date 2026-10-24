@@ -27,6 +27,7 @@ from Structure.Database.Database_Core import (
     ensure_conflict_solution_types_schema,
     enable_db_performance_mode,
     restore_db_default_mode,
+    set_foreign_keys,
     init_sorter_results_table,
     init_loh_executions_table,
 )

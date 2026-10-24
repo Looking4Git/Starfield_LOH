@@ -4,6 +4,7 @@ Zentraler Einstiegspunkt und Re-Exports für alle LOH Datenbank-Funktionen.
 """
 
 from Structure.Database.Database import *
+from Structure.Database.Database_Core import set_foreign_keys
 from Structure.Database.LOH_Database_Reset import reset_database_tables
 
 # Explizite Re-Exports von Modulen für Zugriffe wie Structure.Database.Database_Mods

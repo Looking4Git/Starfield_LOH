@@ -126,8 +126,8 @@ Diese Spalten dienen zur Generierung der beiden Polygone in der Spinnennetz-Graf
     *   **Bedeutung:** Repräsentiert die "Wichtigkeit" oder Breite des Bugfixes.
     *   **Wert:** `Num_Override_Categories * log10(Total_Base_Val)`, wenn die Ausschlussbedingungen für Bugfix nicht greifen, andernfalls `0`.
 *   **`dim_calc_outer_Bugfix`**:
-    *   **Bedeutung:** Repräsentiert die "Override-Intensität" (Konfliktpotenzial) des Bugfixes.
-    *   **Wert:** Entspricht immer direkt dem Wert aus `calc_Override_Ratio` (Verhältnis aller Overrides zu allen Basis-Datensätzen von 0.0 bis 1.0).
+    *   **Bedeutung:** Repräsentiert die absolute Anzahl der korrigierten Vanilla-Datensätze (Gesamtmasse der Fehlerbehebungen analog zu Overhaul).
+    *   **Wert:** Entspricht direkt dem Wert aus `calc_Total_Override_Val` (Gesamtsumme aller modifizierten Vanilla-Datensätze).
 *   **`dim_calc_inner_Overhaul`**:
     *   **Bedeutung:** Die Anzahl der betroffenen funktionalen Hauptbereiche (World, Actors, Effects, Items, Systems) der Mod.
     *   **Wert:** `calc_Overhaul_Active_Areas` (Wert von 0 bis 5).

@@ -65,15 +65,15 @@ class _BarCanvas(QWidget):
         bar_w = max(40.0, w - bar_x - self.value_width - self.margin_x)
 
         col_hover_accent = get_theme_color("ACCENT_ACTION", "#304C7A")
-        col_winner = get_theme_color("ACCENT_BRAND", "#D7A64B")
-        col_hovered_text = get_theme_color("TEXT_ON_DARK", "#FFFFFF")
-        col_active_text = get_theme_color("TEXT_ON_DARK_MUTED", "#CCCCCC")
-        col_inactive_text = get_theme_color("TEXT_MUTED", "#555555")
-        brush_track = get_theme_color("CHART_GRID", "#2B2B2B")
+        col_winner = get_theme_color("CHART_TEXT_WINNER", "#D7A64B")
+        col_hovered_text = get_theme_color("CHART_TEXT_HOVER", "#5B7A9E")
+        col_active_text = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
+        col_inactive_text = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
+        brush_track = get_theme_color("BAR_CHART_TRACK", "#2B2B2B")
         brush_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
         brush_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
-        col_val_active = get_theme_color("TEXT_ON_DARK_MUTED", "#AAAAAA")
-        col_val_inactive = get_theme_color("TEXT_MUTED", "#444444")
+        col_val_active = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
+        col_val_inactive = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
 
         for i, item in enumerate(self._items):
             y = self.margin_y + i * self.row_height
@@ -206,7 +206,7 @@ class Widget_ContentBarChart(QScrollArea):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.canvas = _BarCanvas(self)
         self.setWidget(self.canvas)

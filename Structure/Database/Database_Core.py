@@ -61,6 +61,29 @@ def get_db_connection() -> sqlite3.Connection:
     return conn
 
 
+def set_foreign_keys(conn: sqlite3.Connection, enabled: bool) -> bool:
+    """
+    Schaltet PRAGMA foreign_keys zuverlässig um.
+    - Schließt bei Bedarf eine offene Transaktion ab (da SQLite PRAGMA foreign_keys
+      in einer offenen Transaktion stillschweigend ignoriert).
+    - Liest den tatsächlichen Zustand zurück.
+    - Löst bei Diskrepanzen eine RuntimeError-Exception aus (Fail-Fast-Prinzip).
+    """
+    if conn.in_transaction:
+        conn.commit()
+    target_str = "ON" if enabled else "OFF"
+    target_int = 1 if enabled else 0
+    conn.execute(f"PRAGMA foreign_keys = {target_str};")
+    actual = conn.execute("PRAGMA foreign_keys;").fetchone()[0]
+    if actual != target_int:
+        raise RuntimeError(
+            f"Kritischer Datenbank-Integritätsfehler: "
+            f"PRAGMA foreign_keys konnte nicht auf {target_str} ({target_int}) geschaltet werden. "
+            f"Aktueller Zustand ist {actual}."
+        )
+    return True
+
+
 @contextmanager
 def db_connection(auto_commit: bool = True):
     """

@@ -101,7 +101,10 @@ QLabel#lbl_collapsible_title {
 }
 
 #Window_Mod_Statistics QWidget#container_main,
-#Window_Mod_Statistics QWidget#container_comp {
+#Window_Mod_Statistics QWidget#container_comp,
+#Window_Mod_Statistics Widget_ContentRadarChart,
+#Window_Mod_Statistics Widget_ContentBarChart,
+#Window_Mod_Statistics Widget_ContentBarChart QWidget {
     background: transparent;
     border: none;
 }

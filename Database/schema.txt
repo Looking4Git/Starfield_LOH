@@ -713,7 +713,7 @@ SELECT
     
     -- --- BERECHNUNGSSPALTEN FÜR DIMENSIONEN ---
     COALESCE(calc.calc_Num_Override_Categories * log10(NULLIF(calc.calc_Total_Base_Val, 0)), 0) AS dim_calc_inner_Bugfix,
-    COALESCE(calc.calc_Override_Ratio, 0) AS dim_calc_outer_Bugfix,
+    COALESCE(calc.calc_Total_Override_Val, 0) AS dim_calc_outer_Bugfix,
     
     COALESCE(calc.calc_Overhaul_Active_Areas, 0) AS dim_calc_inner_Overhaul,
     COALESCE(calc.calc_Total_Override_Val, 0) AS dim_calc_outer_Overhaul,

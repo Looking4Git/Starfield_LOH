@@ -267,7 +267,7 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Jede Achse ist über das globale Datenbank-Maximum der Kategorie (`View_Category_Dimension_Max.Max_Outer`) auf 0–100 % genormt.
   * **Mod-basierte Aggregation:** Das globale Maximum wird über die Summe aller Komponenten einer Mod (`GROUP BY Mod_ID`) ermittelt. Dadurch wird der vollständige Inhalts-Fingerabdruck von Multi-Komponenten-Mods unverzerrt abgebildet.
   * **Proportionale Vergleichbarkeit:** Sowohl die äußere Referenzmasse (`dim_calc_outer`) als auch die innere Override-Tiefe (`dim_calc_inner`) werden gegen denselben `Max_Outer`-Kategoriewert skaliert (`val / Max_Outer`), damit beide Werte auf derselben Achse direkt vergleichbar sind.
-* **HUD-Tooltip (Theme-harmonisiert & dediziert dunkel fuer Inhaltsdiagramme):**
+* **HUD-Tooltip für Sektion Inhalte (Gemeinsame Schnittstelle für Radar- & Balkendiagramm):**
   * Spezifisches HUD-Design fuer Inhaltsdiagramme (`Widget_ContentRadarChart QToolTip`, `Widget_ContentBarChart QToolTip`): Hintergrund `CHART_TOOLTIP_BG` (`#1A1A1A` Mixed, `#1E232B` Dark Standard, `#EAECEF` Light entsprechend `SURFACE_SECONDARY`), Starfield-blauer Rand `ACCENT_ACTION` = `#304C7A`, Text- und Zahlenfarbe über `CHART_TOOLTIP_TEXT` / `CHART_TOOLTIP_VAL` (`#CCCCCC` Mixed/Dark, `#000000` Light), kompaktes `padding: 2px 4px`.
   * **Flache HTML-Tabelle:** Direkte `<table>`-Struktur ohne übergeordnetes `<div>` und ohne leere Trennzeilen, um künstliche Leer-Absatzblöcke der Qt-RichText-Engine zu unterbinden.
   * Titelleiste: Ausschließlich der Kategoriename (in Gold für Siegerkategorie via `CHART_TEXT_WINNER`, `CHART_TOOLTIP_TEXT` `#CCCCCC` Mixed/Dark bzw. `#000000` Light für aktive Kategorien, dezent Grau über `CHART_TOOLTIP_MUTED` mit `#888888` Mixed, `#7D8590` Dark und sichtbarem Abgrenzungsgrau `#8C959F` Light für inaktive).
@@ -275,8 +275,17 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
   * Zeile 1: `Referenzen / Masse:` in Starfield-Gelb gefolgt vom absoluten Wert im deutschen Zahlenformat über `format_number_de` (`padding-top: 2px; padding-right: 7px;`).
   * Zeile 2: `Overrides / Tiefe:` in Starfield-Rot gefolgt vom absoluten Wert im deutschen Zahlenformat (`format_number_de`).
 * **Horizontales Balkendiagramm (`Widget_ContentBarChart`):**
-  * Horizontale Balkenliste aller 32 Kategorien. Roter Overrides-Balken (`dim_calc_inner`) überlagert den gelben Referenzen-Balken (`dim_calc_outer`) mit identischem Tooltip.
-  * **Werteanzeige:** Reine absolute Zahlenwerte (ohne redundante Prozentangaben), inaktive Zeilen mit `-`.
+  * Horizontale Balkenliste aller 32 Kategorien als scrollbare Alternative (`QScrollArea` mit NoFrame und transparenter QSS-Einbettung).
+  * **Farb- & Typografie-Harmonisierung mit Radargrafik:**
+    * Siegerkategorie: `CHART_TEXT_WINNER` fett.
+    * Hover-Zeile: Text `CHART_TEXT_HOVER`, Zeilen-Highlight `ACCENT_ACTION` (Alpha 40).
+    * Aktive Kategorien: `CHART_TEXT_ACTIVE` (`#CCCCCC` Mixed/Dark, `#000000` Light).
+    * Inaktive Kategorien: `CHART_TEXT_INACTIVE` (`#9A9A9A` Mixed, `#768390` Dark, `#656D76` Light).
+    * Werteanzeige rechts: Reine absolute Zahlenwerte (ohne redundante Prozentangaben), aktiv in `CHART_TEXT_ACTIVE`, inaktiv als `-` in `CHART_TEXT_INACTIVE`.
+  * **Balkenfarben (synchronisiert mit LoadOrder-Detailseite `LimitBar`):**
+    * Referenzen-Balken (`brush_outer`, Höhe 10 px): `ACCENT_BRAND` (`#D7A64B` Mixed/Dark, `#A87B24` Light).
+    * Overrides-Balken (`brush_inner`, Höhe 5 px zentriert): `STATUS_CRITICAL` (`#C72138`).
+    * Balken-Track (`brush_track`, unbefüllter Hintergrund): `BAR_CHART_TRACK` (`#363636` Mixed, `#282E38` Dark, `#D0D7DE` Light).
 * **Umschaltung, Auto-Fit & Sektions-Dynamik:**
   * Zweispaltige Aufteilung (Hauptmod links, Vergleichsmod rechts) ohne redundante Detailüberschriften für maximale Diagrammgröße.
   * Checkbox *Balkendiagramm* oben rechts (mit Standard-Häkchen) toggelt beide Hälften synchron zwischen Radar- und Balkenansicht.

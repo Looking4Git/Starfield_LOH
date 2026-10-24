@@ -109,6 +109,7 @@ THEME_TOKENS = {
         "CHART_TOOLTIP_VAL": "#CCCCCC",
         "CHART_TOOLTIP_BG": "#1A1A1A",
         "CHART_TOOLTIP_MUTED": "#888888",
+        "BAR_CHART_TRACK": "#363636",
     },
     "dark": {
         "WINDOW_BG": "#0D0D0D",
@@ -191,6 +192,7 @@ THEME_TOKENS = {
         "CHART_TOOLTIP_VAL": "#CCCCCC",
         "CHART_TOOLTIP_BG": "#1E232B",
         "CHART_TOOLTIP_MUTED": "#7D8590",
+        "BAR_CHART_TRACK": "#282E38",
     },
     "light": {
         "WINDOW_BG": "#E6E8EC",
@@ -273,5 +275,6 @@ THEME_TOKENS = {
         "CHART_TOOLTIP_VAL": "#000000",
         "CHART_TOOLTIP_BG": "#EAECEF",
         "CHART_TOOLTIP_MUTED": "#8C959F",
+        "BAR_CHART_TRACK": "#D0D7DE",
     }
 }

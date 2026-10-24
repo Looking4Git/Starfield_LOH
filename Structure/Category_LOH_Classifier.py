@@ -18,7 +18,14 @@ import re
 import sqlite3
 import logging
 from datetime import datetime
-from Structure.Database import get_db_connection, record_script_start, record_script_end
+from Structure.Database import (
+    get_db_connection,
+    record_script_start,
+    record_script_end,
+    enable_db_performance_mode,
+    restore_db_default_mode,
+    set_foreign_keys,
+)
 from Structure.Paths import CATEGORY_CLASSIFIER_LOG_FILE
 from Structure.LOH_Logging import write_log_header, LOH_LOG_FORMAT, LOH_LOG_DATEFMT
 
@@ -4125,6 +4132,8 @@ def run_classifier(log_signal=None):
         log_msg("--- Category LOH Classifier Durchlauf gestartet ---")
         conn = get_db_connection()
         conn.row_factory = sqlite3.Row
+        enable_db_performance_mode(conn)
+        set_foreign_keys(conn, False)
         cursor = conn.cursor()
         
         # 1. Dynamisches Laden der Categories_LOH IDs und Namen sortiert nach Position
@@ -4299,6 +4308,12 @@ def run_classifier(log_signal=None):
         cursor.execute("DROP TABLE IF EXISTS LoadOrder_Classifier_Matrix_Sub;")
         cursor.execute("DROP TABLE IF EXISTS Components_References_Matrix;")
         
+        # Transaktionale Fremdschlüssel-Reaktivierung & Validierung
+        set_foreign_keys(conn, True)
+        fk_violations = cursor.execute("PRAGMA foreign_key_check;").fetchall()
+        if fk_violations:
+            raise RuntimeError(f"Fremdschlüssel-Integritätsverletzung erkannt: {fk_violations}")
+        
         conn.commit()
         log_msg(f"\nDurchlauf abgeschlossen:")
         log_msg(f"- {success_count} Mods erfolgreich klassifiziert.")
@@ -4310,6 +4325,10 @@ def run_classifier(log_signal=None):
         
     except Exception as e:
         if conn:
+            try:
+                set_foreign_keys(conn, True)
+            except Exception:
+                pass
             conn.rollback()
         import traceback
         log_msg(f"KRITISCHER FEHLER beim Klassifizierungsdurchlauf: {str(e)}")
@@ -4318,6 +4337,10 @@ def run_classifier(log_signal=None):
         return False
     finally:
         if conn:
+            try:
+                restore_db_default_mode(conn)
+            except Exception:
+                pass
             conn.close()
 
 if __name__ == "__main__":

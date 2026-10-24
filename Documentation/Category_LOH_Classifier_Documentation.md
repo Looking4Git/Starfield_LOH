@@ -138,3 +138,12 @@ Zur optimalen Feinpositionierung in der Ladereihenfolge ermittelt der Classifier
   * **Mono-Mod-Erkennung:** Komponenten, die nach Sperrung der Hauptkategorie keinen weiteren aktiven Kandidaten mit Netto-Inhalt mehr besitzen (reine Mono-Kategorie-Mods), scheiden unmittelbar aus. Ihre Subkategorie bleibt sauber auf `NULL`.
   * **Hybrid-Resolution:** Alle verbleibenden Kandidaten durchlaufen die standardmäßigen Binnengruppen- und Gruppenduelle und ermitteln den stärksten Zweitplatzierten.
   * **Isolierung:** Pass 2 verändert weder die Protokolltabelle `LoadOrder_Classifier_Results` noch die primäre Matrixtabelle. Das Ergebnis wird atomar in `Mods.Category_LOH_Classifier_Sub` persistiert.
+
+#### Phase I: Datenbank-Transaktions- & Performance-Architektur
+
+Zur Gewährleistung maximaler Durchlaufgeschwindigkeit bei uneingeschränkter relationaler Integrität nutzt der Classifier eine optimierte Transaktions- und Indexarchitektur:
+* **Partieller B-Tree-Index:** `idx_esm_formids_comp_cell` auf `Components_ESM_FormIDs(Component_ID, Cell_FormID) WHERE Cell_FormID IS NOT NULL` verhindert temporäre B-Tree-Dateien auf Datenträgern (`USE TEMP B-TREE FOR GROUP BY`) und beschleunigt die Berechnung der Basis-Referenzen (`View_Components_CELL_Helper_Objects` bzw. `View_Components_References_Base`).
+* **High-Speed Transaktionsmodus:** Bei Start des Durchlaufs wird die Datenbankverbindung über `enable_db_performance_mode(conn)` in den WAL-Modus versetzt (`PRAGMA synchronous = NORMAL`, `PRAGMA temp_store = MEMORY`, `PRAGMA cache_size = -64000`), wodurch synchrone Schreibpausen entfallen.
+* **Batch-Durchlauf ohne Fremdschlüssel-Latenz:** Während des Matrix-Aufbaus, der 46 Turnier-Schritte und der Protokoll-Inserts wird `set_foreign_keys(conn, False)` gesetzt. Dadurch entfallen zehntausende wiederkehrende Foreign-Key-Prüfungen auf `Mods`, `Components` und `Categories_LOH` bei jedem einzelnen Insert/Delete.
+* **Transaktionale Integritäts-Versiegelung:** Unmittelbar vor dem abschließenden `conn.commit()` wird `set_foreign_keys(conn, True)` reaktiviert und eine vollständige Konsistenzprüfung über `PRAGMA foreign_key_check;` ausgeführt. Bei jedweder Inkonsistenz wird ein Rollback ausgelöst und ein Fehler geworfen.
+* **Ressourcenbereinigung:** Im `finally:`-Block wird der Standardmodus der Datenbankverbindung via `restore_db_default_mode(conn)` sauber wiederhergestellt.

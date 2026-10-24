@@ -2083,6 +2083,8 @@ CREATE INDEX idx_esm_formids_base ON Components_ESM_FormIDs(Base_FormID);
 
 CREATE INDEX idx_esm_formids_comp_sig ON Components_ESM_FormIDs(Component_ID, Sig);
 
+CREATE INDEX idx_esm_formids_comp_cell ON Components_ESM_FormIDs(Component_ID, Cell_FormID) WHERE Cell_FormID IS NOT NULL;
+
 CREATE INDEX "idx_mods_category_creations_id_mod" ON "Mods_Category_Creations" ("ID_Mod");
 
 CREATE INDEX "idx_mods_components_mod_id" ON "Mods_Components" ("Mod_ID");

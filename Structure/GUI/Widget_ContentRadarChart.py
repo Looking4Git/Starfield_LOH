@@ -414,15 +414,15 @@ class Widget_ContentRadarChart(QWidget):
         val_inner = item.get("val_inner", 0.0)
 
         if is_winner:
-            cat_title_color = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
+            cat_title_color = get_theme_color_hex("CHART_TEXT_WINNER", "#D7A64B")
         elif is_active:
             cat_title_color = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
         else:
-            cat_title_color = get_theme_color_hex("TEXT_MUTED", "#888888")
+            cat_title_color = get_theme_color_hex("CHART_TOOLTIP_MUTED", "#888888")
 
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
         col_text = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
-        col_ref = get_theme_color_hex("ACCENT_BRAND", "#D7A64B")
+        col_ref = get_theme_color_hex("CHART_TEXT_WINNER", "#D7A64B")
         col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
         col_val = get_theme_color_hex("CHART_TOOLTIP_VAL", "#CCCCCC")
 

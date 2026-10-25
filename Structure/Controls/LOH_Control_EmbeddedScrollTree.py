@@ -4,7 +4,7 @@ Wiederverwendbares Steuerelement zur Einbettung von QTreeView-Listenfeldern
 in einen standardisierten Rahmen mit synchronisiertem, eingerücktem Rollbalken.
 
 Ermöglicht identische Rollbalken-Optik zu QTextEdit/QTextBrowser (exakte vertikale Flucht,
-9px Außenabstand rechts) ohne Verzerrung des QHeaderView-Tabellenkopfes.
+symmetrische 7px Ränder links/rechts) ohne Verzerrung des QHeaderView-Tabellenkopfes.
 
 Dokumentation: Documentation/Treeview_Scrollbar_Documentation.md
 """
@@ -36,8 +36,8 @@ class LOH_Control_EmbeddedScrollTree(QFrame):
         self.vsb.setObjectName("embedded_vsb")
 
         sb_box = QVBoxLayout()
-        # Fluchtkonforme Ränder (links: 4px, oben: 4px, rechts: 7px [+1px Rand + 1px Rahmen = 9px], unten: 4px) analog zu QTextEdit/QTextBrowser
-        sb_box.setContentsMargins(4, 4, 7, 4)
+        # Fluchtkonforme, symmetrische Ränder (links: 7px [harmonischer Abstand zur Tabelle], oben: 4px, rechts: 7px [+1px Rand + 1px Rahmen = 9px], unten: 4px)
+        sb_box.setContentsMargins(7, 4, 7, 4)
         sb_box.addWidget(self.vsb)
 
         layout = QHBoxLayout(self)

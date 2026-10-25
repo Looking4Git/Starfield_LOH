@@ -51,7 +51,7 @@ In den Entwicklungsphasen wurden für die Listenfelder zwei unterschiedliche Rol
 
 ### 4.1 Die Steuerkomponente (`Structure/Controls/LOH_Control_EmbeddedScrollTree.py`)
 
-Um den Rollbalken identisch zu Textfeldern (`QTextBrowser`, `QTextEdit`) mit einem sauberen Freiraum in exakter vertikaler Flucht (einheitlich **9 px Außenabstand rechts**, 4 px links, 4 px oben/unten) einzubetten, ohne die `QHeaderView`-Kopfzeile oder Tabellenzeilen zu verzerren, kapselt `LOH_Control_EmbeddedScrollTree` den Tree in einem gemeinsamen Rahmen:
+Um den Rollbalken identisch zu Textfeldern (`QTextBrowser`, `QTextEdit`) mit einem sauberen Freiraum in exakter vertikaler Flucht (einheitlich **9 px Außenabstand rechts**, symmetrische 7 px links zur Tabelle, 4 px oben/unten) einzubetten, ohne die `QHeaderView`-Kopfzeile oder Tabellenzeilen zu verzerren, kapselt `LOH_Control_EmbeddedScrollTree` den Tree in einem gemeinsamen Rahmen:
 - **Interner Tree-Rollbalken:** Auf `ScrollBarAlwaysOff` gesetzt; berechnet weiterhin Range und Position für Mausrad/Tastatur.
 - **Externer Rollbalken (`QScrollBar`):** Sitzt im Rahmen neben dem Tree und wird über Qt-Signale (`rangeChanged`, `valueChanged`) bidirektional und flackerfrei synchronisiert.
 - **Nahtlose Einbindung via `wrap()`:** Über `LOH_Control_EmbeddedScrollTree.wrap(tree)` wird das Widget automatisch im bestehenden Layout ersetzt (via `layout.replaceWidget`), ohne bestehende Referenzen oder Datenlogik der Controller zu verändern.

@@ -283,31 +283,34 @@ class Widget_ContentRadarChart(QWidget):
             painter.drawText(QRectF(bx, by, tw + 2.0, th), Qt.AlignmentFlag.AlignCenter, cat_name)
 
         # 3. Gelbes Datenpolygon (dim_calc_outer - Referenzen / Masse)
-        # Verbindet ausschließlich aktive Kategorien mit Netto-Inhalt direkt miteinander
+        # Verbindet alle aktiven Kategorien der Reihe nach; bei 0 führt der Punkt ins Zentrum
         outer_poly = QPolygonF()
         outer_points = []
         for i, item in enumerate(self._items):
             angle = axis_angles[i]
             is_active = item.get("is_active", False)
-            norm_val = item.get("norm_outer", 0.0) if is_active else 0.0
-            if is_active and norm_val > 0.001:
+            if is_active:
+                norm_val = item.get("norm_outer", 0.0)
                 r_val = radius * max(0.0, min(1.0, norm_val))
                 pt = QPointF(cx + r_val * math.cos(angle), cy + r_val * math.sin(angle))
                 outer_poly.append(pt)
-                outer_points.append(pt)
+                if norm_val > 0.001:
+                    outer_points.append(pt)
 
         # 4. Rotes Datenpolygon (dim_calc_inner - Overrides / Eingriffstiefe)
+        # Verbindet ebenfalls alle aktiven Kategorien; bei 0 Overrides führt der Punkt ins Zentrum
         inner_poly = QPolygonF()
         inner_points = []
         for i, item in enumerate(self._items):
             angle = axis_angles[i]
             is_active = item.get("is_active", False)
-            norm_val = item.get("norm_inner", 0.0) if is_active else 0.0
-            if is_active and norm_val > 0.001:
+            if is_active:
+                norm_val = item.get("norm_inner", 0.0)
                 r_val = radius * max(0.0, min(1.0, norm_val))
                 pt = QPointF(cx + r_val * math.cos(angle), cy + r_val * math.sin(angle))
                 inner_poly.append(pt)
-                inner_points.append(pt)
+                if norm_val > 0.001:
+                    inner_points.append(pt)
 
         # Polygone zeichnen (Outer zuerst, dann Inner darüber)
         # Outer: Starfield-Gelb

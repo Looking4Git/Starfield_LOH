@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QScrollArea, QFrame, QToolTip
 from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import (
-    QPainter, QPen, QBrush, QColor, QFont, QMouseEvent
+    QPainter, QPen, QBrush, QColor, QFont, QMouseEvent, QPainterPath
 )
 from Structure.GUI.UI_Theme import get_theme_color, get_theme_color_hex
 from Structure.GUI.UI_Utils import format_number_de
@@ -16,16 +16,24 @@ class _BarCanvas(QWidget):
         self._winner_cat = None
         self._hovered_row = -1
 
-        self.row_height = 20
-        self.label_width = 110
-        self.value_width = 100
-        self.margin_x = 10
-        self.margin_y = 6
+        self.row_height = 22
+        self.label_width = 92
+        self.value_width = 60
+        self.margin_x = 2
+        self.margin_y = 4
 
-        self.font_winner = QFont("Segoe UI", 9, QFont.Weight.Bold)
-        self.font_normal = QFont("Segoe UI", 8)
-        self.font_inactive = QFont("Segoe UI", 8)
-        self.font_val = QFont("Consolas", 8)
+        self.font_winner = QFont("Segoe UI")
+        self.font_winner.setPixelSize(14)
+        self.font_winner.setBold(True)
+
+        self.font_normal = QFont("Segoe UI")
+        self.font_normal.setPixelSize(14)
+
+        self.font_inactive = QFont("Segoe UI")
+        self.font_inactive.setPixelSize(13)
+
+        self.font_val = QFont("Consolas")
+        self.font_val.setPixelSize(14)
 
     def set_data(self, items: list[dict], winner_category: str | None = None):
         self._items = items or []
@@ -69,7 +77,7 @@ class _BarCanvas(QWidget):
         col_hovered_text = get_theme_color("CHART_TEXT_HOVER", "#5B7A9E")
         col_active_text = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
         col_inactive_text = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
-        brush_track = get_theme_color("BAR_CHART_TRACK", "#2B2B2B")
+        brush_track = get_theme_color("BAR_CHART_TRACK", "#363636")
         brush_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
         brush_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
         col_val_active = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
@@ -86,7 +94,7 @@ class _BarCanvas(QWidget):
             if is_hovered:
                 painter.fillRect(0, y, w, self.row_height, QColor(col_hover_accent.red(), col_hover_accent.green(), col_hover_accent.blue(), 40))
 
-            # 1. Label links
+            # 1. Label links (zentriert in Zeile mit Höhe 22)
             rect_lbl = QRectF(self.margin_x, y, self.label_width, self.row_height)
             if is_winner:
                 painter.setPen(col_winner)
@@ -103,31 +111,42 @@ class _BarCanvas(QWidget):
 
             painter.drawText(rect_lbl, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, cat_name)
 
-            # 2. Balken-Track (Hintergrund)
-            track_y = y + (self.row_height - 10) / 2.0
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(brush_track)
-            painter.drawRoundedRect(QRectF(bar_x, track_y, bar_w, 10), 2, 2)
+            # 2. Balken-Track & segmentierte Balken in voller Höhe (12 px)
+            track_y = y + (self.row_height - 12) / 2.0
+            track_rect = QRectF(bar_x, track_y, bar_w, 12)
 
-            # 3. Outer-Balken (Gelb - Referenzen)
             norm_outer = item.get("norm_outer", 0.0) if is_active else 0.0
             outer_w = bar_w * max(0.0, min(1.0, norm_outer))
-            if outer_w > 1.0:
-                painter.setBrush(brush_outer)
-                painter.drawRoundedRect(QRectF(bar_x, track_y, outer_w, 10), 2, 2)
 
-            # 4. Inner-Balken (Rot - Overrides)
             norm_inner = item.get("norm_inner", 0.0) if is_active else 0.0
+            val_inner = item.get("val_inner", 0.0) if is_active else 0.0
             inner_w = bar_w * max(0.0, min(1.0, norm_inner))
-            if inner_w > 1.0:
-                inner_track_y = y + (self.row_height - 5) / 2.0
-                painter.setBrush(brush_inner)
-                painter.drawRoundedRect(QRectF(bar_x, inner_track_y, inner_w, 5), 1.5, 1.5)
+            if val_inner > 0.0 and outer_w > 1.0:
+                inner_w = min(outer_w, max(2.0, inner_w))
 
-            # 5. Zahlenwert rechts
-            rect_val = QRectF(bar_x + bar_w + 8, y, self.value_width, self.row_height)
+            # Segmentierte Darstellung via ClipPath mit abgerundeten Ecken (analog LimitBar)
+            clip_path = QPainterPath()
+            clip_path.addRoundedRect(track_rect, 2, 2)
+            painter.save()
+            painter.setClipPath(clip_path)
+
+            # Hintergrund (BAR_CHART_TRACK)
+            painter.fillRect(track_rect, brush_track)
+
+            # Outer-Balken (Gold - Referenzen / Masse) in voller 12 px Höhe
+            if outer_w > 0.5:
+                painter.fillRect(QRectF(bar_x, track_y, outer_w, 12), brush_outer)
+
+            # Inner-Balken (Rot - Overrides / Tiefe) in voller 12 px Höhe
+            if inner_w > 0.5:
+                painter.fillRect(QRectF(bar_x, track_y, inner_w, 12), brush_inner)
+
+            painter.restore()
+
+            # 5. Zahlenwert rechts (zentriert in Zeile mit Höhe 22, deutsches Format)
+            rect_val = QRectF(bar_x + bar_w + 6, y, self.value_width, self.row_height)
             val_outer = item.get("val_outer", 0.0) if is_active else 0.0
-            val_str = f"{val_outer:,.0f}" if is_active else "-"
+            val_str = format_number_de(val_outer, 0) if is_active else "-"
             painter.setPen(col_val_active if is_active else col_val_inactive)
             painter.setFont(self.font_val)
             painter.drawText(rect_val, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, val_str)

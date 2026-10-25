@@ -275,6 +275,6 @@ THEME_TOKENS = {
         "CHART_TOOLTIP_VAL": "#000000",
         "CHART_TOOLTIP_BG": "#EAECEF",
         "CHART_TOOLTIP_MUTED": "#8C959F",
-        "BAR_CHART_TRACK": "#D0D7DE",
+        "BAR_CHART_TRACK": "#FFFFFF",
     }
 }

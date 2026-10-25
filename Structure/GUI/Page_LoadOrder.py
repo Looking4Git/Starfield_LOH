@@ -28,7 +28,7 @@ from Structure.GUI.Dialog_Mod_Activation_Cascade import Dialog_Mod_Activation_Ca
 from Structure.Starfield_LoadOrder_Import import import_plugins_to_profile, validate_plugins_for_import
 from Structure.Starfield_Profile_Activation import activate_profile
 from Structure.Controls import LOH_Control_EmbeddedScrollTree
-from Structure.GUI.UI_Theme import get_theme_color
+from Structure.GUI.UI_Theme import get_theme_color, get_current_theme_mode
 
 class LimitBar(QWidget):
     def __init__(self, parent=None):
@@ -52,7 +52,10 @@ class LimitBar(QWidget):
         w = self.width()
         h = self.height()
         
-        # Hintergrund vollflächig und randlos zeichnen
+        theme_mode = get_current_theme_mode()
+        has_border = (theme_mode != "mixed")
+        
+        # Hintergrund zeichnen
         bg_color = get_theme_color("SURFACE_PRIMARY", fallback="#ECECEC")
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(bg_color))
@@ -66,25 +69,37 @@ class LimitBar(QWidget):
         core_color = get_theme_color("STATUS_WARNING", fallback="#E06236")
         mod_color = get_theme_color("STATUS_CRITICAL", fallback="#C72138") if is_critical else get_theme_color("ACCENT_BRAND", fallback="#D7A64B")
         
-        core_w = int((self.core_val / self.limit) * w)
-        mod_w = int((self.mod_val / self.limit) * w)
+        inner_w = max(0, w - 2) if has_border else w
+        inner_h = max(0, h - 2) if has_border else h
+        ox = 1 if has_border else 0
+        oy = 1 if has_border else 0
+        
+        core_w = int((self.core_val / self.limit) * inner_w)
+        mod_w = int((self.mod_val / self.limit) * inner_w)
         
         # Verhindern, dass über die Gesamtbreite gezeichnet wird
-        if core_w + mod_w > w:
-            if core_w > w:
-                core_w = w
+        if core_w + mod_w > inner_w:
+            if core_w > inner_w:
+                core_w = inner_w
                 mod_w = 0
             else:
-                mod_w = w - core_w
+                mod_w = inner_w - core_w
                 
         painter.setPen(Qt.PenStyle.NoPen)
         if core_w > 0:
             painter.setBrush(QBrush(core_color))
-            painter.drawRect(0, 0, core_w, h)
+            painter.drawRect(ox, oy, core_w, inner_h)
             
         if mod_w > 0:
             painter.setBrush(QBrush(mod_color))
-            painter.drawRect(core_w, 0, mod_w, h)
+            painter.drawRect(ox + core_w, oy, mod_w, inner_h)
+            
+        # Im Dark- und Light-Mode mit BORDER_INPUT einfassen; im Mixed Mode randlos
+        if has_border:
+            border_color = get_theme_color("BORDER_INPUT", fallback="#30363D")
+            painter.setPen(QPen(border_color, 1))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(0, 0, w - 1, h - 1)
 
 class DropIndicatorStyle(QProxyStyle):
     def drawPrimitive(self, element, option, painter, widget=None):

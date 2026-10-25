@@ -32,7 +32,7 @@ class Section_Mod_Statistics_Content(QWidget):
         self._category_maxes = {}
 
         self.default_radar_height = 486
-        self.default_bar_height = 704
+        self.default_bar_height = 744
         self.setFixedHeight(self.default_radar_height)
 
         # 1. UI laden
@@ -97,7 +97,7 @@ class Section_Mod_Statistics_Content(QWidget):
         if self.stacked_comp:
             self.stacked_comp.setCurrentIndex(idx)
 
-        # Auto-Fit Höhe: Balkendiagramm expandiert auf 704 px für alle 32 Zeilen ohne Scrollen und ohne Leerraum
+        # Auto-Fit Höhe: Balkendiagramm expandiert auf 744 px für alle 32 Zeilen ohne Scrollen und ohne Leerraum
         target_h = self.default_bar_height if is_bar else self.default_radar_height
         self.resize_grip.set_default_height(target_h)
         self.resize_grip.set_min_height(380 if not is_bar else 500)
@@ -247,12 +247,15 @@ class Section_Mod_Statistics_Content(QWidget):
 
                 max_out = cat_info["max_outer"]
                 max_in = cat_info["max_inner"]
+                # Einheitliche Achsenskalierung: Maßstab ist die Gesamtmasse (Max_Outer),
+                # abgesichert gegen seltene Ausreißer falls Max_Inner > Max_Outer sein sollte.
+                axis_max = max(max_out, max_in, 1.0)
 
                 # Aktiv nach Prüfschritt 1: Nicht in Step 1 ausgeschlossen UND echter Netto-Inhalt vorhanden
                 is_active = (cat_id not in excluded_step1) and (sum_out > 0.0 or sum_in > 0.0)
-                norm_out = min(1.0, sum_out / max_out) if is_active and max_out > 0 else 0.0
-                # Innere Dimension (Overrides) bezogen auf max_in, gedeckelt durch 1.0 und norm_out:
-                norm_in = min(1.0, sum_in / max_in) if is_active and max_in > 0 else 0.0
+                norm_out = min(1.0, sum_out / axis_max) if is_active and axis_max > 0 else 0.0
+                # Innere Dimension (Overrides) bezogen auf dieselbe Achsenskala (axis_max):
+                norm_in = min(1.0, sum_in / axis_max) if is_active and axis_max > 0 else 0.0
                 norm_in = min(norm_in, norm_out)
 
                 items.append({
@@ -264,6 +267,7 @@ class Section_Mod_Statistics_Content(QWidget):
                     "val_inner": sum_in,
                     "max_outer": max_out,
                     "max_inner": max_in,
+                    "axis_max": axis_max,
                     "norm_outer": norm_out,
                     "norm_inner": norm_in
                 })

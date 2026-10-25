@@ -324,8 +324,8 @@ class Widget_ContentRadarChart(QWidget):
             painter.setPen(QPen(col_outer, 2.0, Qt.PenStyle.SolidLine))
             painter.drawLine(outer_poly.at(0), outer_poly.at(1))
 
-        # Inner: Starfield-Orange (Overrides / Tiefe)
-        col_inner = get_theme_color("STATUS_WARNING", "#E06236")
+        # Inner: Starfield-Rot (Overrides / Tiefe)
+        col_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
         col_inner_fill = QColor(col_inner.red(), col_inner.green(), col_inner.blue(), 70)
         if inner_poly.count() >= 3:
             painter.setPen(QPen(col_inner, 2.0, Qt.PenStyle.SolidLine))
@@ -426,7 +426,7 @@ class Widget_ContentRadarChart(QWidget):
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
         col_text = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
         col_ref = get_theme_color_hex("CHART_TEXT_WINNER", "#D7A64B")
-        col_override = get_theme_color_hex("STATUS_WARNING", "#E06236")
+        col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
         col_val = get_theme_color_hex("CHART_TOOLTIP_VAL", "#CCCCCC")
 
         str_val_outer = format_number_de(val_outer, 1)

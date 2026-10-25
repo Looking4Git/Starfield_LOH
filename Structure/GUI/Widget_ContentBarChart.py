@@ -79,7 +79,7 @@ class _BarCanvas(QWidget):
         col_inactive_text = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
         brush_track = get_theme_color("BAR_CHART_TRACK", "#363636")
         brush_outer = get_theme_color("ACCENT_BRAND", "#D7A64B")
-        brush_inner = get_theme_color("STATUS_CRITICAL", "#C72138")
+        brush_inner = get_theme_color("STATUS_WARNING", "#E06236")
         col_val_active = get_theme_color("CHART_TEXT_ACTIVE", "#CCCCCC")
         col_val_inactive = get_theme_color("CHART_TEXT_INACTIVE", "#888888")
 
@@ -199,7 +199,7 @@ class _BarCanvas(QWidget):
         col_border = get_theme_color_hex("ACCENT_ACTION", "#304C7A")
         col_text = get_theme_color_hex("CHART_TOOLTIP_TEXT", "#CCCCCC")
         col_ref = get_theme_color_hex("CHART_TEXT_WINNER", "#D7A64B")
-        col_override = get_theme_color_hex("STATUS_CRITICAL", "#C72138")
+        col_override = get_theme_color_hex("STATUS_WARNING", "#E06236")
         col_val = get_theme_color_hex("CHART_TOOLTIP_VAL", "#CCCCCC")
 
         str_val_outer = format_number_de(val_outer, 1)

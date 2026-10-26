@@ -1103,6 +1103,111 @@ def _apply_single_mod_update(mod: dict, backup_dir: str, log_callback=None):
                         pass
 
 
+def _parse_plugins_lines(filepath: str) -> list[tuple[str, int]]:
+    """Liest Plugins.txt zeilenweise ein und liefert eine geordnete Liste von (filename_lower, is_active)."""
+    result = []
+    if not os.path.exists(filepath):
+        return result
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                is_active = 1 if line.startswith("*") else 0
+                clean_name = line.lstrip("*").strip().lower()
+                if clean_name.endswith((".esm", ".esp")):
+                    result.append((clean_name, is_active))
+    except Exception as e:
+        logging.error(f"Fehler beim Einlesen von {filepath}: {e}")
+    return result
+
+
+def check_atomic_plugins_restore_eligible(backup_dir: str, selected_mods: list[dict], log_callback=None) -> tuple[bool, str]:
+    """
+    Prüft die 3 Kriterien für ein sicheres atomares Restore der Plugins.txt beim Voll-Rollback (Fall A):
+    1. ContentCatalog: Keine neuen Mods installiert (added_count == 0) und keine fremden Mods entfernt.
+    2. Plugins.txt: Unberührte Plugins stimmen in Sequenz und Aktivierungsstatus (*) 1:1 überein.
+    3. Update-Mods: Keine der deinstallierten Mods war vor dem Rollback im Live-Pluginbestand aktiv.
+    """
+    catalog_backup_path = os.path.join(backup_dir, "ContentCatalog.txt")
+    catalog_new_path = os.path.join(backup_dir, "ContentCatalog_Neu.txt")
+    plugins_backup_path = os.path.join(backup_dir, "Plugins.txt")
+    plugins_new_path = os.path.join(backup_dir, "Plugins_Neu.txt")
+
+    if not os.path.exists(catalog_backup_path) or not os.path.exists(plugins_backup_path):
+        return False, "Backup-Dateien nicht vollständig vorhanden"
+    if not os.path.exists(catalog_new_path) or not os.path.exists(plugins_new_path):
+        return False, "Live-Snapshots (ContentCatalog_Neu / Plugins_Neu) nicht vorhanden"
+
+    # 1. ContentCatalog prüfen
+    try:
+        with open(catalog_backup_path, "r", encoding="utf-8-sig") as f:
+            orig_cat = json.load(f)
+        with open(catalog_new_path, "r", encoding="utf-8-sig") as f:
+            live_cat = json.load(f)
+    except Exception as e:
+        return False, f"Fehler beim Lesen der ContentCatalog-Dateien: {e}"
+
+    orig_keys = {k for k, v in orig_cat.items() if k != "ContentCatalog" and isinstance(v, dict)}
+    live_keys = {k for k, v in live_cat.items() if k != "ContentCatalog" and isinstance(v, dict)}
+
+    added_keys = live_keys - orig_keys
+    if added_keys:
+        return False, f"Neue Mod(s) im Creation Store installiert ({len(added_keys)} neue Einträge)"
+
+    missing_keys = orig_keys - live_keys
+    unexpected_missing = []
+    for k in missing_keys:
+        orig_entry = orig_cat.get(k, {})
+        orig_title = (orig_entry.get("Title") or "").strip().lower()
+        orig_files = [f.lower() for f in orig_entry.get("Files", [])]
+
+        is_selected_mod_key = False
+        for m in selected_mods:
+            m_id = m.get("ID")
+            cid = (m.get("ID_ContentCatalog") or "").strip().lower()
+            cname = (m.get("Name_ContentCatalog") or "").strip().lower()
+            comps = _get_mod_components(m_id)
+            comp_files = [c["File"].lower() for c in comps if c.get("File")]
+
+            if (cid and (k.lower() == cid or k.lower().endswith(cid))) or (cname and cname == orig_title) or any(f in comp_files for f in orig_files):
+                is_selected_mod_key = True
+                break
+
+        if not is_selected_mod_key:
+            unexpected_missing.append(k)
+
+    if unexpected_missing:
+        return False, f"Fremde Mod(s) im ContentCatalog fehlen ({len(unexpected_missing)} Einträge)"
+
+    # 2. Plugins.txt prüfen
+    backup_seq = _parse_plugins_lines(plugins_backup_path)
+    live_seq = _parse_plugins_lines(plugins_new_path)
+
+    selected_esm_files = set()
+    for mod in selected_mods:
+        comps = _get_mod_components(mod.get("ID"))
+        for c in comps:
+            fn = (c.get("File") or "").strip().lower()
+            if fn.endswith((".esm", ".esp")):
+                selected_esm_files.add(fn)
+
+    backup_unberuehrt = [p for p in backup_seq if p[0] not in selected_esm_files]
+    live_unberuehrt = [p for p in live_seq if p[0] not in selected_esm_files]
+
+    if backup_unberuehrt != live_unberuehrt:
+        diff_count = sum(1 for b, l in zip(backup_unberuehrt, live_unberuehrt) if b != l)
+        diff_count += abs(len(backup_unberuehrt) - len(live_unberuehrt))
+        return False, f"Sequenz oder Aktivierungsstatus (*) der unberührten Plugins weicht ab ({diff_count} Abweichungen)"
+
+    live_selected = [p for p in live_seq if p[0] in selected_esm_files]
+    if live_selected:
+        return False, f"Update-Mod bereits in Plugins.txt aktiv ({[p[0] for p in live_selected]})"
+
+    return True, "Umgebung vollständig unberührt"
+
+
 def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None) -> tuple[int, str]:
     """
     Schritt 8: Klärt den Update-Status für alle Mods im aktuellen Lauf:
@@ -1184,6 +1289,24 @@ def resolve_update_status(backup_dir: str, log_callback=None, parent_widget=None
     elif all(s == 10 for s in final_states):
         final_state = 10
         final_reason = "Rollback erfolgreich"
+
+        # Prüfung auf atomares Restore der Plugins.txt (Fall A vs. Fall B)
+        eligible, reason = check_atomic_plugins_restore_eligible(backup_dir, selected_mods, log_callback)
+        if eligible:
+            plugins_backup_path = os.path.join(backup_dir, "Plugins.txt")
+            if os.path.exists(plugins_backup_path):
+                try:
+                    shutil.copy2(plugins_backup_path, STARFIELD_PLUGINS_PATH)
+                    log_message("=== Atomares Restore der Plugins.txt durchgeführt (Fall A) ===", log_callback)
+                    log_message("-> Prüfung erfolgreich: Keine Fremdänderungen in ContentCatalog.txt oder Plugins.txt erkannt.", log_callback)
+                    log_message(f"-> 1:1 Wiederherstellung aus Backup: {plugins_backup_path} -> {STARFIELD_PLUGINS_PATH}", log_callback)
+                    log_message("-> Ladereihenfolge und aktives Profil bleiben zu 100 % erhalten.", log_callback)
+                except Exception as pe:
+                    log_message(f"FEHLER beim atomaren Restore von Plugins.txt: {pe}", log_callback)
+        else:
+            log_message(f"=== Kein atomares Restore der Plugins.txt (Fall B: {reason}) ===", log_callback)
+            log_message("-> Live-Plugins.txt bleibt unverändert geschützt.", log_callback)
+            log_message("-> Hinweis: Bitte bei Bedarf 'Profil aktivieren' nutzen oder 'Starfield Get Data' / 'Sorter' ausführen.", log_callback)
     else:
         final_state = 13
         final_reason = "Update / Rollback erfolgreich"

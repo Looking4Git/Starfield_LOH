@@ -14,6 +14,7 @@ from Structure.Database import (
     get_script_last_execution,
     update_mod_note,
     update_mod_nexus_id,
+    get_all_mods_updates,
 )
 from Structure.Paths import APP_ROOT
 from Structure.GUI.UI_Utils import (
@@ -66,6 +67,8 @@ class CheckboxHeaderView(QHeaderView):
 
             painter.save()
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            if not self.isEnabled():
+                painter.setOpacity(0.5)
             if self.is_checked:
                 painter.setBrush(QColor("#D7A64B"))  # Starfield Gelb
                 painter.setPen(QColor("#5b7a9e"))
@@ -75,12 +78,14 @@ class CheckboxHeaderView(QHeaderView):
                     py = y + (box_size - self.check_pixmap.height()) // 2
                     painter.drawPixmap(px, py, self.check_pixmap)
             else:
-                painter.setBrush(QColor("#ffffff"))
+                painter.setBrush(QColor("#ffffff") if self.isEnabled() else QColor("#30363d"))
                 painter.setPen(QColor("#5b7a9e"))
                 painter.drawRoundedRect(box_rect, 2, 2)
             painter.restore()
 
     def mousePressEvent(self, event):
+        if not self.isEnabled():
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
             idx = self.logicalIndexAt(pos)
@@ -428,20 +433,36 @@ class Page_Update(QWidget):
 
             self.clear_detail_form()
 
+            # Prüfen, ob ein aktiver oder unvollständiger Update-Lauf vorliegt
+            active_updates = get_all_mods_updates()
+            active_update_mod_ids = {u.get("Mod_ID") for u in active_updates} if active_updates else set()
+            is_pending_update = bool(active_update_mod_ids)
+
             # Checkbox-Standard: bei 'updates' alle angehakt, bei 'reinstall'/'restore' alle ausgehakt
             is_default_checked = (mode == "updates")
-            default_check_state = Qt.CheckState.Checked if is_default_checked else Qt.CheckState.Unchecked
-            default_sort_val = 1 if is_default_checked else 0
 
             for row_data in mods_data:
-                item_id = QStandardItem(str(row_data["ID"]))
+                m_id = row_data["ID"]
+                item_id = QStandardItem(str(m_id))
                 item_id.setData(row_data, Qt.ItemDataRole.UserRole)
 
                 # Checkbox für Update / Auswahl
+                if is_pending_update:
+                    is_row_checked = (m_id in active_update_mod_ids)
+                else:
+                    is_row_checked = is_default_checked
+
+                row_check_state = Qt.CheckState.Checked if is_row_checked else Qt.CheckState.Unchecked
+                row_sort_val = 1 if is_row_checked else 0
+
                 item_check = QStandardItem()
                 item_check.setCheckable(True)
-                item_check.setCheckState(default_check_state)
-                item_check.setData(default_sort_val, self.SORT_ROLE)
+                item_check.setCheckState(row_check_state)
+                item_check.setData(row_sort_val, self.SORT_ROLE)
+
+                if is_pending_update:
+                    flags = item_check.flags() & ~Qt.ItemFlag.ItemIsEnabled & ~Qt.ItemFlag.ItemIsUserCheckable
+                    item_check.setFlags(flags)
 
                 name = row_data.get("Name_Online") or row_data.get("Name_ContentCatalog") or ""
                 item_name = QStandardItem(name)
@@ -514,7 +535,14 @@ class Page_Update(QWidget):
             header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
             header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
 
-            self.header.set_checked(is_default_checked)
+            if is_pending_update:
+                self.header.setEnabled(False)
+                all_checked = (len(active_update_mod_ids) == len(mods_data)) if mods_data else False
+                self.header.set_checked(all_checked)
+            else:
+                self.header.setEnabled(True)
+                self.header.set_checked(is_default_checked)
+
             self.table_view.sortByColumn(2, Qt.SortOrder.AscendingOrder)
             self.apply_environment_security()
 
@@ -529,7 +557,7 @@ class Page_Update(QWidget):
 
     def toggle_all_updates(self, checked: bool):
         """Schaltet den Update-Status aller Zeilen um."""
-        if not hasattr(self, 'model') or self.model is None:
+        if not hasattr(self, 'model') or self.model is None or (hasattr(self, 'header') and self.header and not self.header.isEnabled()):
             return
         self._updating_all = True
         try:
@@ -559,6 +587,51 @@ class Page_Update(QWidget):
                 break
         self.header.set_checked(all_checked)
         self.apply_environment_security()
+
+    def set_checkboxes_enabled(self, enabled: bool):
+        """Aktiviert oder sperrt die Interaktion mit den Checkboxen (Tabelle und Header)."""
+        if hasattr(self, "header") and self.header:
+            self.header.setEnabled(enabled)
+            self.header.viewport().update()
+        if hasattr(self, "model") and self.model:
+            for r in range(self.model.rowCount()):
+                item_check = self.model.item(r, 1)
+                if item_check:
+                    flags = item_check.flags()
+                    if enabled:
+                        flags |= (Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                    else:
+                        flags &= ~(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                    item_check.setFlags(flags)
+        if hasattr(self, "table_view") and self.table_view:
+            self.table_view.viewport().update()
+
+    def update_mods_status_in_table(self, selected_mods: list[dict], status_name: str = "Mod deinstalliert"):
+        """Aktualisiert die Tabellenspalten Datum und Status für die übergebenen Mods in-place ohne Model-Neuaufbau."""
+        if not hasattr(self, "model") or self.model is None:
+            return
+
+        target_ids = {str(m.get("ID")) for m in selected_mods if m.get("ID")}
+        today_str = datetime.now().strftime("%d.%m.%Y")
+        today_sort = datetime.now().strftime("%Y-%m-%d")
+
+        for r in range(self.model.rowCount()):
+            item_id = self.model.item(r, 0)
+            if item_id and item_id.text() in target_ids:
+                # Spalte 7: Update Datum
+                item_date_update = self.model.item(r, 7)
+                if item_date_update:
+                    item_date_update.setText(today_str)
+                    item_date_update.setData(today_sort, self.SORT_ROLE)
+
+                # Spalte 9: Status
+                item_status = self.model.item(r, 9)
+                if item_status:
+                    item_status.setText(status_name)
+                    item_status.setData(status_name, self.SORT_ROLE)
+
+        if hasattr(self, "table_view") and self.table_view:
+            self.table_view.viewport().update()
 
     def on_row_selected(self, selected, deselected):
         from Structure.Paths import get_setting
@@ -791,7 +864,9 @@ class Page_Update(QWidget):
                 )
                 return
 
-            # Nach Deinstallation: Nur Ausführungsanzeige aktualisieren; Tabelle bleibt bis zum Abschluss unverändert
+            # Nach Deinstallation: Tabelle in-place auf 'Mod deinstalliert' aktualisieren und Checkboxen sperren
+            self.update_mods_status_in_table(selected_mods, status_name="Mod deinstalliert")
+            self.set_checkboxes_enabled(False)
             self.update_last_execution_display()
 
             # Schritt 5: Overlay & Scanner starten

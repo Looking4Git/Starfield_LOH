@@ -76,9 +76,11 @@ Schritt 7: Klärung & Reconciliation (resolve_update_status)
        │    └─ Mod State 3 / 7 / 8 (unvollständig) ──► _rollback_single_mod() ──► State 10
        │
        ▼
-Schritt 8: Prozessabschluss (step_complete_update)
+Schritt 8: Prozessabschluss (step_complete_update / resolve_update_status)
        ├─ Alle Mods erfolgreich (5/9)? ──────────────► LOH_Executions State 4 ('Update erfolgreich')
        ├─ Alle Mods zurückgerollt (10)? ─────────────► LOH_Executions State 10 ('Rollback erfolgreich')
+       │    ├─ Fall A (Umgebung unberührt) ──────────► Atomares Restore Plugins.txt (Profil bleibt 100 % aktiv)
+       │    └─ Fall B (Fremdänderungen / Sortierung) ─► Live-Plugins.txt geschützt (Profil zu Recht inaktiv)
        ├─ Gemischter Zustand? ───────────────────────► LOH_Executions State 13 ('Update / Rollback erfolgreich')
        ├─ Tabelle Mods_Updates leeren (clear_mods_updates)
        ├─ Backup-Verzeichnis Mods/ bereinigen (gemäß Starfield_Mod_Update_Backup_Strategy)
@@ -162,6 +164,15 @@ Zur Ermittlung des Zustands jeder einzelnen Mod vergleicht `evaluate_mod_state_m
 ### Dynamischer Versionsabgleich aus dem Store
 Liegt in `ContentCatalog_Neu.txt` eine höhere Version vor als zuvor über den Bethesda-Fetch ermittelt (`is_version_newer_sql = 1`), wird `Mods_Updates.Version_update` automatisch auf diesen neueren Versionsstand angehoben. Dadurch übernimmt der LOH stets die tatsächlich vom Store installierte Version.
 
+### Bedingtes atomares Restore der Plugins.txt beim Voll-Rollback (`check_atomic_plugins_restore_eligible`)
+Führt der Benutzer einen vollständigen Abbruch durch oder schlägt die Installation aller Update-Kandidaten fehl (alle Mods in Zustand 10), wird vor Abschluss geprüft, ob ein atomares Restore der `Plugins.txt` aus dem Backupverzeichnis erfolgen darf:
+1. **ContentCatalog-Integrität:** Keine neuen Mods im Creation Store hinzugefügt (`added_keys == 0`) und keine fremden Mods deinstalliert (`missing_keys` enthält ausschließlich die Update-Kandidaten).
+2. **Sequenz- & Aktivitätsprüfung der unberührten Plugins:** Nach Herausfiltern der Update-Kandidaten muss die verbliebene Reihenfolge der Plugins in `Plugins.txt` inklusive ihres Aktivierungsstatus (`*`) zu 100 % mit dem Backup vor dem Update übereinstimmen.
+3. **Keine aktive Update-Mod:** Keine der Update-Mods war vor dem Rollback im Live-Pluginbestand aktiv.
+
+* **Fall A (Voraussetzungen erfüllt):** `Plugins.txt` wird 1:1 atomar per `shutil.copy2` aus dem Backup wiederhergestellt. Die ursprüngliche Ladereihenfolge ist wiederhergestellt und das aktive Profil (Profil 1) bleibt ohne manuellen Eingriff zu 100 % aktiv.
+* **Fall B (Abweichungen vorhanden):** Hat der Creation Store eigenständig umsortiert, oder wurden manuell Mods aktiviert/deaktiviert/installiert, bleibt die Live-Datei geschützt. Das Profil ist berechtigt inaktiv; der Benutzer kann im LOH bewusst *„Profil aktivieren“* wählen oder *„Sorter“* ausführen.
+
 ---
 
 ## 5. Desktop-Overlay (`Window_Mod_Update_Overlay.py`) & Non-Blocking Scanner
@@ -207,6 +218,13 @@ Im unteren Detailbereich stehen zwei hochwertige Aktions-Schaltflächen nebenein
 * **Updates (`updates`):** Zeigt alle installierten Mods mit vorliegendem Update. Checkboxen standardmäßig **angehakt**.
 * **Reinstallation (`reinstall`):** Zeigt alle installierten Creations-Mods. Checkboxen standardmäßig **ausgehakt**.
 * **Wiederherstellung (`restore`):** Zeigt alle deinstallierten Creations-Mods. Checkboxen standardmäßig **ausgehakt**.
+
+### D. Tabellen-Verhalten & Checkbox-Steuerung
+* **In-Place Statusaktualisierung nach Schritt 4:** Direkt nach der Deinstallation der gewählten Mods (`step_uninstall_mods`) werden Spalte 7 (`Date_update`) und Spalte 9 (`Status`) in der Tabelle unmittelbar auf *„Mod deinstalliert“* gesetzt (`update_mods_status_in_table`). Dies geschieht flackerfrei ohne Neuerzeugung des Models und ohne Focus-Stealing von Starfield.
+* **Intelligente Checkbox-Sperre & Sitzungserhalt:**
+  * Sobald ein Update gestartet wird, werden sämtliche Tabellen-Checkboxen sowie der Sammel-Header (`CheckboxHeaderView`) deaktiviert (`setEnabled(False)` / optische Dimmung auf 50 % Opacity).
+  * Bei noch offenem Klärungsbedarf (`Mods_Updates` belegt bzw. State 5 / 11) hält `load_data()` beim Seitenaufruf exakt die betroffenen Mods angehakt und gesperrt.
+  * Nach vollständiger Klärung und Abschluss werden die Checkboxen wieder freigegeben.
 
 ---
 

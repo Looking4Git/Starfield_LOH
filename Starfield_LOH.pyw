@@ -638,7 +638,7 @@ if __name__ == "__main__":
     setup_main_logging()
     logging.info("Starfield Load Order Helper gestartet.")
 
-    # setup_global_ui_scale()  # Vorübergehend deaktiviert zur optischen Feinabstimmung
+    setup_global_ui_scale()
 
     app = QApplication(sys.argv)
     from Structure.GUI.UI_Theme import setup_starfield_theme

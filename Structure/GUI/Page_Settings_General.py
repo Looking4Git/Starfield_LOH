@@ -374,12 +374,20 @@ class Page_Settings_General(QWidget):
         scale_row.addWidget(lbl_scale, alignment=Qt.AlignmentFlag.AlignTop)
 
         current_scale = int(get_setting("ui_scale", 100))
+        self.session_active_scale = current_scale
         self.scale_slider = LOH_Control_TickSlider(active_scale=current_scale)
         self.scale_slider.setObjectName("scale_slider")
         self.scale_slider.setFixedWidth(380)
         self.scale_slider.set_scale(current_scale)
         self.scale_slider.scale_changed.connect(self.on_scale_changed)
         scale_row.addWidget(self.scale_slider, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self.lbl_scale_restart_hint = QLabel("Die Anwendung muss neu gestartet werden!")
+        self.lbl_scale_restart_hint.setObjectName("lbl_scale_restart_hint")
+        set_status_label(self.lbl_scale_restart_hint, "Die Anwendung muss neu gestartet werden!", "status_warning")
+        self.lbl_scale_restart_hint.setVisible(False)
+        scale_row.addSpacing(16)
+        scale_row.addWidget(self.lbl_scale_restart_hint, alignment=Qt.AlignmentFlag.AlignTop)
         scale_row.addStretch()
 
         layout.addLayout(scale_row)
@@ -524,6 +532,8 @@ class Page_Settings_General(QWidget):
     def on_scale_changed(self, new_scale: int):
         """Speichert die gewünschte Oberflächen-Skalierung in den Settings."""
         set_setting("settings", "ui_scale", new_scale)
+        if hasattr(self, "lbl_scale_restart_hint") and self.lbl_scale_restart_hint:
+            self.lbl_scale_restart_hint.setVisible(new_scale != getattr(self, "session_active_scale", 100))
         self.data_updated.emit()
 
 
@@ -955,8 +965,10 @@ class Page_Settings_General(QWidget):
             # Skalierungs-Slider auf Standard 100 % zurücksetzen
             self.scale_slider.blockSignals(True)
             self.scale_slider.set_scale(100)
-            self.scale_slider.set_active_scale(100)
+            self.scale_slider.set_active_scale(getattr(self, "session_active_scale", 100))
             self.scale_slider.blockSignals(False)
+            if hasattr(self, "lbl_scale_restart_hint") and self.lbl_scale_restart_hint:
+                self.lbl_scale_restart_hint.setVisible(100 != getattr(self, "session_active_scale", 100))
 
             # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
             for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:

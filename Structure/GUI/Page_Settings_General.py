@@ -19,6 +19,7 @@ from Structure.LOH_Change_Data_Path import change_data_path, validate_data_path
 from Structure.LOH_Reset import reset_database
 from Structure.GUI.UI_Theme import set_dark_title_bar, setup_starfield_theme, get_current_theme_mode
 from Structure.GUI.UI_Utils import make_button_premium, set_status_label
+from Structure.Controls.LOH_Control_TickSlider import LOH_Control_TickSlider
 
 
 class NexusKeyValidatorWorker(QThread):
@@ -364,6 +365,26 @@ class Page_Settings_General(QWidget):
         layout.addLayout(theme_row)
         layout.addSpacing(10)
 
+        # Skalierung / UI Scale (LOH_Control_TickSlider)
+        scale_row = QHBoxLayout()
+        scale_row.setSpacing(8)
+        lbl_scale = QLabel("Skalierung:")
+        lbl_scale.setObjectName("lbl_scale")
+        lbl_scale.setFixedWidth(lbl_col_width)
+        scale_row.addWidget(lbl_scale, alignment=Qt.AlignmentFlag.AlignTop)
+
+        current_scale = int(get_setting("ui_scale", 100))
+        self.scale_slider = LOH_Control_TickSlider(active_scale=current_scale)
+        self.scale_slider.setObjectName("scale_slider")
+        self.scale_slider.setFixedWidth(380)
+        self.scale_slider.set_scale(current_scale)
+        self.scale_slider.scale_changed.connect(self.on_scale_changed)
+        scale_row.addWidget(self.scale_slider, alignment=Qt.AlignmentFlag.AlignTop)
+        scale_row.addStretch()
+
+        layout.addLayout(scale_row)
+        layout.addSpacing(10)
+
         self.chk_replace_author_nexus = QCheckBox("Author durch Nexus Benutzer ersetzen.")
         self.chk_replace_author_nexus.setObjectName("chk_replace_author_nexus")
         replace_author_val = get_setting("Replace_Author_With_Nexus_User", False)
@@ -499,6 +520,11 @@ class Page_Settings_General(QWidget):
             set_setting("settings", "theme_mode", mode)
             setup_starfield_theme(theme_mode=mode)
             self.data_updated.emit()
+
+    def on_scale_changed(self, new_scale: int):
+        """Speichert die gewünschte Oberflächen-Skalierung in den Settings."""
+        set_setting("settings", "ui_scale", new_scale)
+        self.data_updated.emit()
 
 
     def on_nexus_api_key_edited(self):
@@ -898,6 +924,8 @@ class Page_Settings_General(QWidget):
                     "Auto_Save": 1,
                     "Link_Mod_Selection": 1,
                     "Limit_Warning_Percentage": 90,
+                    "theme_mode": "mixed",
+                    "ui_scale": 100,
                     "Replace_Author_With_Nexus_User": False,
                     "Prefer_Content_BarChart": False,
                     "Prefer_Classification_Tiles": True,
@@ -923,6 +951,12 @@ class Page_Settings_General(QWidget):
             self.update_status_display(DEFAULT_GAME_PATH)
             self.inp_nexus_api_key.setText("")
             self.update_nexus_status_display("")
+
+            # Skalierungs-Slider auf Standard 100 % zurücksetzen
+            self.scale_slider.blockSignals(True)
+            self.scale_slider.set_scale(100)
+            self.scale_slider.set_active_scale(100)
+            self.scale_slider.blockSignals(False)
 
             # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
             for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:

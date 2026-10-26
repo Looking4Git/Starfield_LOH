@@ -29,6 +29,9 @@ from Structure.Controls.LOH_Control_MarkdownView import (
 from Structure.Controls.LOH_Control_EmbeddedScrollTree import (
     LOH_Control_EmbeddedScrollTree
 )
+from Structure.Controls.LOH_Control_TickSlider import (
+    LOH_Control_TickSlider
+)
 
 __all__ = [
     "LOH_Control_CollapsibleSection",
@@ -40,5 +43,6 @@ __all__ = [
     "LOH_Control_TileView",
     "LOH_Control_WindowDocking",
     "LOH_Control_MarkdownView",
-    "LOH_Control_EmbeddedScrollTree"
+    "LOH_Control_EmbeddedScrollTree",
+    "LOH_Control_TickSlider"
 ]

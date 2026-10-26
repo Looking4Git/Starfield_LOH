@@ -250,6 +250,7 @@ QComboBox QListView::item:selected:hover {
     color: #ffffff;
 }
 
+
 /* Globale Checkboxen */
 QCheckBox {
     color: {{ TEXT_ON_DARK }};

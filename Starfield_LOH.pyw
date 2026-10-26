@@ -18,7 +18,7 @@ from Structure.GUI.Window_Splash_Screen import Window_SplashScreen, start_splash
 from Structure.Controls.LOH_Control_WindowDocking import LOH_Control_WindowDocking
 from Structure.Controls.LOH_Control_Splitter import LOH_Control_Splitter
 from Structure.Controls.LOH_Control_Dropdown import setup_dropdown_wheel_guard
-from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR
+from Structure.Paths import SETTINGS_FILE, MAIN_LOG_FILE, LOGS_DIR, get_setting
 from Structure.LOH_Logging import write_log_header
 from Structure.Database import ensure_default_database_mode
 
@@ -33,6 +33,7 @@ DEFAULT_SETTINGS = {
         "Link_Mod_Selection": 1,
         "Limit_Warning_Percentage": 90,
         "theme_mode": "mixed",
+        "ui_scale": 100,
         "Replace_Author_With_Nexus_User": False,
         "Prefer_Content_BarChart": False,
         "Prefer_Classification_Tiles": True,
@@ -615,6 +616,18 @@ def setup_main_logging():
     except Exception as e:
         print(f"Konnte Haupt-Logging nicht initialisieren: {e}")
 
+def setup_global_ui_scale():
+    """
+    Aktiviert die globale Oberflächen-Skalierung (QT_SCALE_FACTOR) vor Initialisierung von QApplication.
+    """
+    ui_scale = get_setting("ui_scale", 100)
+    if isinstance(ui_scale, (int, float)) and ui_scale != 100:
+        scale_factor = round(ui_scale / 100.0, 2)
+        os.environ["QT_SCALE_FACTOR"] = str(scale_factor)
+        logging.info(f"Globale Oberflächen-Skalierung aktiv: {ui_scale} % (QT_SCALE_FACTOR={scale_factor})")
+    else:
+        os.environ.pop("QT_SCALE_FACTOR", None)
+
 if __name__ == "__main__":
     # Slave-Modus für ausgelagerten Splash Screen abfangen (verhindert Fork Bomb in kompilierter EXE)
     if "--splash-slave" in sys.argv or "--slave" in sys.argv:
@@ -624,6 +637,8 @@ if __name__ == "__main__":
 
     setup_main_logging()
     logging.info("Starfield Load Order Helper gestartet.")
+
+    # setup_global_ui_scale()  # Vorübergehend deaktiviert zur optischen Feinabstimmung
 
     app = QApplication(sys.argv)
     from Structure.GUI.UI_Theme import setup_starfield_theme

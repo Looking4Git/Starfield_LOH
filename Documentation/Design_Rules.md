@@ -332,6 +332,29 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 
 ---
 
+### M. Schieberegler & Oberflächen-Skalierung (`LOH_Control_TickSlider`)
+* **Einsatz:** Globale Skalierung der Benutzeroberfläche über den Qt-Engine-Zoom (`QT_SCALE_FACTOR`) in der Sektion *Anzeige* auf `Page_Settings_General`.
+* **Architektur & Modul:** Eigenständiges Steuerelement in [Structure/Controls/LOH_Control_TickSlider.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_TickSlider.py), re-exportiert über `Structure.Controls`.
+* **Stufen & Geometrie:**
+  * Feste diskrete Rasterstufen: `80 %`, `85 %`, `90 %`, `95 %`, `100 %`, `105 %`, `110 %`, `115 %`, `120 %` (in ergonomischen 5 %-Schritten).
+  * Standardbreite: **380 px** (harmonisch eingebunden in die Detailseite).
+  * **Linksbündigkeit & $D/2$-Überstand:** Die Schiene (Groove) beginnt exakt bei $x = 0$ (fluchtliniengleich mit darüberliegenden Dropdown-Feldern) und endet bei $x = W = 380\text{ px}$. Vor dem ersten Tick ($80\,\%$) und nach dem letzten Tick ($120\,\%$) steht die Schiene um genau die Hälfte des Stufenabstands über ($D/2 \approx 21{,}1\text{ px}$). Sämtliche Prozentangaben liegen dadurch geschützt und mit optischem Puffer vollständig innerhalb der Schienenbreite.
+  * Direktsprung per Mausklick: Klick auf eine beliebige Position der Schiene lässt den Schieber sofort exakt auf die entsprechende Stufe springen. Unterstützt zudem kontinuierliches Ziehen (Dragging), Hover-Feedback und Tastatursteuerung (Links/Rechts, Pos1, Ende).
+* **Visuelles Design & Farbcodierung:**
+  * **Handle (Kringel):** Starfield-Gelber Außenring (**`ACCENT_BRAND`** = `#D7A64B`), blauer Mittelpunkt (**`ACCENT_ACTION`** = `#304C7A`), kein weißer Außenrand, Durchmesser 16 px. Sanfte Aufhellung bei Hover/Drag.
+  * **Groove (Schiene):** 6 px hoch, Hintergrund `SURFACE_PRIMARY` (`#111722`), Rahmen `ACCENT_ACTION` (`#304C7A`), abgerundet (3 px Radius).
+  * **Sub-Page (Fortschritt):** Farbverlauf (`#1F365D` $\rightarrow$ `#304C7A`) von $x=0$ bis zum aktuellen Schieberzentrum.
+  * **Teilstriche (Ticks) & 14px-Beschriftung:**
+    * Vertikale Teilstriche unter der Schiene bei $x_i = \frac{D}{2} + i \cdot D$. Alle Prozentwerte sind mathematisch exakt zentriert unter ihren Teilstrichen ausgerichtet.
+    * Schriftgröße: Einheitlich **14 px** (`font.setPixelSize(14)`), normale Schriftstärke (kein Fett-Effekt für ein ruhiges Schriftbild).
+    * **Aktiv eingestellte Skalierung (aus Settings):** Bleibt dauerhaft in Starfield-Gold (**`ACCENT_BRAND`** = `#D7A64B`).
+    * **Angewählte Skalierung & Rasterpunkt-Hover:**
+      - *Im Mixed- & Dark-Mode (dunkle Fläche):* Hebt sich in Weiß (**`TEXT_ON_DARK`** = `#FFFFFF`) ab.
+      - *Im Light-Mode (helle Fläche):* Hebt sich in leuchtendem Blau (**`#0969DA`** wie in der Radargrafik) ab, um perfekten Kontrast zu gewährleisten.
+    * **Inaktive Stufen:** Gedimmtes Text- und Teilstrichgrau (**`TEXT_ON_DARK_MUTED`** = `#888888` im Mixed/Dark Mode bzw. **`TEXT_MUTED`** = `#656D76` im Light Mode).
+
+---
+
 ### 3.1 Menüstruktur & Navigation (Sidebar)
 Die linke Navigationsleiste (`QFrame` Sidebar) steuert den Hauptarbeitsbereich der Anwendung und kann über die Schaltfläche `Icon_Menu` zwischen einer kompakten Icon-Only-Ansicht (**64 px**) und einer erweiterten Ansicht mit Icons und Text (**175 px**) umgeschaltet werden:
 * **`/Mods`:** Hauptmaske zur Verwaltung der installierten Mods (Master-Detail).
@@ -618,5 +641,7 @@ Um eine einheitliche Optik, fehlerfreie Rollbalken-Kaskadierung und Theme-Umscha
 6. **Begründete Ausnahmen vom dynamischen Theme-Wechsel:**
    * **`Window_Splash_Screen.py`:** Wird vor allen Initialisierungen, Profilen und Einstellungen angezeigt. Als randloses, teiltransparentes Sci-Fi-Startfenster mit festen Starfield-Farben (`#161B22`, `#D7A64B`) und Wander-Ticker ist es fest an die Markenidentität gebunden; ein Theme-Wechsel (insbesondere Light Mode) würde Transparenzkonturen und das Sci-Fi-Erlebnis aufbrechen.
    * **`Window_Mod_Update_Overlay.py`:** Fungiert als Always-on-Top In-Game-HUD, das während des Bethesda Creations Downloads direkt über dem laufenden 3D-Spielfenster liegt. Es benötigt feste RGBA-Transparenzen (`rgba(3, 4, 28, 0.55)`), Schiefer-Akzente und weiße Kontraste zur Lesbarkeit über bewegten 3D-Spielgrafiken. Ein Umschalten auf helle Desktop-Themes würde den Spieler im Spiel blenden und die HUD-Lesbarkeit zerstören.
+
+
 
 

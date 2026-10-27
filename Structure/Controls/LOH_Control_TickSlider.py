@@ -13,12 +13,12 @@ class LOH_Control_TickSlider(QWidget):
     Dediziertes Starfield LOH Slider-Steuerelement mit festen diskreten Rasterstufen:
     - Balken (Groove) schließt exakt bei x = 0 (fluchtliniengleich mit Dropdown) ab.
     - Vor dem ersten Tick und nach dem letzten Tick steht der Balken um genau D/2 über.
-    - Sämtliche Prozentangaben (80 % - 120 %) liegen geschützt innerhalb der Balkenbreite.
+    - Sämtliche Prozentangaben (50 % - 130 %) liegen geschützt innerhalb der Balkenbreite.
     - Direktsprung per Mausklick, weiches Dragging, Tastaturnavigation und Starfield-Theme-Farben.
     """
     scale_changed = Signal(int)
 
-    DEFAULT_STEPS = [80, 85, 90, 95, 100, 105, 110, 115, 120]
+    DEFAULT_STEPS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130]
     DEFAULT_SCALE = 100
 
     def __init__(self, steps: list[int] = None, active_scale: int = None, parent=None):
@@ -37,7 +37,7 @@ class LOH_Control_TickSlider(QWidget):
         self._hovered_step_idx = -1
 
         self.setFixedHeight(52)
-        self.setFixedWidth(380)
+        self.setFixedWidth(680)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)

@@ -336,9 +336,9 @@ Jede UI-Komponente besitzt eine feste Definition, die ortsunabhängig auf allen 
 * **Einsatz:** Globale Skalierung der Benutzeroberfläche über den Qt-Engine-Zoom (`QT_SCALE_FACTOR`) in der Sektion *Anzeige* auf `Page_Settings_General`.
 * **Architektur & Modul:** Eigenständiges Steuerelement in [Structure/Controls/LOH_Control_TickSlider.py](file:///d:/Starfield_LOH/Structure/Controls/LOH_Control_TickSlider.py), re-exportiert über `Structure.Controls`.
 * **Stufen & Geometrie:**
-  * Feste diskrete Rasterstufen: `80 %`, `85 %`, `90 %`, `95 %`, `100 %`, `105 %`, `110 %`, `115 %`, `120 %` (in ergonomischen 5 %-Schritten).
-  * Standardbreite: **380 px** (harmonisch eingebunden in die Detailseite).
-  * **Linksbündigkeit & $D/2$-Überstand:** Die Schiene (Groove) beginnt exakt bei $x = 0$ (fluchtliniengleich mit darüberliegenden Dropdown-Feldern) und endet bei $x = W = 380\text{ px}$. Vor dem ersten Tick ($80\,\%$) und nach dem letzten Tick ($120\,\%$) steht die Schiene um genau die Hälfte des Stufenabstands über ($D/2 \approx 21{,}1\text{ px}$). Sämtliche Prozentangaben liegen dadurch geschützt und mit optischem Puffer vollständig innerhalb der Schienenbreite.
+  * Feste diskrete Rasterstufen: `50 %`, `55 %`, `60 %`, `65 %`, `70 %`, `75 %`, `80 %`, `85 %`, `90 %`, `95 %`, `100 %`, `105 %`, `110 %`, `115 %`, `120 %`, `125 %`, `130 %` (17 Stufen in ergonomischen 5 %-Schritten).
+  * Standardbreite: **680 px** (harmonisch eingebunden in die Detailseite).
+  * **Linksbündigkeit & $D/2$-Überstand:** Die Schiene (Groove) beginnt exakt bei $x = 0$ (fluchtliniengleich mit darüberliegenden Dropdown-Feldern) und endet bei $x = W = 680\text{ px}$. Vor dem ersten Tick ($50\,\%$) und nach dem letzten Tick ($130\,\%$) steht die Schiene um genau die Hälfte des Stufenabstands über ($D/2 = 20{,}0\text{ px}$). Sämtliche 17 Prozentangaben liegen dadurch geschützt und mit optischem Puffer vollständig innerhalb der Schienenbreite.
   * Direktsprung per Mausklick: Klick auf eine beliebige Position der Schiene lässt den Schieber sofort exakt auf die entsprechende Stufe springen. Unterstützt zudem kontinuierliches Ziehen (Dragging), Hover-Feedback und Tastatursteuerung (Links/Rechts, Pos1, Ende).
 * **Visuelles Design & Farbcodierung:**
   * **Handle (Kringel):** Starfield-Gelber Außenring (**`ACCENT_BRAND`** = `#D7A64B`), blauer Mittelpunkt (**`ACCENT_ACTION`** = `#304C7A`), kein weißer Außenrand, Durchmesser 16 px. Sanfte Aufhellung bei Hover/Drag.

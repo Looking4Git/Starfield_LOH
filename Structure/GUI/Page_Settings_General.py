@@ -377,7 +377,7 @@ class Page_Settings_General(QWidget):
         self.session_active_scale = current_scale
         self.scale_slider = LOH_Control_TickSlider(active_scale=current_scale)
         self.scale_slider.setObjectName("scale_slider")
-        self.scale_slider.setFixedWidth(380)
+        self.scale_slider.setFixedWidth(680)
         self.scale_slider.set_scale(current_scale)
         self.scale_slider.scale_changed.connect(self.on_scale_changed)
         scale_row.addWidget(self.scale_slider, alignment=Qt.AlignmentFlag.AlignTop)

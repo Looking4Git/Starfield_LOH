@@ -134,7 +134,8 @@ class StarfieldLOH(QMainWindow):
 
         # 2. Fenster Geometrie STRIKT aus Settings anwenden
         win_cfg = self.settings.get("window", {})
-        init_width = win_cfg.get("width", 1280)
+        init_width = max(1300, win_cfg.get("width", 1300))
+        self.setMinimumWidth(1300)
         self.resize(init_width, win_cfg.get("height", 720))
         self.move(win_cfg.get("x", 100), win_cfg.get("y", 100))
         self.base_main_width = init_width

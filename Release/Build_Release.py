@@ -442,10 +442,17 @@ class BuildReleaseWindow(QWidget):
         """Speichert die Release-Konfiguration (Token, PFX-Passwort, Name, Notizen, Datei) explizit in release.json."""
         token_val = self.ui.inp_token.text()
         pfx_pwd_val = self.ui.inp_pfx_pwd.text()
-        title_val = self.ui.inp_rel_title.text()
+        title_val = self.ui.inp_rel_title.text().strip()
         notes_val = self.ui.inp_rel_notes.toPlainText()
-        file_val = self.ui.inp_rel_file.text()
         is_prerelease_val = self.ui.chk_beta.isChecked()
+
+        # Dateiname verbindlich aus Release Name ableiten
+        if title_val:
+            safe_title = title_val.replace(":", "-").replace("/", "-")
+            file_val = os.path.normpath(os.path.join(RELEASE_BUILD_DIR, f"{safe_title}_Portable.zip"))
+            self.ui.inp_rel_file.setText(file_val)
+        else:
+            file_val = self.ui.inp_rel_file.text().strip()
 
         save_release_config(
             github_token=token_val,
@@ -546,6 +553,9 @@ class BuildReleaseWindow(QWidget):
 
         notes = self.ui.inp_rel_notes.toPlainText()
         zip_path = self.ui.inp_rel_file.text().strip()
+        if not zip_path and self.ui.inp_rel_title.text().strip():
+            safe_title = self.ui.inp_rel_title.text().strip().replace(":", "-").replace("/", "-")
+            zip_path = os.path.normpath(os.path.join(RELEASE_BUILD_DIR, f"{safe_title}_Portable.zip"))
         is_beta = self.ui.chk_beta.isChecked()
         return v_info, notes, zip_path, is_beta
 
@@ -592,17 +602,19 @@ class BuildReleaseWindow(QWidget):
         try:
             v_info = load_version_info()
             notes = self.ui.inp_rel_notes.toPlainText()
+            zip_target = self.ui.inp_rel_file.text().strip()
 
             def log_callback(msg: str):
                 self.ui.lbl_compile_status.setText(msg[:65])
                 QApplication.processEvents()
 
-            ok, res_path = compile_release_package(v_info, notes, log_func=log_callback)
+            ok, res_path = compile_release_package(
+                version_info=v_info,
+                release_notes_text=notes,
+                release_file=zip_target,
+                log_func=log_callback
+            )
             if ok:
-                norm_zip = os.path.normpath(res_path)
-                self.ui.inp_rel_file.setText(norm_zip)
-                # Release-Datei auch direkt in release.json festhalten
-                save_release_config(release_file=norm_zip)
                 self.ui.lbl_compile_status.setText(f"✓ ZIP erstellt: {os.path.basename(res_path)}")
                 self.ui.lbl_compile_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
                 QMessageBox.information(self, "Compile erfolgreich", f"Release-Paket wurde erfolgreich erstellt:\n\n{res_path}")

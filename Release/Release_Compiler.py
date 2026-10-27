@@ -24,9 +24,15 @@ from Structure.Paths import (
     DATABASE_DIR, SETTINGS_DEFAULT_FILE, VERSION_FILE
 )
 from Release.Build_Database_Template import build_template_database, TEMPLATE_DB_PATH
+from Release.Release_GitHub_Manager import load_release_config
 
 
-def compile_release_package(version_info: dict, release_notes_text: str = "", log_func=None) -> tuple[bool, str]:
+def compile_release_package(
+    version_info: dict,
+    release_notes_text: str = "",
+    release_file: str = None,
+    log_func=None
+) -> tuple[bool, str]:
     """
     Führt die vollständige Kompilierung und Paketierung einer portablen ZIP-Version durch.
     
@@ -51,12 +57,17 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
 
     # 1. Vorbereitungen & Pfade
     os.makedirs(RELEASE_BUILD_DIR, exist_ok=True)
-    ver_full = version_info.get("version_full", "0.1.0+0")
-    # Sichere Benennung für Dateinamen (keine unerlaubten Zeichen)
-    safe_ver = ver_full.replace(":", "-").replace("/", "-")
-    dist_name = f"Starfield_LOH_v{safe_ver}_Portable"
+    rel_cfg = load_release_config()
+    configured_zip = release_file or rel_cfg.get("release_file")
+    if configured_zip and configured_zip.strip():
+        zip_path = os.path.normpath(configured_zip.strip())
+        dist_name = os.path.splitext(os.path.basename(zip_path))[0]
+    else:
+        ver_full = version_info.get("version_full", "0.1.0+0")
+        safe_ver = ver_full.replace(":", "-").replace("/", "-")
+        dist_name = f"Starfield_LOH_v{safe_ver}_Portable"
+        zip_path = os.path.join(RELEASE_BUILD_DIR, f"{dist_name}.zip")
     staging_dir = os.path.join(RELEASE_BUILD_DIR, dist_name)
-    zip_path = os.path.join(RELEASE_BUILD_DIR, f"{dist_name}.zip")
 
     # Bereinigung vorheriger Builds gleichen Namens
     if os.path.exists(staging_dir):
@@ -119,8 +130,6 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
 
     # 4. Produktiv-Dateien in das Staging-Verzeichnis kopieren (via packaging-Manifest)
     log("3/5: Kopiere Produktiv-Ressourcen basierend auf release.json Manifest...")
-    from Release.Release_GitHub_Manager import load_release_config
-    rel_cfg = load_release_config()
     manifest = rel_cfg.get("packaging", {})
 
     # Zielverzeichnis: Bei --onedir liegt die App unter staging_dir/Starfield_LOH
@@ -205,7 +214,7 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
     else:
         log("Erstelle RELEASE_NOTES.md automatisch als Fallback...")
         is_prerelease = rel_cfg.get("is_prerelease", True)
-        zip_name = f"Starfield_LOH_{ver_full}.zip"
+        zip_name = os.path.basename(zip_path)
         md_content = generate_release_notes(
             version_info=version_info,
             raw_notes=release_notes_text,
@@ -223,7 +232,7 @@ def compile_release_package(version_info: dict, release_notes_text: str = "", lo
         log("Erstelle RELEASE_NOTES.html automatisch als Fallback...")
         if not md_content:
             is_prerelease = rel_cfg.get("is_prerelease", True)
-            zip_name = f"Starfield_LOH_{ver_full}.zip"
+            zip_name = os.path.basename(zip_path)
             md_content = generate_release_notes(
                 version_info=version_info,
                 raw_notes=release_notes_text,

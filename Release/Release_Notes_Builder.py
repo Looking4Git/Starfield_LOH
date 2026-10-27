@@ -103,7 +103,7 @@ def generate_release_notes(
     date_val = format_display_date(version_info.get("git_date") or version_info.get("build_date"))
     
     if not zip_filename:
-        zip_filename = f"Starfield_LOH_{ver_str}+{build}.zip"
+        zip_filename = f"Starfield_LOH_{ver_str}+{build}_Portable.zip"
     else:
         zip_filename = os.path.basename(zip_filename)
         

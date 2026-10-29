@@ -499,15 +499,24 @@ Die Detailbereiche aller datenführenden Hauptmasken (`Page_LoadOrder`, `Page_Mo
    * Angedockter Header (`dock_header`) und Schwebefenster-Header (`floating_dock_header`):
    * Titel `"Docking: Mod-Analyse & Statistiken"`, `color: {{ TEXT_ON_DARK_MUTED }};`, `font-size: {{ FONT_SIZE_DESC }};` (14 px), `font-weight: bold;`.
    * Nahtloser Hintergrund mit `{{ WINDOW_BG }}` und dezentem Trennstrich `border-bottom: 1px solid {{ BORDER_SUBTLE }};`.
-3. **Rollbalken-Gutter & Breitenstabilität:**
+3. **Rollbalken-Gutter, Mindestbreiten & Dual-Limit-Sicherung:**
    * Verbindliche Mindestbreite von **750 px** für das Statistikfenster sowohl angedockt als auch freischwebend.
    * `dock_layout.setContentsMargins(0, 0, 0, 0)` garantiert, dass der 16px-Gutter des Rollbalkens exakt reserviert bleibt und keine Bedienelemente an der rechten Kante abgeschnitten werden.
-4. **Dynamische Breitenführung bei manuellem Resize:**
-   * Manuelle Größenänderungen des Hauptfensters synchronisieren kontinuierlich `base_main_width = max(1280, main_window.width() - (dock_w + SEPARATOR_WIDTH))`.
+   * **Duale Mindestbreiten für das Hauptfenster:**
+     - *Ohne angedocktes Dock (Standard / Schwebend):* Verbindliche Mindestbreite von **1300 px** (`setMinimumWidth(1300)`).
+     - *Mit angedocktem Dock:* Verbindliche Mindestbreite von **1730 px** (`setMinimumWidth(1730)`), damit Hauptbereich (mind. 980 px) und Dock (mind. 750 px) niemals gequetscht werden.
+4. **Dynamische vs. Statische Dockbereich-Erweiterung (`Dynamic_Dock_Expand`):**
+   * Über die Option *"Dockbereich dynamisch erweitern"* in den Programmeinstellungen (`Page_Settings_General`, Default: `False`) wird gesteuert, wie sich das Hauptfenster beim Andocken verhält:
+   * **Statischer Modus (`False`, Standard):** Das Dock öffnet sicher nach innen in das bestehende Fenster; die Gesamtbreite wird bei Bedarf lediglich auf die Schutzgrenze von 1730 px angehoben.
+   * **Dynamischer Modus (`True`):** Das Hauptfenster expandiert nach rechts, um die Arbeitsfläche links unberührt zu lassen (3-stufige Platzprüfung):
+     - *Stufe 1 (Voller Freiraum):* Reicht der Platz nach rechts für die Wunschbreite (`docked_width`, z. B. 850 px)? $\rightarrow$ Fenster wächst um die Wunschbreite.
+     - *Stufe 2 (Eingeschränkter Freiraum):* Platz reicht für mind. 750 px, aber weniger als Wunschbreite? $\rightarrow$ Fenster wächst bis an den Bildschirmrand; Dock nutzt die verfügbare Breite.
+     - *Stufe 3 (Knapper Freiraum):* Platz nach rechts < 750 px? $\rightarrow$ Dock erhält 750 px Mindestbreite; Fenster wächst bis an den Bildschirmrand, und der verbleibende Fehlbetrag wird durch Verringerung der Breite des Hauptbereichs nach innen kompensiert (Mindestgesamtbreite 1730 px).
+   * **Rücksprung auf Vor-Docking-Breite:** Beim Schließen oder Abdocken kehrt das Hauptfenster auf seine individuelle Breite vor dem Öffnen (`_pre_dock_width`, mind. 1300 px) zurück.
 5. **Atomares, flackerfreies Schließen:**
    * Dock-Schließen erfolgt unter Kapselung von `main_window.setUpdatesEnabled(False)` und `main_window.layout().activate()`, bevor das Hauptfenster verkleinert wird.
 6. **Persistente Speicherung (`get_clean_window_width`):**
-   * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite) abgelegt.
+   * In den Einstellungen wird stets die bereinigte Hauptfensterbreite (ohne Dockbreite bzw. vor einem dynamischen Expand) abgelegt.
    * Details siehe [LOH_Control_WindowDocking_Documentation.md](file:///d:/Starfield_LOH/Documentation/LOH_Control_WindowDocking_Documentation.md).
 
 ---

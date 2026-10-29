@@ -22,10 +22,15 @@ Diese Dokumentation beschreibt die universelle Begleitpanel- und Docking-Steueru
    - Volle OS-Integration: Echtes Maximieren/Vollbild, Minimieren, Windows-11 DWM-Titelleiste (Dark Mode), nativer Taskleisten-Eintrag und Multi-Monitor-Freiheit.
    - Re-Dock-Button im Header (`btn_floating_redock`, Icon `Icon_Dock.svg`), der das Panel direkt wieder in den Splitter des Hauptfensters einhängt.
    - **Design-Konsistenz:** Identische Subfensterleiste wie im Docking (`"Docking: Mod-Analyse & Statistiken"`), saubere Margins und feste Mindestbreite von 850 px.
-3. **Automatisches Synchronisieren & Layout-Schutz:**
+3. **Automatisches Synchronisieren & Layout-Schutz (Duale Mindestbreiten & dynamische Erweiterung):**
+   - **Duale Mindestbreiten:** Im ungedockten/schwebenden Zustand gilt für das Hauptfenster eine Mindestbreite von **1300 px** (`MIN_MAIN_WIDTH`). Im angedockten Zustand greift die Schutzgrenze von **1730 px** (`MIN_DOCKED_TOTAL_WIDTH`), damit Hauptinhalt (mind. 980 px) und Dock (mind. 750 px) niemals gequetscht werden.
+   - **Dynamische vs. Statische Erweiterung (`Dynamic_Dock_Expand`):** 
+     - *Statisch (`False`, Standard):* Dock öffnet sicher nach innen in das bestehende Fenster unter Wahrung der 1730 px Mindestbreite.
+     - *Dynamisch (`True`):* 3-stufige Platzprüfung nach rechts via `_calculate_dock_geometry()`. Stufe 1 expandiert um Wunschbreite, Stufe 2 bis an den Bildschirmrand, Stufe 3 sichert 750 px Mindestdockbreite und kompensiert Fehlbeträge durch Reduzierung des Hauptbereichs nach innen (mind. 1730 px Gesamtbreite).
+   - **Rückstellung:** Beim Schließen oder Abdocken kehrt das Fenster auf seine individuelle Vor-Docking-Breite (`_pre_dock_width`, mind. 1300 px) zurück.
    - Minimieren des Hauptfensters blendet das Schwebefenster synchron aus und stellt es beim Wiederherstellen wieder her.
    - Schließen des Hauptfensters speichert alle Splitter- und Schwebefenster-Geometrien in `settings.json`.
-   - Durchgängige Mindestbreite von 850 px verhindert das Abschneiden von Bedienelementen und hält den 16px-Rollbalkenkanal frei.
+   - Durchgängige Mindestbreite von 750 px für das Docking-Widget verhindert das Abschneiden von Bedienelementen und hält den 16px-Rollbalkenkanal frei.
 
 ---
 
@@ -76,6 +81,8 @@ LOH_Control_WindowDocking(
   Prüft, ob das Panel aktuell sichtbar ist (entweder im Splitter oder als Schwebefenster).
 * **`load_settings(cfg: dict)`:**  
   Lädt gespeicherte Splitter-Breiten, Schwebefenster-Positionen und den Status `is_floating`.
+* **`_calculate_dock_geometry() -> tuple[int, int]`:**  
+  Interne Hilfsmethode zur Ermittlung der Zielmaße `(target_window_width, target_dock_width)` nach der 3-Stufen-Logik und den Dual-Mindestbreiten.
 * **`get_geometry_settings() -> dict`:**  
   Liefert alle aktuellen Maße und Zustände zur Persistierung in `settings.json`.
 * **`get_clean_window_width() -> int`:**  

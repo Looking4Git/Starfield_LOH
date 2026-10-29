@@ -85,8 +85,8 @@ class LOH_Control_WindowDocking(QObject):
 
     def __init__(self, main_window: QMainWindow, dock_statistics: QWidget, 
                  dock_container: QWidget = None, main_splitter: QSplitter = None):
-        super().__init__(main_window)
         self.main_window = main_window
+        super().__init__(main_window)
         self.dock_statistics = dock_statistics
         self.dock_container = dock_container
         self.main_splitter = main_splitter
@@ -116,7 +116,7 @@ class LOH_Control_WindowDocking(QObject):
         return self._floating_window
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched == self.main_window:
+        if watched == getattr(self, 'main_window', None):
             if event.type() == QEvent.Type.WindowStateChange:
                 # Schwebefenster synchron mit Hauptfenster minimieren / wiederherstellen
                 if self.is_floating and self._floating_window:

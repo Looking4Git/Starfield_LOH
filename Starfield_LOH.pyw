@@ -50,7 +50,7 @@ DEFAULT_SETTINGS = {
         "Limit_PointerHandles": 2097152
     },
     "window_mod_statistics": {
-        "min_width": 700,
+        "min_width": 750,
         "docked_width": 850,
         "is_floating": False,
         "float_width": 950,

@@ -16,7 +16,7 @@ from PySide6.QtCore import QObject, Qt, QTimer, QEvent, QPoint, Signal
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QApplication, QSplitter
 from PySide6.QtGui import QIcon, QScreen
 
-from Structure.Paths import GRAPHICS_DIR
+from Structure.Paths import GRAPHICS_DIR, get_setting
 from Structure.GUI.UI_Theme import set_dark_title_bar
 
 
@@ -79,6 +79,10 @@ class LOH_Control_WindowDocking(QObject):
     Steuert den Lebenszyklus des Analysepanels zwischen QSplitter-Einbettung (Docked)
     und eigenständigem Windows-Fenster (Floating).
     """
+    MIN_MAIN_WIDTH = 1300
+    MIN_DOCKED_TOTAL_WIDTH = 1730
+    MIN_DOCK_WIDTH = 750
+
     def __init__(self, main_window: QMainWindow, dock_statistics: QWidget, 
                  dock_container: QWidget = None, main_splitter: QSplitter = None):
         super().__init__(main_window)
@@ -95,6 +99,7 @@ class LOH_Control_WindowDocking(QObject):
         self.float_width = 950
         self.float_height = 850
         self.is_maximized = False
+        self._pre_dock_width: int | None = None
 
         self._floating_window = None
         self._was_visible_before_minimize = False
@@ -125,6 +130,51 @@ class LOH_Control_WindowDocking(QObject):
                             self._floating_window.show()
         return super().eventFilter(watched, event)
 
+    def _calculate_dock_geometry(self) -> tuple[int, int]:
+        """
+        Berechnet die Zielbreiten für das Hauptfenster und das Docking-Panel
+        unter Berücksichtigung der 3-stufigen Platzprüfung und der Dual-Mindestbreiten.
+        """
+        win_w = self.main_window.width()
+        desired_dock_w = max(self.MIN_DOCK_WIDTH, self.docked_width)
+
+        if self.main_window.isMaximized():
+            return win_w, desired_dock_w
+
+        dynamic_expand = bool(get_setting("Dynamic_Dock_Expand", False))
+        screen = self.main_window.screen() or QApplication.primaryScreen()
+        screen_rect = screen.availableGeometry() if screen else None
+
+        if not dynamic_expand or screen_rect is None:
+            # Statischer Modus: Nach innen öffnen unter Wahrung der 1730 px Mindestbreite
+            target_win_w = max(self.MIN_DOCKED_TOTAL_WIDTH, win_w)
+            return target_win_w, desired_dock_w
+
+        # Dynamischer Modus: Verfügbaren Freiraum nach rechts ermitteln
+        frame_geo = self.main_window.frameGeometry()
+        win_x = frame_geo.x()
+        screen_right_edge = screen_rect.x() + screen_rect.width()
+        available_right = screen_right_edge - (win_x + win_w)
+
+        if available_right >= desired_dock_w:
+            # Stufe 1: Voller Platz für Wunschbreite nach rechts vorhanden
+            target_win_w = win_w + desired_dock_w
+            target_dock_w = desired_dock_w
+        elif available_right >= self.MIN_DOCK_WIDTH:
+            # Stufe 2: Platz reicht für Mindestbreite (750 px), aber nicht ganz für Wunschbreite
+            target_dock_w = available_right
+            target_win_w = win_w + available_right
+        else:
+            # Stufe 3: Platz nach rechts reicht nicht für 750 px Mindestbreite
+            target_dock_w = self.MIN_DOCK_WIDTH
+            # Maximal nach rechts bis zum Bildschirmrand wachsen
+            expand_right = max(0, available_right)
+            # Fehlender Betrag wird durch Reduzierung des Hauptbereichs nach innen kompensiert
+            # Strikte Untergrenze: Niemals unter MIN_DOCKED_TOTAL_WIDTH (1730 px) fallen
+            target_win_w = max(self.MIN_DOCKED_TOTAL_WIDTH, win_w + expand_right)
+
+        return target_win_w, target_dock_w
+
     def dock_window(self):
         """Hängt das Statistik-Widget in den Splitter-Container des Hauptfensters ein."""
         # Falls aktuell im Schwebefenster, Schwebefenster-Geometrie sichern und Widget entnehmen
@@ -142,10 +192,19 @@ class LOH_Control_WindowDocking(QObject):
             if layout is not None and layout.indexOf(self.dock_statistics) == -1:
                 layout.addWidget(self.dock_statistics)
 
-            # Falls Hauptfenster sehr schmal ist, auf Mindestbreite anpassen
-            min_needed_width = 1400
-            if self.main_window.width() < min_needed_width:
-                self.main_window.resize(min_needed_width, self.main_window.height())
+            # Bisherige Breite des Hauptfensters vor dem Andocken sichern
+            if self._pre_dock_width is None:
+                self._pre_dock_width = self.main_window.width()
+
+            # Zielgeometrie berechnen
+            target_win_w, target_dock_w = self._calculate_dock_geometry()
+
+            # Duale Mindestbreite für angedockten Zustand aktivieren
+            self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
+
+            # Fenstergröße anpassen, falls abweichend
+            if self.main_window.width() != target_win_w:
+                self.main_window.resize(target_win_w, self.main_window.height())
 
             self.dock_container.setVisible(True)
             self.dock_statistics.setVisible(True)
@@ -154,8 +213,10 @@ class LOH_Control_WindowDocking(QObject):
             if self.main_splitter is not None:
                 total_w = self.main_splitter.width()
                 if total_w <= 0:
-                    total_w = self.main_window.width() - 175  # Abzüglich Sidebar
-                w_dock = max(750, min(self.docked_width, total_w - 400))
+                    sidebar_w = getattr(self.main_window, 'sidebar', None)
+                    sidebar_w_val = sidebar_w.width() if sidebar_w else 175
+                    total_w = target_win_w - sidebar_w_val
+                w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
                 w_content = max(400, total_w - w_dock)
                 self.main_splitter.setSizes([w_content, w_dock])
 
@@ -174,6 +235,15 @@ class LOH_Control_WindowDocking(QObject):
                 layout.removeWidget(self.dock_statistics)
             self.dock_statistics.setParent(None)
             self.dock_container.setVisible(False)
+
+        # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
+        self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
+
+        # Falls zuvor vergrößert/gedockt wurde, auf ungedockte Breite zurückstellen
+        if self._pre_dock_width is not None:
+            target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
+            self.main_window.resize(target_w, self.main_window.height())
+            self._pre_dock_width = None
 
         self.is_floating = True
 
@@ -238,9 +308,18 @@ class LOH_Control_WindowDocking(QObject):
         elif self.dock_container is not None and self.dock_container.isVisible():
             if self.main_splitter is not None:
                 sizes = self.main_splitter.sizes()
-                if len(sizes) >= 2 and sizes[1] > 200:
+                if len(sizes) >= 2 and sizes[1] >= self.MIN_DOCK_WIDTH:
                     self.docked_width = sizes[1]
             self.dock_container.setVisible(False)
+
+            # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
+            self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
+
+            # Ursprüngliche Breite vor dem Andocken wiederherstellen
+            if self._pre_dock_width is not None:
+                target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
+                self.main_window.resize(target_w, self.main_window.height())
+                self._pre_dock_width = None
 
     def is_visible(self) -> bool:
         """Prüft, ob das Panel aktuell sichtbar ist (angedockt oder schwebend)."""
@@ -297,7 +376,7 @@ class LOH_Control_WindowDocking(QObject):
             "float_y": self.float_y,
             "is_maximized": self.is_maximized,
             # Abwärtskompatible Felder:
-            "min_width": 700,
+            "min_width": self.MIN_DOCK_WIDTH,
             "width": self.float_width if self.is_floating else self.docked_width,
             "height": self.float_height,
             "x": self.float_x,
@@ -306,7 +385,9 @@ class LOH_Control_WindowDocking(QObject):
         }
 
     def get_clean_window_width(self) -> int:
-        """Gibt die unmodifizierte Breite des Hauptfensters zurück."""
+        """Gibt die unmodifizierte Breite des Hauptfensters vor dem Andocken zurück."""
+        if self._pre_dock_width is not None and not self.is_floating and self.dock_container is not None and self.dock_container.isVisible():
+            return max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
         return self.main_window.width()
 
 

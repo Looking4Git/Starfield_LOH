@@ -423,6 +423,14 @@ class Page_Settings_General(QWidget):
         self.chk_prefer_tiles.setChecked(bool(prefer_val))
         self.chk_prefer_tiles.stateChanged.connect(self.on_prefer_tiles_changed)
         layout.addWidget(self.chk_prefer_tiles)
+        layout.addSpacing(6)
+
+        self.chk_dynamic_dock_expand = QCheckBox("Dockbereich dynamisch erweitern.")
+        self.chk_dynamic_dock_expand.setObjectName("chk_dynamic_dock_expand")
+        dynamic_dock_val = get_setting("Dynamic_Dock_Expand", False)
+        self.chk_dynamic_dock_expand.setChecked(bool(dynamic_dock_val))
+        self.chk_dynamic_dock_expand.stateChanged.connect(self.on_dynamic_dock_expand_changed)
+        layout.addWidget(self.chk_dynamic_dock_expand)
 
         # -------------------------------------------------------------
         # 5. Abschnitt: Zurücksetzen
@@ -519,6 +527,12 @@ class Page_Settings_General(QWidget):
         """Speichert die Kachel-Präferenz in den Settings."""
         val = (state == Qt.CheckState.Checked.value or state == 2)
         set_setting("settings", "Prefer_Conflict_Tiles", val)
+        self.data_updated.emit()
+
+    def on_dynamic_dock_expand_changed(self, state):
+        """Speichert die dynamische Dockbereich-Erweiterung in den Settings."""
+        val = (state == Qt.CheckState.Checked.value or state == 2)
+        set_setting("settings", "Dynamic_Dock_Expand", val)
         self.data_updated.emit()
 
     def on_theme_mode_changed(self, index: int):
@@ -972,7 +986,7 @@ class Page_Settings_General(QWidget):
                 self.lbl_scale_restart_hint.setVisible(100 != getattr(self, "session_active_scale", 100))
 
             # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
-            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles, self.chk_dynamic_dock_expand]:
                 chk.blockSignals(True)
 
             self.chk_auto_save.setChecked(def_settings.get("Auto_Save", 1) == 1)
@@ -982,8 +996,9 @@ class Page_Settings_General(QWidget):
             self.chk_prefer_content_bar.setChecked(bool(def_settings.get("Prefer_Content_BarChart", False)))
             self.chk_prefer_classification_tiles.setChecked(bool(def_settings.get("Prefer_Classification_Tiles", True)))
             self.chk_prefer_tiles.setChecked(bool(def_settings.get("Prefer_Conflict_Tiles", True)))
+            self.chk_dynamic_dock_expand.setChecked(bool(def_settings.get("Dynamic_Dock_Expand", False)))
 
-            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles, self.chk_dynamic_dock_expand]:
                 chk.blockSignals(False)
 
             # 4. Bestätigungsdialog anzeigen

@@ -31,7 +31,8 @@
     "Prefer_Content_BarChart": false,
     "Prefer_Classification_Tiles": true,
     "Prefer_Conflict_Tiles": true,
-    "Starfield_Mod_Update_Backup_Strategy": false
+    "Starfield_Mod_Update_Backup_Strategy": false,
+    "Dynamic_Dock_Expand": false
   },
   "creation_engine_limits": {
     "Limit_Full_Master": 254,

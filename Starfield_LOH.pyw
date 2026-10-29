@@ -38,7 +38,8 @@ DEFAULT_SETTINGS = {
         "Prefer_Content_BarChart": False,
         "Prefer_Classification_Tiles": True,
         "Prefer_Conflict_Tiles": True,
-        "Starfield_Mod_Update_Backup_Strategy": False
+        "Starfield_Mod_Update_Backup_Strategy": False,
+        "Dynamic_Dock_Expand": False
     },
     "creation_engine_limits": {
         "Limit_Full_Master": 254,

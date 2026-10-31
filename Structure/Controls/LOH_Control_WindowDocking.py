@@ -101,6 +101,7 @@ class LOH_Control_WindowDocking(QObject):
         self.is_maximized = False
         self._pre_dock_width: int | None = None
         self._dock_open_total_width: int | None = None
+        self._dock_compression: int = 0
 
         self._floating_window = None
         self._was_visible_before_minimize = False
@@ -185,13 +186,14 @@ class LOH_Control_WindowDocking(QObject):
     def _calculate_undocked_width(self) -> int:
         """
         Berechnet die Zielbreite des Hauptfensters beim Einklappen/Abdocken des Statistikfensters.
-        - Regelfall (Genug Platz beim Ausklappen oder Benutzer hat das Fenster vergrößert):
-          Der aktuell sichtbare Hauptbereich (current_main_w) bleibt exakt erhalten;
+        - Regelfall (Genug Platz beim Ausklappen: _dock_compression == 0):
+          Der aktuell sichtbare Hauptbereich (current_main_w) bleibt inkl. aller manuellen
+          Fenster- und Splitter-Verschiebungen (nach links oder rechts) 1:1 erhalten;
           nur der Statistikbereich inkl. Splittergriff fährt ein.
-        - Kompensationsfall (Platz nach rechts hatte beim Ausklappen nicht gereicht):
-          Wurde der Hauptbereich beim Andocken gestaucht (current_main_w < _pre_dock_width)
-          und das Gesamtfenster nicht kleiner als _dock_open_total_width gezogen,
-          entfaltet sich das Hauptfenster wieder auf _pre_dock_width.
+        - Kompensationsfall (Platz nach rechts hatte beim Ausklappen nicht gereicht: _dock_compression > 0):
+          Wurde der Hauptbereich beim Andocken am Bildschirmrand gestaucht, entfaltet sich das
+          Hauptfenster um die noch nicht durch manuelles Vergrößern aufgelöste Rest-Stauchung
+          (remaining_compression) zurück auf die ursprüngliche Breite.
         """
         current_win_w = self.main_window.width()
         if self.main_window.isMaximized():
@@ -212,10 +214,19 @@ class LOH_Control_WindowDocking(QObject):
         if self._dock_open_total_width is not None and current_win_w < self._dock_open_total_width:
             return max(self.MIN_MAIN_WIDTH, current_main_w)
 
-        return max(self.MIN_MAIN_WIDTH, self._pre_dock_width, current_main_w)
+        win_growth = (
+            max(0, current_win_w - self._dock_open_total_width)
+            if self._dock_open_total_width is not None
+            else 0
+        )
+        remaining_compression = max(0, self._dock_compression - win_growth)
+        return max(self.MIN_MAIN_WIDTH, current_main_w + remaining_compression)
 
-    def dock_window(self):
+    def dock_window(self, mod_id: int | None = None):
         """Hängt das Statistik-Widget in den Splitter-Container des Hauptfensters ein."""
+        if isinstance(mod_id, bool):
+            mod_id = None
+
         # Atomare Kapselung: Mehrstufiges Rendern und UI-Flackern unterdrücken
         self.main_window.setUpdatesEnabled(False)
         try:
@@ -235,19 +246,37 @@ class LOH_Control_WindowDocking(QObject):
                     layout.addWidget(self.dock_statistics)
 
                 # Bisherige Breite des Hauptfensters vor dem Andocken sichern
-                if self._pre_dock_width is None:
+                is_first_dock = self._pre_dock_width is None
+                if is_first_dock:
                     self._pre_dock_width = self.main_window.width()
 
                 # Zielgeometrie berechnen (inkl. Splittergriff)
                 target_win_w, target_dock_w = self._calculate_dock_geometry()
+                w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
                 self._dock_open_total_width = target_win_w
+                if is_first_dock:
+                    handle_w_single = self.main_splitter.handleWidth() if self.main_splitter is not None else 7
+                    initial_docked_main_w = target_win_w - (handle_w_single + w_dock)
+                    self._dock_compression = max(0, self._pre_dock_width - initial_docked_main_w)
+
+                # Vorab-Skalierung & Datenladung VOR dem OS-Fenster-Resize:
+                # Dock-Container und Statistik-Widget erhalten bereits die exakte Zielbreite w_dock,
+                # während das äußere Windows-Hauptfenster noch unverändert bleibt (kein schwarzer DWM-Hintergrund).
+                win_h = self.main_window.height()
+                self.dock_container.resize(w_dock, win_h)
+                self.dock_statistics.resize(w_dock, max(400, win_h - 36))
+                QApplication.sendPostedEvents(self.dock_container, QEvent.Type.LayoutRequest)
+                QApplication.sendPostedEvents(self.dock_statistics, QEvent.Type.LayoutRequest)
+
+                if mod_id is not None and hasattr(self.dock_statistics, 'update_mod'):
+                    self.dock_statistics.update_mod(mod_id)
 
                 self.dock_container.setVisible(True)
                 self.dock_statistics.setVisible(True)
 
                 # Fenstergröße zuerst direkt auf Zielmaß setzen, danach Mindestbreite aktivieren
                 if self.main_window.width() != target_win_w:
-                    self.main_window.resize(target_win_w, self.main_window.height())
+                    self.main_window.resize(target_win_w, win_h)
                 self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
 
                 # Deterministische Splitter-Zielbreite inkl. synchronem LayoutRequest-Flush anwenden,
@@ -262,16 +291,19 @@ class LOH_Control_WindowDocking(QObject):
                     )
                     total_w = target_win_w - sidebar_w_val
                     available_w = max(0, total_w - handle_w)
-                    w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
                     w_content = max(400, available_w - w_dock)
                     self.main_splitter.setSizes([w_content, w_dock])
                     QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
                     QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
         finally:
             self.main_window.setUpdatesEnabled(True)
+            self.main_window.repaint()
 
-    def float_window(self):
+    def float_window(self, mod_id: int | None = None):
         """Löst das Statistik-Widget aus dem Splitter und öffnet es als Schwebefenster."""
+        if isinstance(mod_id, bool):
+            mod_id = None
+
         self.main_window.setUpdatesEnabled(False)
         try:
             was_docked_visible = (self.dock_container is not None and self.dock_container.isVisible())
@@ -301,6 +333,7 @@ class LOH_Control_WindowDocking(QObject):
                 self.main_window.resize(target_undocked_w, self.main_window.height())
             self._pre_dock_width = None
             self._dock_open_total_width = None
+            self._dock_compression = 0
 
             self.is_floating = True
             if self.main_splitter is not None:
@@ -308,6 +341,7 @@ class LOH_Control_WindowDocking(QObject):
             QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
         finally:
             self.main_window.setUpdatesEnabled(True)
+            self.main_window.repaint()
 
         # In Schwebefenster einhängen
         fw = self.get_floating_window()
@@ -326,6 +360,8 @@ class LOH_Control_WindowDocking(QObject):
                 fw.setWindowState(Qt.WindowState.WindowNoState)
                 if has_saved_pos:
                     fw.setGeometry(self.float_x, self.float_y, self.float_width, self.float_height)
+            if mod_id is not None and hasattr(self.dock_statistics, 'update_mod'):
+                self.dock_statistics.update_mod(mod_id)
             fw.showMaximized()
         else:
             if fw.isMaximized():
@@ -346,6 +382,10 @@ class LOH_Control_WindowDocking(QObject):
                     target_x = max(avail.left(), avail.right() - target_w)
 
                 fw.setGeometry(target_x, target_y, target_w, target_h)
+            QApplication.sendPostedEvents(fw, QEvent.Type.LayoutRequest)
+            QApplication.sendPostedEvents(self.dock_statistics, QEvent.Type.LayoutRequest)
+            if mod_id is not None and hasattr(self.dock_statistics, 'update_mod'):
+                self.dock_statistics.update_mod(mod_id)
             fw.show()
 
         fw.raise_()
@@ -361,12 +401,9 @@ class LOH_Control_WindowDocking(QObject):
     def open(self, mod_id: int = None):
         """Öffnet das Panel (im gespeicherten Modus: angedockt oder schwebend)."""
         if self.is_floating:
-            self.float_window()
+            self.float_window(mod_id)
         else:
-            self.dock_window()
-
-        if mod_id is not None and hasattr(self.dock_statistics, 'update_mod'):
-            self.dock_statistics.update_mod(mod_id)
+            self.dock_window(mod_id)
 
     def close(self):
         """Schließt bzw. verbirgt das Begleitpanel (in beiden Modi)."""
@@ -393,11 +430,13 @@ class LOH_Control_WindowDocking(QObject):
                     self.main_window.resize(target_w, self.main_window.height())
                 self._pre_dock_width = None
                 self._dock_open_total_width = None
+                self._dock_compression = 0
                 if self.main_splitter is not None:
                     QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
                 QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
             finally:
                 self.main_window.setUpdatesEnabled(True)
+                self.main_window.repaint()
 
     def is_visible(self) -> bool:
         """Prüft, ob das Panel aktuell sichtbar ist (angedockt oder schwebend)."""

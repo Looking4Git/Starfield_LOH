@@ -393,6 +393,14 @@ class Page_Settings_General(QWidget):
         layout.addLayout(scale_row)
         layout.addSpacing(10)
 
+        self.chk_dynamic_dock_expand = QCheckBox("Dockbereich dynamisch erweitern.")
+        self.chk_dynamic_dock_expand.setObjectName("chk_dynamic_dock_expand")
+        dynamic_dock_val = get_setting("Dynamic_Dock_Expand", False)
+        self.chk_dynamic_dock_expand.setChecked(bool(dynamic_dock_val))
+        self.chk_dynamic_dock_expand.stateChanged.connect(self.on_dynamic_dock_expand_changed)
+        layout.addWidget(self.chk_dynamic_dock_expand)
+        layout.addSpacing(6)
+
         self.chk_replace_author_nexus = QCheckBox("Author durch Nexus Benutzer ersetzen.")
         self.chk_replace_author_nexus.setObjectName("chk_replace_author_nexus")
         replace_author_val = get_setting("Replace_Author_With_Nexus_User", False)
@@ -423,14 +431,6 @@ class Page_Settings_General(QWidget):
         self.chk_prefer_tiles.setChecked(bool(prefer_val))
         self.chk_prefer_tiles.stateChanged.connect(self.on_prefer_tiles_changed)
         layout.addWidget(self.chk_prefer_tiles)
-        layout.addSpacing(6)
-
-        self.chk_dynamic_dock_expand = QCheckBox("Dockbereich dynamisch erweitern.")
-        self.chk_dynamic_dock_expand.setObjectName("chk_dynamic_dock_expand")
-        dynamic_dock_val = get_setting("Dynamic_Dock_Expand", False)
-        self.chk_dynamic_dock_expand.setChecked(bool(dynamic_dock_val))
-        self.chk_dynamic_dock_expand.stateChanged.connect(self.on_dynamic_dock_expand_changed)
-        layout.addWidget(self.chk_dynamic_dock_expand)
 
         # -------------------------------------------------------------
         # 5. Abschnitt: Zurücksetzen
@@ -986,19 +986,19 @@ class Page_Settings_General(QWidget):
                 self.lbl_scale_restart_hint.setVisible(100 != getattr(self, "session_active_scale", 100))
 
             # Signale blockieren, damit beim Setzen der Defaults keine unvollständigen Schreibvorgänge triggern
-            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles, self.chk_dynamic_dock_expand]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_dynamic_dock_expand, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
                 chk.blockSignals(True)
 
             self.chk_auto_save.setChecked(def_settings.get("Auto_Save", 1) == 1)
             self.chk_link_selection.setChecked(def_settings.get("Link_Mod_Selection", 1) in (1, True, "1"))
             self.chk_backup_strategy.setChecked(bool(def_settings.get("Starfield_Mod_Update_Backup_Strategy", False)))
+            self.chk_dynamic_dock_expand.setChecked(bool(def_settings.get("Dynamic_Dock_Expand", False)))
             self.chk_replace_author_nexus.setChecked(bool(def_settings.get("Replace_Author_With_Nexus_User", False)))
             self.chk_prefer_content_bar.setChecked(bool(def_settings.get("Prefer_Content_BarChart", False)))
             self.chk_prefer_classification_tiles.setChecked(bool(def_settings.get("Prefer_Classification_Tiles", True)))
             self.chk_prefer_tiles.setChecked(bool(def_settings.get("Prefer_Conflict_Tiles", True)))
-            self.chk_dynamic_dock_expand.setChecked(bool(def_settings.get("Dynamic_Dock_Expand", False)))
 
-            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles, self.chk_dynamic_dock_expand]:
+            for chk in [self.chk_auto_save, self.chk_link_selection, self.chk_backup_strategy, self.chk_dynamic_dock_expand, self.chk_replace_author_nexus, self.chk_prefer_content_bar, self.chk_prefer_classification_tiles, self.chk_prefer_tiles]:
                 chk.blockSignals(False)
 
             # 4. Bestätigungsdialog anzeigen

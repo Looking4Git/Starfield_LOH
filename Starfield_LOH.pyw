@@ -6,7 +6,7 @@ import logging
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QFrame, QStackedWidget, 
                                QLabel, QSizePolicy, QSplitter)
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer, QSize
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QTimer
 from PySide6.QtGui import QIcon, QPixmap, QColor, QPalette
 from Structure.GUI.Page_Mods import Page_Mods
 from Structure.GUI.Page_LoadOrder import Page_LoadOrder
@@ -109,27 +109,6 @@ class SidebarButton(QPushButton):
     def set_compact_mode(self, is_compact):
         self.text_label.setVisible(not is_compact)
 
-
-class DynamicStackedWidget(QStackedWidget):
-    """
-    QStackedWidget, das sizeHint und minimumSizeHint dynamisch nach der aktuell
-    sichtbaren Seite bemißt statt nach dem Maximum aller (auch inaktiven) Seiten.
-    Deckelt die Mindestbreite auf das bei 1730 px Gesamtfensterbreite und
-    ausgeklapptem Hauptmenü (175 px) garantierte Splitter-Budget (750 px),
-    damit im Splitter niemals eine Mindestbreiten-Kollision entsteht.
-    """
-    MAX_SAFE_MIN_WIDTH = 750
-
-    def sizeHint(self) -> QSize:
-        curr = self.currentWidget()
-        return curr.sizeHint() if curr is not None else super().sizeHint()
-
-    def minimumSizeHint(self) -> QSize:
-        curr = self.currentWidget()
-        hint = curr.minimumSizeHint() if curr is not None else super().minimumSizeHint()
-        return QSize(min(hint.width(), self.MAX_SAFE_MIN_WIDTH), hint.height())
-
-
 class StarfieldLOH(QMainWindow):
     def __init__(self, splash_callback=None):
         super().__init__()
@@ -207,7 +186,7 @@ class StarfieldLOH(QMainWindow):
             for btn in [self.btn_mods, self.btn_lo, self.btn_update, self.btn_tools, self.btn_settings, self.btn_toggle]:
                 btn.set_compact_mode(True)
 
-        self.content_stack = DynamicStackedWidget()
+        self.content_stack = QStackedWidget()
         self.content_stack.setObjectName("content_area")
 
         # Status für die Datenaktualisierung der Seiten (Dictionary wie gewünscht)
@@ -395,9 +374,24 @@ class StarfieldLOH(QMainWindow):
 
     def on_page_changed(self, index):
         """Wird aufgerufen, wenn sich die Seite im QStackedWidget ändert."""
-        self.content_stack.updateGeometry()
         current_widget = self.content_stack.currentWidget()
         prev_widget = getattr(self, 'previous_page', None)
+
+        # Ereignisgesteuerte Mindestbreiten-Steuerung (0 Laufzeit-Abfragen während des Betriebs):
+        # Inaktive Seiten werden vom QStackedLayout ignoriert; die aktive Seite bestimmt einmalig
+        # die Mindestbreite (gedeckelt auf das garantierte 798-px-Splitterbudget bei 1730 px Fensterbreite).
+        for i in range(self.content_stack.count()):
+            w = self.content_stack.widget(i)
+            if w is not None and w != current_widget:
+                w.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        if current_widget is not None:
+            page_min_w = current_widget.minimumSizeHint().width()
+            if page_min_w <= 798:
+                current_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                self.content_stack.setMinimumWidth(0)
+            else:
+                current_widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+                self.content_stack.setMinimumWidth(798)
 
         from Structure.Paths import get_setting
 

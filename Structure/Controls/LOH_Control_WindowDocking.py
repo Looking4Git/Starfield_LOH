@@ -242,18 +242,19 @@ class LOH_Control_WindowDocking(QObject):
                 target_win_w, target_dock_w = self._calculate_dock_geometry()
                 self._dock_open_total_width = target_win_w
 
-                # Duale Mindestbreite für angedockten Zustand aktivieren
-                self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
-
-                # Fenstergröße anpassen, falls abweichend
-                if self.main_window.width() != target_win_w:
-                    self.main_window.resize(target_win_w, self.main_window.height())
-
                 self.dock_container.setVisible(True)
                 self.dock_statistics.setVisible(True)
 
-                # Deterministische Splitter-Zielbreite ohne asynchronen Layout-Verzug anwenden
+                # Fenstergröße zuerst direkt auf Zielmaß setzen, danach Mindestbreite aktivieren
+                if self.main_window.width() != target_win_w:
+                    self.main_window.resize(target_win_w, self.main_window.height())
+                self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
+
+                # Deterministische Splitter-Zielbreite inkl. synchronem LayoutRequest-Flush anwenden,
+                # damit der 7-px-Splittergriff vor dem ersten Frame bereits eingeblendet und verrechnet ist
                 if self.main_splitter is not None:
+                    QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
+                    QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
                     handle_w = self.main_splitter.handleWidth() * max(1, self.main_splitter.count() - 1)
                     sidebar_w = getattr(self.main_window, 'sidebar', None)
                     sidebar_w_val = sidebar_w.width() if sidebar_w else (
@@ -264,6 +265,8 @@ class LOH_Control_WindowDocking(QObject):
                     w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
                     w_content = max(400, available_w - w_dock)
                     self.main_splitter.setSizes([w_content, w_dock])
+                    QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
+                    QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
         finally:
             self.main_window.setUpdatesEnabled(True)
 
@@ -300,6 +303,9 @@ class LOH_Control_WindowDocking(QObject):
             self._dock_open_total_width = None
 
             self.is_floating = True
+            if self.main_splitter is not None:
+                QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
+            QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
         finally:
             self.main_window.setUpdatesEnabled(True)
 
@@ -387,6 +393,9 @@ class LOH_Control_WindowDocking(QObject):
                     self.main_window.resize(target_w, self.main_window.height())
                 self._pre_dock_width = None
                 self._dock_open_total_width = None
+                if self.main_splitter is not None:
+                    QApplication.sendPostedEvents(self.main_splitter, QEvent.Type.LayoutRequest)
+                QApplication.sendPostedEvents(self.main_window, QEvent.Type.LayoutRequest)
             finally:
                 self.main_window.setUpdatesEnabled(True)
 

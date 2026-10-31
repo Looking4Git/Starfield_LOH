@@ -77,7 +77,9 @@ class LOH_SplitterHandle(QSplitterHandle):
     def _flush_pending_move(self):
         if self._pending_target_pos is not None:
             legal_pos = self.closestLegalPosition(self._pending_target_pos)
-            self.moveSplitter(legal_pos)
+            current_pos = self.x() if self.orientation() == Qt.Orientation.Horizontal else self.y()
+            if legal_pos != current_pos:
+                self.moveSplitter(legal_pos)
             self._pending_target_pos = None
 
     def mouseReleaseEvent(self, event: QMouseEvent):

@@ -76,7 +76,8 @@ class LOH_SplitterHandle(QSplitterHandle):
 
     def _flush_pending_move(self):
         if self._pending_target_pos is not None:
-            self.moveSplitter(self._pending_target_pos)
+            legal_pos = self.closestLegalPosition(self._pending_target_pos)
+            self.moveSplitter(legal_pos)
             self._pending_target_pos = None
 
     def mouseReleaseEvent(self, event: QMouseEvent):
@@ -168,8 +169,10 @@ class LOH_Control_Splitter(QSplitter):
         self.double_clicked.emit()
         total_w = self.width()
         if total_w > 0 and self.count() >= 2:
-            w_dock = max(750, min(self.default_dock_width, total_w - 400))
-            w_content = max(400, total_w - w_dock)
+            splitter_w = self.handleWidth() * (self.count() - 1)
+            available_w = max(0, total_w - splitter_w)
+            w_dock = max(750, min(self.default_dock_width, available_w - 400))
+            w_content = max(400, available_w - w_dock)
             self.setSizes([w_content, w_dock])
 
 

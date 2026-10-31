@@ -133,7 +133,8 @@ class LOH_Control_WindowDocking(QObject):
     def _calculate_dock_geometry(self) -> tuple[int, int]:
         """
         Berechnet die Zielbreiten für das Hauptfenster und das Docking-Panel
-        unter Berücksichtigung der 3-stufigen Platzprüfung und der Dual-Mindestbreiten.
+        unter Berücksichtigung der 3-stufigen Platzprüfung, der Splitter-Griffbreite
+        und der Dual-Mindestbreiten.
         """
         win_w = self.main_window.width()
         desired_dock_w = max(self.MIN_DOCK_WIDTH, self.docked_width)
@@ -150,22 +151,27 @@ class LOH_Control_WindowDocking(QObject):
             target_win_w = max(self.MIN_DOCKED_TOTAL_WIDTH, win_w)
             return target_win_w, desired_dock_w
 
+        handle_w = self.main_splitter.handleWidth() if self.main_splitter is not None else 7
+
         # Dynamischer Modus: Verfügbaren Freiraum nach rechts ermitteln
         frame_geo = self.main_window.frameGeometry()
         win_x = frame_geo.x()
         screen_right_edge = screen_rect.x() + screen_rect.width()
         available_right = screen_right_edge - (win_x + win_w)
 
-        if available_right >= desired_dock_w:
-            # Stufe 1: Voller Platz für Wunschbreite nach rechts vorhanden
-            target_win_w = win_w + desired_dock_w
+        needed_expansion = desired_dock_w + handle_w
+        min_expansion = self.MIN_DOCK_WIDTH + handle_w
+
+        if available_right >= needed_expansion:
+            # Stufe 1: Voller Platz für Wunschbreite + Splittergriff nach rechts vorhanden
+            target_win_w = win_w + needed_expansion
             target_dock_w = desired_dock_w
-        elif available_right >= self.MIN_DOCK_WIDTH:
-            # Stufe 2: Platz reicht für Mindestbreite (750 px), aber nicht ganz für Wunschbreite
-            target_dock_w = available_right
+        elif available_right >= min_expansion:
+            # Stufe 2: Platz reicht für Mindestbreite (750 px) + Griff, aber nicht ganz für Wunschbreite
+            target_dock_w = available_right - handle_w
             target_win_w = win_w + available_right
         else:
-            # Stufe 3: Platz nach rechts reicht nicht für 750 px Mindestbreite
+            # Stufe 3: Platz nach rechts reicht nicht für 750 px Mindestbreite + Griff
             target_dock_w = self.MIN_DOCK_WIDTH
             # Maximal nach rechts bis zum Bildschirmrand wachsen
             expand_right = max(0, available_right)
@@ -177,75 +183,86 @@ class LOH_Control_WindowDocking(QObject):
 
     def dock_window(self):
         """Hängt das Statistik-Widget in den Splitter-Container des Hauptfensters ein."""
-        # Falls aktuell im Schwebefenster, Schwebefenster-Geometrie sichern und Widget entnehmen
-        if self._floating_window is not None and self._floating_window.isVisible():
-            self._save_floating_geometry()
-            self._floating_window.layout_root.removeWidget(self.dock_statistics)
-            self.dock_statistics.setParent(None)
-            self._floating_window.hide()
+        # Atomare Kapselung: Mehrstufiges Rendern und UI-Flackern unterdrücken
+        self.main_window.setUpdatesEnabled(False)
+        try:
+            # Falls aktuell im Schwebefenster, Schwebefenster-Geometrie sichern und Widget entnehmen
+            if self._floating_window is not None and self._floating_window.isVisible():
+                self._save_floating_geometry()
+                self._floating_window.layout_root.removeWidget(self.dock_statistics)
+                self.dock_statistics.setParent(None)
+                self._floating_window.hide()
 
-        self.is_floating = False
+            self.is_floating = False
 
-        # Widget in den Splitter-Container einsetzen (unterhalb des dock_header)
-        if self.dock_container is not None:
-            layout = self.dock_container.layout()
-            if layout is not None and layout.indexOf(self.dock_statistics) == -1:
-                layout.addWidget(self.dock_statistics)
+            # Widget in den Splitter-Container einsetzen (unterhalb des dock_header)
+            if self.dock_container is not None:
+                layout = self.dock_container.layout()
+                if layout is not None and layout.indexOf(self.dock_statistics) == -1:
+                    layout.addWidget(self.dock_statistics)
 
-            # Bisherige Breite des Hauptfensters vor dem Andocken sichern
-            if self._pre_dock_width is None:
-                self._pre_dock_width = self.main_window.width()
+                # Bisherige Breite des Hauptfensters vor dem Andocken sichern
+                if self._pre_dock_width is None:
+                    self._pre_dock_width = self.main_window.width()
 
-            # Zielgeometrie berechnen
-            target_win_w, target_dock_w = self._calculate_dock_geometry()
+                # Zielgeometrie berechnen (inkl. Splittergriff)
+                target_win_w, target_dock_w = self._calculate_dock_geometry()
 
-            # Duale Mindestbreite für angedockten Zustand aktivieren
-            self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
+                # Duale Mindestbreite für angedockten Zustand aktivieren
+                self.main_window.setMinimumWidth(self.MIN_DOCKED_TOTAL_WIDTH)
 
-            # Fenstergröße anpassen, falls abweichend
-            if self.main_window.width() != target_win_w:
-                self.main_window.resize(target_win_w, self.main_window.height())
+                # Fenstergröße anpassen, falls abweichend
+                if self.main_window.width() != target_win_w:
+                    self.main_window.resize(target_win_w, self.main_window.height())
 
-            self.dock_container.setVisible(True)
-            self.dock_statistics.setVisible(True)
+                self.dock_container.setVisible(True)
+                self.dock_statistics.setVisible(True)
 
-            # Splitter-Größen anwenden
-            if self.main_splitter is not None:
-                total_w = self.main_splitter.width()
-                if total_w <= 0:
-                    sidebar_w = getattr(self.main_window, 'sidebar', None)
-                    sidebar_w_val = sidebar_w.width() if sidebar_w else 175
-                    total_w = target_win_w - sidebar_w_val
-                w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
-                w_content = max(400, total_w - w_dock)
-                self.main_splitter.setSizes([w_content, w_dock])
+                # Splitter-Größen unter Einbeziehung des Griffs anwenden
+                if self.main_splitter is not None:
+                    handle_w = self.main_splitter.handleWidth() * max(1, self.main_splitter.count() - 1)
+                    total_w = self.main_splitter.width()
+                    if total_w <= 0:
+                        sidebar_w = getattr(self.main_window, 'sidebar', None)
+                        sidebar_w_val = sidebar_w.width() if sidebar_w else 175
+                        total_w = target_win_w - sidebar_w_val
+                    available_w = max(0, total_w - handle_w)
+                    w_dock = max(self.MIN_DOCK_WIDTH, target_dock_w)
+                    w_content = max(400, available_w - w_dock)
+                    self.main_splitter.setSizes([w_content, w_dock])
+        finally:
+            self.main_window.setUpdatesEnabled(True)
 
     def float_window(self):
         """Löst das Statistik-Widget aus dem Splitter und öffnet es als Schwebefenster."""
-        # Aktuelle Splitter-Breite sichern, bevor der Container ausgeblendet wird
-        if self.main_splitter is not None and self.dock_container is not None and self.dock_container.isVisible():
-            sizes = self.main_splitter.sizes()
-            if len(sizes) >= 2 and sizes[1] > 200:
-                self.docked_width = sizes[1]
+        self.main_window.setUpdatesEnabled(False)
+        try:
+            # Aktuelle Splitter-Breite sichern, bevor der Container ausgeblendet wird
+            if self.main_splitter is not None and self.dock_container is not None and self.dock_container.isVisible():
+                sizes = self.main_splitter.sizes()
+                if len(sizes) >= 2 and sizes[1] > 200:
+                    self.docked_width = sizes[1]
 
-        # Aus Splitter-Container entfernen
-        if self.dock_container is not None:
-            layout = self.dock_container.layout()
-            if layout is not None:
-                layout.removeWidget(self.dock_statistics)
-            self.dock_statistics.setParent(None)
-            self.dock_container.setVisible(False)
+            # Aus Splitter-Container entfernen
+            if self.dock_container is not None:
+                layout = self.dock_container.layout()
+                if layout is not None:
+                    layout.removeWidget(self.dock_statistics)
+                self.dock_statistics.setParent(None)
+                self.dock_container.setVisible(False)
 
-        # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
-        self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
+            # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
+            self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
 
-        # Falls zuvor vergrößert/gedockt wurde, auf ungedockte Breite zurückstellen
-        if self._pre_dock_width is not None:
-            target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
-            self.main_window.resize(target_w, self.main_window.height())
-            self._pre_dock_width = None
+            # Falls zuvor vergrößert/gedockt wurde, auf ungedockte Breite zurückstellen
+            if self._pre_dock_width is not None:
+                target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
+                self.main_window.resize(target_w, self.main_window.height())
+                self._pre_dock_width = None
 
-        self.is_floating = True
+            self.is_floating = True
+        finally:
+            self.main_window.setUpdatesEnabled(True)
 
         # In Schwebefenster einhängen
         fw = self.get_floating_window()
@@ -306,20 +323,24 @@ class LOH_Control_WindowDocking(QObject):
                 self._save_floating_geometry()
                 self._floating_window.hide()
         elif self.dock_container is not None and self.dock_container.isVisible():
-            if self.main_splitter is not None:
-                sizes = self.main_splitter.sizes()
-                if len(sizes) >= 2 and sizes[1] >= self.MIN_DOCK_WIDTH:
-                    self.docked_width = sizes[1]
-            self.dock_container.setVisible(False)
+            self.main_window.setUpdatesEnabled(False)
+            try:
+                if self.main_splitter is not None:
+                    sizes = self.main_splitter.sizes()
+                    if len(sizes) >= 2 and sizes[1] >= self.MIN_DOCK_WIDTH:
+                        self.docked_width = sizes[1]
+                self.dock_container.setVisible(False)
 
-            # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
-            self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
+                # Mindestbreite des Hauptfensters wieder auf Standard (1300 px) zurückstellen
+                self.main_window.setMinimumWidth(self.MIN_MAIN_WIDTH)
 
-            # Ursprüngliche Breite vor dem Andocken wiederherstellen
-            if self._pre_dock_width is not None:
-                target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
-                self.main_window.resize(target_w, self.main_window.height())
-                self._pre_dock_width = None
+                # Ursprüngliche Breite vor dem Andocken wiederherstellen
+                if self._pre_dock_width is not None:
+                    target_w = max(self.MIN_MAIN_WIDTH, self._pre_dock_width)
+                    self.main_window.resize(target_w, self.main_window.height())
+                    self._pre_dock_width = None
+            finally:
+                self.main_window.setUpdatesEnabled(True)
 
     def is_visible(self) -> bool:
         """Prüft, ob das Panel aktuell sichtbar ist (angedockt oder schwebend)."""

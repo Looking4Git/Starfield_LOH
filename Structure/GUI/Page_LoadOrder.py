@@ -1879,7 +1879,7 @@ class Page_LoadOrder(QWidget):
         if not self.current_mod_id:
             return
             
-        dialog = ModSelectionDialog(self, current_mod_id=int(self.current_mod_id),
+        dialog = ModSelectionDialog(self, current_mod_id=int(self.current_mod_id), mode=ModSelectionDialog.MODE_REQUIREMENT,
                                     title="Voraussetzung auswählen",
                                     header_text="Voraussetzung auswählen",
                                     confirm_text="Hinzufügen",

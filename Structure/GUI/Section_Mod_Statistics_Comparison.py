@@ -141,6 +141,7 @@ class Section_Mod_Statistics_Comparison(QWidget):
         dialog = ModSelectionDialog(
             parent=self,
             current_mod_id=self.current_main_mod_id,
+            mode=ModSelectionDialog.MODE_COMPARISON,
             title="Vergleichsmod auswählen",
             header_text="Vergleichsmod auswählen",
             confirm_text="Vergleichen",

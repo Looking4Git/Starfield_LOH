@@ -288,15 +288,18 @@ class Page_Settings_Info(QWidget):
 
     def on_open_changelog(self):
         """Öffnet das vollständige Changelog direkt im Standard-Webbrowser."""
-        html_file = os.path.join(APP_ROOT, "CHANGELOG.html")
-        if not os.path.exists(html_file):
+        target = os.path.join(APP_ROOT, "CHANGELOG.html")
+        if not os.path.exists(target):
+            target = os.path.join(APP_ROOT, "CHANGELOG.md")
+        if not os.path.exists(target):
             dev_html = os.path.join(APP_ROOT, "Release", "Build_Release", "CHANGELOG.html")
+            dev_md = os.path.join(APP_ROOT, "Release", "Build_Release", "CHANGELOG.md")
+            dev_hist = os.path.join(APP_ROOT, "Release", "CHANGELOG_history.md")
             if os.path.exists(dev_html):
-                html_file = dev_html
-            else:
-                # Fallback auf Markdown-Datei
-                md_file = os.path.join(APP_ROOT, "CHANGELOG.md")
-                if os.path.exists(md_file):
-                    html_file = md_file
-        if os.path.exists(html_file):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(html_file))
+                target = dev_html
+            elif os.path.exists(dev_md):
+                target = dev_md
+            elif os.path.exists(dev_hist):
+                target = dev_hist
+        if os.path.exists(target):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(target))

@@ -17,7 +17,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Structure.Paths import (
-    APP_ROOT, RELEASE_JSON_FILE, RELEASE_DEFAULT_FILE,
+    APP_ROOT, RELEASE_BUILD_DIR,
+    RELEASE_JSON_FILE, RELEASE_DEFAULT_FILE,
     encrypt_dpapi, decrypt_dpapi, ensure_release_file
 )
 
@@ -237,6 +238,15 @@ def publish_github_release(
         "User-Agent": "Starfield_LOH_Release_Manager"
     }
 
+    # 0. Lokalen Git-Commit ermitteln
+    local_commit_hash = ""
+    try:
+        res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=APP_ROOT, capture_output=True, text=True, encoding="utf-8")
+        if res.returncode == 0:
+            local_commit_hash = res.stdout.strip()
+    except Exception:
+        pass
+
     # 1. Release erstellen (Body mit Vorlage und Online-Logo aufbereiten)
     log("1/2: Erstelle GitHub Release-Eintrag...")
     from Release.Release_Notes_Builder import generate_release_notes
@@ -253,12 +263,14 @@ def publish_github_release(
 
     payload_create = {
         "tag_name": tag_name,
+        "target_commitish": local_commit_hash if local_commit_hash else "main",
         "name": title.strip(),
         "body": body_text,
         "draft": False,
         "prerelease": is_prerelease
     }
     create_url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    existing_assets_map = {}
 
     try:
         req = urllib.request.Request(
@@ -271,87 +283,137 @@ def publish_github_release(
             resp_data = json.loads(resp.read().decode("utf-8"))
             release_id = resp_data.get("id")
             html_url = resp_data.get("html_url", "")
+            for a in resp_data.get("assets", []):
+                existing_assets_map[a.get("name")] = a
             log(f"✓ Release #{release_id} erfolgreich angelegt: {html_url}")
 
     except urllib.error.HTTPError as he:
         err_body = he.read().decode("utf-8", errors="replace")
-        log(f"HTTP-Fehler {he.code} beim Erstellen des Releases: {err_body}")
-        return False, f"GitHub HTTP-Fehler {he.code}: {err_body[:100]}"
+        # Falls Release bereits existiert (z. B. nach vorherigem Verbindungsabbruch), bestehendes Release abfragen
+        if he.code == 422:
+            log(f"Release für Tag '{tag_name}' existiert bereits auf GitHub. Prüfe Commit-Integrität...")
+            try:
+                tag_url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{urllib.parse.quote(tag_name)}"
+                req_tag = urllib.request.Request(tag_url, headers=headers, method="GET")
+                with urllib.request.urlopen(req_tag) as resp_tag:
+                    resp_data = json.loads(resp_tag.read().decode("utf-8"))
+                    release_id = resp_data.get("id")
+                    html_url = resp_data.get("html_url", "")
+                    remote_commitish = resp_data.get("target_commitish", "")
+                    for a in resp_data.get("assets", []):
+                        existing_assets_map[a.get("name")] = a
+
+                    # Strikte Commit-Integritätsprüfung: Bei SHA-Abweichung sofortiger Abbruch!
+                    if local_commit_hash and remote_commitish and remote_commitish not in ["main", "master"]:
+                        if not local_commit_hash.startswith(remote_commitish) and not remote_commitish.startswith(local_commit_hash):
+                            msg_abort = (
+                                f"Sicherheits-Abbruch: Das bestehende GitHub-Release '{tag_name}' gehört zu Commit "
+                                f"{remote_commitish[:7]}, der aktuelle lokale Stand ist jedoch {local_commit_hash[:7]}.\n"
+                                f"Bitte löschen Sie das Release/Tag auf GitHub oder erstellen Sie einen neuen Build."
+                            )
+                            log(f"❌ {msg_abort}")
+                            return False, msg_abort
+
+                    log(f"✓ Bestehendes Release #{release_id} verifiziert: {html_url}")
+            except Exception as tag_err:
+                log(f"HTTP-Fehler {he.code} beim Erstellen des Releases: {err_body}")
+                return False, f"GitHub HTTP-Fehler {he.code}: {err_body[:100]}"
+        else:
+            log(f"HTTP-Fehler {he.code} beim Erstellen des Releases: {err_body}")
+            return False, f"GitHub HTTP-Fehler {he.code}: {err_body[:100]}"
     except Exception as e:
         log(f"Fehler beim Erstellen des Releases: {e}")
         return False, f"Fehler: {e}"
 
-    # 2. Release-Asset (ZIP) hochladen
+    # 2. Asset-Upload mit Byte-genauer Validierung und Server-Quittung
+    def upload_asset_validated(asset_path: str, content_type: str) -> tuple[bool, str]:
+        if not os.path.exists(asset_path):
+            return False, f"Datei '{asset_path}' existiert nicht."
+        asset_name = os.path.basename(asset_path)
+        local_size = os.path.getsize(asset_path)
+
+        # A. Prüfen, ob bereits auf GitHub vorhanden und byte-genau vollständig
+        if asset_name in existing_assets_map:
+            remote_asset = existing_assets_map[asset_name]
+            remote_size = remote_asset.get("size", -1)
+            remote_state = remote_asset.get("state", "")
+            remote_id = remote_asset.get("id")
+
+            if remote_size == local_size and remote_state == "uploaded":
+                log(f"✓ Asset '{asset_name}' ist bereits vollständig auf GitHub quittiert ({local_size} Bytes).")
+                return True, remote_asset.get("browser_download_url", "")
+            else:
+                log(f"⚠ Asset '{asset_name}' auf GitHub unvollständig (Remote: {remote_size} Bytes, Lokal: {local_size} Bytes). Lösche defektes Asset...")
+                try:
+                    del_url = f"https://api.github.com/repos/{owner}/{repo}/releases/assets/{remote_id}"
+                    del_req = urllib.request.Request(del_url, headers=headers, method="DELETE")
+                    with urllib.request.urlopen(del_req) as del_resp:
+                        log(f"✓ Defektes Remote-Asset gelöscht.")
+                except Exception as de:
+                    log(f"Warnung beim Löschen des unvollständigen Assets: {de}")
+
+        # B. Datei übertragen
+        size_mb = local_size / (1024 * 1024)
+        size_disp = f"{size_mb:.2f} MB" if size_mb >= 1.0 else f"{local_size} Bytes"
+        log(f"Lade '{asset_name}' ({size_disp}) zu GitHub hoch...")
+
+        target_upload_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(asset_name)}"
+        up_headers = dict(headers)
+        up_headers["Content-Type"] = content_type
+        up_headers["Content-Length"] = str(local_size)
+
+        try:
+            with open(asset_path, "rb") as af:
+                asset_bytes = af.read()
+
+            req_up = urllib.request.Request(target_upload_url, data=asset_bytes, headers=up_headers, method="POST")
+            with urllib.request.urlopen(req_up) as resp_up:
+                up_json = json.loads(resp_up.read().decode("utf-8"))
+                ack_size = up_json.get("size", 0)
+                ack_state = up_json.get("state", "")
+
+                # Strenge Server-Quittungsprüfung
+                if ack_size != local_size or ack_state != "uploaded":
+                    return False, f"Server-Quittungsfehler für {asset_name}: {ack_size}/{local_size} Bytes quittiert, Status '{ack_state}'."
+
+                dl_url = up_json.get("browser_download_url", "")
+                log(f"✓ Asset '{asset_name}' erfolgreich übertragen & vom Server quittiert ({ack_size} Bytes).")
+                return True, dl_url
+        except urllib.error.HTTPError as he:
+            err_body = he.read().decode("utf-8", errors="replace")
+            log(f"HTTP-Fehler {he.code} beim Upload von '{asset_name}': {err_body}")
+            return False, f"Upload-Fehler HTTP {he.code}: {err_body[:100]}"
+        except Exception as e:
+            log(f"Fehler beim Upload von '{asset_name}': {e}")
+            return False, f"Upload-Fehler: {e}"
+
+    # 2a. Release-Asset (ZIP) hochladen
     filename = os.path.basename(zip_path)
-    file_size = os.path.getsize(zip_path)
-    size_mb = file_size / (1024 * 1024)
-    log(f"2/2: Lade Release-Asset '{filename}' ({size_mb:.2f} MB) zu GitHub hoch...")
+    log("2/2: Übertrage Release-Assets...")
+    ok_zip, res_zip = upload_asset_validated(zip_path, "application/zip")
+    if not ok_zip:
+        return False, f"Asset-Upload fehlgeschlagen: {res_zip}"
 
-    upload_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(filename)}"
-    upload_headers = dict(headers)
-    upload_headers["Content-Type"] = "application/zip"
-    upload_headers["Content-Length"] = str(file_size)
-
-    try:
-        with open(zip_path, "rb") as zf:
-            asset_data = zf.read()
-
-        req_upload = urllib.request.Request(
-            upload_url,
-            data=asset_data,
-            headers=upload_headers,
-            method="POST"
-        )
-        with urllib.request.urlopen(req_upload) as resp_upload:
-            resp_up_data = json.loads(resp_upload.read().decode("utf-8"))
-            browser_download = resp_up_data.get("browser_download_url", "")
-            log(f"✓ Asset erfolgreich hochgeladen: {browser_download}")
-
-    except urllib.error.HTTPError as he:
-        err_body = he.read().decode("utf-8", errors="replace")
-        log(f"HTTP-Fehler {he.code} beim Hochladen des Assets: {err_body}")
-        return False, f"Asset-Upload fehlgeschlagen (HTTP {he.code}): {err_body[:100]}"
-    except Exception as e:
-        log(f"Fehler beim Hochladen des Assets: {e}")
-        return False, f"Fehler beim Asset-Upload: {e}"
-
-    # 2b. Prüfsummendatei SHA256SUMS.txt als Asset hochladen (falls vorhanden)
+    # 2b. Prüfsummendatei SHA256SUMS.txt hochladen (falls vorhanden)
     checksum_file = os.path.join(os.path.dirname(zip_path), "SHA256SUMS.txt")
     if os.path.exists(checksum_file):
-        cs_filename = os.path.basename(checksum_file)
-        cs_size = os.path.getsize(checksum_file)
-        log(f"2b/3: Lade Prüfsummendatei '{cs_filename}' zu GitHub hoch...")
-        upload_cs_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(cs_filename)}"
-        cs_headers = dict(headers)
-        cs_headers["Content-Type"] = "text/plain"
-        cs_headers["Content-Length"] = str(cs_size)
-        try:
-            with open(checksum_file, "rb") as cs_f:
-                cs_data = cs_f.read()
-            req_cs = urllib.request.Request(upload_cs_url, data=cs_data, headers=cs_headers, method="POST")
-            with urllib.request.urlopen(req_cs) as resp_cs:
-                log(f"✓ Prüfsummendatei erfolgreich hochgeladen.")
-        except Exception as cse:
-            log(f"Warnung beim Hochladen der Prüfsummendatei: {cse}")
+        ok_cs, res_cs = upload_asset_validated(checksum_file, "text/plain")
+        if not ok_cs:
+            log(f"Warnung beim Hochladen der Prüfsummendatei: {res_cs}")
 
-    # 2c. Öffentliches Zertifikat (.cer) als Verifikations-Asset hochladen (falls vorhanden)
-    cer_file = os.path.join(RELEASE_DIR, "certs", "Starfield_LOH_CodeSign.cer")
-    if os.path.exists(cer_file):
-        cer_filename = os.path.basename(cer_file)
-        cer_size = os.path.getsize(cer_file)
-        log(f"2c/3: Lade öffentliches Zertifikat '{cer_filename}' zu GitHub hoch...")
-        upload_cer_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={urllib.parse.quote(cer_filename)}"
-        cer_headers = dict(headers)
-        cer_headers["Content-Type"] = "application/x-x509-ca-cert"
-        cer_headers["Content-Length"] = str(cer_size)
-        try:
-            with open(cer_file, "rb") as cer_f:
-                cer_data = cer_f.read()
-            req_cer = urllib.request.Request(upload_cer_url, data=cer_data, headers=cer_headers, method="POST")
-            with urllib.request.urlopen(req_cer) as resp_cer:
-                log(f"✓ Öffentliches Zertifikat erfolgreich hochgeladen.")
-        except Exception as cere:
-            log(f"Warnung beim Hochladen des Zertifikats: {cere}")
+    # 2c. Release-Asset CHANGELOG.md hochladen (falls vorhanden)
+    prep_cl_md = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
+    if os.path.exists(prep_cl_md):
+        ok_cl, res_cl = upload_asset_validated(prep_cl_md, "text/markdown")
+        if not ok_cl:
+            log(f"Warnung beim Hochladen von CHANGELOG.md: {res_cl}")
+
+    # 2d. Release-Asset CHANGELOG.html hochladen (falls vorhanden)
+    prep_cl_html = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.html")
+    if os.path.exists(prep_cl_html):
+        ok_clh, res_clh = upload_asset_validated(prep_cl_html, "text/html")
+        if not ok_clh:
+            log(f"Warnung beim Hochladen von CHANGELOG.html: {res_clh}")
 
     # 3. Bereinigen der Formular-Felder in release.json nach erfolgreichem Upload
     log("✓ Leere Release Name und Beschreibung in release.json...")
@@ -375,14 +437,14 @@ def finalize_release_tracking(version_info: dict, title: str, notes: str, html_u
     """
     Protokolliert das erfolgreiche Release:
     1. Aktualisiert Release/release_history.json (last_release + history).
-    2. Kopiert Release/Build_Release/CHANGELOG.md nach Release/CHANGELOG_history.md und ins Projekt-Hauptverzeichnis.
+    2. Kopiert Release/Build_Release/CHANGELOG.md nach Release/CHANGELOG_history.md.
     3. Führt git fetch --tags aus, um den GitHub-Tag lokal zu synchronisieren.
     """
     import shutil
     from datetime import datetime
     from Release.Release_Notes_Builder import (
         load_release_history, save_release_history,
-        CHANGELOG_HISTORY_FILE, ROOT_CHANGELOG_FILE
+        CHANGELOG_HISTORY_FILE
     )
 
     def log(msg: str):
@@ -431,13 +493,12 @@ def finalize_release_tracking(version_info: dict, title: str, notes: str, html_u
     except Exception as e:
         log(f"Warnung beim Speichern von release_history.json: {e}")
 
-    # 2. CHANGELOG.md nach CHANGELOG_history.md und Projektstamm kopieren
+    # 2. CHANGELOG.md nach CHANGELOG_history.md kopieren
     prep_changelog = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
     if os.path.exists(prep_changelog):
         try:
             shutil.copy2(prep_changelog, CHANGELOG_HISTORY_FILE)
-            shutil.copy2(prep_changelog, ROOT_CHANGELOG_FILE)
-            log("✓ CHANGELOG.md nach Release/CHANGELOG_history.md und Projektstamm kopiert.")
+            log("✓ CHANGELOG.md nach Release/CHANGELOG_history.md archiviert.")
         except Exception as e:
             log(f"Warnung beim Kopieren des Changelogs: {e}")
 

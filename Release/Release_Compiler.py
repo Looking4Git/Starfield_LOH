@@ -247,24 +247,16 @@ def compile_release_package(
     # E2. CHANGELOG.md bündeln falls vorhanden
     changelog_md_path = os.path.join(app_target_dir, "CHANGELOG.md")
     prep_changelog = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
-    root_changelog = os.path.join(APP_ROOT, "CHANGELOG.md")
     if os.path.exists(prep_changelog):
         log(f"Kopiere vorhandenes CHANGELOG.md aus Vorbereitung ({RELEASE_BUILD_DIR})...")
         shutil.copy2(prep_changelog, changelog_md_path)
-    elif os.path.exists(root_changelog):
-        log("Kopiere vorhandenes CHANGELOG.md aus Projekt-Hauptverzeichnis...")
-        shutil.copy2(root_changelog, changelog_md_path)
 
     # E3. CHANGELOG.html bündeln falls vorhanden (oder aus CHANGELOG.md generieren)
     changelog_html_path = os.path.join(app_target_dir, "CHANGELOG.html")
     prep_changelog_html = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.html")
-    root_changelog_html = os.path.join(APP_ROOT, "CHANGELOG.html")
     if os.path.exists(prep_changelog_html):
         log(f"Kopiere vorhandenes CHANGELOG.html aus Vorbereitung ({RELEASE_BUILD_DIR})...")
         shutil.copy2(prep_changelog_html, changelog_html_path)
-    elif os.path.exists(root_changelog_html):
-        log("Kopiere vorhandenes CHANGELOG.html aus Projekt-Hauptverzeichnis...")
-        shutil.copy2(root_changelog_html, changelog_html_path)
     elif os.path.exists(changelog_md_path):
         log("Erstelle CHANGELOG.html automatisch als Fallback...")
         try:

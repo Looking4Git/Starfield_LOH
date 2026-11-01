@@ -387,7 +387,6 @@ def create_html_preview_page(md: str, for_export: bool = True) -> str:
 
 RELEASE_HISTORY_FILE = os.path.join(APP_ROOT, "Release", "release_history.json")
 CHANGELOG_HISTORY_FILE = os.path.join(APP_ROOT, "Release", "CHANGELOG_history.md")
-ROOT_CHANGELOG_FILE = os.path.join(APP_ROOT, "CHANGELOG.md")
 
 
 def load_release_history() -> dict:

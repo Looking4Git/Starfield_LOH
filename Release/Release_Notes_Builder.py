@@ -10,6 +10,7 @@ Erzeugt strukturierte Vorlagen für:
 import os
 import re
 import json
+import urllib.parse
 import subprocess
 from datetime import datetime
 from Structure.Paths import APP_ROOT
@@ -111,9 +112,21 @@ def generate_release_notes(
         zip_filename = os.path.basename(zip_filename)
         
     if for_github:
-        logo_src = "https://raw.githubusercontent.com/Looking4Git/Starfield_LOH/main/Graphics/Icon_Mods.svg"
+        logo_src = "https://github.com/Looking4Git/Starfield_LOH/raw/main/Graphics/Icon_Mods.svg"
+        tag_encoded = urllib.parse.quote(f"v{ver_str}+{build}", safe="")
+        download_url = f"https://github.com/Looking4Git/Starfield_LOH/releases/download/{tag_encoded}/{zip_filename}"
+        download_header = (
+            f'<p align="center">\n'
+            f'  Datei: <a href="{download_url}"><code>{zip_filename}</code></a>\n'
+            f'</p>'
+        )
     else:
         logo_src = "Graphics/Icon_Mods.svg"
+        download_header = (
+            f'<p align="center">\n'
+            f'  Datei: <code>{zip_filename}</code>\n'
+            f'</p>'
+        )
 
     desc = raw_notes.strip() if raw_notes else "Offizielle Version für den Starfield Load Order Helper (LOH)."
     legal_section = load_readme_legal_and_signature()
@@ -131,9 +144,7 @@ def generate_release_notes(
         f'  <img src="https://img.shields.io/badge/Datum-{date_val}-lightgrey.svg" alt="Datum">\n'
         f'</p>\n\n'
         f'---\n\n'
-        f'<p align="center">\n'
-        f'  Datei: <code>{zip_filename}</code>\n'
-        f'</p>\n\n'
+        f'{download_header}\n\n'
         f'---\n\n'
         f'{desc}\n\n'
         f'---\n\n'

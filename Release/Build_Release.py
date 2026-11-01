@@ -556,10 +556,27 @@ class BuildReleaseWindow(QWidget):
     def on_format_link(self):
         cursor = self.ui.inp_rel_notes.textCursor()
         if cursor.hasSelection():
-            selected = cursor.selectedText()
-            cursor.insertText(f"[{selected}](https://)")
+            selected = cursor.selectedText().strip()
+            if selected.lower().startswith(("http://", "https://")):
+                # Benutzer hat eine URL markiert: [Link-Text](URL) erzeugen und 'Link-Text' selektieren
+                pos = cursor.selectionStart()
+                cursor.insertText(f"[Link-Text]({selected})")
+                cursor.setPosition(pos + 1)
+                cursor.setPosition(pos + 10, cursor.MoveMode.KeepAnchor)
+                self.ui.inp_rel_notes.setTextCursor(cursor)
+            else:
+                # Benutzer hat einen Text markiert: [Text](https://) erzeugen und 'https://' selektieren
+                pos = cursor.selectionStart()
+                cursor.insertText(f"[{selected}](https://)")
+                cursor.setPosition(pos + len(selected) + 3)
+                cursor.setPosition(pos + len(selected) + 11, cursor.MoveMode.KeepAnchor)
+                self.ui.inp_rel_notes.setTextCursor(cursor)
         else:
+            pos = cursor.position()
             cursor.insertText("[Link-Text](https://)")
+            cursor.setPosition(pos + 1)
+            cursor.setPosition(pos + 10, cursor.MoveMode.KeepAnchor)
+            self.ui.inp_rel_notes.setTextCursor(cursor)
         self.ui.inp_rel_notes.setFocus()
 
     def on_format_color(self, hex_color: str):

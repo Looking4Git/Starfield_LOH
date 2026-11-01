@@ -36,7 +36,10 @@ from Release.Release_Compiler import compile_release_package
 from Release.Release_GitHub_Manager import (
     load_release_config, save_release_config, publish_github_release
 )
-from Release.Release_Notes_Builder import generate_release_notes, create_html_preview_page
+from Release.Release_Notes_Builder import (
+    generate_release_notes, create_html_preview_page,
+    generate_current_changelog, generate_full_changelog
+)
 
 
 from Structure.GUI.UI_Theme import setup_starfield_theme, set_dark_title_bar
@@ -105,6 +108,14 @@ class BuildReleaseWindow(QWidget):
         if os.path.exists(update_icon):
             self.ui.btn_suggest_title.setIcon(QIcon(update_icon))
 
+        # Git-Commit Typen im Dropdown befüllen
+        if hasattr(self.ui, 'cmb_commit_type') and self.ui.cmb_commit_type:
+            self.ui.cmb_commit_type.clear()
+            self.ui.cmb_commit_type.addItem("feat (Neuerung / Feature)", "feat")
+            self.ui.cmb_commit_type.addItem("fix (Fehlerbehebung / Bugfix)", "fix")
+            self.ui.cmb_commit_type.addItem("style (Anpassung / Optik / Umbau)", "style")
+            self.ui.cmb_commit_type.addItem("docs (Dokumentation / Docs)", "docs")
+
         # Checkbox für Beta
         pass
 
@@ -144,8 +155,12 @@ class BuildReleaseWindow(QWidget):
         if hasattr(self.ui, 'btn_md_color_green') and self.ui.btn_md_color_green:
             self.ui.btn_md_color_green.clicked.connect(lambda: self.on_format_color("#2EA44F"))
 
-        # Release Notes Aktionen
+        # Release Notes & Changelog Aktionen
         self.ui.btn_generate_notes.clicked.connect(self.on_generate_release_notes)
+        if hasattr(self.ui, 'btn_generate_changelog_current') and self.ui.btn_generate_changelog_current:
+            self.ui.btn_generate_changelog_current.clicked.connect(self.on_generate_changelog_current)
+        if hasattr(self.ui, 'btn_generate_changelog_full') and self.ui.btn_generate_changelog_full:
+            self.ui.btn_generate_changelog_full.clicked.connect(self.on_generate_changelog_full)
 
         # Stretch-Faktoren: Beschreibungsfeld wächst dynamisch mit der Fensterhöhe
         self.ui.main_layout.setStretchFactor(self.ui.row_rel_notes, 1)
@@ -256,12 +271,34 @@ class BuildReleaseWindow(QWidget):
     # 1. Abschnitt: Git Commit
     # =============================================================
     def on_git_commit(self):
-        """Erstellt die Template-DB und führt einen Git Commit mit der mehrzeiligen Nachricht durch."""
-        msg = self.ui.inp_commit_msg.toPlainText().strip()
-        if not msg:
-            QMessageBox.warning(self, "Git Commit", "Bitte geben Sie zuerst eine Commit-Nachricht ein.")
+        """Erstellt die Template-DB und führt einen Git Commit mit der zusammengesetzten Nachricht durch."""
+        raw_tech = self.ui.inp_commit_msg.toPlainText().strip()
+        if not raw_tech:
+            QMessageBox.warning(self, "Git Commit", "Bitte geben Sie zuerst die technische Beschreibung der Änderung ein.")
             self.ui.inp_commit_msg.setFocus()
             return
+
+        commit_type = "feat"
+        if hasattr(self.ui, 'cmb_commit_type') and self.ui.cmb_commit_type:
+            commit_type = self.ui.cmb_commit_type.currentData() or "feat"
+
+        # Prüfen, ob der technische Text bereits mit einem Präfix wie "feat:", "fix:" etc. beginnt
+        first_line = raw_tech.splitlines()[0].strip()
+        if ":" in first_line and any(first_line.lower().startswith(p) for p in ["feat:", "feat(", "fix:", "fix(", "style:", "style(", "docs:", "docs("]):
+            header_line = raw_tech
+        else:
+            header_line = f"{commit_type}: {raw_tech}"
+
+        # Changelog-Text auslesen (falls vorhanden)
+        changelog_text = ""
+        if hasattr(self.ui, 'inp_commit_changelog') and self.ui.inp_commit_changelog:
+            changelog_text = self.ui.inp_commit_changelog.toPlainText().strip()
+
+        # Vollständige Commit-Nachricht zusammensetzen
+        if changelog_text:
+            full_msg = f"{header_line}\n\nChangelog: {changelog_text}"
+        else:
+            full_msg = header_line
 
         self.ui.lbl_git_status.setText("1/3: Erstelle Template-Datenbank...")
         QApplication.processEvents()
@@ -287,8 +324,10 @@ class BuildReleaseWindow(QWidget):
             self.ui.lbl_git_status.setText("3/3: Führe Git Commit aus...")
             QApplication.processEvents()
 
-            subprocess.run(["git", "commit", "-m", msg], cwd=APP_ROOT, check=True)
+            subprocess.run(["git", "commit", "-m", full_msg], cwd=APP_ROOT, check=True)
             self.ui.inp_commit_msg.clear()
+            if hasattr(self.ui, 'inp_commit_changelog') and self.ui.inp_commit_changelog:
+                self.ui.inp_commit_changelog.clear()
             self.load_data()
 
             self.ui.lbl_git_status.setText(f"✓ Commit {self.git_commit_hash} erfolgreich erstellt (Template-DB integriert).")
@@ -591,6 +630,64 @@ class BuildReleaseWindow(QWidget):
             self.ui.lbl_rel_notes_status.setText(f"Fehler: {e}")
             self.ui.lbl_rel_notes_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
             QMessageBox.critical(self, "Fehler", f"Konnte Release Notes nicht schreiben:\n\n{e}")
+
+    def on_generate_changelog_current(self):
+        """Erzeugt das aktuelle Delta-Changelog (seit dem letzten Release Push) und speichert es in Release/Build_Release/CHANGELOG.md."""
+        v_info, _, _, _ = self._get_current_release_context()
+        try:
+            os.makedirs(RELEASE_BUILD_DIR, exist_ok=True)
+            target_file = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
+
+            content = generate_current_changelog(
+                version_info=v_info,
+                output_path=target_file
+            )
+
+            # Im Standard-Editor / Betrachter öffnen
+            QDesktopServices.openUrl(QUrl.fromLocalFile(target_file))
+
+            self.ui.lbl_changelog_current_status.setText("✓ Aktuelles Changelog erstellt & geöffnet.")
+            self.ui.lbl_changelog_current_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
+        except Exception as e:
+            self.ui.lbl_changelog_current_status.setText(f"Fehler: {e}")
+            self.ui.lbl_changelog_current_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
+            QMessageBox.critical(self, "Fehler", f"Konnte aktuelles Changelog nicht erstellen:\n\n{e}")
+
+    def on_generate_changelog_full(self):
+        """Kombiniert das aktuelle Changelog in Release/Build_Release/CHANGELOG.md mit Release/CHANGELOG_history.md zum vollständigen Changelog."""
+        target_file = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
+        if not os.path.exists(target_file):
+            v_info, _, _, _ = self._get_current_release_context()
+            try:
+                generate_current_changelog(version_info=v_info, output_path=target_file)
+            except Exception as e:
+                QMessageBox.critical(self, "Fehler", f"Konnte kein Basis-Changelog finden oder erzeugen:\n\n{e}")
+                return
+
+        try:
+            with open(target_file, "r", encoding="utf-8") as f:
+                current_text = f.read()
+
+            full_text = generate_full_changelog(
+                current_changelog_text=current_text,
+                output_path=target_file
+            )
+
+            # Parallel eigenständige HTML-Vorschauseite erzeugen
+            html_target_path = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.html")
+            html_content = create_html_preview_page(full_text)
+            with open(html_target_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            # HTML-Datei direkt im Standard-Webbrowser öffnen
+            QDesktopServices.openUrl(QUrl.fromLocalFile(html_target_path))
+
+            self.ui.lbl_changelog_full_status.setText("✓ Vollständiges Changelog (.md & .html) erstellt & im Browser geöffnet.")
+            self.ui.lbl_changelog_full_status.setStyleSheet("color: #1F7343; font-size: 12px; font-weight: bold;")
+        except Exception as e:
+            self.ui.lbl_changelog_full_status.setText(f"Fehler: {e}")
+            self.ui.lbl_changelog_full_status.setStyleSheet("color: #C72138; font-size: 12px; font-weight: bold;")
+            QMessageBox.critical(self, "Fehler", f"Konnte vollständiges Changelog nicht zusammenstellen:\n\n{e}")
 
     def on_compile(self):
         """Startet den Kompilierungs- und Paketierungsprozess."""

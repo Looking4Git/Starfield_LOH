@@ -8,6 +8,9 @@ Erzeugt strukturierte Vorlagen für:
 """
 
 import os
+import re
+import json
+import subprocess
 from datetime import datetime
 from Structure.Paths import APP_ROOT
 
@@ -380,4 +383,194 @@ def create_html_preview_page(md: str, for_export: bool = True) -> str:
 </body>
 </html>
 """
+
+
+RELEASE_HISTORY_FILE = os.path.join(APP_ROOT, "Release", "release_history.json")
+CHANGELOG_HISTORY_FILE = os.path.join(APP_ROOT, "Release", "CHANGELOG_history.md")
+ROOT_CHANGELOG_FILE = os.path.join(APP_ROOT, "CHANGELOG.md")
+
+
+def load_release_history() -> dict:
+    """Lädt die Release-Historie aus Release/release_history.json."""
+    if os.path.exists(RELEASE_HISTORY_FILE):
+        try:
+            with open(RELEASE_HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {"last_release": None, "history": []}
+
+
+def save_release_history(data: dict):
+    """Speichert die Release-Historie in Release/release_history.json."""
+    os.makedirs(os.path.dirname(RELEASE_HISTORY_FILE), exist_ok=True)
+    with open(RELEASE_HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def generate_current_changelog(version_info: dict, is_beta: bool = True, raw_notes: str = None, output_path: str = None) -> str:
+    """
+    Erzeugt das Changelog-Delta für die aktuelle Version (Release-Stand).
+    Wertet Git-Commits seit dem letzten Release-Push (last_release.commit_hash) aus
+    und gruppiert nach Conventional Commits (feat, fix, style/refactor, docs).
+    Wenn output_path angegeben ist, wird die Datei direkt geschrieben.
+    """
+    major = version_info.get("version_major", 0)
+    minor = version_info.get("version_minor", 1)
+    patch = version_info.get("version_patch", 0)
+    build = version_info.get("version_build", 0)
+    ver_str = f"{major}.{minor}.{patch}"
+    if is_beta:
+        ver_tag = f"{ver_str}-beta.{build}" if build else f"{ver_str}-beta"
+    else:
+        ver_tag = ver_str
+
+    date_str = format_display_date(version_info.get("git_date") or version_info.get("build_date"))
+
+    # Letzten Release-Commit ermitteln
+    rel_hist = load_release_history()
+    last_release = rel_hist.get("last_release")
+    last_hash = last_release.get("commit_hash") if last_release else None
+
+    # Git-Commits seit letztem Release abfragen
+    git_range = f"{last_hash}..HEAD" if last_hash else "HEAD"
+    cmd = ["git", "log", git_range, "--pretty=format:%x1e%s%x1f%b"]
+    if not last_hash:
+        cmd = ["git", "log", "-n", "30", "--pretty=format:%x1e%s%x1f%b"]
+
+    commits_raw = []
+    try:
+        res = subprocess.run(cmd, cwd=APP_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if res.returncode == 0 and res.stdout.strip():
+            commits_raw = [b.strip() for b in res.stdout.split("\x1e") if b.strip()]
+    except Exception:
+        pass
+
+    # Gruppierung nach Conventional Commits mit Trailer-Erkennung (Changelog:)
+    added = []
+    fixed = []
+    changed = []
+    docs = []
+    other = []
+
+    for block in commits_raw:
+        parts = block.split("\x1f", 1)
+        subject = parts[0].strip()
+        body = parts[1].strip() if len(parts) > 1 else ""
+
+        # Nach Changelog: Trailer im Body / in Zeilen suchen
+        changelog_text = None
+        for line in body.splitlines():
+            line_str = line.strip()
+            if line_str.lower().startswith("changelog:"):
+                val = line_str.split(":", 1)[1].strip()
+                if val:
+                    changelog_text = val
+                    break
+
+        entry_text = changelog_text if changelog_text else (subject.split(":", 1)[1].strip() if ":" in subject else subject)
+
+        c_lower = subject.lower()
+        if c_lower.startswith("feat:") or c_lower.startswith("feat("):
+            added.append(entry_text)
+        elif c_lower.startswith("fix:") or c_lower.startswith("fix("):
+            fixed.append(entry_text)
+        elif any(c_lower.startswith(p) for p in ["refactor:", "refactor(", "style:", "style(", "perf:", "perf("]):
+            changed.append(entry_text)
+        elif c_lower.startswith("docs:") or c_lower.startswith("docs("):
+            docs.append(entry_text)
+        else:
+            if not any(c_lower.startswith(x) for x in ["merge", "wip"]):
+                other.append(entry_text)
+
+    # Wenn Initial-Release und noch keine Commits gruppiert:
+    if not added and not fixed and not changed:
+        if raw_notes and raw_notes.strip():
+            added.append("Erste offizielle Beta-Version von Starfield Load Order Helper (LOH)")
+            added.append("Automatisierte Analyse und Sortierung der Starfield Creation Engine 2 Ladereihenfolge")
+            added.append("Dynamische Fenster-Docking-Steuerung und modulares Statistikzentrum")
+            added.append("Mod-Auswahldialog mit Konfliktfilterung und Ausschluss bestehender Voraussetzungen")
+        else:
+            added.append("Erste offizielle Beta-Veröffentlichung")
+
+    # Markdown zusammensetzen
+    lines = [f"## [{ver_tag}] - {date_str}"]
+
+    if added:
+        lines.append("\n### Hinzugefügt (Added)")
+        for a in added:
+            lines.append(f"- {a}")
+
+    if fixed:
+        lines.append("\n### Behoben (Fixed)")
+        for f in fixed:
+            lines.append(f"- {f}")
+
+    if changed:
+        lines.append("\n### Geändert (Changed)")
+        for ch in changed:
+            lines.append(f"- {ch}")
+
+    if docs:
+        lines.append("\n### Dokumentation (Documentation)")
+        for d in docs:
+            lines.append(f"- {d}")
+
+    if other:
+        lines.append("\n### Sonstige Anpassungen")
+        for o in other[:5]:
+            lines.append(f"- {o}")
+
+    result = "\n".join(lines) + "\n"
+    if output_path:
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(result)
+    return result
+
+
+def generate_full_changelog(current_changelog_text: str, output_path: str = None) -> str:
+    """
+    Führt das aktuelle Delta (current_changelog_text) mit der bestehenden
+    Release/CHANGELOG_history.md zusammen (neueste Version oben).
+    Idempotent: Falls current_changelog_text bereits den Header oder frühere
+    Historienteile enthält, wird isoliert der oberste Versionsabschnitt extrahiert.
+    Wenn output_path angegeben ist, wird die Datei direkt geschrieben.
+    """
+    header = "# Changelog\n\n"
+
+    # Idempotente Extraktion des aktuellen Versionsblocks
+    delta_block = current_changelog_text.strip()
+    if "## [" in delta_block:
+        start_idx = delta_block.index("## [")
+        sub = delta_block[start_idx:]
+        m = re.search(r"\n(?:\s*---\s*\n\s*)?## \[", sub[4:])
+        if m:
+            delta_block = sub[:4 + m.start()].strip()
+        else:
+            delta_block = sub.strip()
+
+    history_content = ""
+    if os.path.exists(CHANGELOG_HISTORY_FILE):
+        try:
+            with open(CHANGELOG_HISTORY_FILE, "r", encoding="utf-8") as f:
+                hist_raw = f.read().strip()
+                if "## [" in hist_raw:
+                    start_idx = hist_raw.index("## [")
+                    history_content = hist_raw[start_idx:].strip()
+        except Exception:
+            pass
+
+    parts = [header, delta_block]
+    if history_content:
+        parts.append("\n\n---\n\n" + history_content)
+
+    result = "\n".join(parts) + "\n"
+    if output_path:
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(result)
+    return result
 

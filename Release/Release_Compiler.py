@@ -244,6 +244,38 @@ def compile_release_package(
         with open(rel_notes_html_path, "w", encoding="utf-8") as f:
             f.write(html_export)
 
+    # E2. CHANGELOG.md bündeln falls vorhanden
+    changelog_md_path = os.path.join(app_target_dir, "CHANGELOG.md")
+    prep_changelog = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
+    root_changelog = os.path.join(APP_ROOT, "CHANGELOG.md")
+    if os.path.exists(prep_changelog):
+        log(f"Kopiere vorhandenes CHANGELOG.md aus Vorbereitung ({RELEASE_BUILD_DIR})...")
+        shutil.copy2(prep_changelog, changelog_md_path)
+    elif os.path.exists(root_changelog):
+        log("Kopiere vorhandenes CHANGELOG.md aus Projekt-Hauptverzeichnis...")
+        shutil.copy2(root_changelog, changelog_md_path)
+
+    # E3. CHANGELOG.html bündeln falls vorhanden (oder aus CHANGELOG.md generieren)
+    changelog_html_path = os.path.join(app_target_dir, "CHANGELOG.html")
+    prep_changelog_html = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.html")
+    root_changelog_html = os.path.join(APP_ROOT, "CHANGELOG.html")
+    if os.path.exists(prep_changelog_html):
+        log(f"Kopiere vorhandenes CHANGELOG.html aus Vorbereitung ({RELEASE_BUILD_DIR})...")
+        shutil.copy2(prep_changelog_html, changelog_html_path)
+    elif os.path.exists(root_changelog_html):
+        log("Kopiere vorhandenes CHANGELOG.html aus Projekt-Hauptverzeichnis...")
+        shutil.copy2(root_changelog_html, changelog_html_path)
+    elif os.path.exists(changelog_md_path):
+        log("Erstelle CHANGELOG.html automatisch als Fallback...")
+        try:
+            with open(changelog_md_path, "r", encoding="utf-8") as f_cl:
+                cl_md = f_cl.read()
+            cl_html = create_html_preview_page(cl_md, for_export=True)
+            with open(changelog_html_path, "w", encoding="utf-8") as f_cl_html:
+                f_cl_html.write(cl_html)
+        except Exception as e_cl:
+            log(f"Warnung bei automatischer CHANGELOG.html-Erstellung: {e_cl}")
+
     # F. Code-Signierung (Authenticode) der Starfield_LOH.exe
     target_exe = os.path.join(app_target_dir, "Starfield_LOH.exe")
     signing_cfg = rel_cfg.get("signing", {})

@@ -88,6 +88,70 @@
      </property>
     </widget>
    </item>
+      <item>
+    <layout class="QHBoxLayout" name="git_type_layout">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_commit_type">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Typ:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="cmb_commit_type">
+       <property name="minimumSize">
+        <size>
+         <width>260</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>260</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QComboBox { background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 2px 8px; font-size: 12px; font-weight: bold; } QComboBox::drop-down { border: none; width: 20px; }</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_git_type">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
    <item>
     <layout class="QHBoxLayout" name="git_msg_layout">
      <property name="spacing">
@@ -111,7 +175,7 @@
         <string notr="true">color: #e0e0e0; font-size: 13px;</string>
        </property>
        <property name="text">
-        <string>Nachricht:</string>
+        <string>Technisch:</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
@@ -140,6 +204,57 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="git_changelog_layout">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="lbl_changelog">
+       <property name="minimumSize">
+        <size>
+         <width>95</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>95</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #e0e0e0; font-size: 13px;</string>
+       </property>
+       <property name="text">
+        <string>Changelog:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="inp_commit_changelog">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>62</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>62</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPlainTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #888888; border-radius: 2px; padding: 4px 6px; font-size: 12px; }</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+<item>
     <layout class="QHBoxLayout" name="git_btn_layout">
      <property name="spacing">
       <number>12</number>
@@ -1396,6 +1511,120 @@
      </item>
      <item>
       <spacer name="spacer_rel_notes_action">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+      <!-- Changelog aktuell Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_changelog_current">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_generate_changelog_current">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Changelog aktuell</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_changelog_current_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_changelog_current">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Changelog vollständig Button & Status -->
+   <item>
+    <layout class="QHBoxLayout" name="row_rel_changelog_full">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btn_generate_changelog_full">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton { background-color: #304C7A; color: #ECECEC; border: none; border-radius: 2px; padding: 4px 16px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #5b7a9e; } QPushButton:pressed { background-color: #1e3355; }</string>
+       </property>
+       <property name="text">
+        <string>Changelog vollständig</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_changelog_full_status">
+       <property name="styleSheet">
+        <string notr="true">color: #888888; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>Bereit.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer_rel_changelog_full">
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>

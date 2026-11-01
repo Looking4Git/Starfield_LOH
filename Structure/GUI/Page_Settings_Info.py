@@ -66,7 +66,11 @@ class Page_Settings_Info(QWidget):
         form_layout.addRow(lbl_app, self.inp_app)
         form_layout.addRow(lbl_version, self.inp_version)
 
-        # Schaltfläche: Release Notes (linksbündig unter Programmversion)
+        # Schaltflächen: Release Notes & Changelog (linksbündig unter Programmversion)
+        row_notes_layout = QHBoxLayout()
+        row_notes_layout.setContentsMargins(0, 0, 0, 0)
+        row_notes_layout.setSpacing(10)
+
         self.btn_release_notes = QPushButton()
         self.btn_release_notes.setObjectName("btn_release_notes")
         self.btn_release_notes.setFixedSize(160, 32)
@@ -80,7 +84,25 @@ class Page_Settings_Info(QWidget):
             padding_left=8
         )
         self.btn_release_notes.clicked.connect(self.on_open_release_notes)
-        form_layout.addRow("", self.btn_release_notes)
+        row_notes_layout.addWidget(self.btn_release_notes)
+
+        self.btn_changelog = QPushButton()
+        self.btn_changelog.setObjectName("btn_changelog")
+        self.btn_changelog.setFixedSize(160, 32)
+        make_button_premium(
+            self.btn_changelog,
+            os.path.join(GRAPHICS_DIR, "Icon_Downstream.svg"),
+            "Changelog",
+            variant="blue",
+            icon_size=18,
+            spacing=10,
+            padding_left=8
+        )
+        self.btn_changelog.clicked.connect(self.on_open_changelog)
+        row_notes_layout.addWidget(self.btn_changelog)
+        row_notes_layout.addStretch()
+
+        form_layout.addRow("", row_notes_layout)
 
         self.lbl_cert_status = QLabel()
         self.lbl_cert_status.setObjectName("lbl_cert_status")
@@ -257,4 +279,24 @@ class Page_Settings_Info(QWidget):
     def on_open_release_notes(self):
         """Öffnet die Release Notes der aktuellen Programmversion direkt im Standard-Webbrowser."""
         html_file = os.path.join(APP_ROOT, "RELEASE_NOTES.html")
-        QDesktopServices.openUrl(QUrl.fromLocalFile(html_file))
+        if not os.path.exists(html_file):
+            dev_html = os.path.join(APP_ROOT, "Release", "Build_Release", "RELEASE_NOTES.html")
+            if os.path.exists(dev_html):
+                html_file = dev_html
+        if os.path.exists(html_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(html_file))
+
+    def on_open_changelog(self):
+        """Öffnet das vollständige Changelog direkt im Standard-Webbrowser."""
+        html_file = os.path.join(APP_ROOT, "CHANGELOG.html")
+        if not os.path.exists(html_file):
+            dev_html = os.path.join(APP_ROOT, "Release", "Build_Release", "CHANGELOG.html")
+            if os.path.exists(dev_html):
+                html_file = dev_html
+            else:
+                # Fallback auf Markdown-Datei
+                md_file = os.path.join(APP_ROOT, "CHANGELOG.md")
+                if os.path.exists(md_file):
+                    html_file = md_file
+        if os.path.exists(html_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(html_file))

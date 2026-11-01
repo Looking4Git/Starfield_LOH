@@ -357,5 +357,93 @@ def publish_github_release(
     log("✓ Leere Release Name und Beschreibung in release.json...")
     save_release_config(release_title="", release_notes="")
 
+    # 4. Release-Tracking in release_history.json & Changelog-Kopie
+    finalize_release_tracking(
+        version_info=version_info,
+        title=title,
+        notes=notes,
+        html_url=html_url,
+        tag_name=tag_name,
+        log_func=log
+    )
+
     log("=== GitHub Release & Asset Upload erfolgreich abgeschlossen ===")
     return True, f"Release '{title}' mit {filename} erfolgreich veröffentlicht!\nURL: {html_url}"
+
+
+def finalize_release_tracking(version_info: dict, title: str, notes: str, html_url: str, tag_name: str, log_func=None):
+    """
+    Protokolliert das erfolgreiche Release:
+    1. Aktualisiert Release/release_history.json (last_release + history).
+    2. Kopiert Release/Build_Release/CHANGELOG.md nach Release/CHANGELOG_history.md und ins Projekt-Hauptverzeichnis.
+    3. Führt git fetch --tags aus, um den GitHub-Tag lokal zu synchronisieren.
+    """
+    import shutil
+    from datetime import datetime
+    from Release.Release_Notes_Builder import (
+        load_release_history, save_release_history,
+        CHANGELOG_HISTORY_FILE, ROOT_CHANGELOG_FILE
+    )
+
+    def log(msg: str):
+        if log_func:
+            if hasattr(log_func, "emit"):
+                log_func.emit(msg)
+            elif callable(log_func):
+                log_func(msg)
+        else:
+            print(msg)
+
+    # 1. Commit-Hash ermitteln
+    commit_hash = ""
+    try:
+        res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=APP_ROOT, capture_output=True, text=True, encoding="utf-8")
+        if res.returncode == 0:
+            commit_hash = res.stdout.strip()
+    except Exception:
+        pass
+
+    major = version_info.get("version_major", 0)
+    minor = version_info.get("version_minor", 1)
+    patch = version_info.get("version_patch", 0)
+    build = version_info.get("version_build", 0)
+
+    release_entry = {
+        "version": f"{major}.{minor}.{patch}",
+        "build": build,
+        "tag": tag_name,
+        "commit_hash": commit_hash,
+        "published_at": datetime.now().isoformat(),
+        "release_title": title,
+        "html_url": html_url
+    }
+
+    try:
+        hist_data = load_release_history()
+        old_last = hist_data.get("last_release")
+        history_list = hist_data.get("history", [])
+        if old_last:
+            history_list.insert(0, old_last)
+        hist_data["history"] = history_list
+        hist_data["last_release"] = release_entry
+        save_release_history(hist_data)
+        log("✓ Release-Referenz erfolgreich in Release/release_history.json gespeichert.")
+    except Exception as e:
+        log(f"Warnung beim Speichern von release_history.json: {e}")
+
+    # 2. CHANGELOG.md nach CHANGELOG_history.md und Projektstamm kopieren
+    prep_changelog = os.path.join(RELEASE_BUILD_DIR, "CHANGELOG.md")
+    if os.path.exists(prep_changelog):
+        try:
+            shutil.copy2(prep_changelog, CHANGELOG_HISTORY_FILE)
+            shutil.copy2(prep_changelog, ROOT_CHANGELOG_FILE)
+            log("✓ CHANGELOG.md nach Release/CHANGELOG_history.md und Projektstamm kopiert.")
+        except Exception as e:
+            log(f"Warnung beim Kopieren des Changelogs: {e}")
+
+    # 3. Tags lokal synchronisieren
+    try:
+        subprocess.run(["git", "fetch", "--tags"], cwd=APP_ROOT, capture_output=True, text=True)
+        log("✓ Lokale Git-Tags von GitHub synchronisiert.")
+    except Exception as e:
+        log(f"Hinweis: Git-Tag Sync nicht ausgeführt: {e}")
